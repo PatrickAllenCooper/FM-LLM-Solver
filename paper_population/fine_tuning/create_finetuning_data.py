@@ -7,10 +7,12 @@ import argparse
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Input from Phase 1 (Optional, for reference)
-BASE_DIR = os.path.dirname(__file__)
-KB_METADATA_PATH = os.path.join(BASE_DIR, "knowledge_base_enhanced", "paper_metadata_enhanced.json")
+BASE_DIR = os.path.dirname(__file__) # Now fine_tuning directory
+# Path to metadata relative to project root (paper_population)
+# Assumes knowledge_base is a sibling directory to fine_tuning
+KB_METADATA_PATH = os.path.abspath(os.path.join(BASE_DIR, "..", "knowledge_base", "knowledge_base_enhanced", "paper_metadata_enhanced.json"))
 
-# Output file for fine-tuning data
+# Output file for fine-tuning data (within this directory)
 FINETUNE_DATA_OUTPUT_FILE = os.path.join(BASE_DIR, "finetuning_data.jsonl")
 
 # --- Helper Functions ---
@@ -59,10 +61,20 @@ if __name__ == "__main__":
                         help="Output format for the fine-tuning data (default: instruction).")
     parser.add_argument("--append", action="store_true",
                         help="Append to the existing output file instead of overwriting.")
+    # Allow specifying output file path
+    parser.add_argument("--output_file", type=str, default=FINETUNE_DATA_OUTPUT_FILE,
+                        help=f"Path to save the fine-tuning data JSONL file (default: {FINETUNE_DATA_OUTPUT_FILE}).")
+    # Allow specifying KB metadata path
+    parser.add_argument("--kb_meta", type=str, default=KB_METADATA_PATH,
+                         help=f"Path to knowledge base metadata JSON (default: {KB_METADATA_PATH})")
+
     args = parser.parse_args()
 
+    output_file_path = args.output_file
+    kb_metadata_path_to_use = args.kb_meta
+
     # Load existing KB metadata for reference (optional)
-    kb_metadata = load_kb_metadata(KB_METADATA_PATH)
+    kb_metadata = load_kb_metadata(kb_metadata_path_to_use)
     if kb_metadata:
         print("Knowledge base metadata loaded. You can refer to chunk texts if needed.")
         # Example: Print a chunk to show how to access it
@@ -70,13 +82,14 @@ if __name__ == "__main__":
 
     # Determine file mode
     file_mode = 'a' if args.append else 'w'
-    if file_mode == 'w' and os.path.exists(FINETUNE_DATA_OUTPUT_FILE):
-        print(f"Output file {FINETUNE_DATA_OUTPUT_FILE} exists and will be overwritten.")
-    elif file_mode == 'a' and not os.path.exists(FINETUNE_DATA_OUTPUT_FILE):
-        print(f"Output file {FINETUNE_DATA_OUTPUT_FILE} does not exist. Creating new file.")
+    if file_mode == 'w' and os.path.exists(output_file_path):
+        print(f"Output file {output_file_path} exists and will be overwritten.")
+    elif file_mode == 'a' and not os.path.exists(output_file_path):
+        print(f"Output file {output_file_path} does not exist. Creating new file.")
         file_mode = 'w' # Start fresh if appending to non-existent file
 
     print(f"\n--- Starting Data Entry (Format: {args.format}) ---")
+    print(f"Saving to: {output_file_path}")
     print(f"Enter system description and barrier certificate pairs.")
     print("System description can be multi-line. Type 'END_DESC' on a new line to finish description.")
     print("Barrier certificate can be multi-line. Type 'END_CERT' on a new line to finish certificate.")
@@ -85,7 +98,9 @@ if __name__ == "__main__":
 
     entry_count = 0
     try:
-        with open(FINETUNE_DATA_OUTPUT_FILE, file_mode, encoding='utf-8') as f:
+        # Ensure the directory for the output file exists
+        os.makedirs(os.path.dirname(output_file_path), exist_ok=True)
+        with open(output_file_path, file_mode, encoding='utf-8') as f:
             while True:
                 print(f"\n--- Entry {entry_count + 1} ---")
                 print("Enter System Description (end with 'END_DESC'):")
@@ -150,12 +165,12 @@ if __name__ == "__main__":
     except Exception as e:
         logging.error(f"An error occurred during data entry or saving: {e}")
 
-    logging.info(f"Finished data entry. Saved {entry_count} new entries to {FINETUNE_DATA_OUTPUT_FILE}.")
+    logging.info(f"Finished data entry. Saved {entry_count} new entries to {output_file_path}.")
 
     # Suggestion for next steps
     if entry_count > 0:
         print("\nNext steps:")
-        print(f"1. Review the generated file: {FINETUNE_DATA_OUTPUT_FILE}")
+        print(f"1. Review the generated file: {output_file_path}")
         print("2. Add more high-quality examples.")
         print("3. Use this file as input for the fine-tuning script ('finetune_llm.py').")
     elif not args.append:

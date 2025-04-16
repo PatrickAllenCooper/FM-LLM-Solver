@@ -1,0 +1,28 @@
+[
+  {
+    "id": "example_1",
+    "description": "Simple 2D nonlinear system",
+    "state_variables": ["x", "y"],
+    "dynamics": [
+      "-x**3 - y",
+      "x - y**3"
+    ],
+    "initial_set_conditions": "x**2 + y**2 <= 0.1",
+    "unsafe_set_conditions": "x >= 1.5",
+    "safe_set_conditions": "x < 1.5",
+    "known_valid_certificate": "x**2 + y**2"
+  },
+  {
+    "id": "example_2",
+    "description": "Another 2D system",
+    "state_variables": ["x", "y"],
+    "dynamics": [
+      "-x + y**2",
+      "-y*(x+1)"
+    ],
+    "initial_set_conditions": "x**2 + y**2 <= 0.2",
+    "unsafe_set_conditions": "y >= 1.0",
+    "safe_set_conditions": "y < 1.0",
+    "known_valid_certificate": null
+  }
+] 

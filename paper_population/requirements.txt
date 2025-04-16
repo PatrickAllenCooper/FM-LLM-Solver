@@ -12,4 +12,5 @@ accelerate>=0.27.0 # For distributed training/optimization
 bitsandbytes>=0.41.0 # For 4-bit quantization (QLoRA)
 datasets>=2.14.0 # For loading data
 torch>=2.0 # PyTorch
-# Note: Ensure CUDA toolkit compatible with torch/bitsandbytes is installed for GPU training 
+# Note: Ensure CUDA toolkit compatible with torch/bitsandbytes is installed for GPU training
+sympy>=1.12 # For symbolic mathematics in verification 

@@ -20,13 +20,18 @@ logging.set_verbosity_error() # Reduce transformers logging verbosity
 
 # --- Configuration --- #
 
+# Get base directory of the script (fine_tuning)
+BASE_DIR = os.path.dirname(__file__)
+# Project root directory (paper_population)
+PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, ".."))
+
 # Model parameters
 # Recommended: Start with smaller models like Mistral-7B or Llama-3-8B
-# Hugging Face model name
 DEFAULT_MODEL_NAME = "meta-llama/Meta-Llama-3-8B-Instruct"
 
 # Data parameters
-DEFAULT_DATA_PATH = "paper_population/finetuning_data.jsonl" # Output from create_finetuning_data.py
+# Default data path relative to this script's directory
+DEFAULT_DATA_PATH = os.path.join(BASE_DIR, "finetuning_data.jsonl")
 DEFAULT_DATA_FORMAT = "instruction" # Must match the format used in create_finetuning_data.py ('instruction' or 'prompt_completion')
 
 # QLoRA parameters
@@ -50,7 +55,8 @@ BNB_4BIT_QUANT_TYPE = "nf4"     # Quantization type (fp4 or nf4)
 USE_NESTED_QUANT = False        # Activate nested quantization for 4-bit base models (double quantization)
 
 # TrainingArguments parameters
-OUTPUT_DIR = "./results_barrier_certs" # Directory to save checkpoints and final adapter
+# Default output dir relative to project root
+DEFAULT_OUTPUT_DIR = os.path.join(PROJECT_ROOT, "results_barrier_certs")
 NUM_TRAIN_EPOCHS = 1              # Number of training epochs (start with 1-3)
 PER_DEVICE_TRAIN_BATCH_SIZE = 4   # Batch size per GPU for training (adjust based on VRAM)
 PER_DEVICE_EVAL_BATCH_SIZE = 4    # Batch size per GPU for evaluation (if using evaluation dataset)
@@ -101,12 +107,13 @@ def formatting_prompt_completion_func(example):
 
 # --- Main Fine-tuning Logic ---
 
-def main(model_name, data_path, data_format):
+def main(model_name, data_path, data_format, output_dir, num_epochs):
 
     print(f"--- Starting Fine-tuning Process ---")
     print(f"Model: {model_name}")
     print(f"Data Path: {data_path}")
     print(f"Data Format: {data_format}")
+    print(f"Output Dir: {output_dir}")
 
     # 1. Load Dataset
     print(f"Loading dataset from {data_path}...")
@@ -190,8 +197,8 @@ def main(model_name, data_path, data_format):
 
     # 6. Configure Training Arguments
     training_arguments = TrainingArguments(
-        output_dir=OUTPUT_DIR,
-        num_train_epochs=NUM_TRAIN_EPOCHS,
+        output_dir=output_dir, # Use argument
+        num_train_epochs=num_epochs, # Use argument
         per_device_train_batch_size=PER_DEVICE_TRAIN_BATCH_SIZE,
         gradient_accumulation_steps=GRADIENT_ACCUMULATION_STEPS,
         optim=OPTIM,
@@ -267,7 +274,7 @@ def main(model_name, data_path, data_format):
         return
 
     # 9. Save Final Adapter
-    final_adapter_path = os.path.join(OUTPUT_DIR, "final_adapter")
+    final_adapter_path = os.path.join(output_dir, "final_adapter") # Use argument
     print(f"Saving final adapter model to {final_adapter_path}...")
     try:
         trainer.model.save_pretrained(final_adapter_path)
@@ -300,12 +307,12 @@ if __name__ == "__main__":
     # Add more arguments to override defaults if needed (e.g., --num_train_epochs)
     parser.add_argument("--num_train_epochs", type=int, default=NUM_TRAIN_EPOCHS,
                         help=f"Number of training epochs (default: {NUM_TRAIN_EPOCHS}).")
-    parser.add_argument("--output_dir", type=str, default=OUTPUT_DIR,
-                        help=f"Output directory for checkpoints and final adapter (default: {OUTPUT_DIR}).")
+    parser.add_argument("--output_dir", type=str, default=DEFAULT_OUTPUT_DIR,
+                        help=f"Output directory for checkpoints and final adapter (default: {DEFAULT_OUTPUT_DIR}).")
 
     args = parser.parse_args()
 
     # Ensure output directory exists
     os.makedirs(args.output_dir, exist_ok=True)
 
-    main(args.model_name, args.data_path, args.data_format) 
+    main(args.model_name, args.data_path, args.data_format, args.output_dir, args.num_train_epochs) 

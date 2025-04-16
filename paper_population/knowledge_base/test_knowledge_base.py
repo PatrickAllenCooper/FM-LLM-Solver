@@ -5,13 +5,14 @@ import numpy as np
 from sentence_transformers import SentenceTransformer
 import logging
 import argparse
+import sys # Added sys import
 
 # --- Configuration ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Directories and filenames (should match the builder script output)
-BASE_DIR = os.path.dirname(__file__)
-KB_DIR = os.path.join(BASE_DIR, "knowledge_base_enhanced") # Directory containing the index and metadata
+BASE_DIR = os.path.dirname(__file__) # Directory of the script itself (knowledge_base)
+KB_DIR = os.path.join(BASE_DIR, "knowledge_base_enhanced") # Directory containing the index and metadata (relative to this script)
 VECTOR_STORE_FILENAME = "paper_index_enhanced.faiss"
 METADATA_FILENAME = "paper_metadata_enhanced.json"
 
@@ -27,7 +28,8 @@ def load_knowledge_base(kb_dir, index_filename, metadata_filename):
 
     if not os.path.exists(index_path) or not os.path.exists(metadata_path):
         logging.error(f"Knowledge base files not found in {kb_dir}.")
-        logging.error("Please run the knowledge_base_builder.py script first.")
+        # Suggest running the builder from the correct directory
+        logging.error(f"Please run the knowledge_base_builder.py script (likely in the same directory: {os.path.dirname(__file__)}) first.")
         return None, None
 
     try:
@@ -98,7 +100,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Test the paper knowledge base.")
     parser.add_argument("query", type=str, help="The search query to run against the knowledge base.")
     parser.add_argument("-k", type=int, default=3, help="Number of results to retrieve (default: 3).")
+    # Add argument to specify KB directory explicitly
+    parser.add_argument("--kb_dir", type=str, default=KB_DIR, help=f"Path to the knowledge base directory (default: {KB_DIR})")
+
     args = parser.parse_args()
+
+    # Use the provided or default KB directory
+    kb_directory_to_use = args.kb_dir
 
     # 1. Load Embedding Model
     logging.info(f"Loading embedding model: {EMBEDDING_MODEL_NAME}...")
@@ -109,7 +117,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     # 2. Load Knowledge Base
-    index, metadata_map = load_knowledge_base(KB_DIR, VECTOR_STORE_FILENAME, METADATA_FILENAME)
+    index, metadata_map = load_knowledge_base(kb_directory_to_use, VECTOR_STORE_FILENAME, METADATA_FILENAME)
     if index is None or metadata_map is None:
         sys.exit(1)
 

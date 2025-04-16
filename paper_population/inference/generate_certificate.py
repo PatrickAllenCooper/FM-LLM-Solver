@@ -17,22 +17,29 @@ import warnings
 
 # --- Configuration ---
 warnings.filterwarnings("ignore")
-logging.set_verbosity_error() # Reduce transformers logging verbosity
+# Reduce transformers logging verbosity
+# Use basicConfig from logging directly
+import logging as py_logging
+py_logging.basicConfig(level=py_logging.INFO)
+logging.set_verbosity_error()
 
 # Paths and Models (Should match previous steps)
+# BASE_DIR is now the inference directory
 BASE_DIR = os.path.dirname(__file__)
+# Project root is one level up
+PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, ".."))
 
-# Knowledge Base (from Phase 1 Enhanced)
-KB_DIR = os.path.join(BASE_DIR, "knowledge_base_enhanced")
+# Knowledge Base (Relative to PROJECT_ROOT)
+KB_DIR = os.path.join(PROJECT_ROOT, "knowledge_base", "knowledge_base_enhanced")
 VECTOR_STORE_FILENAME = "paper_index_enhanced.faiss"
 METADATA_FILENAME = "paper_metadata_enhanced.json"
 EMBEDDING_MODEL_NAME = 'all-mpnet-base-v2' # Must match the one used for building KB
 
-# Fine-tuned Model (from Phase 2)
+# Fine-tuned Model (Relative to PROJECT_ROOT)
 # Base model used during fine-tuning
 BASE_MODEL_NAME = "meta-llama/Meta-Llama-3-8B-Instruct" # Or the model you actually fine-tuned
 # Path to the saved LoRA adapter weights
-ADAPTER_PATH = os.path.join(BASE_DIR, "results_barrier_certs", "final_adapter")
+ADAPTER_PATH = os.path.join(PROJECT_ROOT, "results_barrier_certs", "final_adapter")
 
 # RAG Parameters
 NUM_CONTEXT_CHUNKS = 3 # How many chunks to retrieve from KB
@@ -50,20 +57,20 @@ def load_knowledge_base(kb_dir, index_filename, metadata_filename):
     metadata_path = os.path.join(kb_dir, metadata_filename)
 
     if not os.path.exists(index_path) or not os.path.exists(metadata_path):
-        logging.error(f"Knowledge base files not found in {kb_dir}. Run Phase 1 first.")
+        py_logging.error(f"Knowledge base files not found in {kb_dir}. Run knowledge_base_builder.py first.")
         return None, None
     try:
-        logging.info(f"Loading FAISS index from {index_path}...")
+        py_logging.info(f"Loading FAISS index from {index_path}...")
         index = faiss.read_index(index_path)
-        logging.info(f"Loading metadata from {metadata_path}...")
+        py_logging.info(f"Loading metadata from {metadata_path}...")
         with open(metadata_path, 'r', encoding='utf-8') as f:
             metadata_map = {int(k): v for k, v in json.load(f).items()}
-        logging.info(f"Knowledge base loaded: {index.ntotal} vectors, {len(metadata_map)} metadata entries.")
+        py_logging.info(f"Knowledge base loaded: {index.ntotal} vectors, {len(metadata_map)} metadata entries.")
         if index.ntotal != len(metadata_map):
-             logging.warning("Mismatch between index size and metadata size.")
+             py_logging.warning("Mismatch between index size and metadata size.")
         return index, metadata_map
     except Exception as e:
-        logging.error(f"Failed to load knowledge base: {e}")
+        py_logging.error(f"Failed to load knowledge base: {e}")
         return None, None
 
 def load_finetuned_model(base_model_name, adapter_path):
@@ -77,39 +84,39 @@ def load_finetuned_model(base_model_name, adapter_path):
     )
 
     try:
-        logging.info(f"Loading base model: {base_model_name}...")
+        py_logging.info(f"Loading base model: {base_model_name}...")
         base_model = AutoModelForCausalLM.from_pretrained(
             base_model_name,
             quantization_config=bnb_config,
             device_map={"": 0}, # Load on GPU 0
             trust_remote_code=True
         )
-        logging.info("Base model loaded.")
+        py_logging.info("Base model loaded.")
 
-        logging.info(f"Loading adapter from: {adapter_path}...")
+        py_logging.info(f"Loading adapter from: {adapter_path}...")
         # Load the LoRA adapter and merge it into the base model
         model = PeftModel.from_pretrained(base_model, adapter_path)
-        logging.info("Adapter loaded.")
+        py_logging.info("Adapter loaded.")
 
         # Important: Merge the adapter into the base model for optimized inference
-        logging.info("Merging adapter into base model...")
+        py_logging.info("Merging adapter into base model...")
         model = model.merge_and_unload()
-        logging.info("Adapter merged.")
+        py_logging.info("Adapter merged.")
 
-        logging.info(f"Loading tokenizer for {base_model_name}...")
+        py_logging.info(f"Loading tokenizer for {base_model_name}...")
         tokenizer = AutoTokenizer.from_pretrained(base_model_name, trust_remote_code=True)
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
         tokenizer.padding_side = "right"
-        logging.info("Tokenizer loaded.")
+        py_logging.info("Tokenizer loaded.")
 
         return model, tokenizer
 
     except FileNotFoundError:
-        logging.error(f"Adapter not found at {adapter_path}. Did fine-tuning complete successfully?")
+        py_logging.error(f"Adapter not found at {adapter_path}. Did fine-tuning complete successfully?")
         return None, None
     except Exception as e:
-        logging.error(f"Failed to load fine-tuned model or tokenizer: {e}")
+        py_logging.error(f"Failed to load fine-tuned model or tokenizer: {e}")
         return None, None
 
 def retrieve_context(query, embedding_model, index, metadata_map, k):
@@ -122,7 +129,7 @@ def retrieve_context(query, embedding_model, index, metadata_map, k):
         distances, indices = index.search(query_embedding, k)
 
         context = ""
-        logging.info(f"Retrieved chunk indices: {indices[0]} distances: {distances[0]}")
+        py_logging.info(f"Retrieved chunk indices: {indices[0]} distances: {distances[0]}")
         for i, idx in enumerate(indices[0]):
             if idx != -1:
                 metadata = metadata_map.get(idx)
@@ -130,10 +137,10 @@ def retrieve_context(query, embedding_model, index, metadata_map, k):
                     context += f"--- Context Chunk {i+1} (Source: {metadata.get('source', 'N/A')}, Pages: {metadata.get('pages', 'N/A')}) ---\n"
                     context += metadata.get('text', '[Error retrieving text]') + "\n\n"
                 else:
-                    logging.warning(f"Metadata not found for retrieved index {idx}.")
+                    py_logging.warning(f"Metadata not found for retrieved index {idx}.")
         return context.strip()
     except Exception as e:
-        logging.error(f"Error during context retrieval: {e}")
+        py_logging.error(f"Error during context retrieval: {e}")
         return ""
 
 def format_prompt_with_context(system_description, context):
@@ -162,8 +169,12 @@ if __name__ == "__main__":
                         help=f"Number of context chunks to retrieve (default: {NUM_CONTEXT_CHUNKS}).")
     parser.add_argument("--base_model", type=str, default=BASE_MODEL_NAME,
                         help=f"Base model name used for fine-tuning (default: {BASE_MODEL_NAME}).")
+    # Allow specifying adapter path relative to project root or absolute
     parser.add_argument("--adapter", type=str, default=ADAPTER_PATH,
                         help=f"Path to the fine-tuned LoRA adapter (default: {ADAPTER_PATH}).")
+    # Allow specifying KB dir relative to project root or absolute
+    parser.add_argument("--kb_dir", type=str, default=KB_DIR,
+                         help=f"Path to the knowledge base directory (default: {KB_DIR})")
     parser.add_argument("--max_tokens", type=int, default=MAX_NEW_TOKENS,
                         help=f"Maximum new tokens for generation (default: {MAX_NEW_TOKENS}).")
     parser.add_argument("--temp", type=float, default=TEMPERATURE,
@@ -173,8 +184,8 @@ if __name__ == "__main__":
     print("--- Initializing RAG + Fine-tuned LLM Pipeline ---")
 
     # 1. Load Knowledge Base Components
-    print("Loading Knowledge Base...")
-    faiss_index, metadata = load_knowledge_base(KB_DIR, VECTOR_STORE_FILENAME, METADATA_FILENAME)
+    print(f"Loading Knowledge Base from {args.kb_dir}...")
+    faiss_index, metadata = load_knowledge_base(args.kb_dir, VECTOR_STORE_FILENAME, METADATA_FILENAME)
     if faiss_index is None or metadata is None:
         exit(1)
 
@@ -186,7 +197,7 @@ if __name__ == "__main__":
         exit(1)
 
     # 2. Load Fine-tuned LLM
-    print("Loading Fine-tuned LLM...")
+    print(f"Loading Fine-tuned LLM (Base: {args.base_model}, Adapter: {args.adapter})...")
     model, tokenizer = load_finetuned_model(args.base_model, args.adapter)
     if model is None or tokenizer is None:
         exit(1)
