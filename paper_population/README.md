@@ -21,6 +21,7 @@
     *   [7. Evaluate the Pipeline](#7-evaluate-the-pipeline)
 *   [Configuration](#configuration)
 *   [Verification Limitations](#verification-limitations)
+*   [Author / Context](#author--context)
 *   [Future Work / Enhancements](#future-work--enhancements)
 
 ---
@@ -227,6 +228,12 @@ python evaluation/evaluate_pipeline.py --help
 *   Checks for boundary conditions (e.g., \(B(x) \le 0\) on the initial set, \(B(x) > 0\) outside the unsafe set) are currently **placeholders** due to the difficulty of symbolic inequality proving.
 
 For reliable verification, especially for publication or deployment, integration with more advanced methods like **Sum-of-Squares (SOS) programming** (for polynomial systems) or **robust numerical sampling/optimization** is necessary.
+
+---
+
+## Author / Context
+
+This project was developed by **Patrick Cooper** as part of graduate work at the **University of Colorado Boulder (CU Boulder)**.
 
 ---
 
