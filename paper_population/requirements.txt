@@ -2,5 +2,14 @@ PyMuPDF
 sentence-transformers
 faiss-cpu
 numpy
-spacy
-pytesseract 
+spacy # For sentence splitting
+pytesseract # For OCR
+
+# Fine-tuning dependencies
+transformers>=4.38.0 # Base library
+peft>=0.9.0 # For LoRA/QLoRA
+accelerate>=0.27.0 # For distributed training/optimization
+bitsandbytes>=0.41.0 # For 4-bit quantization (QLoRA)
+datasets>=2.14.0 # For loading data
+torch>=2.0 # PyTorch
+# Note: Ensure CUDA toolkit compatible with torch/bitsandbytes is installed for GPU training 
