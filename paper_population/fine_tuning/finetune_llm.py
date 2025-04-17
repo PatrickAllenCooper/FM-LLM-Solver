@@ -31,7 +31,8 @@ DEFAULT_MODEL_NAME = "meta-llama/Meta-Llama-3-8B-Instruct"
 
 # Data parameters
 # Default data path relative to this script's directory
-DEFAULT_DATA_PATH = os.path.join(BASE_DIR, "finetuning_data.jsonl")
+# Uses the output of combine_datasets.py by default
+DEFAULT_DATA_PATH = os.path.join(BASE_DIR, "finetuning_data_combined.jsonl")
 DEFAULT_DATA_FORMAT = "instruction" # Must match the format used in create_finetuning_data.py ('instruction' or 'prompt_completion')
 
 # QLoRA parameters
@@ -301,7 +302,7 @@ if __name__ == "__main__":
     parser.add_argument("--model_name", type=str, default=DEFAULT_MODEL_NAME,
                         help=f"Hugging Face model name (default: {DEFAULT_MODEL_NAME}).")
     parser.add_argument("--data_path", type=str, default=DEFAULT_DATA_PATH,
-                        help=f"Path to the fine-tuning data JSONL file (default: {DEFAULT_DATA_PATH}).")
+                        help=f"Path to the fine-tuning data JSONL file (default: {DEFAULT_DATA_PATH}, typically created by combine_datasets.py).")
     parser.add_argument("--data_format", type=str, default=DEFAULT_DATA_FORMAT, choices=["instruction", "prompt_completion"],
                         help=f"Format of the data in the JSONL file (default: {DEFAULT_DATA_FORMAT}).")
     # Add more arguments to override defaults if needed (e.g., --num_train_epochs)
