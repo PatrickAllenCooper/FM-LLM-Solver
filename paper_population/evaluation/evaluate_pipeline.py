@@ -161,7 +161,10 @@ def evaluate_pipeline(benchmark_path, results_path, base_model_name, adapter_pat
     total_systems = len(benchmark_systems)
     successful_generations = 0
     successful_parses = 0
-    verified_certificates = 0
+    # Track detailed verification outcomes
+    passed_numerical_checks = 0
+    passed_symbolic_checks = 0
+    final_verdict_passed = 0
 
     for i, system_info in enumerate(benchmark_systems):
         system_id = system_info.get('id', f'system_{i+1}')
@@ -217,31 +220,56 @@ def evaluate_pipeline(benchmark_path, results_path, base_model_name, adapter_pat
 
         # Verification Step
         logging.info("Verifying candidate certificate...")
-        verification_result = {"valid": False, "reason": "Parsing failed or N/A", "lie_derivative": None}
-        verification_passed = False
+        # Initialize detailed verification results
+        verification_details = {
+            "candidate_B": candidate_b_str,
+            "system_id": system_id,
+            "parsing_successful": parsing_successful,
+            "lie_derivative_calculated": None,
+            "symbolic_lie_check_passed": None,
+            "symbolic_boundary_check_passed": None,
+            "numerical_lie_check_passed": None,
+            "numerical_boundary_check_passed": None,
+            "final_verdict": "Parsing Failed" if not parsing_successful else "Verification Error",
+            "reason": "Parsing failed or verification not run" if not parsing_successful else "Verification pending",
+            "verification_time_seconds": 0
+        }
+
         if parsing_successful:
             try:
-                verification_result = verify_barrier_certificate(candidate_b_str, system_info)
-                verification_passed = verification_result.get('valid', False)
-                if verification_passed:
-                    verified_certificates += 1
-                logging.info(f"Verification result: {verification_passed}")
+                # Call the refactored verifier
+                verification_details = verify_barrier_certificate(candidate_b_str, system_info)
+                # Log the final verdict from the verifier
+                logging.info(f"Verification verdict: {verification_details.get('final_verdict', 'Unknown')}")
+                # Update counts based on final verdict
+                if verification_details.get('final_verdict') == "Passed Numerical Checks":
+                    passed_numerical_checks += 1
+                    final_verdict_passed += 1 # Count numerical pass as overall pass for now
+                elif verification_details.get('final_verdict') == "Passed Symbolic Checks (Basic)":
+                    passed_symbolic_checks +=1
+                    # Decide if symbolic pass counts as overall pass if numerical skipped/failed
+                    # Let's be conservative: only numerical pass counts for the main metric
             except Exception as e:
                 logging.error(f"Verification crashed for system {system_id} with B={candidate_b_str}: {e}")
-                verification_result['reason'] = f"Verification error: {e}"
+                verification_details['final_verdict'] = "Verification Crashed"
+                verification_details['reason'] = f"Verification error: {e}"
 
         end_time = time.time()
         duration = end_time - start_time
 
-        # Store results
+        # Store detailed results
         results_data.append({
             "system_id": system_id,
             "generation_successful": generation_successful,
             "parsing_successful": parsing_successful,
             "parsed_certificate": candidate_b_str,
-            "verification_passed": verification_passed,
-            "verification_reason": verification_result.get('reason', 'N/A'),
-            "lie_derivative_calculated": verification_result.get('lie_derivative', 'N/A'),
+            "final_verdict": verification_details.get('final_verdict', 'Error'),
+            "verification_reason": verification_details.get('reason', 'N/A'),
+            "lie_derivative_calculated": verification_details.get('lie_derivative_calculated', 'N/A'),
+            "sym_lie_passed": verification_details.get('symbolic_lie_check_passed'),
+            "sym_bound_passed": verification_details.get('symbolic_boundary_check_passed'),
+            "num_lie_passed": verification_details.get('numerical_lie_check_passed'),
+            "num_bound_passed": verification_details.get('numerical_boundary_check_passed'),
             "duration_seconds": duration,
             "llm_full_output": llm_output,
         })
@@ -262,13 +290,17 @@ def evaluate_pipeline(benchmark_path, results_path, base_model_name, adapter_pat
     if total_systems > 0:
         gen_rate = (successful_generations / total_systems) * 100
         parse_rate = (successful_parses / total_systems) * 100
-        verify_rate = (verified_certificates / total_systems) * 100
-        parse_and_verify_rate = (verified_certificates / successful_parses) * 100 if successful_parses > 0 else 0
+        # Report based on final verdict (prioritizing numerical checks)
+        verify_rate = (final_verdict_passed / total_systems) * 100
+        parse_and_verify_rate = (final_verdict_passed / successful_parses) * 100 if successful_parses > 0 else 0
 
         print(f"Successful Generations: {successful_generations} ({gen_rate:.2f}%)")
         print(f"Successfully Parsed Certificates: {successful_parses} ({parse_rate:.2f}%)")
-        print(f"Verified Valid Certificates (based on parser output): {verified_certificates} ({verify_rate:.2f}% overall)")
+        print(f"Passed Verification Checks (Numerical Priority): {final_verdict_passed} ({verify_rate:.2f}% overall)")
         print(f"Verification Success Rate (given successful parse): {parse_and_verify_rate:.2f}%")
+        # Optionally report symbolic passes separately
+        print(f"(Passed Basic Symbolic Checks: {passed_symbolic_checks})" )
+
     else:
         print("No systems were evaluated.")
 

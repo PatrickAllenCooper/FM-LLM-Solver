@@ -1,7 +1,7 @@
 [
   {
     "id": "example_1",
-    "description": "Simple 2D nonlinear system",
+    "description": "Simple 2D nonlinear system, known B=x^2+y^2",
     "state_variables": ["x", "y"],
     "dynamics": [
       "-x**3 - y",
@@ -10,7 +10,11 @@
     "initial_set_conditions": "x**2 + y**2 <= 0.1",
     "unsafe_set_conditions": "x >= 1.5",
     "safe_set_conditions": "x < 1.5",
-    "known_valid_certificate": "x**2 + y**2"
+    "known_valid_certificate": "x**2 + y**2",
+    "sampling_bounds": {
+       "x": [-2.0, 2.0],
+       "y": [-2.0, 2.0]
+    }
   },
   {
     "id": "example_2",
@@ -23,6 +27,10 @@
     "initial_set_conditions": "x**2 + y**2 <= 0.2",
     "unsafe_set_conditions": "y >= 1.0",
     "safe_set_conditions": "y < 1.0",
-    "known_valid_certificate": null
+    "known_valid_certificate": null,
+    "sampling_bounds": {
+       "x": [-3.0, 3.0],
+       "y": [-2.0, 1.5]
+    }
   }
 ] 
