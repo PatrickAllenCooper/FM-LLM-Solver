@@ -34,7 +34,7 @@ This project implements a pipeline consisting of several distinct phases:
 2.  **Knowledge Base Construction:** Processing papers (including OCR) into a searchable vector database (FAISS index + metadata) for RAG.
 3.  **Fine-tuning:** Specializing an LLM (using QLoRA for efficiency) on manually created examples of system dynamics and corresponding barrier certificates.
 4.  **Inference:** Combining the knowledge base (RAG) and the fine-tuned LLM to generate barrier certificate candidates for new systems.
-5.  **Evaluation:** Assessing the validity and quality of the generated certificates using symbolic math (`sympy`) and a benchmark dataset (with limitations on verification rigor).
+5.  **Evaluation:** Assessing the validity and quality of the generated certificates using basic symbolic checks (`sympy`) **and numerical sampling** (`numpy`, `scipy`) against a benchmark dataset.
 
 ---
 
@@ -221,13 +221,17 @@ python evaluation/evaluate_pipeline.py --help
 
 ## Verification Limitations
 
-⚠️ **Crucially, the current symbolic verification (`evaluation/verify_certificate.py`) is basic and not sufficient for formal safety guarantees.**
+⚠️ **The current verification (`evaluation/verify_certificate.py`) provides basic symbolic checks and more extensive numerical sampling checks, but it is NOT sufficient for formal safety guarantees.**
 
-*   It uses `sympy` to calculate the Lie derivative (\(\dot{B}\)) symbolically.
-*   The check for \(\dot{B} \le 0\) within the safe region is **heuristic** (looks for simple non-positive forms) and not mathematically rigorous for general cases.
-*   Checks for boundary conditions (e.g., \(B(x) \le 0\) on the initial set, \(B(x) > 0\) outside the unsafe set) are currently **placeholders** due to the difficulty of symbolic inequality proving.
+*   **Symbolic Checks:** Uses `sympy` to calculate the Lie derivative (\(\dot{B}\)). Checks if \(\dot{B}\) is identically zero, but other symbolic checks for \(\dot{B} \le 0\) are heuristic and limited.
+*   **Numerical Checks:** Uses `numpy` and `scipy` (via `sympy.lambdify`) to sample points within specified `sampling_bounds`.
+    *   Checks if \(\dot{B}(x) \le \epsilon\) for samples within the safe set.
+    *   Checks boundary conditions (e.g., \(B(x) \le \epsilon\) in initial set, \(B(x) \ge -\epsilon\) outside unsafe set) on samples.
+    *   **Provides empirical evidence but not formal proof.** A counterexample might be missed.
+    *   Set membership checks currently use `eval` on condition strings, which requires trusted input in the benchmark file.
+*   **Boundary Conditions:** Formal verification of boundary conditions remains challenging, especially symbolically.
 
-For reliable verification, especially for publication or deployment, integration with more advanced methods like **Sum-of-Squares (SOS) programming** (for polynomial systems) or **robust numerical sampling/optimization** is necessary.
+For reliable verification, especially for publication or deployment, integration with more advanced methods like **Sum-of-Squares (SOS) programming** (for polynomial systems) or **robust optimization-based falsification** is necessary.
 
 ---
 
@@ -241,7 +245,7 @@ This project was developed by **Patrick Cooper** as part of graduate work at the
 
 *   **PDF Parsing:** Integrate GROBID (structure) or MathPix API (equations) into `knowledge_base_builder.py`.
 *   **Fine-tuning Data:** Explore semi-automated methods for extracting (System, Certificate) pairs from papers.
-*   **Verification:** Implement numerical sampling within safe/initial/unsafe sets and/or interface with SOS solvers (e.g., via CVXPY/PySOS + MOSEK/SDPA) in `verify_certificate.py`.
+*   **Robust Verification:** Implement optimization-based falsification or interface with SOS solvers in `verify_certificate.py`. Replace `eval`-based set checks with safer parsing.
 *   **LLM Output Parsing:** Improve the robustness of `extract_certificate_from_llm_output` in `evaluate_pipeline.py`.
 *   **Experimentation:** Test different base LLMs, embedding models, vector databases, and fine-tuning strategies.
 *   **UI:** Develop a simple graphical or web interface.
