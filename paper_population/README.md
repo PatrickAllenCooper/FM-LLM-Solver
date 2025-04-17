@@ -15,10 +15,11 @@
     *   [1. Data Fetching](#1-data-fetching)
     *   [2. Build Knowledge Base](#2-build-knowledge-base)
     *   [3. Test Knowledge Base (Optional)](#3-test-knowledge-base-optional)
-    *   [4. Create Fine-tuning Data](#4-create-fine-tuning-data)
-    *   [5. Fine-tune the LLM](#5-fine-tune-the-llm)
-    *   [6. Generate Certificate (Inference)](#6-generate-certificate-inference)
-    *   [7. Evaluate the Pipeline](#7-evaluate-the-pipeline)
+    *   [4. Create/Prepare Fine-tuning Data](#4-createprepare-fine-tuning-data)
+    *   [5. Run an Initial Training Test (Optional)](#5-run-an-initial-training-test-optional)
+    *   [6. Fine-tune the LLM (Full)](#6-fine-tune-the-llm-full)
+    *   [7. Generate Certificate (Inference)](#7-generate-certificate-inference)
+    *   [8. Evaluate the Pipeline](#8-evaluate-the-pipeline)
 *   [Configuration](#configuration)
 *   [Verification Limitations](#verification-limitations)
 *   [Author / Context](#author--context)
@@ -32,7 +33,7 @@ This project implements a pipeline consisting of several distinct phases:
 
 1.  **Data Fetching:** Acquiring relevant research papers (PDFs).
 2.  **Knowledge Base Construction:** Processing papers (including OCR) into a searchable vector database (FAISS index + metadata) for RAG.
-3.  **Fine-tuning:** Specializing an LLM (using QLoRA for efficiency) on manually created examples of system dynamics and corresponding barrier certificates.
+3.  **Fine-tuning:** Specializing an LLM (using QLoRA for efficiency) on examples of system dynamics and corresponding barrier certificates.
 4.  **Inference:** Combining the knowledge base (RAG) and the fine-tuned LLM to generate barrier certificate candidates for new systems.
 5.  **Evaluation:** Assessing the validity and quality of the generated certificates using basic symbolic checks (`sympy`) **and numerical sampling** (`numpy`, `scipy`) against a benchmark dataset.
 
@@ -62,7 +63,10 @@ paper_population/
 │   ├── __init__.py
 │   ├── create_finetuning_data.py # Interactive script for manual data creation
 │   ├── finetune_llm.py         # Script to run QLoRA fine-tuning
-│   └── finetuning_data.jsonl     # (Output) Manually created training data
+│   ├── generate_synthetic_data.py # Generates simple synthetic examples
+│   ├── extract_from_papers.py  # Generates prompts for LLM-based extraction
+│   └── combine_datasets.py     # Utility to merge datasets
+│   # *.jsonl files are example outputs/inputs for datasets
 |
 ├── inference/                  # Scripts for running inference
 │   ├── __init__.py
@@ -70,9 +74,9 @@ paper_population/
 |
 ├── evaluation/                 # Scripts & data for pipeline evaluation
 │   ├── __init__.py
-│   ├── benchmark_systems.json    # Sample benchmark systems for testing
+│   ├── benchmark_systems.json    # Sample benchmark systems (incl. sampling bounds)
 │   ├── evaluate_pipeline.py    # Main script to run evaluation
-│   ├── verify_certificate.py     # Script for symbolic verification (basic)
+│   ├── verify_certificate.py     # Script for symbolic & numerical checks (basic)
 │   └── evaluation_results.csv    # (Output) Example evaluation results
 |
 ├── recent_papers_all_sources_v2/ # Default output directory for fetched papers
@@ -155,54 +159,94 @@ Execute the steps in the following order. Ensure you are in the `FMLLMSolver/pap
     python knowledge_base/test_knowledge_base.py "What is a barrier certificate?" -k 3
     ```
 
-### 4. Create Fine-tuning Data
+### 4. Create/Prepare Fine-tuning Data
 
-*   ⚠️ **Requires significant manual effort and domain expertise.**
-*   Launch the interactive data creation tool:
+This is the most critical step for model performance. Choose one or more methods:
+
+*   **Option A: Manual Creation** (Requires domain expertise, Recommended for high quality)
     ```bash
-    python fine_tuning/create_finetuning_data.py
+    python fine_tuning/create_finetuning_data.py --output_file fine_tuning/manual_data.jsonl
     ```
-*   Follow the prompts. Input system dynamics and corresponding **known, valid** barrier certificates. Use **LaTeX** for mathematical expressions where possible for consistency.
-*   Saves data in JSON Lines format to `fine_tuning/finetuning_data.jsonl`.
+    Follow prompts to enter verified (System, Certificate) pairs.
+*   **Option B: Synthetic Generation** (Good for basic examples, limited scope)
+    ```bash
+    python fine_tuning/generate_synthetic_data.py --output_file fine_tuning/synthetic_data.jsonl
+    ```
+*   **Option C: LLM-Assisted Extraction** (Requires powerful external LLM + **Mandatory Manual Review**)
+    1.  `python fine_tuning/extract_from_papers.py --output_instructions_file prompts_to_run.txt`
+    2.  Manually run prompts from `prompts_to_run.txt` with an external LLM (e.g., GPT-4, Claude 3).
+    3.  **CRITICALLY REVIEW** LLM outputs for correctness against source papers.
+    4.  Save **verified** JSON objects (one per line) to `fine_tuning/extracted_data_verified.jsonl`.
+*   **Combine Datasets:** Merge desired sources into a final training file. The `combine_datasets.py` script attempts to read `metadata.source` or infer source from filenames.
+    ```bash
+    # Example: Combine manual, synthetic, and verified extracted data
+    python fine_tuning/combine_datasets.py \\\
+        fine_tuning/manual_data.jsonl \\\
+        fine_tuning/synthetic_data.jsonl \\\
+        fine_tuning/extracted_data_verified.jsonl \\\
+        --output_file fine_tuning/finetuning_data_combined.jsonl
 
-### 5. Fine-tune the LLM
+    # Example: Create dataset with only synthetic data
+    # python fine_tuning/combine_datasets.py fine_tuning/synthetic_data.jsonl --output_file fine_tuning/finetuning_data_synthetic_only.jsonl
+    ```
+
+### 5. Run an Initial Training Test (Optional)
+
+This section guides you through performing a minimal run of the fine-tuning pipeline using only synthetic data to ensure the scripts execute correctly. **Note:** This is likely insufficient for producing an effective model.
+
+*   **Prerequisites:** Ensure steps 1 and 2 (Fetching, Building KB) are done. Ensure [Setup](#setup) is complete.
+*   **Generate Synthetic Data:**
+    ```bash
+    python fine_tuning/generate_synthetic_data.py --output_file fine_tuning/synthetic_data.jsonl
+    ```
+*   **Prepare Synthetic-Only Dataset for Trainer:**
+    ```bash
+    python fine_tuning/combine_datasets.py \\\
+        fine_tuning/synthetic_data.jsonl \\\
+        --output_file fine_tuning/finetuning_data_initial_test.jsonl \\\
+    ```
+*   **Run Fine-tuning (Requires GPU):**
+    ```bash
+    python fine_tuning/finetune_llm.py \\\
+        --data_path fine_tuning/finetuning_data_initial_test.jsonl \\\
+        --output_dir ./results_initial_test \\\
+        --num_train_epochs 1 # Keep epochs low for initial test
+    ```
+*   Monitor output. If successful, adapter weights appear in `./results_initial_test/final_adapter`.
+
+### 6. Fine-tune the LLM (Full)
 
 *   ⚠️ **Requires a CUDA-enabled GPU with sufficient VRAM** (e.g., >16GB for 7B/8B models with QLoRA).
-*   Execute the fine-tuning script. Default uses Llama 3 8B Instruct.
+*   Execute the fine-tuning script, pointing to your **high-quality combined dataset** created in step 4.
     ```bash
-    # Use defaults
-    python fine_tuning/finetune_llm.py
-
-    # Example: Specify different model, data, output dir, epochs
-    # python fine_tuning/finetune_llm.py \
-    #   --model_name mistralai/Mistral-7B-Instruct-v0.2 \
-    #   --data_path ./fine_tuning/my_custom_data.jsonl \
-    #   --output_dir ./results_mistral_run1 \
-    #   --num_train_epochs 3
+    python fine_tuning/finetune_llm.py \\\
+        --data_path fine_tuning/finetuning_data_combined.jsonl \\\
+        --output_dir ./results_full_run1 \\\
+        --num_train_epochs 3 # Adjust as needed
     ```
-*   Saves the LoRA adapter weights to the specified output directory (default: `results_barrier_certs/final_adapter`).
+*   Saves the LoRA adapter weights to the specified output directory (e.g., `./results_full_run1/final_adapter`).
 
-### 6. Generate Certificate (Inference)
+### 7. Generate Certificate (Inference)
 
 *   Uses the RAG pipeline with the fine-tuned adapter to propose a certificate.
     ```bash
-    python inference/generate_certificate.py \
-      "System Dynamics: dx/dt = -x**3 - y, dy/dt = x - y**3. Initial Set: x**2+y**2 <= 0.1. Unsafe Set: x >= 1.5" \
-      --adapter ./results_barrier_certs/final_adapter
+    python inference/generate_certificate.py \\\
+      "System Dynamics: dx/dt = -x**3 - y, dy/dt = x - y**3. Initial Set: x**2+y**2 <= 0.1. Unsafe Set: x >= 1.5" \\\
+      --adapter ./results_full_run1/final_adapter # Use adapter from full run
     ```
-*   Replace the system description text. Ensure the `--adapter` path points to your trained adapter.
+*   Replace the system description text. Ensure the `--adapter` path is correct.
 
-### 7. Evaluate the Pipeline
+### 8. Evaluate the Pipeline
 
-*   **Populate Benchmark:** Add diverse and representative systems to `evaluation/benchmark_systems.json`.
-*   Run the full evaluation pipeline:
+*   **Populate Benchmark:** Add diverse systems to `evaluation/benchmark_systems.json`. **Ensure `sampling_bounds` are defined** for each system.
+*   Run the full evaluation pipeline using your trained adapter:
     ```bash
-    python evaluation/evaluate_pipeline.py \
-      --adapter ./results_barrier_certs/final_adapter \
-      --benchmark evaluation/benchmark_systems.json \
-      --results evaluation/my_run_results.csv
+    python evaluation/evaluate_pipeline.py \\\
+      --adapter ./results_full_run1/final_adapter \\\
+      --benchmark evaluation/benchmark_systems.json \\\
+      --results evaluation/evaluation_full_run1.csv
     ```
-*   This script runs generation for each benchmark case, attempts parsing, calls the basic verifier, and saves results to a CSV file.
+*   This script runs generation, attempts parsing, performs symbolic **and numerical** verification, and saves results.
 
 ---
 
@@ -244,9 +288,9 @@ This project was developed by **Patrick Cooper** as part of graduate work at the
 ## Future Work / Enhancements
 
 *   **PDF Parsing:** Integrate GROBID (structure) or MathPix API (equations) into `knowledge_base_builder.py`.
-*   **Fine-tuning Data:** Explore semi-automated methods for extracting (System, Certificate) pairs from papers.
+*   **Fine-tuning Data:** Explore semi-automated methods for extracting (System, Certificate) pairs.
 *   **Robust Verification:** Implement optimization-based falsification or interface with SOS solvers in `verify_certificate.py`. Replace `eval`-based set checks with safer parsing.
-*   **LLM Output Parsing:** Improve the robustness of `extract_certificate_from_llm_output` in `evaluate_pipeline.py`.
+*   **LLM Output Parsing:** Improve the robustness of `extract_certificate_from_llm_output`.
 *   **Experimentation:** Test different base LLMs, embedding models, vector databases, and fine-tuning strategies.
 *   **UI:** Develop a simple graphical or web interface.
  
