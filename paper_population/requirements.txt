@@ -1,6 +1,8 @@
 # Data Fetching
 scholarly
 requests
+beautifulsoup4 # For parsing HTML landing pages
+lxml         # Faster HTML/XML parser for BeautifulSoup
 
 # Knowledge Base / RAG
 PyMuPDF
