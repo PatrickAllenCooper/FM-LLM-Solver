@@ -325,73 +325,50 @@ def calculate_sos_poly_coeffs(s_basis, Q_matrix, eq_basis, sympy_vars, multiplie
     eq_basis_len = len(eq_basis)
     eq_basis_map = {m: i for i, m in enumerate(eq_basis)}
     cvxpy_coeffs = [cp.Constant(0) for _ in range(eq_basis_len)]
-
-    # Efficiently compute coefficients using nested loops over basis monomials
-    # Coeff( (sum_ij Qij Zi Zj) * g ) [m_k] = sum_ij Qij * Coeff( Zi Zj g )[m_k]
     for i in range(s_basis_len):
-        for j in range(i, s_basis_len): # Exploit symmetry Q_ij = Q_ji
-            # Calculate the sympy poly for Zi * Zj * g (or just Zi * Zj if no multiplier)
+        for j in range(i, s_basis_len):
             term_poly_expr = sympy.expand(s_basis[i] * s_basis[j])
             if multiplier:
                 term_poly_expr = sympy.expand(term_poly_expr * multiplier.as_expr())
-            
             term_poly = term_poly_expr.as_poly(*sympy_vars)
             term_coeffs = term_poly.as_dict()
-            
-            factor = 1 if i == j else 2 # Account for symmetry Q_ij = Q_ji
-
-            # Add contribution to the CVXPY coefficient vector
+            factor = 1 if i == j else 2
             for monom_tuple, coeff_val in term_coeffs.items():
                 monom_sympy = sympy.S.One
                 for k_var, exp in enumerate(monom_tuple):
                     monom_sympy *= sympy_vars[k_var]**exp
-                    
                 if monom_sympy in eq_basis_map:
                     eq_idx = eq_basis_map[monom_sympy]
-                    # Add coeff_val * factor * Q[i, j] to the cvxpy expression
                     try:
-                         cvxpy_coeffs[eq_idx] += float(coeff_val) * factor * Q_matrix[i, j]
+                        cvxpy_coeffs[eq_idx] += float(coeff_val) * factor * Q_matrix[i, j]
                     except TypeError as te:
-                         # Handle cases where coeff_val might not be purely numeric (though it should be)
-                         logging.error(f"TypeError converting coeff {coeff_val} for monom {monom_sympy}: {te}")
-                         return None
+                        logging.error(f"TypeError converting coeff {coeff_val} for monom {monom_sympy}: {te}"); return None
                 elif float(coeff_val) != 0.0:
-                    # If a non-zero coefficient exists for a monomial outside the equality basis, error
-                    logging.error(f"Monomial {monom_sympy} (coeff {coeff_val}) from product Z_{i}*Z_{j}*{multiplier.expr if multiplier else 1} not in equality basis.")
-                    return None
-                    
-    # Use vstack to create a column vector expression
+                    logging.error(f"Monomial {monom_sympy} from SOS product not in equality basis."); return None
     return cp.vstack(cvxpy_coeffs)
 
-def add_sos_constraints_poly(target_coeffs_np, set_polys, cp_vars, sympy_vars, mult_degree, eq_basis):
+def add_sos_constraints_poly(target_coeffs_np, set_polys, sympy_vars, mult_degree, eq_basis):
     """Helper to add SOS constraints: target_coeffs == coeffs(s0 + sum(si*gi))"""
     constraints = []
     s_basis_degree = mult_degree // 2
     s_basis = get_monomials(sympy_vars, s_basis_degree)
     s_basis_len = len(s_basis)
     Q_vars = {}
-
     # s0 term
     Q0 = cp.Variable((s_basis_len, s_basis_len), name="Q0", PSD=True)
-    # constraints.append(Q0 >> 0) # PSD=True implies this
     Q_vars["Q0"] = Q0
     s0_coeffs_expr = calculate_sos_poly_coeffs(s_basis, Q0, eq_basis, sympy_vars)
     if s0_coeffs_expr is None: logging.error("Failed calculating SOS coeffs for s0"); return None, None
     rhs_total_coeffs_expr = s0_coeffs_expr
-
     # s_i * g_i terms
     for i, g_poly in enumerate(set_polys):
         Qi = cp.Variable((s_basis_len, s_basis_len), name=f"Q_{i+1}", PSD=True)
-        # constraints.append(Qi >> 0)
         Q_vars[f"Q_{i+1}"] = Qi
         si_gi_coeffs_expr = calculate_sos_poly_coeffs(s_basis, Qi, eq_basis, sympy_vars, multiplier=g_poly)
         if si_gi_coeffs_expr is None: logging.error(f"Failed calculating SOS coeffs for s_{i+1}*g_{i+1}"); return None, None
         rhs_total_coeffs_expr += si_gi_coeffs_expr
-
     # Equality constraint (vectorized)
-    # Ensure target_coeffs_np is treated as a column vector if needed by CVXPY
     constraints.append(target_coeffs_np.reshape(-1, 1) == rhs_total_coeffs_expr)
-    
     return constraints, Q_vars
 
 # --- Sum-of-Squares (SOS) Verification --- #
@@ -402,19 +379,13 @@ def verify_sos(B_poly, dB_dt_poly, initial_polys, unsafe_polys, safe_polys, vari
     solver = None
     if SOS_SOLVER in available_solvers: solver = SOS_SOLVER
     elif cp.SCS in available_solvers: solver = cp.SCS; logging.warning(f"Preferred solver {SOS_SOLVER} not found. Using SCS.")
-    else: return None, None, None, "No suitable SDP solver (MOSEK or SCS) found by CVXPY."
-
+    else: return False, "No suitable SDP solver (MOSEK or SCS) found.", { "lie_reason": "Solver not found", "init_reason": "Solver not found", "unsafe_reason": "Solver not found" }
     results = { "lie_passed": None, "lie_reason": "Not attempted", "init_passed": None, "init_reason": "Not attempted", "unsafe_passed": None, "unsafe_reason": "Not attempted" }
 
     try:
-        # --- SOS Problem Setup --- #
-        # CVXPY variables are symbolic placeholders, not directly used in coeff calculation
-        cp_vars_dummy = [cp.Variable(name=v.name) for v in variables]
-        
         # Determine max degree needed for equality basis
         max_deg_lie = max(dB_dt_poly.total_degree(), max((p.total_degree() + degree for p in safe_polys), default=0))
         max_deg_init = max(B_poly.total_degree(), max((p.total_degree() + degree for p in initial_polys), default=0))
-        # For unsafe check B>=0 on {k>=0}, max degree is max(deg(B), deg(k)+deg(s_k))
         max_deg_unsafe = max(B_poly.total_degree(), max((p.total_degree() + degree for p in unsafe_polys), default=0))
         max_expr_deg = max(max_deg_lie, max_deg_init, max_deg_unsafe)
         equality_basis = get_monomials(variables, max_expr_deg)
@@ -423,7 +394,7 @@ def verify_sos(B_poly, dB_dt_poly, initial_polys, unsafe_polys, safe_polys, vari
         logging.info("Checking Lie derivative condition via SOS...")
         target_coeffs_lie = sympy_poly_to_coeffs(-dB_dt_poly, equality_basis, variables)
         if target_coeffs_lie is None: raise ValueError("Failed getting coeffs for -dB/dt")
-        constraints_lie, _ = add_sos_constraints_poly(target_coeffs_lie, safe_polys, cp_vars_dummy, variables, degree, equality_basis)
+        constraints_lie, _ = add_sos_constraints_poly(target_coeffs_lie, safe_polys, variables, degree, equality_basis)
         if constraints_lie is None: raise ValueError("Failed formulating Lie SOS constraints.")
         prob_lie = cp.Problem(cp.Minimize(0), constraints_lie)
         prob_lie.solve(solver=solver, verbose=False)
@@ -434,7 +405,7 @@ def verify_sos(B_poly, dB_dt_poly, initial_polys, unsafe_polys, safe_polys, vari
         logging.info("Checking Initial Set condition via SOS...")
         target_coeffs_init = sympy_poly_to_coeffs(-B_poly, equality_basis, variables)
         if target_coeffs_init is None: raise ValueError("Failed getting coeffs for -B")
-        constraints_init, _ = add_sos_constraints_poly(target_coeffs_init, initial_polys, cp_vars_dummy, variables, degree, equality_basis)
+        constraints_init, _ = add_sos_constraints_poly(target_coeffs_init, initial_polys, variables, degree, equality_basis)
         if constraints_init is None: raise ValueError("Failed formulating Init SOS constraints.")
         prob_init = cp.Problem(cp.Minimize(0), constraints_init)
         prob_init.solve(solver=solver, verbose=False)
@@ -442,12 +413,10 @@ def verify_sos(B_poly, dB_dt_poly, initial_polys, unsafe_polys, safe_polys, vari
         results["init_reason"] = f"SOS Solver Status: {prob_init.status}"
 
         # --- 3. Unsafe Set Check (B is SOS on Unsafe Set {k_l >= 0}) --- #
-        # Checks if B(x) >= 0 when k_l(x) >= 0 (where {k_l>=0} defines unsafe set)
-        # Adapt this if your unsafe condition requires B <= 0 inside unsafe
         logging.info("Checking Unsafe Set condition (B>=0 on Unsafe) via SOS...")
         target_coeffs_unsafe = sympy_poly_to_coeffs(B_poly, equality_basis, variables)
         if target_coeffs_unsafe is None: raise ValueError("Failed getting coeffs for B")
-        constraints_unsafe, _ = add_sos_constraints_poly(target_coeffs_unsafe, unsafe_polys, cp_vars_dummy, variables, degree, equality_basis)
+        constraints_unsafe, _ = add_sos_constraints_poly(target_coeffs_unsafe, unsafe_polys, variables, degree, equality_basis)
         if constraints_unsafe is None: raise ValueError("Failed formulating Unsafe SOS constraints.")
         prob_unsafe = cp.Problem(cp.Minimize(0), constraints_unsafe)
         prob_unsafe.solve(solver=solver, verbose=False)
@@ -455,24 +424,9 @@ def verify_sos(B_poly, dB_dt_poly, initial_polys, unsafe_polys, safe_polys, vari
         results["unsafe_reason"] = f"SOS Solver Status: {prob_unsafe.status}"
 
     # --- Handle Errors --- #
-    except ValueError as ve:
-        err_msg = f"SOS Value Error: {ve}"
-        logging.error(err_msg)
-        results['lie_reason'] = results['lie_reason'] if results['lie_reason'] != "Not attempted" else err_msg
-        results['init_reason'] = results['init_reason'] if results['init_reason'] != "Not attempted" else err_msg
-        results['unsafe_reason'] = results['unsafe_reason'] if results['unsafe_reason'] != "Not attempted" else err_msg
-    except cp.SolverError as se:
-        err_msg = f"CVXPY Solver Error: {se}"
-        logging.error(err_msg)
-        results['lie_reason'] = results['lie_reason'] if results['lie_reason'] != "Not attempted" else err_msg
-        results['init_reason'] = results['init_reason'] if results['init_reason'] != "Not attempted" else err_msg
-        results['unsafe_reason'] = results['unsafe_reason'] if results['unsafe_reason'] != "Not attempted" else err_msg
-    except Exception as e:
-        err_msg = f"Unexpected SOS Error: {e}"
-        logging.error(err_msg, exc_info=True)
-        results['lie_reason'] = results['lie_reason'] if results['lie_reason'] != "Not attempted" else err_msg
-        results['init_reason'] = results['init_reason'] if results['init_reason'] != "Not attempted" else err_msg
-        results['unsafe_reason'] = results['unsafe_reason'] if results['unsafe_reason'] != "Not attempted" else err_msg
+    except ValueError as ve: err_msg = f"SOS Value Error: {ve}"; logging.error(err_msg); results['lie_reason'] = results['lie_reason'] if results['lie_reason'] != "Not attempted" else err_msg; results['init_reason'] = results['init_reason'] if results['init_reason'] != "Not attempted" else err_msg; results['unsafe_reason'] = results['unsafe_reason'] if results['unsafe_reason'] != "Not attempted" else err_msg
+    except cp.SolverError as se: err_msg = f"CVXPY Solver Error: {se}"; logging.error(err_msg); results['lie_reason'] = results['lie_reason'] if results['lie_reason'] != "Not attempted" else err_msg; results['init_reason'] = results['init_reason'] if results['init_reason'] != "Not attempted" else err_msg; results['unsafe_reason'] = results['unsafe_reason'] if results['unsafe_reason'] != "Not attempted" else err_msg
+    except Exception as e: err_msg = f"Unexpected SOS Error: {e}"; logging.error(err_msg, exc_info=True); results['lie_reason'] = results['lie_reason'] if results['lie_reason'] != "Not attempted" else err_msg; results['init_reason'] = results['init_reason'] if results['init_reason'] != "Not attempted" else err_msg; results['unsafe_reason'] = results['unsafe_reason'] if results['unsafe_reason'] != "Not attempted" else err_msg
 
     # --- Final Result --- #
     sos_passed = None
@@ -480,6 +434,7 @@ def verify_sos(B_poly, dB_dt_poly, initial_polys, unsafe_polys, safe_polys, vari
         sos_passed = results["lie_passed"] and results["init_passed"] and results["unsafe_passed"]
     sos_reason = f"Lie: {results['lie_reason']} | Init: {results['init_reason']} | Unsafe: {results['unsafe_reason']}"
     return sos_passed, sos_reason, results
+
 
 # --- Optimization-Based Falsification --- #
 
