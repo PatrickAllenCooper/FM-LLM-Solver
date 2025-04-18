@@ -265,15 +265,17 @@ python evaluation/evaluate_pipeline.py --help
 
 ⚠️ **The current verification (`evaluation/verify_certificate.py`) provides basic symbolic checks and more extensive numerical sampling checks, but it is NOT sufficient for formal safety guarantees.**
 
-*   **Symbolic Checks:** Uses `sympy` to calculate the Lie derivative (\(\dot{B}\)). Checks if \(\dot{B}\) is identically zero, but other symbolic checks for \(\dot{B} \le 0\) are heuristic and limited.
-*   **Numerical Checks:** Uses `numpy` and `scipy` (via `sympy.lambdify`) to sample points within specified `sampling_bounds`.
-    *   Checks if \(\dot{B}(x) \le \epsilon\) for samples within the safe set.
+*   **Symbolic Checks:** Uses `sympy` to calculate the Lie derivative (\(\dot{B}\)). Checks if \(\dot{B}\) is identically zero, but other symbolic checks for \(\dot{B} \le 0\) are **heuristic** (e.g., looking for simple sums of negative squares) and not mathematically rigorous for general cases. Proving negativity of arbitrary symbolic expressions is generally undecidable.
+*   **Numerical Checks (Sampling):** Uses `numpy` and `scipy` (via `sympy.lambdify`) to randomly sample points within specified `sampling_bounds`.
+    *   Checks if \(\dot{B}(x) \le \epsilon\) for samples within the *approximated* safe set.
     *   Checks boundary conditions (e.g., \(B(x) \le \epsilon\) in initial set, \(B(x) \ge -\epsilon\) outside unsafe set) on samples.
-    *   **Provides empirical evidence but not formal proof.** A counterexample might be missed.
-    *   Set membership checks currently use `eval` on condition strings, which requires trusted input in the benchmark file.
-*   **Boundary Conditions:** Formal verification of boundary conditions remains challenging, especially symbolically.
+    *   **Limitation:** This approach is essentially **falsification via sampling**. It can effectively find counterexamples if they are common within the sampled region, but **it cannot provide formal proof of validity.** A violation might exist between sample points, especially in high dimensions or complex regions. Increasing `NUM_SAMPLES_*` constants improves coverage but never guarantees completeness.
+    *   **Set Membership:** Set definitions (initial, unsafe, safe) are currently checked using `eval` on condition strings provided in the benchmark. This is flexible but **relies on trusted input** and is less robust than dedicated symbolic inequality parsing and handling.
+*   **Boundary Conditions:** Formal verification of boundary conditions (sign of B on set boundaries) remains particularly challenging, especially symbolically.
 
-For reliable verification, especially for publication or deployment, integration with more advanced methods like **Sum-of-Squares (SOS) programming** (for polynomial systems) or **robust optimization-based falsification** is necessary.
+For reliable verification, especially for publication or deployment, integration with more advanced methods is necessary:
+*   **Sum-of-Squares (SOS) programming:** Provides formal guarantees for *polynomial* systems and certificates by recasting the verification problem as a solvable Semidefinite Program (SDP). Requires specialized solvers (e.g., MOSEK) and libraries (e.g., CVXPY with SOS extensions, PySOS, Drake).
+*   **Optimization-Based Falsification:** Uses numerical optimization techniques (e.g., from `scipy.optimize`) to actively search for a point \(x\) that maximizes \(\dot{B}(x)\) within the safe set or violates boundary conditions. This can be more effective at finding counterexamples than random sampling but still doesn't constitute a formal proof of validity.
 
 ---
 
