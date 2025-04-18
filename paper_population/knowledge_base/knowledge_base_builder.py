@@ -1,246 +1,227 @@
 import os
-import fitz  # PyMuPDF
-import pytesseract # For OCR
-from PIL import Image # For handling images for OCR
-import io # For image bytes handling
 import re
 import json
 import numpy as np
 from sentence_transformers import SentenceTransformer
 import faiss
-import spacy # For sentence splitting
+import spacy # Keep for potential MMD chunking or fallback
 import logging
 import sys
+import requests # For MathPix API calls
+import time
+import argparse # For command-line arguments
 
 # --- Configuration ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+# Mathpix API Credentials (READ FROM ENVIRONMENT VARIABLES)
+# IMPORTANT: Set these environment variables before running the script
+# export MATHPIX_APP_ID='your_app_id'
+# export MATHPIX_APP_KEY='your_app_key'
+MATHPIX_APP_ID = os.environ.get("MATHPIX_APP_ID")
+MATHPIX_APP_KEY = os.environ.get("MATHPIX_APP_KEY")
+MATHPIX_API_URL = "https://api.mathpix.com/v3/pdf"
+
 # Directories
-BASE_DIR = os.path.dirname(__file__) # Directory of the script
-PDF_INPUT_DIR = os.path.join(BASE_DIR, "recent_papers_all_sources_v2") # Output from paper_fetcher.py
-OUTPUT_DIR = os.path.join(BASE_DIR, "knowledge_base_enhanced") # New output dir
+BASE_DIR = os.path.dirname(__file__) # Directory of the script (knowledge_base)
+# Assume project root is one level up
+PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, ".."))
+# Default PDF input relative to project root
+DEFAULT_PDF_INPUT_DIR = os.path.join(PROJECT_ROOT, "recent_papers_all_sources_v2")
+# Default KB output relative to this script's directory
+DEFAULT_KB_OUTPUT_DIR = os.path.join(BASE_DIR, "knowledge_base_mathpix")
 
 # Embedding Model
 EMBEDDING_MODEL_NAME = 'all-mpnet-base-v2' # Good general-purpose starting model
 
 # Vector Store
-VECTOR_STORE_FILENAME = "paper_index_enhanced.faiss"
-METADATA_FILENAME = "paper_metadata_enhanced.json"
+VECTOR_STORE_FILENAME = "paper_index_mathpix.faiss"
+METADATA_FILENAME = "paper_metadata_mathpix.jsonl" # Use JSONL for potentially large MMD strings
 
-# Chunking Parameters (now based on sentences)
-# Target number of sentences per chunk (approximate) - adjust as needed
-CHUNK_TARGET_SENTENCE_COUNT = 10
-# Number of overlapping sentences between chunks
-CHUNK_OVERLAP_SENTENCE_COUNT = 2
+# Chunking Parameters (adjust for MMD content)
+# Chunking by paragraphs seems reasonable for MMD
+CHUNK_TARGET_SIZE_MMD = 1000 # Target characters per chunk
+CHUNK_OVERLAP_MMD = 150    # Character overlap
 
-# --- SpaCy Model Loading ---
-# Attempt to load the spaCy model. Provide user guidance if it fails.
+# --- SpaCy Model Loading (Optional - can be used for paragraph splitting) ---
+# Keep SpaCy loading, but make it optional if we primarily split by markdown rules
 SPACY_MODEL_NAME = "en_core_web_sm"
 nlp = None
 try:
     nlp = spacy.load(SPACY_MODEL_NAME)
-    # Increase max length if needed for very long documents/paragraphs
-    # nlp.max_length = 2000000 # Example: 2 million characters
-    logging.info(f"SpaCy model '{SPACY_MODEL_NAME}' loaded successfully.")
+    logging.info(f"SpaCy model '{SPACY_MODEL_NAME}' loaded (available for text processing).")
 except OSError:
-    logging.error(f"SpaCy model '{SPACY_MODEL_NAME}' not found.")
-    logging.error("Please download it by running:")
-    logging.error(f"python -m spacy download {SPACY_MODEL_NAME}")
-    sys.exit(1) # Exit if essential NLP model is missing
+    logging.warning(f"SpaCy model '{SPACY_MODEL_NAME}' not found. Will fallback to basic newline splitting.")
 except Exception as e:
     logging.error(f"An error occurred loading the SpaCy model: {e}")
-    sys.exit(1)
-
-# --- Tesseract Configuration ---
-# Optional: Specify Tesseract command path if not in system PATH
-# pytesseract.pytesseract.tesseract_cmd = r'/path/to/tesseract'
+    # Don't exit, just disable SpaCy features
 
 # --- Helper Functions ---
 
-def clean_text(text):
-    """Basic text cleaning."""
-    text = re.sub(r'\s+', ' ', text).strip()
-    # Remove hyphenation across lines (more careful approach)
-    text = re.sub(r'-\s*\n\s*', '', text)
-    # Remove single newlines that likely break sentences incorrectly
-    text = re.sub(r'(?<!\n)\n(?!\n)', ' ', text)
-    # Replace multiple newlines with a single one (paragraph breaks)
-    text = re.sub(r'\n\n+', '\n', text)
-    return text
+def check_mathpix_credentials():
+    """Checks if Mathpix credentials are set."""
+    if not MATHPIX_APP_ID or not MATHPIX_APP_KEY:
+        logging.error("Mathpix API credentials (MATHPIX_APP_ID, MATHPIX_APP_KEY) not found in environment variables.")
+        logging.error("Please set them before running. Exiting.")
+        sys.exit(1)
+    logging.info("Mathpix credentials found.")
 
-def extract_title_heuristic(doc):
-    """Attempts to extract the title from the first page based on font size."""
-    title = "Unknown Title"
-    max_font_size = 0
+def process_pdf_with_mathpix(pdf_path):
+    """Sends PDF to Mathpix API and retrieves MMD content."""
+    logging.info(f"Processing '{os.path.basename(pdf_path)}' with Mathpix API...")
+    headers = {
+        'app_id': MATHPIX_APP_ID,
+        'app_key': MATHPIX_APP_KEY
+    }
+    # Options for the conversion, requesting MMD format
+    options = {
+        "conversion_formats": {"mmd": True}, # Request Mathpix Markdown
+        "math_inline_delimiters": ["$", "$"],
+        "math_display_delimiters": ["$$", "$$"],
+        # Add other options if needed, e.g., "include_line_data": True
+    }
+    payload = {'options_json': json.dumps(options)}
+
     try:
-        if doc.page_count > 0:
-            first_page = doc.load_page(0)
-            # Get text blocks with font information
-            blocks = first_page.get_text("dict", flags=fitz.TEXTFLAGS_TEXT)["blocks"]
-            for b in blocks:
-                if "lines" in b:
-                    for l in b["lines"]:
-                        if "spans" in l:
-                            for s in l["spans"]:
-                                font_size = s.get("size", 0)
-                                if font_size > max_font_size:
-                                    max_font_size = font_size
-                                    # Simple cleaning for potential title text
-                                    potential_title = s.get("text", "").strip()
-                                    if len(potential_title) > 5: # Basic check
-                                        title = potential_title
+        with open(pdf_path, 'rb') as f:
+            files = {'file': f}
+            response = requests.post(MATHPIX_API_URL, headers=headers, files=files, data=payload, timeout=300) # Long timeout for large PDFs
+
+        if response.status_code == 200:
+            response_data = response.json()
+            if "request_id" in response_data: # Async processing started
+                 pdf_id = response_data["request_id"]
+                 logging.info(f"  Mathpix request submitted. PDF ID: {pdf_id}. Waiting for conversion...")
+                 return get_mathpix_result(pdf_id)
+            elif "mmd" in response_data: # Direct result (less common for PDF endpoint)
+                 logging.info("  Mathpix returned result directly.")
+                 return response_data["mmd"]
+            else:
+                 logging.error(f"  Mathpix API Error: Unexpected response format. {response_data.get('error', '')}")
+                 return None
+        else:
+            logging.error(f"  Mathpix API request failed. Status: {response.status_code}, Response: {response.text}")
+            return None
+    except requests.exceptions.RequestException as e:
+        logging.error(f"  Error communicating with Mathpix API: {e}")
+        return None
     except Exception as e:
-        logging.warning(f"Could not extract title heuristically: {e}")
-    # Further clean the extracted title if needed
-    title = clean_text(title.replace('\n', ' '))
-    logging.info(f"Heuristically extracted title: '{title}' (Max font size: {max_font_size:.2f})")
-    return title
+        logging.error(f"  Unexpected error during Mathpix processing for {pdf_path}: {e}")
+        return None
 
-def extract_content_from_pdf(pdf_path):
-    """Extracts text and OCR content from PDF pages."""
-    pages_content = {} # Store content per page number {page_num: {'text': str, 'ocr': str}}
-    potential_title = "Unknown Title"
-    try:
-        doc = fitz.open(pdf_path)
-        logging.info(f"Processing PDF: {os.path.basename(pdf_path)} with {doc.page_count} pages.")
-        potential_title = extract_title_heuristic(doc)
+def get_mathpix_result(pdf_id, max_wait_sec=600, poll_interval=10):
+    """Polls Mathpix API to get the result for a given PDF ID."""
+    headers = {
+        'app_id': MATHPIX_APP_ID,
+        'app_key': MATHPIX_APP_KEY
+    }
+    url = f"{MATHPIX_API_URL}/{pdf_id}.mmd"
+    start_time = time.time()
 
-        for page_num in range(doc.page_count):
-            page_content = {'text': "", 'ocr': ""}
-            page = doc.load_page(page_num)
+    while time.time() - start_time < max_wait_sec:
+        try:
+            response = requests.get(url, headers=headers, timeout=30)
+            if response.status_code == 200:
+                 logging.info(f"    Mathpix conversion complete for ID {pdf_id}.")
+                 return response.text # Return MMD content
+            elif response.status_code == 404: # Not ready yet
+                 logging.info(f"    Result for {pdf_id} not ready yet, waiting {poll_interval}s...")
+            else:
+                 # Check for error message in response
+                 try: error_info = response.json() 
+                 except: error_info = response.text
+                 logging.error(f"    Error fetching Mathpix result for {pdf_id}. Status: {response.status_code}, Info: {error_info}")
+                 return None # Permanent error
+        except requests.exceptions.RequestException as e:
+            logging.error(f"    Error polling Mathpix result: {e}")
+            # Could implement retries here
+        except Exception as e:
+             logging.error(f"    Unexpected error polling Mathpix: {e}")
+             return None
+        time.sleep(poll_interval)
 
-            # 1. Extract text using PyMuPDF
-            try:
-                text = page.get_text("text")
-                if text:
-                    page_content['text'] = clean_text(text)
-            except Exception as e:
-                logging.warning(f"PyMuPDF text extraction failed on page {page_num+1} of {os.path.basename(pdf_path)}: {e}")
+    logging.error(f"Mathpix conversion timed out after {max_wait_sec} seconds for ID {pdf_id}.")
+    return None
 
-            # 2. Perform OCR using Tesseract
-            try:
-                # Render page to an image for OCR
-                pix = page.get_pixmap(dpi=300) # Higher DPI often improves OCR
-                img_bytes = pix.tobytes("png")
-                img = Image.open(io.BytesIO(img_bytes))
-                ocr_text = pytesseract.image_to_string(img)
-                if ocr_text:
-                    page_content['ocr'] = clean_text(ocr_text)
-            except Exception as e:
-                logging.warning(f"OCR failed on page {page_num+1} of {os.path.basename(pdf_path)}: {e}")
-                # Check if Tesseract is installed and configured correctly
-                if "TesseractNotFoundError" in str(e):
-                     logging.error("Tesseract executable not found. Please ensure Tesseract is installed and in your PATH, or configure pytesseract.pytesseract.tesseract_cmd.")
-
-            # Store combined or individual content as needed
-            pages_content[page_num + 1] = page_content # Use 1-based indexing for pages
-
-        doc.close()
-    except Exception as e:
-        logging.error(f"Failed to process {pdf_path}: {e}")
-    return potential_title, pages_content
-
-def chunk_document_sentences(potential_title, pages_content, target_sentences, overlap_sentences, source_pdf):
-    """Chunks the document based on sentences using SpaCy."""
+def chunk_mmd_content(mmd_text, target_size, overlap, source_pdf):
+    """Chunks MMD content, trying to respect paragraph boundaries."""
     chunks = []
-    all_sentences = []
-
-    logging.info(f"Splitting content into sentences for {os.path.basename(source_pdf)}...")
-    # Combine text and OCR results (simple concatenation here, could be smarter)
-    full_text = ""
-    page_map = [] # Keep track of which sentence belongs to which page(s)
-    for page_num in sorted(pages_content.keys()):
-        page_data = pages_content[page_num]
-        combined_page_text = page_data['text'] + "\n\n" + page_data['ocr'] # Add separator
-        cleaned_page_text = clean_text(combined_page_text)
-
-        if cleaned_page_text:
-            try:
-                # Process potentially large text page by page
-                doc = nlp(cleaned_page_text)
-                page_sentences = list(doc.sents)
-                all_sentences.extend(page_sentences)
-                page_map.extend([page_num] * len(page_sentences)) # Map sentences to this page
-                # Add page break marker? Maybe not necessary if chunking handles it.
-            except Exception as e:
-                logging.warning(f"SpaCy processing failed for page {page_num} of {os.path.basename(source_pdf)}: {e}")
-
-    if not all_sentences:
-        logging.warning(f"No sentences extracted after processing {os.path.basename(source_pdf)}")
+    if not mmd_text:
         return chunks
 
-    logging.info(f"Total sentences extracted: {len(all_sentences)}")
+    # Split by double newlines (common paragraph separator in Markdown)
+    paragraphs = re.split(r'\n\s*\n', mmd_text) # Split on one or more blank lines
+    paragraphs = [p.strip() for p in paragraphs if p.strip()] # Remove empty paragraphs
 
-    # Chunking logic
-    current_chunk_sentences = []
-    current_chunk_pages = set()
-    start_sentence_index = 0
+    logging.info(f"Splitting MMD into {len(paragraphs)} paragraphs for chunking.")
 
-    for i, sentence in enumerate(all_sentences):
-        current_chunk_sentences.append(sentence.text.strip())
-        current_chunk_pages.add(page_map[i]) # Add page number for this sentence
+    current_chunk_text = ""
+    current_chunk_len = 0
+    start_para_index = 0
 
-        # Check if chunk is full
-        if len(current_chunk_sentences) >= target_sentences:
-            chunk_text = " ".join(current_chunk_sentences)
-            metadata = {
-                'source': os.path.basename(source_pdf),
-                'potential_title': potential_title,
-                'pages': sorted(list(current_chunk_pages)),
-                'start_sentence_index': start_sentence_index,
-                'end_sentence_index': i
-            }
-            chunks.append({'text': chunk_text, 'metadata': metadata})
+    for i, para in enumerate(paragraphs):
+        para_len = len(para)
+        # If adding the next paragraph exceeds target size significantly,
+        # and current chunk is not empty, finalize the current chunk.
+        if current_chunk_len > 0 and current_chunk_len + para_len > target_size + overlap:
+            # Check if current chunk alone is large enough
+            if current_chunk_len >= target_size // 2:
+                 metadata = {
+                     'source': os.path.basename(source_pdf),
+                     # Page numbers are lost with full PDF processing via Mathpix
+                     # We could try to parse page markers if Mathpix includes them
+                     'pages': ['unknown'],
+                     'start_para_index': start_para_index,
+                     'end_para_index': i - 1
+                 }
+                 chunks.append({'text': current_chunk_text, 'metadata': metadata})
 
-            # Prepare for the next chunk with overlap
-            start_sentence_index = max(0, i - overlap_sentences + 1)
-            # Ensure start_sentence_index is valid
-            start_sentence_index = min(start_sentence_index, i)
+                 # Start new chunk with overlap (based on characters for simplicity)
+                 overlap_start_char = max(0, current_chunk_len - overlap)
+                 current_chunk_text = current_chunk_text[overlap_start_char:] + "\n\n" + para
+                 current_chunk_len = len(current_chunk_text)
+                 start_para_index = i # This new chunk starts from current paragraph
+            else:
+                 # Current chunk is too small, just append the new paragraph
+                 current_chunk_text += "\n\n" + para
+                 current_chunk_len += len("\n\n") + para_len
+        else:
+            # Append paragraph to current chunk
+            if current_chunk_len > 0:
+                 current_chunk_text += "\n\n" + para
+                 current_chunk_len += len("\n\n") + para_len
+            else:
+                 current_chunk_text = para
+                 current_chunk_len = para_len
+                 start_para_index = i
 
-            # Sentences for overlap. Ensure we don't go out of bounds.
-            overlap_slice = all_sentences[start_sentence_index : i + 1]
-            current_chunk_sentences = [s.text.strip() for s in overlap_slice[-(overlap_sentences+1):] ] # Grab last 'overlap' sentences for next chunk start, prevent IndexError
+    # Add the last remaining chunk
+    if current_chunk_text:
+        metadata = {
+           'source': os.path.basename(source_pdf),
+           'pages': ['unknown'],
+           'start_para_index': start_para_index,
+           'end_para_index': len(paragraphs) - 1
+        }
+        chunks.append({'text': current_chunk_text, 'metadata': metadata})
 
-            # Reset pages based on the actual start index for the overlap
-            current_chunk_pages = set(page_map[start_sentence_index : i + 1])
-
-    # Add the last remaining chunk if any sentences are left
-    if current_chunk_sentences and start_sentence_index < len(all_sentences):
-         chunk_text = " ".join(current_chunk_sentences)
-         metadata = {
-            'source': os.path.basename(source_pdf),
-            'potential_title': potential_title,
-            'pages': sorted(list(current_chunk_pages)),
-            'start_sentence_index': start_sentence_index,
-            'end_sentence_index': len(all_sentences) - 1
-         }
-         chunks.append({'text': chunk_text, 'metadata': metadata})
-
-    logging.info(f"Created {len(chunks)} sentence-based chunks for {os.path.basename(source_pdf)}")
-
-    # Add placeholder comment about where more advanced extraction could integrate
-    # TODO: Integrate Math/Equation extraction here (e.g., using MathPix API)
-    # TODO: Integrate Structure Recognition here (e.g., using GROBID)
-
+    logging.info(f"Created {len(chunks)} MMD-based chunks for {os.path.basename(source_pdf)}")
     return chunks
 
-# --- Main Logic ---
+# --- Main Logic (Refactored for Mathpix) ---
+def build_knowledge_base(pdf_input_dir, output_dir):
+    """Main function to build the vector store and metadata using Mathpix."""
+    check_mathpix_credentials()
 
-def build_knowledge_base():
-    """Main function to build the vector store and metadata."""
-    if nlp is None:
-         logging.error("SpaCy model not loaded. Cannot proceed.")
-         return # Exit if SpaCy failed to load
-
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    os.makedirs(output_dir, exist_ok=True)
 
     all_chunks_with_metadata = []
     processed_files = 0
+    failed_files = 0
 
-    # 1. Iterate through PDFs, Extract (Text+OCR), Chunk by Sentences
-    logging.info(f"Starting PDF processing from: {PDF_INPUT_DIR}")
+    logging.info(f"Starting PDF processing from: {pdf_input_dir}")
     all_pdf_paths = []
-    for root, _, files in os.walk(PDF_INPUT_DIR):
+    for root, _, files in os.walk(pdf_input_dir):
         for file in files:
             if file.lower().endswith(".pdf"):
                 all_pdf_paths.append(os.path.join(root, file))
@@ -249,31 +230,42 @@ def build_knowledge_base():
 
     for pdf_path in all_pdf_paths:
         logging.info(f"--- Processing: {os.path.basename(pdf_path)} ---")
-        potential_title, pages_content = extract_content_from_pdf(pdf_path)
-        if not pages_content:
-            logging.warning(f"No content extracted from {os.path.basename(pdf_path)}")
+        mmd_content = process_pdf_with_mathpix(pdf_path)
+
+        if not mmd_content:
+            logging.warning(f"Failed to get MMD content from Mathpix for {os.path.basename(pdf_path)}")
+            failed_files += 1
             continue
 
-        doc_chunks = chunk_document_sentences(
-            potential_title,
-            pages_content,
-            CHUNK_TARGET_SENTENCE_COUNT,
-            CHUNK_OVERLAP_SENTENCE_COUNT,
+        # Extract title from MMD (heuristic: first line if it looks like a title)
+        lines = mmd_content.strip().split('\n')
+        potential_title = lines[0].strip("# ") if lines else "Unknown Title"
+        # You might add more heuristics here
+
+        doc_chunks = chunk_mmd_content(
+            mmd_content,
+            CHUNK_TARGET_SIZE_MMD,
+            CHUNK_OVERLAP_MMD,
             pdf_path
         )
+        # Add potential title to metadata of each chunk
+        for chunk in doc_chunks:
+             chunk['metadata']['potential_title'] = potential_title
+
         all_chunks_with_metadata.extend(doc_chunks)
         processed_files += 1
+        time.sleep(0.5) # Small delay between processing files
 
     if not all_chunks_with_metadata:
-        logging.error("No text chunks were generated from any PDF. Exiting.")
+        logging.error("No text chunks were generated from any PDF using Mathpix. Exiting.")
         return
 
-    logging.info(f"Total chunks created: {len(all_chunks_with_metadata)} from {processed_files} PDFs.")
+    logging.info(f"Successfully processed {processed_files} PDFs. Failed: {failed_files}.")
+    logging.info(f"Total chunks created: {len(all_chunks_with_metadata)}.")
 
     # 2. Embed Chunks
     try:
         logging.info(f"Loading embedding model: {EMBEDDING_MODEL_NAME}")
-        # Consider using a device='cuda' if GPU is available and configured
         model = SentenceTransformer(EMBEDDING_MODEL_NAME)
     except Exception as e:
         logging.error(f"Failed to load embedding model '{EMBEDDING_MODEL_NAME}': {e}")
@@ -282,63 +274,63 @@ def build_knowledge_base():
     logging.info("Embedding chunks...")
     chunk_texts = [chunk['text'] for chunk in all_chunks_with_metadata]
     try:
-        # Adjust batch_size based on available RAM/VRAM
         embeddings = model.encode(chunk_texts, show_progress_bar=True, batch_size=32)
-        embeddings = np.array(embeddings).astype('float32') # FAISS requires float32
+        embeddings = np.array(embeddings).astype('float32')
         logging.info(f"Embeddings generated with shape: {embeddings.shape}")
     except Exception as e:
         logging.error(f"Failed during embedding generation: {e}")
         return
 
-    # 3. Build and Save Vector Store (FAISS Example)
+    # 3. Build and Save Vector Store
     dimension = embeddings.shape[1]
-    index = faiss.IndexFlatL2(dimension) # Simple L2 index
-    # Consider IndexIVFFlat for large datasets (see previous version comments)
-
+    index = faiss.IndexFlatL2(dimension)
     try:
         index.add(embeddings)
         logging.info(f"Added {index.ntotal} vectors to FAISS index.")
-
-        index_path = os.path.join(OUTPUT_DIR, VECTOR_STORE_FILENAME)
+        index_path = os.path.join(output_dir, VECTOR_STORE_FILENAME)
         faiss.write_index(index, index_path)
         logging.info(f"Saved FAISS index to {index_path}")
     except Exception as e:
         logging.error(f"Failed to build or save FAISS index: {e}")
         return
 
-    # 4. Save Metadata
-    metadata_map = {
-        i: {**chunk['metadata'], 'text': chunk['text']}
-        for i, chunk in enumerate(all_chunks_with_metadata)
-    }
-
-    metadata_path = os.path.join(OUTPUT_DIR, METADATA_FILENAME)
+    # 4. Save Metadata (as JSON Lines)
+    metadata_path = os.path.join(output_dir, METADATA_FILENAME)
     try:
         with open(metadata_path, 'w', encoding='utf-8') as f:
-            # Use indent=None for smallest file size, or indent=2 for readability
-            json.dump(metadata_map, f, indent=None)
+            for i, chunk in enumerate(all_chunks_with_metadata):
+                # Ensure metadata keys are consistent if needed downstream
+                data_to_save = {
+                     "chunk_id": i,
+                     "text": chunk['text'],
+                     "metadata": chunk['metadata']
+                }
+                f.write(json.dumps(data_to_save) + '\n')
         logging.info(f"Saved metadata mapping to {metadata_path}")
     except Exception as e:
-        logging.error(f"Failed to save metadata JSON: {e}")
+        logging.error(f"Failed to save metadata JSONL: {e}")
 
 if __name__ == "__main__":
-    # Basic dependency check (already done for SpaCy at import time)
+    parser = argparse.ArgumentParser(description="Build knowledge base from PDFs using Mathpix API.")
+    parser.add_argument("--pdf_dir", type=str, default=DEFAULT_PDF_INPUT_DIR,
+                        help=f"Directory containing PDF files (default: {DEFAULT_PDF_INPUT_DIR})")
+    parser.add_argument("--output_dir", type=str, default=DEFAULT_KB_OUTPUT_DIR,
+                        help=f"Directory to save the knowledge base index and metadata (default: {DEFAULT_KB_OUTPUT_DIR})")
+    # Add optional args for chunk size, overlap?
+    args = parser.parse_args()
+
+    # Basic dependency check
     try:
-        import fitz
         import sentence_transformers
         import faiss
         import numpy
-        import PIL
-        import pytesseract
+        import requests
+        # SpaCy is optional now
     except ImportError as e:
-        # SpaCy import errors handled earlier
-        if "spacy" not in str(e).lower():
-            print(f"Error: Missing dependency - {e}", file=sys.stderr)
-            print("Please install required packages:", file=sys.stderr)
-            print("pip install -r requirements.txt", file=sys.stderr)
-            # Also remind about Tesseract system dependency
-            print("Ensure Tesseract OCR engine is installed.", file=sys.stderr)
-            sys.exit(1)
+        print(f"Error: Missing dependency - {e}", file=sys.stderr)
+        print("Please install required packages:", file=sys.stderr)
+        print("pip install -r requirements.txt", file=sys.stderr)
+        sys.exit(1)
 
-    build_knowledge_base()
-    logging.info("Enhanced knowledge base build process finished.") 
+    build_knowledge_base(args.pdf_dir, args.output_dir)
+    logging.info("Mathpix-based knowledge base build process finished.") 
