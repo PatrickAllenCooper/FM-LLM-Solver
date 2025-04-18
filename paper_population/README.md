@@ -188,10 +188,13 @@ This is the most critical step for model performance. Choose one or more methods
     python fine_tuning/generate_synthetic_data.py --output_file fine_tuning/synthetic_data.jsonl
     ```
 *   **Option C: LLM-Assisted Extraction** (Requires powerful external LLM + **Mandatory Manual Review**)
-    1.  `python fine_tuning/extract_from_papers.py --output_instructions_file prompts_to_run.txt`
-    2.  Manually run prompts from `prompts_to_run.txt` with an external LLM (e.g., GPT-4, Claude 3).
-    3.  **CRITICALLY REVIEW** LLM outputs for correctness against source papers.
-    4.  Save **verified** JSON objects (one per line) to `fine_tuning/extracted_data_verified.jsonl`.
+    1.  Generate prompts specifically designed for Mathpix MMD output:
+        ```bash
+        python fine_tuning/extract_from_papers.py --output_instructions_file prompts_mmd_to_run.txt
+        ```
+    2.  Manually run prompts from `prompts_mmd_to_run.txt` with an external LLM (e.g., GPT-4, Claude 3), instructing it to leverage the MMD structure and preserve LaTeX.
+    3.  **CRITICALLY REVIEW** LLM outputs for correctness, **especially LaTeX accuracy**.
+    4.  Save **verified** JSON objects to `fine_tuning/extracted_data_verified.jsonl`.
 *   **Combine Datasets:** Merge desired sources into a final training file. The `combine_datasets.py` script attempts to read `metadata.source` or infer source from filenames.
     ```bash
     # Example: Combine manual, synthetic, and verified extracted data
@@ -314,7 +317,7 @@ This project was developed by **Patrick Cooper** as part of graduate work at the
 *   **SOS Implementation:** Refine and rigorously test the SymPy-to-CVXPY conversion and SOS constraint formulation in `verify_certificate.py`. Consider using dedicated SOS libraries (like `SumOfSquares.jl` via Python interface, or others) if the current approach proves too slow or difficult to maintain.
 *   **Optimization Falsification:** Finish testing and refinement of the optimization-based checks in `verify_certificate.py`.
 *   **PDF Parsing:** Explore integrating GROBID for document structure analysis *in addition* to MathPix for math/text extraction.
-*   **Fine-tuning Data:** Explore semi-automated methods for extracting (System, Certificate) pairs, potentially using the structured MathPix output.
+*   **Fine-tuning Data:** Explore semi-automated methods for extracting (System, Certificate) pairs, **leveraging the structured MathPix MMD output** to potentially guide LLM extraction more effectively.
 *   **LLM Output Parsing:** Improve the robustness of `extract_certificate_from_llm_output`.
 *   **Experimentation:** Test different base LLMs, embedding models, vector databases, and fine-tuning strategies.
 *   **UI:** Develop a simple graphical or web interface.
