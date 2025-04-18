@@ -51,11 +51,11 @@ paper_population/
 |
 ├── knowledge_base/             # Scripts & data for the RAG knowledge base
 │   ├── __init__.py
-│   ├── knowledge_base_builder.py # Script to build vector index & metadata
+│   ├── knowledge_base_builder.py # Script to build vector index & metadata (uses MathPix API)
 │   ├── test_knowledge_base.py    # Script to test KB retrieval
-│   └── knowledge_base_enhanced/  # Default output dir for KB data
-│       ├── paper_index_enhanced.faiss
-│       └── paper_metadata_enhanced.json
+│   └── knowledge_base_mathpix/ # Default output dir for MathPix-based KB data
+│       ├── paper_index_mathpix.faiss
+│       └── paper_metadata_mathpix.jsonl
 |
 ├── fine_tuning/                # Scripts & data for fine-tuning the LLM
 │   ├── __init__.py
@@ -74,7 +74,7 @@ paper_population/
 │   ├── __init__.py
 │   ├── benchmark_systems.json    # Sample benchmark systems (incl. sampling bounds)
 │   ├── evaluate_pipeline.py    # Main script to run evaluation
-│   ├── verify_certificate.py     # Script for symbolic & numerical checks (basic)
+│   ├── verify_certificate.py     # Script for SOS, symbolic & numerical checks
 │   └── evaluation_results.csv    # (Output) Example evaluation results
 |
 ├── recent_papers_all_sources_v2/ # Default output directory for fetched papers
@@ -95,6 +95,11 @@ paper_population/
 
 *   **Python:** Version 3.8 - 3.12 recommended. (Versions >= 3.13 may have compatibility issues with dependencies like `spacy`).
 *   **Git:** For cloning the repository.
+*   **MathPix API Credentials:** Required for the default knowledge base builder (`knowledge_base_builder.py`). Obtain an App ID and App Key from [MathPix](https://mathpix.com/) and set them as environment variables:
+    ```bash
+    export MATHPIX_APP_ID='your_app_id'
+    export MATHPIX_APP_KEY='your_app_key'
+    ```
 *   **Tesseract OCR Engine:** Required by `pytesseract` for OCR.
     *   *Debian/Ubuntu:* `sudo apt update && sudo apt install tesseract-ocr`
     *   *macOS:* `brew install tesseract`
@@ -128,9 +133,9 @@ paper_population/
     # pip install scs
     ```
 
-4.  **Download SpaCy Model:**
+4.  **Download SpaCy Model (Optional):** Only needed if `knowledge_base_builder.py` relies on it (current MathPix version primarily uses paragraph splitting).
     ```bash
-    python -m spacy download en_core_web_sm
+    # python -m spacy download en_core_web_sm
     ```
 
 ---
@@ -150,17 +155,23 @@ Execute the steps in the following order. Ensure you are in the `FMLLMSolver/pap
 
 ### 2. Build Knowledge Base
 
-*   Processes downloaded PDFs, performs OCR, chunks, embeds, and indexes the text.
+*   **Set MathPix Credentials:** Ensure `MATHPIX_APP_ID` and `MATHPIX_APP_KEY` environment variables are set.
+*   Processes downloaded PDFs using the MathPix API to extract structured Markdown (MMD) with LaTeX equations.
     ```bash
-    python knowledge_base/knowledge_base_builder.py
+    python knowledge_base/knowledge_base_builder.py \\\
+        --pdf_dir ./recent_papers_all_sources_v2 \\\
+        --output_dir ./knowledge_base/knowledge_base_mathpix
     ```
-*   Creates the index (`.faiss`) and metadata (`.json`) in `knowledge_base/knowledge_base_enhanced/`.
+*   Creates the index (`.faiss`) and metadata (`.jsonl`) in `./knowledge_base/knowledge_base_mathpix/` (default).
 
 ### 3. Test Knowledge Base (Optional)
 
-*   Perform a quick check on the knowledge base retrieval.
+*   Perform a quick check using the MathPix-generated knowledge base.
     ```bash
-    python knowledge_base/test_knowledge_base.py "What is a barrier certificate?" -k 3
+    python knowledge_base/test_knowledge_base.py \\\
+        "What is a barrier certificate?" \\\
+        --kb_dir ./knowledge_base/knowledge_base_mathpix \\\
+        -k 3
     ```
 
 ### 4. Create/Prepare Fine-tuning Data
@@ -232,27 +243,26 @@ This section guides you through performing a minimal run of the fine-tuning pipe
 
 ### 7. Generate Certificate (Inference)
 
-*   Uses the RAG pipeline with the fine-tuned adapter to propose a certificate.
+*   Update the knowledge base path if needed via `--kb_dir`.
     ```bash
     python inference/generate_certificate.py \\\
       "System Dynamics: dx/dt = -x**3 - y, dy/dt = x - y**3. Initial Set: x**2+y**2 <= 0.1. Unsafe Set: x >= 1.5" \\\
-      --adapter ./results_full_run1/final_adapter # Use adapter from full run
+      --adapter ./results_full_run1/final_adapter \\\
+      --kb_dir ./knowledge_base/knowledge_base_mathpix # Point to Mathpix KB
     ```
 *   Replace the system description text. Ensure the `--adapter` path is correct.
 
 ### 8. Evaluate the Pipeline
 
 *   **Populate Benchmark:** Add diverse systems to `evaluation/benchmark_systems.json`. Ensure `sampling_bounds` are defined. For SOS checks, ensure systems, certificates, and set definitions are polynomial and defined using `>= 0` or `<= 0` inequalities (parsed to `>=0` form by `relationals_to_polynomials`).
-*   Run the full evaluation pipeline using your trained adapter:
+*   Update the knowledge base path if needed via `--kb_dir`.
     ```bash
     python evaluation/evaluate_pipeline.py \\\
       --adapter ./results_full_run1/final_adapter \\\
       --benchmark evaluation/benchmark_systems.json \\\
       --results evaluation/evaluation_full_run1.csv \\\
-      # Optional: Disable SOS checks if solver not installed or for non-poly benchmarks
-      # --no_sos \\\
-      # Optional: Disable optimization checks
-      # --no_opt \
+      --kb_dir ./knowledge_base/knowledge_base_mathpix # Point to Mathpix KB
+      # Optional: --no_sos, --no_opt \
     ```
 *   This script runs generation, attempts parsing, performs verification (SOS if applicable, symbolic, numerical sampling, optimization), and saves results.
 
@@ -268,6 +278,8 @@ Run scripts with `-h` or `--help` to see available arguments, for example:
 python fine_tuning/finetune_llm.py --help
 python evaluation/evaluate_pipeline.py --help
 ```
+
+*   MathPix API keys are configured via environment variables (`MATHPIX_APP_ID`, `MATHPIX_APP_KEY`).
 
 ---
 
@@ -300,9 +312,10 @@ This project was developed by **Patrick Cooper** as part of graduate work at the
 ## Future Work / Enhancements
 
 *   **SOS Implementation:** Refine and rigorously test the SymPy-to-CVXPY conversion and SOS constraint formulation in `verify_certificate.py`. Consider using dedicated SOS libraries (like `SumOfSquares.jl` via Python interface, or others) if the current approach proves too slow or difficult to maintain.
-*   **Robust Verification:** Implement optimization-based falsification fully (currently structure is there, needs testing/refinement). Replace any remaining risky parsing/evaluation with safer methods.
-*   **PDF Parsing:** Integrate GROBID (structure) or MathPix API (equations) into `knowledge_base_builder.py`.
-*   **Fine-tuning Data:** Explore semi-automated methods for extracting (System, Certificate) pairs.
+*   **Optimization Falsification:** Finish testing and refinement of the optimization-based checks in `verify_certificate.py`.
+*   **PDF Parsing:** Explore integrating GROBID for document structure analysis *in addition* to MathPix for math/text extraction.
+*   **Fine-tuning Data:** Explore semi-automated methods for extracting (System, Certificate) pairs, potentially using the structured MathPix output.
+*   **LLM Output Parsing:** Improve the robustness of `extract_certificate_from_llm_output`.
 *   **Experimentation:** Test different base LLMs, embedding models, vector databases, and fine-tuning strategies.
 *   **UI:** Develop a simple graphical or web interface.
  
