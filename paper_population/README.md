@@ -29,13 +29,11 @@
 
 ## Overview
 
-This project implements a pipeline consisting of several distinct phases:
+Formal verification provides essential safety and correctness guarantees for complex autonomous systems, with techniques like barrier certificates offering powerful tools for proving set invariance and reach-avoid properties. However, the synthesis of suitable barrier functions remains a significant bottleneck, often demanding considerable domain expertise or relying on computationally intensive methods like Sum-of-Squares (SOS) programming, which can struggle with non-polynomial dynamics or high dimensionality. This project investigates the potential of Large Language Models (LLMs) to address the *candidate generation* challenge within the barrier certificate synthesis workflow.
 
-1.  **Data Fetching:** Acquiring relevant research papers (PDFs).
-2.  **Knowledge Base Construction:** Processing papers (including OCR) into a searchable vector database (FAISS index + metadata) for RAG.
-3.  **Fine-tuning:** Specializing an LLM (using QLoRA for efficiency) on examples of system dynamics and corresponding barrier certificates.
-4.  **Inference:** Combining the knowledge base (RAG) and the fine-tuned LLM to generate barrier certificate candidates for new systems.
-5.  **Evaluation:** Assessing the validity and quality of the generated certificates using basic symbolic checks (`sympy`) **and numerical sampling** (`numpy`, `scipy`) against a benchmark dataset.
+We propose leveraging LLMs, augmented by domain knowledge extracted from a curated corpus of relevant research literature via Retrieval-Augmented Generation (RAG), to propose plausible barrier certificate candidates for given system dynamics. The core idea is to fine-tune an LLM specifically on the task of mapping system descriptions (dynamics, initial/unsafe sets) to potential barrier function structures, learning heuristics and patterns from existing published examples. The goal is not to supplant rigorous verification but to accelerate the overall process by providing formally-inclined researchers with high-quality, structured hypotheses for barrier functions, thereby narrowing the search space for subsequent analysis.
+
+The implemented pipeline includes modules for automated paper fetching, knowledge base construction using text embedding and vector indexing (FAISS), efficient LLM fine-tuning (QLoRA), and an inference engine combining RAG with the specialized model. Crucially, the evaluation module incorporates symbolic differentiation (`sympy`) for Lie derivative calculation and numerical sampling checks for basic validation of proposed certificates. While this preliminary verification helps filter candidates, the framework explicitly acknowledges the need for integration with established formal methods tools (e.g., SOS solvers, theorem provers, robust numerical verification techniques) to provide the necessary soundness guarantees for the generated barrier certificates before they can be formally certified.
 
 ---
 
@@ -95,7 +93,7 @@ paper_population/
 
 ### Prerequisites
 
-*   **Python:** >= 3.8 recommended.
+*   **Python:** Version 3.8 - 3.12 recommended. (Versions >= 3.13 may have compatibility issues with dependencies like `spacy`).
 *   **Git:** For cloning the repository.
 *   **Tesseract OCR Engine:** Required by `pytesseract` for OCR in Phase 2.
     *   *Debian/Ubuntu:* `sudo apt update && sudo apt install tesseract-ocr`
@@ -114,9 +112,9 @@ paper_population/
 
 2.  **Create Environment (Recommended):**
     ```bash
-    python -m venv venv
-    source venv/bin/activate  # Linux/macOS
-    # venv\Scripts\activate  # Windows (cmd/powershell)
+    # Use a recommended Python version (e.g., 3.12)
+    conda create -n fmllm python=3.12 # Or python -m venv venv
+    conda activate fmllm             # Or source venv/bin/activate
     ```
 
 3.  **Install Dependencies:**
@@ -133,7 +131,7 @@ paper_population/
 
 ## Workflow / Usage
 
-Execute the steps in the following order. Ensure you are in the `FMLLMSolver/paper_population` directory.
+Execute the steps in the following order. Ensure you are in the `FMLLMSolver/paper_population` directory and your environment is activated.
 
 ### 1. Data Fetching
 

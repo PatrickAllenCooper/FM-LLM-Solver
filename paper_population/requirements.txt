@@ -1,3 +1,8 @@
+# Data Fetching
+scholarly
+requests
+
+# Knowledge Base / RAG
 PyMuPDF
 sentence-transformers
 faiss-cpu
