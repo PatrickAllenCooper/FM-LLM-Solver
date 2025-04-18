@@ -4,6 +4,7 @@ import re
 import numpy as np
 import time
 import json
+import cvxpy as cp
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -11,6 +12,9 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 NUM_SAMPLES_LIE = 10000  # Samples for checking dB/dt <= 0
 NUM_SAMPLES_BOUNDARY = 5000 # Samples for checking init/unsafe set conditions
 NUMERICAL_TOLERANCE = 1e-6 # Tolerance for checking <= 0 or >= 0
+SOS_DEFAULT_DEGREE = 2 # Default degree for SOS multipliers (adjust as needed)
+SOS_SOLVER = cp.MOSEK # Preferred solver (requires license)
+# SOS_SOLVER = cp.SCS   # Open-source alternative
 
 # --- Parsing and Symbolic Functions ---
 
@@ -71,6 +75,40 @@ def calculate_lie_derivative(B, variables, dynamics):
     except Exception as e:
         logging.error(f"Error calculating Lie derivative: {e}")
         return None
+
+def check_polynomial(*expressions, variables):
+    """Checks if all provided SymPy expressions are polynomials in the given variables."""
+    try:
+        return all(expr is not None and expr.is_polynomial(*variables) for expr in expressions)
+    except Exception as e:
+        logging.error(f"Error checking polynomial status: {e}")
+        return False
+
+def relationals_to_polynomials(relationals, variables):
+    """Converts SymPy relationals (e.g., x>=0) to polynomials (e.g., x) for SOS."""
+    # Assumes relationals are in the form 'expr >= 0' or 'expr <= 0'
+    # Returns list of polynomials p_i such that the set is {x | p_i(x) >= 0}
+    polynomials = []
+    for rel in relationals:
+        if isinstance(rel, sympy.logic.boolalg.BooleanTrue):
+             continue # Trivial condition
+        if not hasattr(rel, 'lhs') or not hasattr(rel, 'rhs'):
+             logging.warning(f"Cannot convert non-relational {rel} to polynomial for SOS.")
+             return None
+        # Convert expr >= C or expr >= 0 to expr - C >= 0
+        if rel.rel_op == '>=' or rel.rel_op == '>': # Treat > as >= for SOS relaxation
+            poly = rel.lhs - rel.rhs
+        # Convert expr <= C or expr <= 0 to C - expr >= 0
+        elif rel.rel_op == '<=' or rel.rel_op == '<': # Treat < as <= for SOS relaxation
+            poly = rel.rhs - rel.lhs
+        else:
+            logging.warning(f"Unsupported relational operator '{rel.rel_op}' for SOS conversion.")
+            return None
+        if not check_polynomial(poly, variables=variables):
+             logging.warning(f"Set condition '{rel}' is not polynomial.")
+             return None
+        polynomials.append(poly.as_poly(*variables))
+    return polynomials
 
 # --- Symbolic Checking --- #
 def check_lie_derivative_symbolic(dB_dt, variables, safe_set_relationals):
@@ -249,7 +287,7 @@ def numerical_check_boundary(B_func, sampling_bounds, variables, initial_set_rel
 # --- Main Verification Function (Refactored) ---
 
 def verify_barrier_certificate(candidate_B_str, system_info):
-    """Main verification function. Parses conditions, checks symbolically and numerically."""
+    """Main verification function. Parses conditions, checks SOS, symbolic, and numerical."""
     start_time = time.time()
     logging.info(f"--- Verifying Candidate: {candidate_B_str} --- ")
     logging.info(f"System ID: {system_info.get('id', 'N/A')}")
@@ -259,7 +297,14 @@ def verify_barrier_certificate(candidate_B_str, system_info):
         "system_id": system_info.get('id', 'N/A'),
         "parsing_B_successful": False,
         "parsing_sets_successful": False,
+        "is_polynomial_system": None,
         "lie_derivative_calculated": None,
+        "sos_attempted": False,
+        "sos_passed": None,
+        "sos_lie_passed": None,
+        "sos_init_passed": None,
+        "sos_unsafe_passed": None,
+        "sos_reason": "Not Attempted",
         "symbolic_lie_check_passed": None,
         "symbolic_boundary_check_passed": None,
         "numerical_lie_check_passed": None,
@@ -370,9 +415,9 @@ if __name__ == '__main__':
           "-x**3 - y",
           "x - y**3"
         ],
-        "initial_set_conditions": ["x**2 + y**2 <= 0.1"],
-        "unsafe_set_conditions": ["x >= 1.5"],
-        "safe_set_conditions": ["x < 1.5"],
+        "initial_set_conditions": ["0.1 - x**2 - y**2 >= 0"], # SOS format G>=0
+        "unsafe_set_conditions": ["x - 1.5 >= 0"],         # SOS format H>=0 means unsafe
+        "safe_set_conditions": ["1.5 - x >= 0"],           # SOS format S>=0 means safe (note strict -> non-strict)
         "sampling_bounds": { "x": [-2.0, 2.0], "y": [-2.0, 2.0] }
     }
 
@@ -396,7 +441,7 @@ if __name__ == '__main__':
     result_4 = verify_barrier_certificate(candidate_4, test_system_1)
     print(f"Result for '{candidate_4}': {json.dumps(result_4, indent=2)}")
 
-    print("\nTest Case 5: Non-polynomial Dynamics")
+    print("\nTest Case 5: Non-polynomial Dynamics (Should Skip SOS)")
     test_system_np = {
         "id": "example_np",
         "state_variables": ["x", "y"],
@@ -404,9 +449,9 @@ if __name__ == '__main__':
             "-sin(x) + y",
             "-y + cos(x)"
         ],
-         "safe_set_conditions": ["x**2 + y**2 < 4"],
-         "initial_set_conditions": ["x**2+y**2 <= 0.1"],
-         "unsafe_set_conditions": ["x > 1.8"],
+         "safe_set_conditions": ["4 - x**2 - y**2 > 0"],
+         "initial_set_conditions": ["0.1 - x**2 - y**2 >= 0"],
+         "unsafe_set_conditions": ["x - 1.8 > 0"],
          "sampling_bounds": { "x": [-2.0, 2.0], "y": [-2.0, 2.0] }
     }
     candidate_5 = "x**2 + y**2"

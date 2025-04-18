@@ -21,4 +21,5 @@ datasets>=2.14.0 # For loading data
 torch>=2.0 # PyTorch
 # Note: Ensure CUDA toolkit compatible with torch/bitsandbytes is installed for GPU training
 sympy>=1.12 # For symbolic mathematics in verification
-scipy>=1.10 # For numerical operations (sampling, optimization) 
+scipy>=1.10 # For numerical operations (sampling, optimization)
+cvxpy>=1.4 # For SOS programming (requires SDP solver like MOSEK or SCS) 
