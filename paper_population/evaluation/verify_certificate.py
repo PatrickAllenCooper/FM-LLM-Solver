@@ -5,6 +5,9 @@ import numpy as np
 import time
 import json
 import cvxpy as cp
+from itertools import product, combinations_with_replacement
+from collections import defaultdict
+from scipy.optimize import differential_evolution # Import for optimization
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -15,6 +18,9 @@ NUMERICAL_TOLERANCE = 1e-6 # Tolerance for checking <= 0 or >= 0
 SOS_DEFAULT_DEGREE = 2 # Default degree for SOS multipliers (adjust as needed)
 SOS_SOLVER = cp.MOSEK # Preferred solver (requires license)
 # SOS_SOLVER = cp.SCS   # Open-source alternative
+SOS_EPSILON = 1e-7 # Small value for strict inequalities -> non-strict for SOS
+OPTIMIZATION_MAX_ITER = 100 # Iterations for differential_evolution
+OPTIMIZATION_POP_SIZE = 15 # Population size multiplier for diff_evolution
 
 # --- Parsing and Symbolic Functions ---
 
@@ -284,10 +290,447 @@ def numerical_check_boundary(B_func, sampling_bounds, variables, initial_set_rel
 
     return boundary_ok, " | ".join(reason)
 
-# --- Main Verification Function (Refactored) ---
+# --- SOS Helper Functions ---
 
-def verify_barrier_certificate(candidate_B_str, system_info):
-    """Main verification function. Parses conditions, checks SOS, symbolic, and numerical."""
+def get_monomials(variables, degree):
+    """Generates a list of sympy monomials up to a given degree."""
+    monoms = [sympy.S.One]
+    for i in range(1, degree + 1):
+        monoms.extend(list(sympy.ordered(sympy.monomials(variables, i)))) # Use ordered for consistency
+    # Return unique monomials in a consistent order
+    unique_monoms = sorted(list(set(monoms)), key=sympy.default_sort_key)
+    return unique_monoms
+
+def sympy_poly_to_coeffs(sympy_poly, basis, variables):
+    """Extracts coefficients of a sympy polynomial w.r.t. a given monomial basis."""
+    if not isinstance(sympy_poly, sympy.Poly):
+        sympy_poly = sympy_poly.as_poly(*variables)
+    
+    basis_map = {m: i for i, m in enumerate(basis)}
+    coeffs = np.zeros(len(basis))
+    
+    poly_dict = sympy_poly.as_dict()
+    for monom_tuple, coeff in poly_dict.items():
+        monom_sympy = sympy.S.One
+        for i, exp in enumerate(monom_tuple):
+            monom_sympy *= variables[i]**exp
+            
+        if monom_sympy in basis_map:
+            coeffs[basis_map[monom_sympy]] = float(coeff)
+        else:
+            # This is problematic - polynomial has terms outside the basis
+            logging.error(f"Monomial {monom_sympy} (from {sympy_poly.expr}) not in basis {basis}. Degree mismatch?")
+            return None # Indicate error
+    return coeffs
+
+def add_sos_constraints(target_poly, set_polys, cp_vars, sympy_vars, mult_degree, eq_basis):
+    """Formulates the SOS constraint: target = s0 + sum(si * gi) using CVXPY.\n\n    Args:\n        target_poly: The SymPy Poly object that needs to be SOS over the set.\n        set_polys: List of SymPy Poly objects defining the set {x | gi(x) >= 0}.\n        cp_vars: List of CVXPY variables corresponding to sympy_vars.\n        sympy_vars: List of SymPy variables.\n        mult_degree: The maximum degree allowed for the SOS multipliers (s0, si).\n        eq_basis: The SymPy monomial basis for the equality constraints.
+\n    Returns:\n        A list of CVXPY constraints (PSD constraints and coefficient matching), or None if error.
+    """
+    constraints = []
+    n_vars = len(sympy_vars)
+    eq_basis_len = len(eq_basis)
+
+    # 1. Define SOS Multipliers (s0, s_i) using Gram Matrices
+    # Monomial basis for multipliers (degree d/2 if multiplier degree is d)
+    s_basis_degree = mult_degree // 2 
+    s_basis = get_monomials(sympy_vars, s_basis_degree)
+    s_basis_len = len(s_basis)
+    
+    # s0 multiplier
+    Q0 = cp.Variable((s_basis_len, s_basis_len), PSD=True)
+    constraints.append(Q0 >> 0) # Explicit PSD constraint
+    # s0 = Z(x)^T Q0 Z(x), where Z(x) is the vector of monomials in s_basis
+    # Calculate coefficients of s0 w.r.t eq_basis
+    s0_poly = sympy.expand(sympy.Matrix(s_basis).T * sympy.Matrix(Q0.value if Q0.value is not None else np.zeros((s_basis_len, s_basis_len))) * sympy.Matrix(s_basis))[0]
+    s0_coeffs_expr = sympy_poly_to_coeffs_cvxpy(s_basis, Q0, eq_basis, sympy_vars, cp_vars)
+    if s0_coeffs_expr is None: return None
+
+    # s_i multipliers for each set polynomial g_i
+    si_coeffs_expr_list = []
+    for i, g_poly in enumerate(set_polys):
+        Qi = cp.Variable((s_basis_len, s_basis_len), name=f"Q_{i+1}", PSD=True)
+        constraints.append(Qi >> 0)
+        # si_poly = Z(x)^T Qi Z(x)
+        # Calculate coefficients of si*gi w.r.t eq_basis
+        si_gi_coeffs_expr = sympy_poly_to_coeffs_cvxpy(s_basis, Qi, eq_basis, sympy_vars, cp_vars, multiplier=g_poly)
+        if si_gi_coeffs_expr is None: return None
+        si_coeffs_expr_list.append(si_gi_coeffs_expr)
+
+    # 2. Formulate Coefficient Equality Constraint
+    # target_poly_coeffs = s0_coeffs + sum(si_gi_coeffs)
+    target_coeffs_np = sympy_poly_to_coeffs(target_poly, eq_basis, sympy_vars)
+    if target_coeffs_np is None: 
+        logging.error(f"Could not get coefficients for target polynomial {target_poly.expr}")
+        return None
+
+    # Sum up RHS coefficient expressions
+    rhs_total_coeffs_expr = s0_coeffs_expr
+    for si_gi_expr in si_coeffs_expr_list:
+        rhs_total_coeffs_expr += si_gi_expr
+        
+    # Add the equality constraint
+    constraints.append(target_coeffs_np == rhs_total_coeffs_expr)
+
+    return constraints
+
+def sympy_poly_to_coeffs_cvxpy(multiplier_basis, Q_matrix, equality_basis, sympy_vars, cp_vars, multiplier=None):
+    """ Calculates coefficients of (Z^T Q Z) * multiplier w.r.t equality_basis.\n        Returns a CVXPY expression vector.\n    """
+    s_basis_len = len(multiplier_basis)
+    eq_basis_len = len(equality_basis)
+    
+    # Map equality basis monomials to indices
+    eq_basis_map = {m: i for i, m in enumerate(equality_basis)}
+    
+    # Initialize CVXPY expression vector for coefficients
+    coeffs_expr = cp.Variable(eq_basis_len, name=f"coeffs_{Q_matrix.name()}") # We constrain this later
+    constraints = []
+
+    # This is the complex part: Matching coefficients. 
+    # For each monomial `m_k` in `equality_basis`:
+    # Coeff(target)[k] == Coeff( Sum_{i,j} Q[i,j] * Z[i] * Z[j] * multiplier )[k]
+    # We need to express the RHS coefficient symbolically in terms of Q entries.
+    
+    # --- Direct Coefficient Matching (Symbolic & Potentially Slow) ---
+    symbolic_sos_poly = sympy.S.Zero
+    Q_sym = sympy.MatrixSymbol("Q", s_basis_len, s_basis_len) # Symbolic matrix for Q
+    Z_sym = sympy.Matrix(multiplier_basis)
+    symbolic_sos_poly_expr = sympy.expand((Z_sym.T * Q_sym * Z_sym)[0]) # s(x)
+    
+    if multiplier is not None:
+        symbolic_sos_poly_expr = sympy.expand(symbolic_sos_poly_expr * multiplier.as_expr()) # s(x)*g(x)
+        
+    symbolic_sos_poly = symbolic_sos_poly_expr.as_poly(*sympy_vars)
+    
+    # Extract coefficients of the symbolic expression w.r.t the equality basis
+    # Each coefficient will be a linear expression in the elements of Q_sym
+    rhs_coeffs_dict = defaultdict(lambda: cp.Constant(0))
+    symbolic_coeffs = symbolic_sos_poly.as_dict()
+
+    for monom_tuple, symbolic_coeff_expr in symbolic_coeffs.items():
+        monom_sympy = sympy.S.One
+        for i, exp in enumerate(monom_tuple):
+            monom_sympy *= sympy_vars[i]**exp
+            
+        if monom_sympy in eq_basis_map:
+            eq_basis_idx = eq_basis_map[monom_sympy]
+            # Convert the symbolic coefficient expression (in Q_sym entries) to a CVXPY expression (in Q entries)
+            cvxpy_coeff_expr = cp.Constant(0)
+            linear_expr_dict = symbolic_coeff_expr.as_coefficients_dict()
+            for term, coeff in linear_expr_dict.items():
+                 if term == 1: # Constant term
+                      cvxpy_coeff_expr += float(coeff)
+                 elif isinstance(term, sympy.matrices.expressions.matexpr.MatrixElement):
+                      # term is Q_sym[r, c]
+                      r, c = term.args[1:]
+                      cvxpy_coeff_expr += float(coeff) * Q_matrix[r, c]
+                 else:
+                      logging.error(f"Unexpected term type {type(term)} in symbolic coefficient expression.")
+                      return None
+            # Accumulate expression for this equality basis monomial
+            rhs_coeffs_dict[eq_basis_idx] += cvxpy_coeff_expr
+        else:
+            # Term from symbolic expression is not in equality basis - degree mismatch?
+            if symbolic_coeff_expr != 0:
+                 logging.error(f"Monomial {monom_sympy} from symbolic SOS product not in equality basis.")
+                 return None
+                 
+    # Create the final CVXPY coefficient expression vector
+    final_coeffs_expr = cp.vstack([rhs_coeffs_dict[i] for i in range(eq_basis_len)])
+    
+    return final_coeffs_expr
+    # --- End Direct Coefficient Matching ---
+
+# --- Sum-of-Squares (SOS) Verification --- #
+def verify_sos(B_poly, dB_dt_poly, initial_polys, unsafe_polys, safe_polys, variables, degree=SOS_DEFAULT_DEGREE):
+    """Attempts to verify barrier conditions using SOS via CVXPY."""
+    logging.info(f"Attempting SOS verification (degree {degree})...")
+    available_solvers = cp.installed_solvers()
+    solver = None
+    if SOS_SOLVER in available_solvers: solver = SOS_SOLVER
+    elif cp.SCS in available_solvers: solver = cp.SCS; logging.warning(f"Preferred solver {SOS_SOLVER} not found. Using SCS.")
+    else: return None, None, None, "No suitable SDP solver (MOSEK or SCS) found by CVXPY."
+
+    results = { "lie_passed": None, "lie_reason": "Not attempted", "init_passed": None, "init_reason": "Not attempted", "unsafe_passed": None, "unsafe_reason": "Not attempted" }
+
+    try:
+        # --- SOS Problem Setup --- #
+        cp_vars = [cp.Variable(name=v.name) for v in variables]
+        # Determine max degree needed for equality basis
+        max_deg_lie = max(dB_dt_poly.total_degree(), max((p.total_degree() + degree for p in safe_polys), default=0))
+        max_deg_init = max(B_poly.total_degree(), max((p.total_degree() + degree for p in initial_polys), default=0))
+        max_deg_unsafe = max(B_poly.total_degree(), max((p.total_degree() + degree for p in unsafe_polys), default=0))
+        max_expr_deg = max(max_deg_lie, max_deg_init, max_deg_unsafe)
+        equality_basis = get_monomials(variables, max_expr_deg)
+        eq_basis_len = len(equality_basis)
+
+        # --- 1. Lie Derivative Check (-dB/dt >= 0 on Safe Set {g_i >= 0}) --- #
+        target_coeffs_lie = sympy_poly_to_coeffs(-dB_dt_poly, equality_basis, variables)
+        if target_coeffs_lie is None: raise ValueError("Failed getting coeffs for -dB/dt")
+        
+        constraints_lie, Q_vars_lie = add_sos_constraints_poly(
+            target_coeffs_lie, safe_polys, cp_vars, variables, degree, equality_basis
+        )
+        if constraints_lie is None:
+             raise ValueError("Failed formulating Lie SOS constraints.")
+
+        prob_lie = cp.Problem(cp.Minimize(0), constraints_lie)
+        prob_lie.solve(solver=solver, verbose=False)
+        results["lie_passed"] = prob_lie.status in [cp.OPTIMAL, cp.OPTIMAL_INACCURATE]
+        results["lie_reason"] = f"SOS Solver Status: {prob_lie.status}"
+
+    except Exception as e:
+        results["lie_passed"] = False; results["lie_reason"] = f"SOS setup/solve error: {e}"
+    logging.info(f"Lie SOS Result: {results['lie_passed']} ({results['lie_reason']})")
+
+    # --- 2. Initial Set Check (-B >= 0 on Initial Set {h_j >= 0}) --- #
+    try:
+        target_coeffs_init = sympy_poly_to_coeffs(-B_poly, equality_basis, variables)
+        if target_coeffs_init is None: raise ValueError("Failed getting coeffs for -B")
+        
+        constraints_init, Q_vars_init = add_sos_constraints_poly(
+            target_coeffs_init, initial_polys, cp_vars, variables, degree, equality_basis
+        )
+        if constraints_init is None:
+             raise ValueError("Failed formulating Init SOS constraints.")
+
+        prob_init = cp.Problem(cp.Minimize(0), constraints_init)
+        prob_init.solve(solver=solver, verbose=False)
+        results["init_passed"] = prob_init.status in [cp.OPTIMAL, cp.OPTIMAL_INACCURATE]
+        results["init_reason"] = f"SOS Solver Status: {prob_init.status}"
+    except Exception as e:
+        results["init_passed"] = False; results["init_reason"] = f"SOS setup/solve error: {e}"
+    logging.info(f"Init Set SOS Result: {results['init_passed']} ({results['init_reason']})")
+
+    # --- 3. Unsafe Set Check (B >= 0 on Unsafe Complement Set {k_l >= 0}) --- #
+    # Here unsafe_polys define the unsafe set H = {x | k_l(x) >= 0}. We need B >= 0 on H.
+    # This requires B = s0 + sum(sl * kl)
+    try:
+        target_coeffs_unsafe = sympy_poly_to_coeffs(B_poly, equality_basis, variables)
+        if target_coeffs_unsafe is None: raise ValueError("Failed getting coeffs for B")
+        
+        constraints_unsafe, Q_vars_unsafe = add_sos_constraints_poly(
+            target_coeffs_unsafe, unsafe_polys, cp_vars, variables, degree, equality_basis
+        )
+        if constraints_unsafe is None:
+             raise ValueError("Failed formulating Unsafe SOS constraints.")
+             
+        prob_unsafe = cp.Problem(cp.Minimize(0), constraints_unsafe)
+        prob_unsafe.solve(solver=solver, verbose=False)
+        results["unsafe_passed"] = prob_unsafe.status in [cp.OPTIMAL, cp.OPTIMAL_INACCURATE]
+        results["unsafe_reason"] = f"SOS Solver Status: {prob_unsafe.status}"
+    except Exception as e:
+        results["unsafe_passed"] = False; results["unsafe_reason"] = f"SOS setup/solve error: {e}"
+    logging.info(f"Unsafe Set SOS Result: {results['unsafe_passed']} ({results['unsafe_reason']})")
+
+    sos_passed = results["lie_passed"] and results["init_passed"] and results["unsafe_passed"]
+    sos_reason = f"Lie: {results['lie_reason']} | Init: {results['init_reason']} | Unsafe: {results['unsafe_reason']}"
+
+    return sos_passed, sos_reason, results
+
+def add_sos_constraints_poly(target_coeffs_np, set_polys, cp_vars, sympy_vars, mult_degree, eq_basis):
+    """Helper to add SOS constraints: target_coeffs == coeffs(s0 + sum(si*gi))"""
+    constraints = []
+    eq_basis_len = len(eq_basis)
+    s_basis_degree = mult_degree // 2
+    s_basis = get_monomials(sympy_vars, s_basis_degree)
+    s_basis_len = len(s_basis)
+    
+    Q_vars = {}
+
+    # s0 term
+    Q0 = cp.Variable((s_basis_len, s_basis_len), name="Q0", PSD=True)
+    constraints.append(Q0 >> 0) 
+    Q_vars["Q0"] = Q0
+    s0_coeffs_expr = calculate_sos_poly_coeffs(s_basis, Q0, eq_basis, sympy_vars, cp_vars)
+    if s0_coeffs_expr is None: return None, None
+    rhs_total_coeffs_expr = s0_coeffs_expr
+
+    # s_i * g_i terms
+    for i, g_poly in enumerate(set_polys):
+        Qi = cp.Variable((s_basis_len, s_basis_len), name=f"Q_{i+1}", PSD=True)
+        constraints.append(Qi >> 0)
+        Q_vars[f"Q_{i+1}"] = Qi
+        si_gi_coeffs_expr = calculate_sos_poly_coeffs(s_basis, Qi, eq_basis, sympy_vars, cp_vars, multiplier=g_poly)
+        if si_gi_coeffs_expr is None: return None, None
+        rhs_total_coeffs_expr += si_gi_coeffs_expr
+
+    # Equality constraint (vectorized)
+    constraints.append(target_coeffs_np == rhs_total_coeffs_expr)
+    
+    return constraints, Q_vars
+
+def calculate_sos_poly_coeffs(s_basis, Q_matrix, eq_basis, sympy_vars, cp_vars, multiplier=None):
+    """Symbolically computes coeffs of (Z^T Q Z) * multiplier w.r.t eq_basis."""
+    s_basis_len = len(s_basis)
+    eq_basis_len = len(eq_basis)
+    eq_basis_map = {m: i for i, m in enumerate(eq_basis)}
+    
+    # Symbolic computation using sympy 
+    Q_sym = sympy.MatrixSymbol(f"Q_{time.time_ns()}", s_basis_len, s_basis_len) # Unique name 
+    Z_sym = sympy.Matrix(s_basis)
+    sos_expr = sympy.expand((Z_sym.T * Q_sym * Z_sym)[0]) 
+    
+    if multiplier is not None:
+        sos_expr = sympy.expand(sos_expr * multiplier.as_expr())
+        
+    sos_poly = sos_expr.as_poly(*sympy_vars)
+    sos_coeffs_dict = sos_poly.as_dict()
+    
+    # Build CVXPY expression for coefficients
+    cvxpy_coeffs = [cp.Constant(0) for _ in range(eq_basis_len)]
+    for monom_tuple, symbolic_coeff_expr in sos_coeffs_dict.items():
+        monom_sympy = sympy.S.One
+        for i, exp in enumerate(monom_tuple):
+            monom_sympy *= sympy_vars[i]**exp
+            
+        if monom_sympy in eq_basis_map:
+            eq_basis_idx = eq_basis_map[monom_sympy]
+            # Convert symbolic coefficient (linear in Q entries) to CVXPY expression
+            cvxpy_lin_expr = cp.Constant(0)
+            linear_expr_dict = symbolic_coeff_expr.as_coefficients_dict()
+            for term, coeff in linear_expr_dict.items():
+                if term == 1:
+                    cvxpy_lin_expr += float(coeff)
+                elif isinstance(term, sympy.matrices.expressions.matexpr.MatrixElement):
+                    r, c = term.args[1:]
+                    cvxpy_lin_expr += float(coeff) * Q_matrix[r, c]
+                else:
+                    logging.error(f"Unhandled term type {type(term)} in symbolic SOS coefficient.")
+                    return None
+            cvxpy_coeffs[eq_basis_idx] += cvxpy_lin_expr
+        elif symbolic_coeff_expr != 0:
+            logging.error(f"Monomial {monom_sympy} from SOS product not in equality basis {eq_basis}.")
+            return None
+            
+    # Return as a CVXPY expression vector (stacking vertically)
+    return cp.vstack(cvxpy_coeffs)
+
+
+# --- Optimization-Based Falsification --- #
+
+def objective_maximize_lie(x, dB_dt_func, variables, safe_set_relationals):
+    """Objective function to maximize Lie derivative (-minimize -dBdt)
+       Returns large penalty if outside safe set."""
+    point_dict = {var.name: val for var, val in zip(variables, x)}
+    if not check_set_membership_numerical(point_dict, safe_set_relationals, variables):
+        return 1e10 # Large penalty for being outside safe set
+    try:
+        lie_val = dB_dt_func(**point_dict)
+        return -lie_val # Minimize negative Lie derivative
+    except Exception:
+        return 1e10 # Penalize errors
+
+def objective_maximize_b_in_init(x, b_func, variables, initial_set_relationals):
+    """Objective function to maximize B(x) in initial set (-minimize -B)
+       Returns large penalty if outside initial set."""
+    point_dict = {var.name: val for var, val in zip(variables, x)}
+    if not check_set_membership_numerical(point_dict, initial_set_relationals, variables):
+        return 1e10 # Large penalty
+    try:
+        b_val = b_func(**point_dict)
+        return -b_val # Minimize negative B
+    except Exception:
+        return 1e10
+
+def objective_minimize_b_outside_unsafe(x, b_func, variables, unsafe_set_relationals):
+    """Objective function to minimize B(x) *outside* unsafe set.
+       Returns large penalty if *inside* unsafe set."""
+    point_dict = {var.name: val for var, val in zip(variables, x)}
+    if check_set_membership_numerical(point_dict, unsafe_set_relationals, variables):
+        return 1e10 # Large penalty for being *inside* unsafe set
+    try:
+        b_val = b_func(**point_dict)
+        return b_val # Minimize B
+    except Exception:
+        return 1e10
+
+def optimization_based_falsification(B_func, dB_dt_func, sampling_bounds, variables,
+                                     initial_set_relationals, unsafe_set_relationals, safe_set_relationals):
+    """Uses differential evolution to search for counterexamples."""
+    logging.info("Performing optimization-based falsification...")
+    bounds = [(sampling_bounds[v.name][0], sampling_bounds[v.name][1]) for v in variables]
+    results = {
+        "lie_violation_found": None, "lie_max_val": None, "lie_point": None,
+        "init_violation_found": None, "init_max_val": None, "init_point": None,
+        "unsafe_violation_found": None, "unsafe_min_val": None, "unsafe_point": None,
+        "reason": ""
+    }
+
+    try:
+        # 1. Check Lie Derivative
+        if dB_dt_func and safe_set_relationals is not None:
+            opt_result_lie = differential_evolution(
+                objective_maximize_lie, bounds,
+                args=(dB_dt_func, variables, safe_set_relationals),
+                maxiter=OPTIMIZATION_MAX_ITER, popsize=OPTIMIZATION_POP_SIZE,
+                tol=0.01, mutation=(0.5, 1), recombination=0.7, updating='immediate'
+            )
+            if opt_result_lie.success:
+                max_lie_val = -opt_result_lie.fun
+                results["lie_max_val"] = max_lie_val
+                results["lie_point"] = {v.name: val for v, val in zip(variables, opt_result_lie.x)}
+                if max_lie_val > NUMERICAL_TOLERANCE:
+                    results["lie_violation_found"] = True
+                    logging.warning(f"Optimization found Lie violation: max(dB/dt)={max_lie_val:.4g} > {NUMERICAL_TOLERANCE} at {results['lie_point']}")
+                else:
+                    results["lie_violation_found"] = False
+            else:
+                 results["lie_reason"] = "Lie opt failed/inconclusive."
+
+        # 2. Check Initial Set
+        if B_func and initial_set_relationals is not None:
+            opt_result_init = differential_evolution(
+                objective_maximize_b_in_init, bounds,
+                args=(B_func, variables, initial_set_relationals),
+                maxiter=OPTIMIZATION_MAX_ITER, popsize=OPTIMIZATION_POP_SIZE,
+                tol=0.01, mutation=(0.5, 1), recombination=0.7, updating='immediate'
+            )
+            if opt_result_init.success:
+                 max_b_init = -opt_result_init.fun
+                 results["init_max_val"] = max_b_init
+                 results["init_point"] = {v.name: val for v, val in zip(variables, opt_result_init.x)}
+                 if max_b_init > NUMERICAL_TOLERANCE:
+                     results["init_violation_found"] = True
+                     logging.warning(f"Optimization found Initial Set violation: max(B)={max_b_init:.4g} > {NUMERICAL_TOLERANCE} at {results['init_point']}")
+                 else:
+                     results["init_violation_found"] = False
+            else:
+                 results["init_reason"] = "Init opt failed/inconclusive."
+
+        # 3. Check Unsafe Set
+        if B_func and unsafe_set_relationals is not None:
+             opt_result_unsafe = differential_evolution(
+                 objective_minimize_b_outside_unsafe, bounds,
+                 args=(B_func, variables, unsafe_set_relationals),
+                 maxiter=OPTIMIZATION_MAX_ITER, popsize=OPTIMIZATION_POP_SIZE,
+                 tol=0.01, mutation=(0.5, 1), recombination=0.7, updating='immediate'
+             )
+             if opt_result_unsafe.success:
+                 min_b_outside_unsafe = opt_result_unsafe.fun
+                 results["unsafe_min_val"] = min_b_outside_unsafe
+                 results["unsafe_point"] = {v.name: val for v, val in zip(variables, opt_result_unsafe.x)}
+                 # Check if B is significantly negative OUTSIDE unsafe set
+                 if min_b_outside_unsafe < -NUMERICAL_TOLERANCE:
+                     results["unsafe_violation_found"] = True
+                     logging.warning(f"Optimization found Unsafe Set violation: min(B)={min_b_outside_unsafe:.4g} < {-NUMERICAL_TOLERANCE} at {results['unsafe_point']}")
+                 else:
+                     results["unsafe_violation_found"] = False
+             else:
+                 results["unsafe_reason"] = "Unsafe opt failed/inconclusive."
+
+    except Exception as e:
+        logging.error(f"Error during optimization-based falsification: {e}")
+        results["reason"] = f"Optimization Error: {e}"
+
+    overall_violation_found = results["lie_violation_found"] or results["init_violation_found"] or results["unsafe_violation_found"]
+    return overall_violation_found, results
+
+
+# --- Main Verification Function (Integrates SOS and Optimization) ---
+
+def verify_barrier_certificate(candidate_B_str, system_info, attempt_sos=True, attempt_optimization=True):
+    """Main verification function. Parses conditions, checks SOS, symbolic, numerical sampling, and optimization."""
     start_time = time.time()
     logging.info(f"--- Verifying Candidate: {candidate_B_str} --- ")
     logging.info(f"System ID: {system_info.get('id', 'N/A')}")
@@ -307,103 +750,178 @@ def verify_barrier_certificate(candidate_B_str, system_info):
         "sos_reason": "Not Attempted",
         "symbolic_lie_check_passed": None,
         "symbolic_boundary_check_passed": None,
-        "numerical_lie_check_passed": None,
-        "numerical_boundary_check_passed": None,
+        "numerical_sampling_lie_passed": None,
+        "numerical_sampling_boundary_passed": None,
+        "numerical_sampling_reason": "Not Attempted",
+        "numerical_opt_attempted": False,
+        "numerical_opt_lie_violation_found": None,
+        "numerical_opt_init_violation_found": None,
+        "numerical_opt_unsafe_violation_found": None,
+        "numerical_opt_reason": "Not Attempted",
         "final_verdict": "Verification Error",
         "reason": "Initialization",
         "verification_time_seconds": 0
     }
 
+    # --- Basic Setup & Parsing --- #
     state_vars_str = system_info.get('state_variables', [])
     dynamics_str = system_info.get('dynamics', [])
-    # Expect lists of strings now
     initial_conditions_list = system_info.get('initial_set_conditions', [])
     unsafe_conditions_list = system_info.get('unsafe_set_conditions', [])
     safe_conditions_list = system_info.get('safe_set_conditions', [])
     sampling_bounds = system_info.get('sampling_bounds', None)
 
-    if not state_vars_str or not dynamics_str:
-        results['reason'] = "Incomplete system info (state_variables or dynamics)."
-        results['verification_time_seconds'] = time.time() - start_time
-        return results
-
+    if not state_vars_str or not dynamics_str: results['reason'] = "Incomplete system info"; results['verification_time_seconds'] = time.time() - start_time; return results
     variables = [sympy.symbols(var) for var in state_vars_str]
-
-    # 1. Parse Candidate B(x)
     B = parse_expression(candidate_B_str, variables)
     if B is None: results['reason'] = "Failed to parse candidate B(x)."; results['verification_time_seconds'] = time.time() - start_time; return results
     results['parsing_B_successful'] = True
     logging.info(f"Parsed B(x) = {B}")
 
-    # 2. Parse Set Conditions
     initial_set_relationals, init_parse_msg = parse_set_conditions(initial_conditions_list, variables)
     unsafe_set_relationals, unsafe_parse_msg = parse_set_conditions(unsafe_conditions_list, variables)
     safe_set_relationals, safe_parse_msg = parse_set_conditions(safe_conditions_list, variables)
-
     if initial_set_relationals is None or unsafe_set_relationals is None or safe_set_relationals is None:
-        results['reason'] = f"Set Parsing Failed: Init: {init_parse_msg}, Unsafe: {unsafe_parse_msg}, Safe: {safe_parse_msg}"
-        results['verification_time_seconds'] = time.time() - start_time
-        return results
+        results['reason'] = f"Set Parsing Failed: Init: {init_parse_msg}, Unsafe: {unsafe_parse_msg}, Safe: {safe_parse_msg}"; results['verification_time_seconds'] = time.time() - start_time; return results
     results['parsing_sets_successful'] = True
     logging.info("Parsed set conditions successfully.")
 
-    # 3. Calculate Lie Derivative Symbolically
     dB_dt = calculate_lie_derivative(B, variables, dynamics_str)
     if dB_dt is None: results['reason'] = "Failed to calculate Lie derivative."; results['verification_time_seconds'] = time.time() - start_time; return results
     results['lie_derivative_calculated'] = str(dB_dt)
     logging.info(f"Symbolic dB/dt = {dB_dt}")
 
-    # 4. Perform Symbolic Checks (Basic)
+    # --- Check if Polynomial for SOS --- #
+    dynamics_exprs = [parse_expression(d, variables) for d in dynamics_str]
+    init_polys = relationals_to_polynomials(initial_set_relationals, variables)
+    unsafe_polys = relationals_to_polynomials(unsafe_set_relationals, variables) # NOTE: Needs complement logic depending on B sign check
+    safe_polys = relationals_to_polynomials(safe_set_relationals, variables)
+
+    is_poly = check_polynomial(B, dB_dt, *dynamics_exprs, variables=variables) and \
+              init_polys is not None and unsafe_polys is not None and safe_polys is not None
+    results['is_polynomial_system'] = is_poly
+    logging.info(f"System is polynomial and suitable for SOS: {is_poly}")
+
+    # --- SOS Verification Attempt --- #
+    sos_passed = None # Use None to indicate not attempted or failed setup
+    if is_poly and attempt_sos:
+        try:
+            # Ensure cvxpy is available before calling SOS function
+            import cvxpy as cp
+            logging.info("Attempting SOS verification...")
+            sos_passed, sos_reason, sos_details = verify_sos(
+                 B.as_poly(*variables),
+                 dB_dt.as_poly(*variables),
+                 init_polys, # Requires >= 0 format
+                 unsafe_polys, # Requires >= 0 format (Check sign usage in verify_sos)
+                 safe_polys, # Requires >= 0 format
+                 variables
+             )
+            results['sos_attempted'] = True
+            results['sos_passed'] = sos_passed
+            results['sos_reason'] = sos_reason
+            results['sos_lie_passed'] = sos_details.get('lie_passed')
+            results['sos_init_passed'] = sos_details.get('init_passed')
+            results['sos_unsafe_passed'] = sos_details.get('unsafe_passed')
+            logging.info(f"SOS Verification Result: Passed={sos_passed}, Reason={sos_reason}")
+            # If SOS passes definitively, set final verdict and return
+            if sos_passed:
+                results['final_verdict'] = "Passed SOS Checks"
+                results['reason'] = sos_reason
+                results['verification_time_seconds'] = time.time() - start_time
+                return results
+            else:
+                # SOS failed or inconclusive, will proceed to numerical
+                results['reason'] = f"SOS Failed/Inconclusive: {sos_reason}"
+                current_reason = results['reason']
+
+        except ImportError:
+             logging.warning("CVXPY not installed. Skipping SOS verification.")
+             results['sos_reason'] = "CVXPY not installed"
+             current_reason = "SOS Skipped (CVXPY not installed)"
+        except Exception as e:
+             logging.error(f"Error during SOS verification setup/call: {e}")
+             results['sos_attempted'] = True
+             results['sos_passed'] = False # Mark as failed if error occurs
+             results['sos_reason'] = f"SOS Error: {e}"
+             current_reason = results['sos_reason']
+    else:
+        logging.info("System not polynomial or set conversion failed. Skipping SOS.")
+        results['sos_reason'] = "Not applicable (non-polynomial)"
+        current_reason = "SOS Skipped (Non-polynomial)"
+
+    # --- Symbolic Checks (Basic Fallback) --- #
     sym_lie_passed, sym_lie_reason = check_lie_derivative_symbolic(dB_dt, variables, safe_set_relationals)
     results['symbolic_lie_check_passed'] = sym_lie_passed
     sym_bound_passed, sym_bound_reason = check_boundary_symbolic(B, variables, initial_set_relationals, unsafe_set_relationals)
     results['symbolic_boundary_check_passed'] = sym_bound_passed
-    current_reason = f"Symbolic Lie: {sym_lie_reason} | Symbolic Boundary: {sym_bound_reason}"
+    # Append symbolic reason if SOS wasn't conclusive/skipped
+    if results['final_verdict'] == "Verification Error":
+        current_reason += f" | Symbolic Lie: {sym_lie_reason} | Symbolic Boundary: {sym_bound_reason}"
 
-    # 5. Perform Numerical Checks
-    num_lie_passed, num_lie_reason = None, "Numerical check skipped"
-    num_bound_passed, num_bound_reason = None, "Numerical check skipped"
-
+    # --- Numerical Checks (Sampling & Optimization) --- #
     B_func = lambdify_expression(B, variables)
     dB_dt_func = lambdify_expression(dB_dt, variables)
 
     if B_func and dB_dt_func and sampling_bounds:
-        logging.info("Proceeding with numerical checks...")
-        num_lie_passed, num_lie_reason = numerical_check_lie_derivative(
+        # Sampling
+        num_samp_lie_passed, num_samp_lie_reason = numerical_check_lie_derivative(
             dB_dt_func, sampling_bounds, variables, safe_set_relationals, NUM_SAMPLES_LIE
         )
-        num_bound_passed, num_bound_reason = numerical_check_boundary(
+        num_samp_bound_passed, num_samp_bound_reason = numerical_check_boundary(
             B_func, sampling_bounds, variables, initial_set_relationals, unsafe_set_relationals, NUM_SAMPLES_BOUNDARY
         )
-        current_reason = f"Numerical Lie: {num_lie_reason} | Numerical Boundary: {num_bound_reason}"
+        results['numerical_sampling_lie_passed'] = num_samp_lie_passed
+        results['numerical_sampling_boundary_passed'] = num_samp_bound_passed
+        current_reason = f"Sampling Lie: {num_samp_lie_reason} | Sampling Boundary: {num_samp_bound_reason}"
+        results['numerical_sampling_reason'] = current_reason
+
+        # Optimization Falsification
+        if attempt_optimization:
+            opt_violation_found, opt_details = optimization_based_falsification(B_func, dB_dt_func, sampling_bounds, variables, initial_set_relationals, unsafe_set_relationals, safe_set_relationals)
+            results['numerical_opt_attempted'] = True
+            results['numerical_opt_lie_violation_found'] = opt_details.get('lie_violation_found')
+            results['numerical_opt_init_violation_found'] = opt_details.get('init_violation_found')
+            results['numerical_opt_unsafe_violation_found'] = opt_details.get('unsafe_violation_found')
+            results['numerical_opt_reason'] = opt_details.get('reason', "Optimization check ran.")
+            # If optimization finds a violation, it overrides sampling results for failure
+            if opt_violation_found:
+                 current_reason += " | Optimization found counterexample!"
+                 # Ensure numerical pass status reflects opt failure
+                 if results['numerical_opt_lie_violation_found']: num_samp_lie_passed = False
+                 if results['numerical_opt_init_violation_found'] or results['numerical_opt_unsafe_violation_found']: num_samp_bound_passed = False
+            else:
+                 current_reason += " | Optimization found no counterexample."
+        else:
+             results['numerical_opt_reason'] = "Not Attempted"
+
+        # Update overall numerical pass status based on combined sampling and optimization
+        numerical_overall_passed = num_samp_lie_passed and num_samp_bound_passed
+        # We already set num_*_passed to False if opt found violation
+
     else:
          current_reason += " | Numerical checks skipped (lambdify failed or no bounds)."
-         logging.warning("Skipping numerical checks: lambdify failed or sampling_bounds missing.")
+         numerical_overall_passed = None # Indicate checks not performed
 
-    results['numerical_lie_check_passed'] = num_lie_passed
-    results['numerical_boundary_check_passed'] = num_bound_passed
     results['reason'] = current_reason
 
-    # 6. Determine Final Verdict
-    # Prioritize numerical results if performed
-    if num_lie_passed is not None and num_bound_passed is not None:
-        if num_lie_passed and num_bound_passed:
+    # --- Final Verdict --- # 
+    if results['final_verdict'] != "Passed SOS Checks": # If SOS didn't already pass
+        if numerical_overall_passed is True:
             results['final_verdict'] = "Passed Numerical Checks"
+        elif numerical_overall_passed is False:
+             results['final_verdict'] = "Failed Numerical Checks"
+        elif sym_lie_passed and sym_bound_passed: # Fallback to symbolic only if numerical checks couldn't run
+             results['final_verdict'] = "Passed Symbolic Checks (Basic)"
         else:
-            results['final_verdict'] = "Failed Numerical Checks"
-    # Fallback to basic symbolic if numerical checks were skipped but symbolic passed
-    elif sym_lie_passed and sym_bound_passed:
-         results['final_verdict'] = "Passed Symbolic Checks (Basic)"
-    # Otherwise, inconclusive or failed symbolic
-    else:
-         results['final_verdict'] = "Failed Symbolic Checks / Inconclusive"
+             results['final_verdict'] = "Failed Symbolic Checks / Inconclusive / Error"
 
     logging.info(f"Final Verdict: {results['final_verdict']}. Reason: {results['reason']}")
     results['verification_time_seconds'] = time.time() - start_time
     return results
 
 
-# --- Example Usage (Updated for list-based conditions) ---
+# --- Example Usage (Updated) ---
 if __name__ == '__main__':
     print("Testing verification logic...")
 
