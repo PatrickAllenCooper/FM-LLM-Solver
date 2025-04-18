@@ -95,11 +95,15 @@ paper_population/
 
 *   **Python:** Version 3.8 - 3.12 recommended. (Versions >= 3.13 may have compatibility issues with dependencies like `spacy`).
 *   **Git:** For cloning the repository.
-*   **Tesseract OCR Engine:** Required by `pytesseract` for OCR in Phase 2.
+*   **Tesseract OCR Engine:** Required by `pytesseract` for OCR.
     *   *Debian/Ubuntu:* `sudo apt update && sudo apt install tesseract-ocr`
     *   *macOS:* `brew install tesseract`
     *   *Windows:* Download installer from [Tesseract at UB Mannheim](https://github.com/UB-Mannheim/tesseract/wiki) or build from source.
-*   **CUDA Toolkit:** Required for GPU acceleration (fine-tuning, inference). Ensure compatibility with `torch` and `bitsandbytes` versions in `requirements.txt`. Check NVIDIA's documentation for installation.
+*   **CUDA Toolkit:** Required for GPU acceleration.
+    *   Ensure compatibility with `torch` and `bitsandbytes` versions in `requirements.txt`. Check NVIDIA's documentation for installation.
+*   **SDP Solver (for SOS Verification):** To use the Sum-of-Squares verification functionality (for polynomial systems), you need to install a compatible Semidefinite Programming solver.
+    *   **MOSEK:** Recommended (high-performance, commercial, free academic licenses available). Follow [MOSEK installation instructions](https://docs.mosek.com/latest/install/installation.html) and ensure `cvxpy` can find it.
+    *   **SCS:** Good open-source alternative. Install via pip: `pip install scs`. `cvxpy` should detect it automatically.
 
 ### Installation
 
@@ -120,6 +124,8 @@ paper_population/
 3.  **Install Dependencies:**
     ```bash
     pip install -r requirements.txt
+    # Install SCS if not using MOSEK for SOS:
+    # pip install scs
     ```
 
 4.  **Download SpaCy Model:**
@@ -236,15 +242,19 @@ This section guides you through performing a minimal run of the fine-tuning pipe
 
 ### 8. Evaluate the Pipeline
 
-*   **Populate Benchmark:** Add diverse systems to `evaluation/benchmark_systems.json`. **Ensure `sampling_bounds` are defined** for each system.
+*   **Populate Benchmark:** Add diverse systems to `evaluation/benchmark_systems.json`. Ensure `sampling_bounds` are defined. For SOS checks, ensure systems, certificates, and set definitions are polynomial and defined using `>= 0` or `<= 0` inequalities (parsed to `>=0` form by `relationals_to_polynomials`).
 *   Run the full evaluation pipeline using your trained adapter:
     ```bash
     python evaluation/evaluate_pipeline.py \\\
       --adapter ./results_full_run1/final_adapter \\\
       --benchmark evaluation/benchmark_systems.json \\\
-      --results evaluation/evaluation_full_run1.csv
+      --results evaluation/evaluation_full_run1.csv \\\
+      # Optional: Disable SOS checks if solver not installed or for non-poly benchmarks
+      # --no_sos \\\
+      # Optional: Disable optimization checks
+      # --no_opt \
     ```
-*   This script runs generation, attempts parsing, performs symbolic **and numerical** verification, and saves results.
+*   This script runs generation, attempts parsing, performs verification (SOS if applicable, symbolic, numerical sampling, optimization), and saves results.
 
 ---
 
@@ -263,19 +273,21 @@ python evaluation/evaluate_pipeline.py --help
 
 ## Verification Limitations
 
-⚠️ **The current verification (`evaluation/verify_certificate.py`) provides basic symbolic checks and more extensive numerical sampling checks, but it is NOT sufficient for formal safety guarantees.**
+⚠️ **The current verification (`evaluation/verify_certificate.py`) attempts multiple methods but still has limitations, especially regarding formal guarantees.**
 
-*   **Symbolic Checks:** Uses `sympy` to calculate the Lie derivative (\(\dot{B}\)). Checks if \(\dot{B}\) is identically zero, but other symbolic checks for \(\dot{B} \le 0\) are **heuristic** (e.g., looking for simple sums of negative squares) and not mathematically rigorous for general cases. Proving negativity of arbitrary symbolic expressions is generally undecidable.
-*   **Numerical Checks (Sampling):** Uses `numpy` and `scipy` (via `sympy.lambdify`) to randomly sample points within specified `sampling_bounds`.
-    *   Checks if \(\dot{B}(x) \le \epsilon\) for samples within the *approximated* safe set.
-    *   Checks boundary conditions (e.g., \(B(x) \le \epsilon\) in initial set, \(B(x) \ge -\epsilon\) outside unsafe set) on samples.
-    *   **Limitation:** This approach is essentially **falsification via sampling**. It can effectively find counterexamples if they are common within the sampled region, but **it cannot provide formal proof of validity.** A violation might exist between sample points, especially in high dimensions or complex regions. Increasing `NUM_SAMPLES_*` constants improves coverage but never guarantees completeness.
-    *   **Set Membership:** Set definitions (initial, unsafe, safe) are currently checked using `eval` on condition strings provided in the benchmark. This is flexible but **relies on trusted input** and is less robust than dedicated symbolic inequality parsing and handling.
-*   **Boundary Conditions:** Formal verification of boundary conditions (sign of B on set boundaries) remains particularly challenging, especially symbolically.
+*   **Sum-of-Squares (SOS):**
+    *   Uses `cvxpy` to formulate and solve SOS conditions as SDPs for **polynomial systems only**. Provides **formal verification** if the solver returns an optimal solution.
+    *   Requires a separate SDP solver installation (**MOSEK** recommended, **SCS** alternative).
+    *   **Current Implementation Note:** The logic for translating SymPy polynomials and SOS constraints into the specific CVXPY format (`calculate_sos_poly_coeffs`, `add_sos_constraints_poly`) is **complex and experimental**. It may require debugging or refinement for robust use across diverse polynomial forms.
+    *   Failure (`infeasible` status) means the SOS relaxation (at the chosen degree) failed, but does not formally disprove the property.
+*   **Symbolic Checks:** Basic checks for trivial cases (e.g., \(\dot{B} = 0\)) using `sympy`. Generally **inconclusive** for complex expressions.
+*   **Numerical Checks (Sampling & Optimization):**
+    *   Uses `numpy` and `scipy` for random sampling and `differential_evolution` based optimization (falsification).
+    *   Can effectively find **counterexamples** for both polynomial and non-polynomial systems if they exist within the search bounds.
+    *   These methods **do not provide formal proof** of validity; they only demonstrate the absence of violations within the tested samples/optimization search.
+    *   Set membership checks rely on `sympy` parsing and numerical evaluation, which is more robust than `eval` but may face precision issues.
 
-For reliable verification, especially for publication or deployment, integration with more advanced methods is necessary:
-*   **Sum-of-Squares (SOS) programming:** Provides formal guarantees for *polynomial* systems and certificates by recasting the verification problem as a solvable Semidefinite Program (SDP). Requires specialized solvers (e.g., MOSEK) and libraries (e.g., CVXPY with SOS extensions, PySOS, Drake).
-*   **Optimization-Based Falsification:** Uses numerical optimization techniques (e.g., from `scipy.optimize`) to actively search for a point \(x\) that maximizes \(\dot{B}(x)\) within the safe set or violates boundary conditions. This can be more effective at finding counterexamples than random sampling but still doesn't constitute a formal proof of validity.
+For the highest confidence, **SOS verification (when applicable and successful) is preferred**. Numerical checks serve as a fallback and are the primary method for non-polynomial systems.
 
 ---
 
@@ -287,10 +299,10 @@ This project was developed by **Patrick Cooper** as part of graduate work at the
 
 ## Future Work / Enhancements
 
+*   **SOS Implementation:** Refine and rigorously test the SymPy-to-CVXPY conversion and SOS constraint formulation in `verify_certificate.py`. Consider using dedicated SOS libraries (like `SumOfSquares.jl` via Python interface, or others) if the current approach proves too slow or difficult to maintain.
+*   **Robust Verification:** Implement optimization-based falsification fully (currently structure is there, needs testing/refinement). Replace any remaining risky parsing/evaluation with safer methods.
 *   **PDF Parsing:** Integrate GROBID (structure) or MathPix API (equations) into `knowledge_base_builder.py`.
 *   **Fine-tuning Data:** Explore semi-automated methods for extracting (System, Certificate) pairs.
-*   **Robust Verification:** Implement optimization-based falsification or interface with SOS solvers in `verify_certificate.py`. Replace `eval`-based set checks with safer parsing.
-*   **LLM Output Parsing:** Improve the robustness of `extract_certificate_from_llm_output`.
 *   **Experimentation:** Test different base LLMs, embedding models, vector databases, and fine-tuning strategies.
 *   **UI:** Develop a simple graphical or web interface.
  
