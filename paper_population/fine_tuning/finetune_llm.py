@@ -13,6 +13,8 @@ from transformers import (
 from peft import LoraConfig, PeftModel, get_peft_model
 from trl import SFTTrainer
 import warnings
+from paper_population.utils.config_loader import load_config, DEFAULT_CONFIG_PATH # Import config loader
+from omegaconf import OmegaConf, ListConfig # Import OmegaConf
 
 # Suppress warnings
 warnings.filterwarnings("ignore")
@@ -108,62 +110,61 @@ def formatting_prompt_completion_func(example):
 
 # --- Main Fine-tuning Logic ---
 
-def main(model_name, data_path, data_format, output_dir, num_epochs):
+def main(cfg):
+    """Main fine-tuning function, accepts configuration object."""
 
     print(f"--- Starting Fine-tuning Process ---")
-    print(f"Model: {model_name}")
-    print(f"Data Path: {data_path}")
-    print(f"Data Format: {data_format}")
-    print(f"Output Dir: {output_dir}")
+    # Log relevant config sections
+    print(f"Fine-tuning Config:
+{OmegaConf.to_yaml(cfg.fine_tuning)}")
+    print(f"Paths Config:
+{OmegaConf.to_yaml(cfg.paths)}")
 
     # 1. Load Dataset
-    print(f"Loading dataset from {data_path}...")
+    data_path = cfg.paths.ft_combined_data_file
+    data_format = cfg.fine_tuning.data_format
+    print(f"Loading dataset from {data_path} (Format: {data_format})...")
     try:
         dataset = load_dataset('json', data_path=data_path, split='train')
         print(f"Dataset loaded: {dataset}")
-        # Optional: Shuffle dataset
         dataset = dataset.shuffle(seed=42)
-        # Optional: Create train/validation split
-        # dataset_split = dataset.train_test_split(test_size=0.1)
-        # train_dataset = dataset_split["train"]
-        # eval_dataset = dataset_split["test"]
-        train_dataset = dataset # Use full dataset for training if no split
-        eval_dataset = None     # Set to None if not evaluating
-
+        # TODO: Add train/test split based on config flag if needed
+        train_dataset = dataset
+        eval_dataset = None
     except Exception as e:
         print(f"Error loading dataset: {e}")
         return
 
     # 2. Configure Quantization (QLoRA)
-    compute_dtype = getattr(torch, BNB_4BIT_COMPUTE_DTYPE)
-
+    compute_dtype = getattr(torch, cfg.fine_tuning.quantization.bnb_4bit_compute_dtype)
     bnb_config = BitsAndBytesConfig(
-        load_in_4bit=USE_4BIT,
-        bnb_4bit_quant_type=BNB_4BIT_QUANT_TYPE,
+        load_in_4bit=cfg.fine_tuning.quantization.use_4bit,
+        bnb_4bit_quant_type=cfg.fine_tuning.quantization.bnb_4bit_quant_type,
         bnb_4bit_compute_dtype=compute_dtype,
-        bnb_4bit_use_double_quant=USE_NESTED_QUANT,
+        bnb_4bit_use_double_quant=cfg.fine_tuning.quantization.use_nested_quant,
     )
 
     # Check GPU compatibility with bfloat16
-    if compute_dtype == torch.float16 and USE_4BIT:
+    if compute_dtype == torch.float16 and cfg.fine_tuning.quantization.use_4bit:
         major, _ = torch.cuda.get_device_capability()
         if major >= 8:
             print("=" * 80)
             print("Your GPU supports bfloat16: accelerate training with bf16=True")
             print("=" * 80)
-            # Set bf16=True in TrainingArguments below if desired
 
     # 3. Load Base Model
+    model_name = cfg.fine_tuning.base_model_name
+    output_dir = cfg.paths.ft_output_dir # Needed for TrainingArguments
     print(f"Loading base model: {model_name}...")
     try:
         model = AutoModelForCausalLM.from_pretrained(
             model_name,
             quantization_config=bnb_config,
-            device_map=DEVICE_MAP, # Automatically distributes across GPUs if available
-            # trust_remote_code=True # Needed for some models
+            device_map={"" : 0}, # Simple mapping, adjust if multi-GPU needed
+            trust_remote_code=True # Often needed
         )
-        model.config.use_cache = False # Required for gradient checkpointing
-        model.config.pretraining_tp = 1 # Set if needed for some model types
+        model.config.use_cache = False
+        model.config.pretraining_tp = 1
     except Exception as e:
         print(f"Error loading base model: {e}")
         return
@@ -172,97 +173,95 @@ def main(model_name, data_path, data_format, output_dir, num_epochs):
     print(f"Loading tokenizer for {model_name}...")
     try:
         tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
-        # Set padding token if missing (e.g., for Llama)
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
             print("Set pad_token to eos_token")
-        tokenizer.padding_side = "right" # Fix weird overflow issue with fp16 training
+        tokenizer.padding_side = "right"
     except Exception as e:
         print(f"Error loading tokenizer: {e}")
         return
 
     # 5. Configure LoRA
+    # Convert OmegaConf ListConfig to Python list for target_modules
+    lora_target_modules = list(cfg.fine_tuning.lora.target_modules)
     peft_config = LoraConfig(
-        lora_alpha=LORA_ALPHA,
-        lora_dropout=LORA_DROPOUT,
-        r=LORA_R,
+        lora_alpha=cfg.fine_tuning.lora.alpha,
+        lora_dropout=cfg.fine_tuning.lora.dropout,
+        r=cfg.fine_tuning.lora.r,
         bias="none",
         task_type="CAUSAL_LM",
-        target_modules=TARGET_MODULES
+        target_modules=lora_target_modules
     )
-
-    # If not using PEFT, model is loaded directly. If using PEFT:
-    # model = get_peft_model(model, peft_config) # Apply LoRA config
-    # print("PEFT model configured:")
+    # Apply PEFT model wrapper
+    # model = get_peft_model(model, peft_config) # Apply LoRA config - Use SFTTrainer's peft_config instead
+    # print("PEFT model configured via SFTTrainer parameter.")
     # model.print_trainable_parameters()
 
     # 6. Configure Training Arguments
+    # Convert relevant section to dict, handle specific types/defaults
+    training_args_dict = OmegaConf.to_container(cfg.fine_tuning.training, resolve=True)
+
+    # Handle device map (simple case for now)
+    # device_map_setting = cfg.fine_tuning.training.get("device_map", {"": 0})
+
+    # Handle boolean flags explicitly
+    packing_setting = bool(cfg.fine_tuning.training.get("packing", False))
+    group_by_length_setting = bool(cfg.fine_tuning.training.get("group_by_length", True))
+    gradient_checkpointing_setting = bool(cfg.fine_tuning.training.get("gradient_checkpointing", True))
+
+    # Determine fp16/bf16 flags based on compute dtype
+    use_fp16 = False
+    use_bf16 = (cfg.fine_tuning.quantization.bnb_4bit_compute_dtype == 'bfloat16')
+    # Check GPU capability for bf16 again if needed
+    if use_bf16 and torch.cuda.is_available() and not torch.cuda.is_bf16_supported():
+        print("Warning: bf16=True but not supported by GPU. Setting bf16=False.")
+        use_bf16 = False
+
     training_arguments = TrainingArguments(
-        output_dir=output_dir, # Use argument
-        num_train_epochs=num_epochs, # Use argument
-        per_device_train_batch_size=PER_DEVICE_TRAIN_BATCH_SIZE,
-        gradient_accumulation_steps=GRADIENT_ACCUMULATION_STEPS,
-        optim=OPTIM,
-        save_steps=SAVE_STEPS,
-        logging_steps=LOGGING_STEPS,
-        learning_rate=LEARNING_RATE,
-        weight_decay=WEIGHT_DECAY,
-        fp16=False, # Set to True if using float16 compute dtype and GPU supports it
-        bf16=True if BNB_4BIT_COMPUTE_DTYPE == 'bfloat16' else False, # Set based on compute dtype
-        max_grad_norm=MAX_GRAD_NORM,
-        max_steps=MAX_STEPS,
-        warmup_ratio=WARMUP_RATIO,
-        group_by_length=GROUP_BY_LENGTH,
-        lr_scheduler_type=LR_SCHEDULER_TYPE,
-        report_to="tensorboard", # Or "wandb", "none"
-        gradient_checkpointing=GRADIENT_CHECKPOINTING,
-        # evaluation_strategy="steps" if eval_dataset else "no", # Enable if eval_dataset exists
-        # eval_steps=SAVE_STEPS if eval_dataset else None,       # Evaluate every save_steps
-        # per_device_eval_batch_size=PER_DEVICE_EVAL_BATCH_SIZE, # If evaluating
+        output_dir=output_dir,
+        per_device_train_batch_size=training_args_dict['per_device_train_batch_size'],
+        gradient_accumulation_steps=training_args_dict['gradient_accumulation_steps'],
+        optim=training_args_dict['optim'],
+        save_steps=training_args_dict['save_steps'],
+        logging_steps=training_args_dict['logging_steps'],
+        learning_rate=training_args_dict['learning_rate'],
+        num_train_epochs=training_args_dict['num_train_epochs'],
+        weight_decay=training_args_dict['weight_decay'],
+        fp16=use_fp16,
+        bf16=use_bf16,
+        max_grad_norm=training_args_dict['max_grad_norm'],
+        max_steps=training_args_dict['max_steps'],
+        warmup_ratio=training_args_dict['warmup_ratio'],
+        group_by_length=group_by_length_setting,
+        lr_scheduler_type=training_args_dict['lr_scheduler_type'],
+        report_to="tensorboard",
+        gradient_checkpointing=gradient_checkpointing_setting,
+        # Add eval args if eval_dataset exists and configured
+        # evaluation_strategy="steps" if eval_dataset else "no",
+        # eval_steps=training_args_dict['save_steps'] if eval_dataset else None,
+        # per_device_eval_batch_size=training_args_dict['per_device_eval_batch_size'] if eval_dataset else None,
     )
 
     # 7. Initialize SFT Trainer
     print("Initializing SFT Trainer...")
-
-    # Select formatting function based on data_format
     formatting_func = None
-    dataset_text_field = None # Use default 'text' field if formatting_func is None
     if data_format == "instruction":
-        # For instruction format, we need to format the data into a single string
-        # SFTTrainer can handle this if dataset has 'instruction', 'input', 'output'
-        # but often a custom formatting function applying a model-specific template is better.
-        # Let's assume a simple text field 'text' will be created by a map function
-        # Or set dataset_text_field if your dataset has the combined text already
-        # Alternatively, provide the formatting_func directly:
         formatting_func = formatting_prompts_func
-        # We need to map the dataset to create the 'text' field expected by SFTTrainer
-        # when formatting_func is provided this way.
-        # However, TRL's SFTTrainer can sometimes infer this. Let's rely on that for now
-        # If errors occur, explicitly map the dataset first:
-        # mapped_train_dataset = train_dataset.map(lambda x: {'text': formatting_prompts_func(x)}, batched=True)
         print("Using instruction formatting.")
-
     elif data_format == "prompt_completion":
-        # For prompt/completion, SFTTrainer can often handle this directly if
-        # the dataset has 'prompt' and 'completion' columns. We might need to specify:
-        # dataset_text_field = "prompt" # Or combine them into a 'text' field
-        # Let's assume SFTTrainer handles prompt+completion, or use a formatting func to combine:
-        formatting_func = formatting_prompt_completion_func # Combines prompt+completion into 'text'
+        formatting_func = formatting_prompt_completion_func
         print("Using prompt/completion formatting (will combine into single 'text' field).")
-        # mapped_train_dataset = train_dataset.map(lambda x: {'text': formatting_prompt_completion_func(x)}, batched=True)
-
 
     trainer = SFTTrainer(
         model=model,
-        train_dataset=train_dataset, # Use mapped_train_dataset if you explicitly mapped
-        eval_dataset=eval_dataset, # Use mapped_eval_dataset if applicable
+        train_dataset=train_dataset,
+        eval_dataset=eval_dataset,
         peft_config=peft_config, # Pass LoRA config here
-        # dataset_text_field="text", # Specify if your dataset has a pre-formatted text field
-        formatting_func=formatting_func, # Pass formatting func if needed
-        max_seq_length=MAX_SEQ_LENGTH, # Specify sequence length if packing or needed
+        formatting_func=formatting_func,
+        max_seq_length=cfg.fine_tuning.training.max_seq_length if packing_setting else None,
         tokenizer=tokenizer,
         args=training_arguments,
-        packing=PACKING,
+        packing=packing_setting,
     )
 
     # 8. Start Training
@@ -272,48 +271,39 @@ def main(model_name, data_path, data_format, output_dir, num_epochs):
         print("--- Training Finished ---")
     except Exception as e:
         print(f"Error during training: {e}")
+        # Consider saving state or model here if possible
         return
 
     # 9. Save Final Adapter
-    final_adapter_path = os.path.join(output_dir, "final_adapter") # Use argument
+    final_adapter_path = os.path.join(output_dir, "final_adapter")
     print(f"Saving final adapter model to {final_adapter_path}...")
     try:
+        # Use save_pretrained from the trainer's model
         trainer.model.save_pretrained(final_adapter_path)
-        # Also save tokenizer
         tokenizer.save_pretrained(final_adapter_path)
         print("Adapter and tokenizer saved successfully.")
     except Exception as e:
         print(f"Error saving final adapter: {e}")
 
-    # --- Optional: Test Inference --- #
-    # print("\n--- Testing Inference --- ")
-    # try:
-    #     prompt = "Given the autonomous system described by the following dynamics, propose a suitable barrier certificate function B(x).\n System: dx/dt = -x^3 - y\ndy/dt = x - y^3" # Example prompt
-    #     pipe = pipeline(task="text-generation", model=model, tokenizer=tokenizer, max_length=200)
-    #     result = pipe(f"<s>[INST] {prompt} [/INST]")
-    #     print(result[0]['generated_text'])
-    # except Exception as e:
-    #     print(f"Error during inference test: {e}")
-
     print("\n--- Fine-tuning Script Completed ---")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Fine-tune a model for barrier certificate generation using QLoRA.")
-    parser.add_argument("--model_name", type=str, default=DEFAULT_MODEL_NAME,
-                        help=f"Hugging Face model name (default: {DEFAULT_MODEL_NAME}).")
-    parser.add_argument("--data_path", type=str, default=DEFAULT_DATA_PATH,
-                        help=f"Path to the fine-tuning data JSONL file (default: {DEFAULT_DATA_PATH}, typically created by combine_datasets.py).")
-    parser.add_argument("--data_format", type=str, default=DEFAULT_DATA_FORMAT, choices=["instruction", "prompt_completion"],
-                        help=f"Format of the data in the JSONL file (default: {DEFAULT_DATA_FORMAT}).")
-    # Add more arguments to override defaults if needed (e.g., --num_train_epochs)
-    parser.add_argument("--num_train_epochs", type=int, default=NUM_TRAIN_EPOCHS,
-                        help=f"Number of training epochs (default: {NUM_TRAIN_EPOCHS}).")
-    parser.add_argument("--output_dir", type=str, default=DEFAULT_OUTPUT_DIR,
-                        help=f"Output directory for checkpoints and final adapter (default: {DEFAULT_OUTPUT_DIR}).")
-
+    parser.add_argument("--config", type=str, default=DEFAULT_CONFIG_PATH,
+                        help="Path to the configuration YAML file.")
+    # Add specific CLI overrides if desired, e.g.:
+    # parser.add_argument("--num_train_epochs", type=int, help="Override num_train_epochs from config.")
     args = parser.parse_args()
 
-    # Ensure output directory exists
-    os.makedirs(args.output_dir, exist_ok=True)
+    # Load config
+    cfg = load_config(args.config)
 
-    main(args.model_name, args.data_path, args.data_format, args.output_dir, args.num_train_epochs) 
+    # --- Handle Overrides --- Example:
+    # if args.num_train_epochs is not None:
+    #     print(f"Overriding num_train_epochs with CLI value: {args.num_train_epochs}")
+    #     cfg.fine_tuning.training.num_train_epochs = args.num_train_epochs
+
+    # Ensure output directory exists
+    os.makedirs(cfg.paths.ft_output_dir, exist_ok=True)
+
+    main(cfg) 

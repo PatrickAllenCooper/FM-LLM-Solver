@@ -8,9 +8,11 @@ import cvxpy as cp
 from itertools import product, combinations_with_replacement
 from collections import defaultdict
 from scipy.optimize import differential_evolution # Import for optimization
+from omegaconf import DictConfig # To type hint config object
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+# Constants are now loaded from config passed into verify_barrier_certificate
 # --- Constants for Numerical Checks ---
 NUM_SAMPLES_LIE = 10000  # Samples for checking dB/dt <= 0
 NUM_SAMPLES_BOUNDARY = 5000 # Samples for checking init/unsafe set conditions
@@ -191,9 +193,9 @@ def generate_samples(sampling_bounds, variables, n_samples):
         samples.append({var_names[i]: point[i] for i in range(dim)})
     return samples
 
-def numerical_check_lie_derivative(dB_dt_func, sampling_bounds, variables, safe_set_relationals, n_samples):
+def numerical_check_lie_derivative(dB_dt_func, sampling_bounds, variables, safe_set_relationals, n_samples, tolerance):
     """Numerically checks if dB/dt <= tolerance within the safe set using sampling."""
-    logging.info(f"Performing numerical check for Lie derivative (<= {NUMERICAL_TOLERANCE}) with {n_samples} samples...")
+    logging.info(f"Performing numerical check for Lie derivative (<= {tolerance}) with {n_samples} samples...")
     if dB_dt_func is None: return False, "Lie derivative function invalid (lambdify failed?)."
     if not sampling_bounds: return False, "Sampling bounds not provided."
     if safe_set_relationals is None: return False, "Safe set conditions failed to parse."
@@ -203,27 +205,25 @@ def numerical_check_lie_derivative(dB_dt_func, sampling_bounds, variables, safe_
     checked_in_safe_set = 0
 
     for point_dict in samples:
-        # Use the robust check with parsed relationals
         is_in_safe_set = check_set_membership_numerical(point_dict, safe_set_relationals, variables)
 
         if is_in_safe_set:
             checked_in_safe_set += 1
             try:
                 lie_val = dB_dt_func(**point_dict)
-                if lie_val > NUMERICAL_TOLERANCE:
+                if lie_val > tolerance: # Use passed tolerance
                     violations += 1
                     logging.warning(f"Violation dB/dt <= 0: value={lie_val:.4g} at {point_dict}")
-                    # Optional early exit
             except Exception as e:
                 logging.error(f"Error evaluating Lie derivative at {point_dict}: {e}")
 
     if checked_in_safe_set == 0: return False, "No samples generated within the defined safe set/bounds."
-    if violations > 0: return False, f"Found {violations}/{checked_in_safe_set} violations (dB/dt <= {NUMERICAL_TOLERANCE}) in safe set samples."
+    if violations > 0: return False, f"Found {violations}/{checked_in_safe_set} violations (dB/dt <= {tolerance}) in safe set samples."
     else:
         logging.info(f"No violations found in {checked_in_safe_set} safe set samples.")
-        return True, f"Passed numerical check (dB/dt <= {NUMERICAL_TOLERANCE}) in {checked_in_safe_set} safe set samples."
+        return True, f"Passed numerical check (dB/dt <= {tolerance}) in {checked_in_safe_set} safe set samples."
 
-def numerical_check_boundary(B_func, sampling_bounds, variables, initial_set_relationals, unsafe_set_relationals, n_samples):
+def numerical_check_boundary(B_func, sampling_bounds, variables, initial_set_relationals, unsafe_set_relationals, n_samples, tolerance):
     """Numerically checks B(x) conditions on initial and unsafe set boundaries using sampling."""
     logging.info(f"Performing numerical check for boundary conditions with {n_samples} samples...")
     if B_func is None: return False, "Barrier function invalid (lambdify failed?)."
@@ -245,7 +245,7 @@ def numerical_check_boundary(B_func, sampling_bounds, variables, initial_set_rel
             is_in_init_set = check_set_membership_numerical(point_dict, initial_set_relationals, variables)
             if is_in_init_set:
                 checked_in_init += 1
-                if b_val > NUMERICAL_TOLERANCE:
+                if b_val > tolerance: # Use passed tolerance
                     init_violations += 1
                     logging.warning(f"Violation B <= 0 in Init Set: B={b_val:.4g} at {point_dict}")
 
@@ -253,7 +253,7 @@ def numerical_check_boundary(B_func, sampling_bounds, variables, initial_set_rel
             is_in_unsafe_set = check_set_membership_numerical(point_dict, unsafe_set_relationals, variables)
             if not is_in_unsafe_set:
                  checked_outside_unsafe += 1
-                 if b_val < -NUMERICAL_TOLERANCE:
+                 if b_val < -tolerance: # Use passed tolerance
                      unsafe_violations += 1
                      logging.warning(f"Violation B >= 0 outside Unsafe Set: B={b_val:.4g} at {point_dict}")
 
@@ -266,7 +266,7 @@ def numerical_check_boundary(B_func, sampling_bounds, variables, initial_set_rel
         if checked_in_init > 0:
             if init_violations > 0:
                 boundary_ok = False
-                reason.append(f"Failed Initial Set ({init_violations}/{checked_in_init} violates B <= {NUMERICAL_TOLERANCE}).")
+                reason.append(f"Failed Initial Set ({init_violations}/{checked_in_init} violates B <= {tolerance}).")
             else:
                 reason.append(f"Passed Initial Set ({checked_in_init} samples).")
         else:
@@ -278,7 +278,7 @@ def numerical_check_boundary(B_func, sampling_bounds, variables, initial_set_rel
         if checked_outside_unsafe > 0:
             if unsafe_violations > 0:
                 boundary_ok = False
-                reason.append(f"Failed Unsafe Set ({unsafe_violations}/{checked_outside_unsafe} violates B >= {-NUMERICAL_TOLERANCE}).")
+                reason.append(f"Failed Unsafe Set ({unsafe_violations}/{checked_outside_unsafe} violates B >= {-tolerance}).")
             else:
                 reason.append(f"Passed Unsafe Set ({checked_outside_unsafe} samples).")
         else:
@@ -372,14 +372,18 @@ def add_sos_constraints_poly(target_coeffs_np, set_polys, sympy_vars, mult_degre
     return constraints, Q_vars
 
 # --- Sum-of-Squares (SOS) Verification --- #
-def verify_sos(B_poly, dB_dt_poly, initial_polys, unsafe_polys, safe_polys, variables, degree=SOS_DEFAULT_DEGREE):
+def verify_sos(B_poly, dB_dt_poly, initial_polys, unsafe_polys, safe_polys, variables, degree, sos_solver_pref):
     """Attempts to verify barrier conditions using SOS via CVXPY."""
     logging.info(f"Attempting SOS verification (degree {degree})...")
     available_solvers = cp.installed_solvers()
     solver = None
-    if SOS_SOLVER in available_solvers: solver = SOS_SOLVER
-    elif cp.SCS in available_solvers: solver = cp.SCS; logging.warning(f"Preferred solver {SOS_SOLVER} not found. Using SCS.")
-    else: return False, "No suitable SDP solver (MOSEK or SCS) found.", { "lie_reason": "Solver not found", "init_reason": "Solver not found", "unsafe_reason": "Solver not found" }
+    if sos_solver_pref in available_solvers:
+        solver = sos_solver_pref
+    elif cp.SCS in available_solvers:
+        solver = cp.SCS
+        logging.warning(f"Preferred solver {sos_solver_pref} not found or specified incorrectly. Using SCS.")
+    else:
+        return False, "No suitable SDP solver (MOSEK or SCS) found.", { "lie_reason": "Solver not found", "init_reason": "Solver not found", "unsafe_reason": "Solver not found" }
     results = { "lie_passed": None, "lie_reason": "Not attempted", "init_passed": None, "init_reason": "Not attempted", "unsafe_passed": None, "unsafe_reason": "Not attempted" }
 
     try:
@@ -475,7 +479,8 @@ def objective_minimize_b_outside_unsafe(x, b_func, variables, unsafe_set_relatio
         return 1e10
 
 def optimization_based_falsification(B_func, dB_dt_func, sampling_bounds, variables,
-                                     initial_set_relationals, unsafe_set_relationals, safe_set_relationals):
+                                     initial_set_relationals, unsafe_set_relationals, safe_set_relationals,
+                                     max_iter, pop_size, tolerance):
     """Uses differential evolution to search for counterexamples."""
     logging.info("Performing optimization-based falsification...")
     bounds = [(sampling_bounds[v.name][0], sampling_bounds[v.name][1]) for v in variables]
@@ -492,16 +497,16 @@ def optimization_based_falsification(B_func, dB_dt_func, sampling_bounds, variab
             opt_result_lie = differential_evolution(
                 objective_maximize_lie, bounds,
                 args=(dB_dt_func, variables, safe_set_relationals),
-                maxiter=OPTIMIZATION_MAX_ITER, popsize=OPTIMIZATION_POP_SIZE,
+                maxiter=max_iter, popsize=pop_size, # Use config values
                 tol=0.01, mutation=(0.5, 1), recombination=0.7, updating='immediate'
             )
             if opt_result_lie.success:
                 max_lie_val = -opt_result_lie.fun
                 results["lie_max_val"] = max_lie_val
                 results["lie_point"] = {v.name: val for v, val in zip(variables, opt_result_lie.x)}
-                if max_lie_val > NUMERICAL_TOLERANCE:
+                if max_lie_val > tolerance: # Use config tolerance
                     results["lie_violation_found"] = True
-                    logging.warning(f"Optimization found Lie violation: max(dB/dt)={max_lie_val:.4g} > {NUMERICAL_TOLERANCE} at {results['lie_point']}")
+                    logging.warning(f"Optimization found Lie violation: max(dB/dt)={max_lie_val:.4g} > {tolerance} at {results['lie_point']}")
                 else:
                     results["lie_violation_found"] = False
             else:
@@ -512,16 +517,16 @@ def optimization_based_falsification(B_func, dB_dt_func, sampling_bounds, variab
             opt_result_init = differential_evolution(
                 objective_maximize_b_in_init, bounds,
                 args=(B_func, variables, initial_set_relationals),
-                maxiter=OPTIMIZATION_MAX_ITER, popsize=OPTIMIZATION_POP_SIZE,
+                maxiter=max_iter, popsize=pop_size, # Use config values
                 tol=0.01, mutation=(0.5, 1), recombination=0.7, updating='immediate'
             )
             if opt_result_init.success:
                  max_b_init = -opt_result_init.fun
                  results["init_max_val"] = max_b_init
                  results["init_point"] = {v.name: val for v, val in zip(variables, opt_result_init.x)}
-                 if max_b_init > NUMERICAL_TOLERANCE:
+                 if max_b_init > tolerance: # Use config tolerance
                      results["init_violation_found"] = True
-                     logging.warning(f"Optimization found Initial Set violation: max(B)={max_b_init:.4g} > {NUMERICAL_TOLERANCE} at {results['init_point']}")
+                     logging.warning(f"Optimization found Initial Set violation: max(B)={max_b_init:.4g} > {tolerance} at {results['init_point']}")
                  else:
                      results["init_violation_found"] = False
             else:
@@ -532,17 +537,16 @@ def optimization_based_falsification(B_func, dB_dt_func, sampling_bounds, variab
              opt_result_unsafe = differential_evolution(
                  objective_minimize_b_outside_unsafe, bounds,
                  args=(B_func, variables, unsafe_set_relationals),
-                 maxiter=OPTIMIZATION_MAX_ITER, popsize=OPTIMIZATION_POP_SIZE,
+                 maxiter=max_iter, popsize=pop_size, # Use config values
                  tol=0.01, mutation=(0.5, 1), recombination=0.7, updating='immediate'
              )
              if opt_result_unsafe.success:
                  min_b_outside_unsafe = opt_result_unsafe.fun
                  results["unsafe_min_val"] = min_b_outside_unsafe
                  results["unsafe_point"] = {v.name: val for v, val in zip(variables, opt_result_unsafe.x)}
-                 # Check if B is significantly negative OUTSIDE unsafe set
-                 if min_b_outside_unsafe < -NUMERICAL_TOLERANCE:
+                 if min_b_outside_unsafe < -tolerance: # Use config tolerance
                      results["unsafe_violation_found"] = True
-                     logging.warning(f"Optimization found Unsafe Set violation: min(B)={min_b_outside_unsafe:.4g} < {-NUMERICAL_TOLERANCE} at {results['unsafe_point']}")
+                     logging.warning(f"Optimization found Unsafe Set violation: min(B)={min_b_outside_unsafe:.4g} < {-tolerance} at {results['unsafe_point']}")
                  else:
                      results["unsafe_violation_found"] = False
              else:
@@ -558,11 +562,25 @@ def optimization_based_falsification(B_func, dB_dt_func, sampling_bounds, variab
 
 # --- Main Verification Function (Integrates SOS and Optimization) ---
 
-def verify_barrier_certificate(candidate_B_str, system_info, attempt_sos=True, attempt_optimization=True):
-    """Main verification function. Parses conditions, checks SOS, symbolic, numerical sampling, and optimization."""
+def verify_barrier_certificate(candidate_B_str: str, system_info: dict, verification_cfg: DictConfig):
+    """Main verification function. Uses parameters from the verification_cfg (OmegaConf DictConfig)."""
     start_time = time.time()
     logging.info(f"--- Verifying Candidate: {candidate_B_str} --- ")
     logging.info(f"System ID: {system_info.get('id', 'N/A')}")
+
+    # Load verification parameters from config
+    num_samples_lie = verification_cfg.num_samples_lie
+    num_samples_boundary = verification_cfg.num_samples_boundary
+    numerical_tolerance = verification_cfg.numerical_tolerance
+    sos_default_degree = verification_cfg.sos_default_degree
+    # sos_solver_pref = cp.MOSEK # Cannot serialize easily, handle lookup here
+    sos_solver_pref_name = verification_cfg.get('sos_solver', 'MOSEK') # Get preferred solver name
+    sos_solver_pref = getattr(cp, sos_solver_pref_name, cp.MOSEK) # Default to MOSEK if invalid
+    sos_epsilon = verification_cfg.sos_epsilon # Currently unused, but loaded
+    opt_max_iter = verification_cfg.optimization_max_iter
+    opt_pop_size = verification_cfg.optimization_pop_size
+    attempt_sos = verification_cfg.attempt_sos
+    attempt_optimization = verification_cfg.attempt_optimization
 
     results = {
         "candidate_B": candidate_B_str,
@@ -632,19 +650,20 @@ def verify_barrier_certificate(candidate_B_str, system_info, attempt_sos=True, a
     logging.info(f"System is polynomial and suitable for SOS: {is_poly}")
 
     # --- SOS Verification Attempt --- #
-    sos_passed = None # Use None to indicate not attempted or failed setup
+    sos_passed = None
     if is_poly and attempt_sos:
         try:
-            # Ensure cvxpy is available before calling SOS function
             import cvxpy as cp
             logging.info("Attempting SOS verification...")
             sos_passed, sos_reason, sos_details = verify_sos(
                  B.as_poly(*variables),
                  dB_dt.as_poly(*variables),
-                 init_polys, # Requires >= 0 format
-                 unsafe_polys, # Requires >= 0 format (Check sign usage in verify_sos)
-                 safe_polys, # Requires >= 0 format
-                 variables
+                 init_polys,
+                 unsafe_polys,
+                 safe_polys,
+                 variables,
+                 degree=sos_default_degree, # Use config value
+                 sos_solver_pref=sos_solver_pref # Use resolved solver pref
              )
             results['sos_attempted'] = True
             results['sos_passed'] = sos_passed
@@ -695,10 +714,12 @@ def verify_barrier_certificate(candidate_B_str, system_info, attempt_sos=True, a
     if B_func and dB_dt_func and sampling_bounds:
         # Sampling
         num_samp_lie_passed, num_samp_lie_reason = numerical_check_lie_derivative(
-            dB_dt_func, sampling_bounds, variables, safe_set_relationals, NUM_SAMPLES_LIE
+            dB_dt_func, sampling_bounds, variables, safe_set_relationals,
+            n_samples=num_samples_lie, tolerance=numerical_tolerance # Use config values
         )
         num_samp_bound_passed, num_samp_bound_reason = numerical_check_boundary(
-            B_func, sampling_bounds, variables, initial_set_relationals, unsafe_set_relationals, NUM_SAMPLES_BOUNDARY
+            B_func, sampling_bounds, variables, initial_set_relationals, unsafe_set_relationals,
+            n_samples=num_samples_boundary, tolerance=numerical_tolerance # Use config values
         )
         results['numerical_sampling_lie_passed'] = num_samp_lie_passed
         results['numerical_sampling_boundary_passed'] = num_samp_bound_passed
@@ -707,7 +728,11 @@ def verify_barrier_certificate(candidate_B_str, system_info, attempt_sos=True, a
 
         # Optimization Falsification
         if attempt_optimization:
-            opt_violation_found, opt_details = optimization_based_falsification(B_func, dB_dt_func, sampling_bounds, variables, initial_set_relationals, unsafe_set_relationals, safe_set_relationals)
+            opt_violation_found, opt_details = optimization_based_falsification(
+                B_func, dB_dt_func, sampling_bounds, variables,
+                initial_set_relationals, unsafe_set_relationals, safe_set_relationals,
+                max_iter=opt_max_iter, pop_size=opt_pop_size, tolerance=numerical_tolerance # Use config values
+            )
             results['numerical_opt_attempted'] = True
             results['numerical_opt_lie_violation_found'] = opt_details.get('lie_violation_found')
             results['numerical_opt_init_violation_found'] = opt_details.get('init_violation_found')
@@ -750,9 +775,17 @@ def verify_barrier_certificate(candidate_B_str, system_info, attempt_sos=True, a
     return results
 
 
-# --- Example Usage (Updated) ---
+# --- Example Usage (Updated - Now needs a config object) ---
 if __name__ == '__main__':
     print("Testing verification logic...")
+    # This example usage won't work directly without loading a config.
+    # For standalone testing, manually create a DictConfig or load the main config.
+    from paper_population.utils.config_loader import load_config
+    cfg = load_config() # Load the default config
+    if not cfg:
+        sys.exit("Could not load config for testing.")
+
+    verification_cfg = cfg.evaluation.verification # Extract verification sub-config
 
     test_system_1 = {
         "id": "example_1",
@@ -770,22 +803,22 @@ if __name__ == '__main__':
 
     print("\nTest Case 1: Known Valid B(x)")
     candidate_1 = "x**2 + y**2"
-    result_1 = verify_barrier_certificate(candidate_1, test_system_1)
+    result_1 = verify_barrier_certificate(candidate_1, test_system_1, verification_cfg)
     print(f"Result for '{candidate_1}': {json.dumps(result_1, indent=2)}")
 
     print("\nTest Case 2: Invalid Lie Derivative B(x)")
     candidate_2 = "x + y"
-    result_2 = verify_barrier_certificate(candidate_2, test_system_1)
+    result_2 = verify_barrier_certificate(candidate_2, test_system_1, verification_cfg)
     print(f"Result for '{candidate_2}': {json.dumps(result_2, indent=2)}")
 
     print("\nTest Case 3: Invalid Boundary B(x)")
     candidate_3 = "-x**2 - y**2"
-    result_3 = verify_barrier_certificate(candidate_3, test_system_1)
+    result_3 = verify_barrier_certificate(candidate_3, test_system_1, verification_cfg)
     print(f"Result for '{candidate_3}': {json.dumps(result_3, indent=2)}")
 
     print("\nTest Case 4: Invalid Syntax B(x)")
     candidate_4 = "x^^2 + y"
-    result_4 = verify_barrier_certificate(candidate_4, test_system_1)
+    result_4 = verify_barrier_certificate(candidate_4, test_system_1, verification_cfg)
     print(f"Result for '{candidate_4}': {json.dumps(result_4, indent=2)}")
 
     print("\nTest Case 5: Non-polynomial Dynamics (Should Skip SOS)")
@@ -802,5 +835,5 @@ if __name__ == '__main__':
          "sampling_bounds": { "x": [-2.0, 2.0], "y": [-2.0, 2.0] }
     }
     candidate_5 = "x**2 + y**2"
-    result_5 = verify_barrier_certificate(candidate_5, test_system_np)
+    result_5 = verify_barrier_certificate(candidate_5, test_system_np, verification_cfg)
     print(f"Result for '{candidate_5}' (Non-Poly System): {json.dumps(result_5, indent=2)}") 

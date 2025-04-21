@@ -9,42 +9,40 @@ import logging
 import sys
 import requests # For MathPix API calls
 import time
-import argparse # For command-line arguments
+import argparse # Keep argparse ONLY for --config override
+from paper_population.utils.config_loader import load_config, DEFAULT_CONFIG_PATH # Import config loader
 
 # --- Configuration ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+# Load configuration
+# We need argparse BEFORE loading config to allow overriding the config path
+parser_init = argparse.ArgumentParser(add_help=False) # Initial parser for config path only
+parser_init.add_argument("--config", type=str, default=DEFAULT_CONFIG_PATH, help="Path to the configuration YAML file.")
+args_init, _ = parser_init.parse_known_args()
+cfg = load_config(args_init.config)
+
 # Mathpix API Credentials (READ FROM ENVIRONMENT VARIABLES)
-# IMPORTANT: Set these environment variables before running the script
-# export MATHPIX_APP_ID='your_app_id'
-# export MATHPIX_APP_KEY='your_app_key'
 MATHPIX_APP_ID = os.environ.get("MATHPIX_APP_ID")
 MATHPIX_APP_KEY = os.environ.get("MATHPIX_APP_KEY")
+if not MATHPIX_APP_ID or not MATHPIX_APP_KEY:
+    logging.error("Mathpix API credentials (MATHPIX_APP_ID, MATHPIX_APP_KEY) not found in environment variables.")
+    logging.error("Please set them before running. Exiting.")
+    sys.exit(1)
+logging.info("Mathpix credentials found.")
+
 MATHPIX_API_URL = "https://api.mathpix.com/v3/pdf"
 
-# Directories
-BASE_DIR = os.path.dirname(__file__) # Directory of the script (knowledge_base)
-# Assume project root is one level up
-PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, ".."))
-# Default PDF input relative to project root
-DEFAULT_PDF_INPUT_DIR = os.path.join(PROJECT_ROOT, "recent_papers_all_sources_v2")
-# Default KB output relative to this script's directory
-DEFAULT_KB_OUTPUT_DIR = os.path.join(BASE_DIR, "knowledge_base_mathpix")
+# Get parameters from config
+EMBEDDING_MODEL_NAME = cfg.knowledge_base.embedding_model_name
+VECTOR_STORE_FILENAME = cfg.paths.kb_vector_store_filename
+METADATA_FILENAME = cfg.paths.kb_metadata_filename
+CHUNK_TARGET_SIZE_MMD = cfg.knowledge_base.chunk_target_size_mmd
+CHUNK_OVERLAP_MMD = cfg.knowledge_base.chunk_overlap_mmd
+POLL_MAX_WAIT = cfg.knowledge_base.mathpix_poll_max_wait_sec
+POLL_INTERVAL = cfg.knowledge_base.mathpix_poll_interval
 
-# Embedding Model
-EMBEDDING_MODEL_NAME = 'all-mpnet-base-v2' # Good general-purpose starting model
-
-# Vector Store
-VECTOR_STORE_FILENAME = "paper_index_mathpix.faiss"
-METADATA_FILENAME = "paper_metadata_mathpix.jsonl" # Use JSONL for potentially large MMD strings
-
-# Chunking Parameters (adjust for MMD content)
-# Chunking by paragraphs seems reasonable for MMD
-CHUNK_TARGET_SIZE_MMD = 1000 # Target characters per chunk
-CHUNK_OVERLAP_MMD = 150    # Character overlap
-
-# --- SpaCy Model Loading (Optional - can be used for paragraph splitting) ---
-# Keep SpaCy loading, but make it optional if we primarily split by markdown rules
+# --- SpaCy Model Loading --- (Keep as is, not configuration-dependent)
 SPACY_MODEL_NAME = "en_core_web_sm"
 nlp = None
 try:
@@ -54,24 +52,19 @@ except OSError:
     logging.warning(f"SpaCy model '{SPACY_MODEL_NAME}' not found. Will fallback to basic newline splitting.")
 except Exception as e:
     logging.error(f"An error occurred loading the SpaCy model: {e}")
-    # Don't exit, just disable SpaCy features
 
-# --- Helper Functions ---
+# --- Helper Functions --- (Update functions needing config)
 
 def check_mathpix_credentials():
-    """Checks if Mathpix credentials are set."""
-    if not MATHPIX_APP_ID or not MATHPIX_APP_KEY:
-        logging.error("Mathpix API credentials (MATHPIX_APP_ID, MATHPIX_APP_KEY) not found in environment variables.")
-        logging.error("Please set them before running. Exiting.")
-        sys.exit(1)
-    logging.info("Mathpix credentials found.")
+    """Checks if Mathpix credentials are set (Already checked above)."""
+    pass # Already checked when loading config
 
-def process_pdf_with_mathpix(pdf_path):
+def process_pdf_with_mathpix(pdf_path, mathpix_app_id, mathpix_app_key):
     """Sends PDF to Mathpix API and retrieves MMD content."""
     logging.info(f"Processing '{os.path.basename(pdf_path)}' with Mathpix API...")
     headers = {
-        'app_id': MATHPIX_APP_ID,
-        'app_key': MATHPIX_APP_KEY
+        'app_id': mathpix_app_id,
+        'app_key': mathpix_app_key
     }
     # Options for the conversion, requesting MMD format
     options = {
@@ -85,6 +78,7 @@ def process_pdf_with_mathpix(pdf_path):
     try:
         with open(pdf_path, 'rb') as f:
             files = {'file': f}
+            # Use constants/variables loaded earlier
             response = requests.post(MATHPIX_API_URL, headers=headers, files=files, data=payload, timeout=300) # Long timeout for large PDFs
 
         if response.status_code == 200:
@@ -92,7 +86,8 @@ def process_pdf_with_mathpix(pdf_path):
             if "request_id" in response_data: # Async processing started
                  pdf_id = response_data["request_id"]
                  logging.info(f"  Mathpix request submitted. PDF ID: {pdf_id}. Waiting for conversion...")
-                 return get_mathpix_result(pdf_id)
+                 # Pass keys and config polling values to get_mathpix_result
+                 return get_mathpix_result(pdf_id, mathpix_app_id, mathpix_app_key, POLL_MAX_WAIT, POLL_INTERVAL)
             elif "mmd" in response_data: # Direct result (less common for PDF endpoint)
                  logging.info("  Mathpix returned result directly.")
                  return response_data["mmd"]
@@ -109,11 +104,11 @@ def process_pdf_with_mathpix(pdf_path):
         logging.error(f"  Unexpected error during Mathpix processing for {pdf_path}: {e}")
         return None
 
-def get_mathpix_result(pdf_id, max_wait_sec=600, poll_interval=10):
+def get_mathpix_result(pdf_id, mathpix_app_id, mathpix_app_key, max_wait_sec, poll_interval):
     """Polls Mathpix API to get the result for a given PDF ID."""
     headers = {
-        'app_id': MATHPIX_APP_ID,
-        'app_key': MATHPIX_APP_KEY
+        'app_id': mathpix_app_id,
+        'app_key': mathpix_app_key
     }
     url = f"{MATHPIX_API_URL}/{pdf_id}.mmd"
     start_time = time.time()
@@ -209,9 +204,21 @@ def chunk_mmd_content(mmd_text, target_size, overlap, source_pdf):
     return chunks
 
 # --- Main Logic (Refactored for Mathpix) ---
-def build_knowledge_base(pdf_input_dir, output_dir):
+def build_knowledge_base(cfg):
     """Main function to build the vector store and metadata using Mathpix."""
-    check_mathpix_credentials()
+    # check_mathpix_credentials() # Already checked at top level
+
+    output_dir = cfg.paths.kb_output_dir
+    pdf_input_dir = cfg.paths.pdf_input_dir
+    embedding_model_name = cfg.knowledge_base.embedding_model_name
+    vector_store_filename = cfg.paths.kb_vector_store_filename
+    metadata_filename = cfg.paths.kb_metadata_filename
+    chunk_target_size = cfg.knowledge_base.chunk_target_size_mmd
+    chunk_overlap = cfg.knowledge_base.chunk_overlap_mmd
+
+    # Get Mathpix keys loaded at top level
+    mathpix_app_id = MATHPIX_APP_ID
+    mathpix_app_key = MATHPIX_APP_KEY
 
     os.makedirs(output_dir, exist_ok=True)
 
@@ -230,7 +237,8 @@ def build_knowledge_base(pdf_input_dir, output_dir):
 
     for pdf_path in all_pdf_paths:
         logging.info(f"--- Processing: {os.path.basename(pdf_path)} ---")
-        mmd_content = process_pdf_with_mathpix(pdf_path)
+        # Pass keys to process_pdf_with_mathpix
+        mmd_content = process_pdf_with_mathpix(pdf_path, mathpix_app_id, mathpix_app_key)
 
         if not mmd_content:
             logging.warning(f"Failed to get MMD content from Mathpix for {os.path.basename(pdf_path)}")
@@ -242,10 +250,11 @@ def build_knowledge_base(pdf_input_dir, output_dir):
         potential_title = lines[0].strip("# ") if lines else "Unknown Title"
         # You might add more heuristics here
 
+        # Pass chunk parameters to chunk_mmd_content
         doc_chunks = chunk_mmd_content(
             mmd_content,
-            CHUNK_TARGET_SIZE_MMD,
-            CHUNK_OVERLAP_MMD,
+            chunk_target_size, # Use variable from config
+            chunk_overlap,     # Use variable from config
             pdf_path
         )
         # Add potential title to metadata of each chunk
@@ -265,10 +274,10 @@ def build_knowledge_base(pdf_input_dir, output_dir):
 
     # 2. Embed Chunks
     try:
-        logging.info(f"Loading embedding model: {EMBEDDING_MODEL_NAME}")
-        model = SentenceTransformer(EMBEDDING_MODEL_NAME)
+        logging.info(f"Loading embedding model: {embedding_model_name}")
+        model = SentenceTransformer(embedding_model_name)
     except Exception as e:
-        logging.error(f"Failed to load embedding model '{EMBEDDING_MODEL_NAME}': {e}")
+        logging.error(f"Failed to load embedding model '{embedding_model_name}': {e}")
         return
 
     logging.info("Embedding chunks...")
@@ -287,7 +296,7 @@ def build_knowledge_base(pdf_input_dir, output_dir):
     try:
         index.add(embeddings)
         logging.info(f"Added {index.ntotal} vectors to FAISS index.")
-        index_path = os.path.join(output_dir, VECTOR_STORE_FILENAME)
+        index_path = os.path.join(output_dir, vector_store_filename)
         faiss.write_index(index, index_path)
         logging.info(f"Saved FAISS index to {index_path}")
     except Exception as e:
@@ -295,7 +304,7 @@ def build_knowledge_base(pdf_input_dir, output_dir):
         return
 
     # 4. Save Metadata (as JSON Lines)
-    metadata_path = os.path.join(output_dir, METADATA_FILENAME)
+    metadata_path = os.path.join(output_dir, metadata_filename)
     try:
         with open(metadata_path, 'w', encoding='utf-8') as f:
             for i, chunk in enumerate(all_chunks_with_metadata):
@@ -311,26 +320,20 @@ def build_knowledge_base(pdf_input_dir, output_dir):
         logging.error(f"Failed to save metadata JSONL: {e}")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Build knowledge base from PDFs using Mathpix API.")
-    parser.add_argument("--pdf_dir", type=str, default=DEFAULT_PDF_INPUT_DIR,
-                        help=f"Directory containing PDF files (default: {DEFAULT_PDF_INPUT_DIR})")
-    parser.add_argument("--output_dir", type=str, default=DEFAULT_KB_OUTPUT_DIR,
-                        help=f"Directory to save the knowledge base index and metadata (default: {DEFAULT_KB_OUTPUT_DIR})")
-    # Add optional args for chunk size, overlap?
-    args = parser.parse_args()
-
     # Basic dependency check
     try:
         import sentence_transformers
         import faiss
         import numpy
         import requests
+        from omegaconf import OmegaConf # Add check for omegaconf
         # SpaCy is optional now
     except ImportError as e:
         print(f"Error: Missing dependency - {e}", file=sys.stderr)
         print("Please install required packages:", file=sys.stderr)
-        print("pip install -r requirements.txt", file=sys.stderr)
+        print("pip install -r paper_population/requirements.txt", file=sys.stderr)
         sys.exit(1)
 
-    build_knowledge_base(args.pdf_dir, args.output_dir)
+    # Config is already loaded at the top
+    build_knowledge_base(cfg)
     logging.info("Mathpix-based knowledge base build process finished.") 

@@ -3,13 +3,11 @@ import json
 import logging
 import argparse
 import glob
+import re # Import re
+from paper_population.utils.config_loader import load_config, DEFAULT_CONFIG_PATH # Import config loader
 
 # --- Configuration ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
-BASE_DIR = os.path.dirname(__file__)
-# Default output file within the fine_tuning directory
-DEFAULT_COMBINED_OUTPUT_FILE = os.path.join(BASE_DIR, "finetuning_data_combined.jsonl")
 
 # --- Main Logic ---
 
@@ -22,13 +20,24 @@ def combine_datasets(input_patterns, output_file, required_source=None):
 
     # Expand glob patterns to get list of files
     input_files = []
+    # Note: input_patterns are now expected to be potentially relative to project root
+    # or already resolved by the caller.
     for pattern in input_patterns:
-        # Construct full path if pattern is relative
+        # Check if pattern is absolute
         if not os.path.isabs(pattern):
-            pattern = os.path.join(BASE_DIR, pattern) # Assume relative to script dir
-        matched_files = glob.glob(pattern, recursive=True)
+            # Assume relative to PROJECT_ROOT if not absolute
+            # This requires PROJECT_ROOT to be available or passed
+            # Let's assume caller passes absolute paths or patterns resolved relative to root
+             pattern_to_glob = pattern # Rely on caller providing correct pattern
+             # Alternative (if PROJECT_ROOT is known here):
+             # PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+             # pattern_to_glob = os.path.join(PROJECT_ROOT, pattern)
+        else:
+             pattern_to_glob = pattern
+
+        matched_files = glob.glob(pattern_to_glob, recursive=True)
         if not matched_files:
-             logging.warning(f"Input pattern '{pattern}' did not match any files.")
+             logging.warning(f"Input pattern '{pattern}' (resolved to '{pattern_to_glob}') did not match any files.")
         input_files.extend(matched_files)
 
     if not input_files:
@@ -131,16 +140,41 @@ def combine_datasets(input_patterns, output_file, required_source=None):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Combine and filter fine-tuning datasets from JSONL files.")
-    parser.add_argument("input_patterns", nargs='+', # Accept one or more patterns
-                        help="Glob pattern(s) for input JSONL files (e.g., '*.jsonl', 'manual_data.jsonl synthetic_data.jsonl'). Assumed relative to script directory if not absolute.")
-    parser.add_argument("--output_file", type=str, default=DEFAULT_COMBINED_OUTPUT_FILE,
-                        help=f"Path to save the combined data JSONL file (default: {DEFAULT_COMBINED_OUTPUT_FILE}).")
+    # Keep config path override
+    parser.add_argument("--config", type=str, default=DEFAULT_CONFIG_PATH,
+                        help="Path to the configuration YAML file.")
+    # Change input_patterns to be optional - will use defaults from config if not provided
+    parser.add_argument("--input_patterns", nargs='*', default=None, # Default to None
+                        help="Override glob pattern(s) for input JSONL files (default: use paths from config like ft_manual_data_file, ft_extracted_data_file). Use quotes for patterns.")
+    parser.add_argument("--output_file", type=str, default=None, # Default to None
+                        help="Override the path to save the combined data JSONL file (default: from config paths.ft_combined_data_file).")
     parser.add_argument("--required_source", type=str, default=None,
                         help="Optional: Only include data points with this specific 'source' value in their metadata.")
 
     args = parser.parse_args()
 
-    # Ensure the output directory exists
-    os.makedirs(os.path.dirname(args.output_file), exist_ok=True)
+    # Load configuration
+    cfg = load_config(args.config)
 
-    combine_datasets(args.input_patterns, args.output_file, args.required_source) 
+    # Determine input patterns
+    if args.input_patterns:
+        # Use patterns provided via command line
+        patterns_to_use = args.input_patterns
+        logging.info(f"Using input patterns from command line: {patterns_to_use}")
+    else:
+        # Default to using specific files defined in config
+        patterns_to_use = [
+            cfg.paths.ft_manual_data_file,
+            cfg.paths.ft_extracted_data_file
+            # Add more default sources here if needed
+        ]
+        logging.info(f"Using default input files from config: {patterns_to_use}")
+
+    # Determine output file path
+    output_file_path = args.output_file if args.output_file else cfg.paths.ft_combined_data_file
+
+    # Ensure the output directory exists
+    os.makedirs(os.path.dirname(output_file_path), exist_ok=True)
+
+    # Call the function with resolved paths/patterns
+    combine_datasets(patterns_to_use, output_file_path, args.required_source) 

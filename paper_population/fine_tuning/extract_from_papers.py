@@ -4,6 +4,7 @@ import logging
 import argparse
 import random
 import sys
+from paper_population.utils.config_loader import load_config, DEFAULT_CONFIG_PATH # Import config loader
 
 # --- Configuration ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -134,19 +135,31 @@ Extracted JSON objects (or NONE):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate prompts for LLM-based extraction of System-Certificate pairs from Mathpix MMD knowledge base.")
-    parser.add_argument("--kb_meta", type=str, default=DEFAULT_KB_METADATA_PATH,
-                         help=f"Path to knowledge base metadata JSONL file (default: {DEFAULT_KB_METADATA_PATH})")
+    parser.add_argument("--config", type=str, default=DEFAULT_CONFIG_PATH,
+                         help="Path to the configuration YAML file.")
+    parser.add_argument("--kb_meta", type=str, default=None,
+                         help="Override path to knowledge base metadata JSONL file (default: from config paths.kb_metadata_filename)")
     parser.add_argument("--output_instructions_file", type=str, default="llm_extraction_prompts_mmd.txt",
                         help="File to save the generated prompts and instructions.")
     parser.add_argument("--num_papers", type=int, default=10,
                         help="Number of papers to generate prompts for (set to -1 for all). Default: 10.")
-    parser.add_argument("--reviewed_output", type=str, default=DEFAULT_LLM_EXTRACTION_OUTPUT_FILE,
-                         help=f"Path where the MANUALLY REVIEWED JSONL data should be saved (for informational purposes). Default: {DEFAULT_LLM_EXTRACTION_OUTPUT_FILE}")
+    parser.add_argument("--reviewed_output", type=str, default=None,
+                         help="Override path where the MANUALLY REVIEWED JSONL data should be saved (default: from config paths.ft_extracted_data_file).")
 
     args = parser.parse_args()
 
-    # Load from JSONL
-    kb_metadata_map = load_kb_metadata_jsonl(args.kb_meta)
+    # Load configuration
+    cfg = load_config(args.config)
+
+    # Determine paths from config or overrides
+    kb_metadata_path = args.kb_meta if args.kb_meta else cfg.paths.kb_metadata_filename
+    reviewed_output_path = args.reviewed_output if args.reviewed_output else cfg.paths.ft_extracted_data_file
+    # Determine base directory for saving instructions file (script's directory)
+    script_base_dir = os.path.dirname(__file__)
+    output_instructions_path = os.path.join(script_base_dir, args.output_instructions_file)
+
+    # Load from JSONL using determined path
+    kb_metadata_map = load_kb_metadata_jsonl(kb_metadata_path)
     if not kb_metadata_map:
         sys.exit(1)
 
@@ -160,7 +173,7 @@ if __name__ == "__main__":
 
     logging.info(f"Generating MMD-based prompts for {num_to_process} papers...")
 
-    all_prompts_content = """
+    all_prompts_content = f"""
 # LLM Extraction Prompts and Instructions (from Mathpix MMD)
 
 This file contains prompts designed to be used with a powerful Large Language Model
@@ -178,7 +191,7 @@ from Mathpix-generated Markdown (MMD) text containing LaTeX.
     *   Check if the JSON format is perfectly valid.
     *   Discard any incorrect, nonsensical, or badly formatted JSON objects.
     *   If the LLM outputted "NONE", ensure no pairs were missed.
-5.  **Save Verified Data:** Append ONLY the **verified and correct** JSON objects to your final reviewed data file (e.g., `{args.reviewed_output}`). Each valid JSON object should be on its own line.
+5.  **Save Verified Data:** Append ONLY the **verified and correct** JSON objects to your final reviewed data file (e.g., `{reviewed_output_path}`). Each valid JSON object should be on its own line.
 
 Failure to perform careful manual review will likely introduce errors into your fine-tuning dataset.
 """
@@ -204,14 +217,14 @@ Failure to perform careful manual review will likely introduce errors into your 
 
     # Save the prompts and instructions to a file
     try:
-        output_instructions_path = os.path.join(BASE_DIR, args.output_instructions_file)
+        # Use the path determined earlier
         with open(output_instructions_path, 'w', encoding='utf-8') as f:
             f.write(all_prompts_content)
         logging.info(f"Generated {processed_count} prompts. Instructions and prompts saved to: {output_instructions_path}")
-        logging.info(f"Please manually process this file with a powerful LLM and save the reviewed, verified results to a file like: {args.reviewed_output}")
+        logging.info(f"Please manually process this file with a powerful LLM and save the reviewed, verified results to a file like: {reviewed_output_path}")
     except Exception as e:
         logging.error(f"Failed to write prompts file: {e}")
 
     print(f"\nGenerated prompts for {processed_count} papers.")
-    print(f"See '{args.output_instructions_file}' (in '{BASE_DIR}') for prompts and instructions.")
-    print(f"Remember to MANUALLY REVIEW the LLM output before saving to '{args.reviewed_output}'.") 
+    print(f"See '{args.output_instructions_file}' (in '{script_base_dir}') for prompts and instructions.")
+    print(f"Remember to MANUALLY REVIEW the LLM output before saving to '{reviewed_output_path}'.") 

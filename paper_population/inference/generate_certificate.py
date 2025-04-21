@@ -14,40 +14,36 @@ from transformers import (
 from peft import PeftModel # To load LoRA adapter
 from sentence_transformers import SentenceTransformer
 import warnings
+import sys # Import sys
+from paper_population.utils.config_loader import load_config, DEFAULT_CONFIG_PATH # Import config loader
+from omegaconf import OmegaConf
 
 # --- Configuration ---
 warnings.filterwarnings("ignore")
 # Reduce transformers logging verbosity
-# Use basicConfig from logging directly
 import logging as py_logging
 py_logging.basicConfig(level=py_logging.INFO)
 logging.set_verbosity_error()
 
-# Paths and Models (Should match previous steps)
-# BASE_DIR is now the inference directory
-BASE_DIR = os.path.dirname(__file__)
-# Project root is one level up
-PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, ".."))
+# Load configuration early to allow overrides via CLI if needed
+parser_init = argparse.ArgumentParser(add_help=False)
+parser_init.add_argument("--config", type=str, default=DEFAULT_CONFIG_PATH, help="Path to the configuration YAML file.")
+args_init, _ = parser_init.parse_known_args()
+cfg = load_config(args_init.config)
 
-# Knowledge Base (Relative to PROJECT_ROOT)
-KB_DIR = os.path.join(PROJECT_ROOT, "knowledge_base", "knowledge_base_enhanced")
-VECTOR_STORE_FILENAME = "paper_index_enhanced.faiss"
-METADATA_FILENAME = "paper_metadata_enhanced.json"
-EMBEDDING_MODEL_NAME = 'all-mpnet-base-v2' # Must match the one used for building KB
+# Get config values (Paths and Models will be derived from loaded cfg)
+KB_DIR = cfg.paths.kb_output_dir
+VECTOR_STORE_FILENAME = cfg.paths.kb_vector_store_filename
+METADATA_FILENAME = cfg.paths.kb_metadata_filename
+EMBEDDING_MODEL_NAME = cfg.knowledge_base.embedding_model_name
+BASE_MODEL_NAME = cfg.fine_tuning.base_model_name
+ADAPTER_PATH = os.path.join(cfg.paths.ft_output_dir, "final_adapter") # Construct adapter path
 
-# Fine-tuned Model (Relative to PROJECT_ROOT)
-# Base model used during fine-tuning
-BASE_MODEL_NAME = "meta-llama/Meta-Llama-3-8B-Instruct" # Or the model you actually fine-tuned
-# Path to the saved LoRA adapter weights
-ADAPTER_PATH = os.path.join(PROJECT_ROOT, "results_barrier_certs", "final_adapter")
-
-# RAG Parameters
-NUM_CONTEXT_CHUNKS = 3 # How many chunks to retrieve from KB
-
-# Generation Parameters
-MAX_NEW_TOKENS = 512 # Max tokens for the generated certificate
-TEMPERATURE = 0.6 # Controls randomness (lower is more deterministic)
-TOP_P = 0.9       # Nucleus sampling
+# RAG/Generation Parameters from config
+NUM_CONTEXT_CHUNKS = cfg.inference.rag_k
+MAX_NEW_TOKENS = cfg.inference.max_new_tokens
+TEMPERATURE = cfg.inference.temperature
+TOP_P = cfg.inference.top_p
 
 # --- Helper Functions ---
 
@@ -62,43 +58,62 @@ def load_knowledge_base(kb_dir, index_filename, metadata_filename):
     try:
         py_logging.info(f"Loading FAISS index from {index_path}...")
         index = faiss.read_index(index_path)
-        py_logging.info(f"Loading metadata from {metadata_path}...")
+        py_logging.info(f"Loading metadata from {metadata_path} (JSONL)...")
+        metadata_map = {}
         with open(metadata_path, 'r', encoding='utf-8') as f:
-            metadata_map = {int(k): v for k, v in json.load(f).items()}
+            for line in f:
+                 if line.strip():
+                     data = json.loads(line)
+                     chunk_id = data.get('chunk_id')
+                     if chunk_id is not None:
+                         metadata_map[chunk_id] = data # Store full object
+                     else:
+                         py_logging.warning(f"Skipping metadata line without 'chunk_id': {line.strip()}")
+
         py_logging.info(f"Knowledge base loaded: {index.ntotal} vectors, {len(metadata_map)} metadata entries.")
         if index.ntotal != len(metadata_map):
-             py_logging.warning("Mismatch between index size and metadata size.")
+             py_logging.warning(f"Mismatch between index size ({index.ntotal}) and metadata size ({len(metadata_map)}).")
         return index, metadata_map
+    except json.JSONDecodeError as e:
+        py_logging.error(f"Error decoding metadata JSONL line in {metadata_path}: {e}")
+        return None, None
     except Exception as e:
         py_logging.error(f"Failed to load knowledge base: {e}")
         return None, None
 
-def load_finetuned_model(base_model_name, adapter_path):
-    """Loads the base model with 4-bit quantization and merges the LoRA adapter."""
-    # Configure quantization (must match fine-tuning config)
+def load_finetuned_model(base_model_name, adapter_path, cfg):
+    """Loads the base model with quantization and merges the LoRA adapter, uses config."""
+    # Configure quantization from config
+    quant_cfg = cfg.fine_tuning.quantization
+    compute_dtype = getattr(torch, quant_cfg.bnb_4bit_compute_dtype)
     bnb_config = BitsAndBytesConfig(
-        load_in_4bit=True,
-        bnb_4bit_quant_type="nf4",
-        bnb_4bit_compute_dtype=torch.float16, # Or bfloat16 if used
-        bnb_4bit_use_double_quant=False,
+        load_in_4bit=quant_cfg.use_4bit,
+        bnb_4bit_quant_type=quant_cfg.bnb_4bit_quant_type,
+        bnb_4bit_compute_dtype=compute_dtype,
+        bnb_4bit_use_double_quant=quant_cfg.use_nested_quant,
     )
+    # device_map_setting = cfg.fine_tuning.training.get("device_map", {"": 0})
+    device_map_setting = {"": 0} # Simple default for inference
 
     try:
         py_logging.info(f"Loading base model: {base_model_name}...")
         base_model = AutoModelForCausalLM.from_pretrained(
             base_model_name,
             quantization_config=bnb_config,
-            device_map={"": 0}, # Load on GPU 0
+            device_map=device_map_setting, # Use setting
             trust_remote_code=True
         )
         py_logging.info("Base model loaded.")
 
         py_logging.info(f"Loading adapter from: {adapter_path}...")
-        # Load the LoRA adapter and merge it into the base model
+        # Check if adapter exists before loading
+        if not os.path.isdir(adapter_path):
+            py_logging.error(f"Adapter directory not found at {adapter_path}. Ensure fine-tuning completed and path is correct.")
+            return None, None
         model = PeftModel.from_pretrained(base_model, adapter_path)
         py_logging.info("Adapter loaded.")
 
-        # Important: Merge the adapter into the base model for optimized inference
+        # Merge adapter
         py_logging.info("Merging adapter into base model...")
         model = model.merge_and_unload()
         py_logging.info("Adapter merged.")
@@ -112,11 +127,11 @@ def load_finetuned_model(base_model_name, adapter_path):
 
         return model, tokenizer
 
-    except FileNotFoundError:
+    except FileNotFoundError: # Should be caught by the isdir check now
         py_logging.error(f"Adapter not found at {adapter_path}. Did fine-tuning complete successfully?")
         return None, None
     except Exception as e:
-        py_logging.error(f"Failed to load fine-tuned model or tokenizer: {e}")
+        py_logging.error(f"Failed to load fine-tuned model or tokenizer: {e}", exc_info=True)
         return None, None
 
 def retrieve_context(query, embedding_model, index, metadata_map, k):
@@ -132,12 +147,13 @@ def retrieve_context(query, embedding_model, index, metadata_map, k):
         py_logging.info(f"Retrieved chunk indices: {indices[0]} distances: {distances[0]}")
         for i, idx in enumerate(indices[0]):
             if idx != -1:
-                metadata = metadata_map.get(idx)
-                if metadata:
-                    context += f"--- Context Chunk {i+1} (Source: {metadata.get('source', 'N/A')}, Pages: {metadata.get('pages', 'N/A')}) ---\n"
-                    context += metadata.get('text', '[Error retrieving text]') + "\n\n"
+                chunk_data = metadata_map.get(idx) # Get full chunk object
+                if chunk_data:
+                    meta = chunk_data.get('metadata', {}) # Get nested metadata
+                    context += f"--- Context Chunk {i+1} (Source: {meta.get('source', 'N/A')}, Pages: {meta.get('pages', 'N/A')}) ---\n"
+                    context += chunk_data.get('text', '[Error retrieving text]') + "\n\n"
                 else:
-                    py_logging.warning(f"Metadata not found for retrieved index {idx}.")
+                    py_logging.warning(f"Metadata object not found for retrieved index {idx}.")
         return context.strip()
     except Exception as e:
         py_logging.error(f"Error during context retrieval: {e}")
@@ -162,49 +178,67 @@ def format_prompt_with_context(system_description, context):
 # --- Main Execution --- #
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Generate barrier certificate using RAG + Fine-tuned LLM.")
+    # Keep system_description as mandatory runtime argument
+    parser = argparse.ArgumentParser(description="Generate barrier certificate using RAG + Fine-tuned LLM.", parents=[parser_init]) # Inherit --config flag
     parser.add_argument("system_description", type=str,
                         help="Text description of the autonomous system (dynamics, constraints, sets). Put in quotes.")
-    parser.add_argument("-k", type=int, default=NUM_CONTEXT_CHUNKS,
-                        help=f"Number of context chunks to retrieve (default: {NUM_CONTEXT_CHUNKS}).")
-    parser.add_argument("--base_model", type=str, default=BASE_MODEL_NAME,
-                        help=f"Base model name used for fine-tuning (default: {BASE_MODEL_NAME}).")
-    # Allow specifying adapter path relative to project root or absolute
-    parser.add_argument("--adapter", type=str, default=ADAPTER_PATH,
-                        help=f"Path to the fine-tuned LoRA adapter (default: {ADAPTER_PATH}).")
-    # Allow specifying KB dir relative to project root or absolute
-    parser.add_argument("--kb_dir", type=str, default=KB_DIR,
-                         help=f"Path to the knowledge base directory (default: {KB_DIR})")
-    parser.add_argument("--max_tokens", type=int, default=MAX_NEW_TOKENS,
-                        help=f"Maximum new tokens for generation (default: {MAX_NEW_TOKENS}).")
-    parser.add_argument("--temp", type=float, default=TEMPERATURE,
-                        help=f"Generation temperature (default: {TEMPERATURE}).")
+    # Make other args optional overrides
+    parser.add_argument("-k", type=int, default=None,
+                        help=f"Override number of context chunks to retrieve (default: {NUM_CONTEXT_CHUNKS} from config).")
+    parser.add_argument("--max_tokens", type=int, default=None,
+                        help=f"Override maximum new tokens for generation (default: {MAX_NEW_TOKENS} from config).")
+    parser.add_argument("--temp", type=float, default=None,
+                        help=f"Override generation temperature (default: {TEMPERATURE} from config).")
+    # Add overrides for model/adapter/kb paths if needed, though config is preferred
+    # parser.add_argument("--base_model", type=str, help="Override base model name.")
+    # parser.add_argument("--adapter", type=str, help="Override adapter path.")
+    # parser.add_argument("--kb_dir", type=str, help="Override knowledge base directory.")
+
     args = parser.parse_args()
 
+    # --- Determine final parameters (Config + CLI Overrides) ---
+    k_to_use = args.k if args.k is not None else NUM_CONTEXT_CHUNKS
+    max_tokens_to_use = args.max_tokens if args.max_tokens is not None else MAX_NEW_TOKENS
+    temp_to_use = args.temp if args.temp is not None else TEMPERATURE
+    # Example override checks (if added to argparse):
+    # base_model_to_use = args.base_model if args.base_model else BASE_MODEL_NAME
+    # adapter_to_use = args.adapter if args.adapter else ADAPTER_PATH
+    # kb_dir_to_use = args.kb_dir if args.kb_dir else KB_DIR
+    base_model_to_use = BASE_MODEL_NAME
+    adapter_to_use = ADAPTER_PATH
+    kb_dir_to_use = KB_DIR
+    embedding_model_to_use = EMBEDDING_MODEL_NAME
+    vector_store_to_use = VECTOR_STORE_FILENAME
+    metadata_to_use = METADATA_FILENAME
+
     print("--- Initializing RAG + Fine-tuned LLM Pipeline ---")
+    print(f"Using Config: {args.config}")
+    print(f"Runtime Params: k={k_to_use}, max_tokens={max_tokens_to_use}, temp={temp_to_use}")
+    print(f"Paths/Models: KB={kb_dir_to_use}, Base={base_model_to_use}, Adapter={adapter_to_use}")
 
     # 1. Load Knowledge Base Components
-    print(f"Loading Knowledge Base from {args.kb_dir}...")
-    faiss_index, metadata = load_knowledge_base(args.kb_dir, VECTOR_STORE_FILENAME, METADATA_FILENAME)
+    print(f"Loading Knowledge Base from {kb_dir_to_use}...")
+    faiss_index, metadata = load_knowledge_base(kb_dir_to_use, vector_store_to_use, metadata_to_use)
     if faiss_index is None or metadata is None:
-        exit(1)
+        sys.exit(1)
 
-    print("Loading Embedding Model...")
+    print(f"Loading Embedding Model: {embedding_model_to_use}...")
     try:
-        embed_model = SentenceTransformer(EMBEDDING_MODEL_NAME)
+        embed_model = SentenceTransformer(embedding_model_to_use)
     except Exception as e:
-        print(f"Error loading embedding model '{EMBEDDING_MODEL_NAME}': {e}")
-        exit(1)
+        print(f"Error loading embedding model '{embedding_model_to_use}': {e}")
+        sys.exit(1)
 
     # 2. Load Fine-tuned LLM
-    print(f"Loading Fine-tuned LLM (Base: {args.base_model}, Adapter: {args.adapter})...")
-    model, tokenizer = load_finetuned_model(args.base_model, args.adapter)
+    print(f"Loading Fine-tuned LLM (Base: {base_model_to_use}, Adapter: {adapter_to_use})...")
+    # Pass the loaded config object (cfg) to the model loader
+    model, tokenizer = load_finetuned_model(base_model_to_use, adapter_to_use, cfg)
     if model is None or tokenizer is None:
-        exit(1)
+        sys.exit(1)
 
     # 3. Retrieve Context (RAG)
-    print(f"Retrieving top-{args.k} context chunks for the query...")
-    context = retrieve_context(args.system_description, embed_model, faiss_index, metadata, args.k)
+    print(f"Retrieving top-{k_to_use} context chunks for the query...")
+    context = retrieve_context(args.system_description, embed_model, faiss_index, metadata, k_to_use)
     if context:
         print("--- Retrieved Context ---")
         print(context)
@@ -220,15 +254,14 @@ if __name__ == "__main__":
 
     # 5. Generate Certificate
     print("Generating barrier certificate candidate...")
-    # Use Hugging Face pipeline for simpler generation
     pipe = pipeline(
         task="text-generation",
         model=model,
         tokenizer=tokenizer,
-        max_new_tokens=args.max_tokens,
-        temperature=args.temp,
-        top_p=TOP_P,
-        do_sample=True # Important for temperature/top_p to have effect
+        max_new_tokens=max_tokens_to_use, # Use determined value
+        temperature=temp_to_use,          # Use determined value
+        top_p=TOP_P,                      # Use value from config
+        do_sample=True if temp_to_use > 0 else False # Enable sampling if temp > 0
     )
 
     try:

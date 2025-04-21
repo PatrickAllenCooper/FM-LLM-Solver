@@ -9,49 +9,61 @@ import csv # Add csv import
 from bs4 import BeautifulSoup # For parsing HTML
 import urllib.parse # For joining relative URLs
 import sys # For exiting
+from paper_population.utils.config_loader import load_config # Import config loader
 
-# --- Configuration ---
-# IMPORTANT: Replace with your actual email for Unpaywall/API politeness
-UNPAYWALL_EMAIL = "your-email@example.com"
+# Load configuration
+cfg = load_config()
+
+# --- Configuration from YAML ---
+# IMPORTANT: Ensure UNPAYWALL_EMAIL environment variable is set.
+UNPAYWALL_EMAIL = os.environ.get("UNPAYWALL_EMAIL")
+if not UNPAYWALL_EMAIL:
+    print("Error: UNPAYWALL_EMAIL environment variable not set. Please set it before running.", file=sys.stderr)
+    sys.exit(1)
+
 # Optional: Add your Semantic Scholar API Key if you have one for higher rate limits
-SEMANTIC_SCHOLAR_API_KEY = None # "YOUR_API_KEY" or None
+SEMANTIC_SCHOLAR_API_KEY = os.environ.get("SEMANTIC_SCHOLAR_API_KEY") # Also read from env var
+
+# Get parameters from config
+SLEEP_TIME_SCHOLARLY = cfg.data_fetching.sleep_time_scholarly
+SLEEP_TIME_API = cfg.data_fetching.sleep_time_api
+SLEEP_TIME_RETRY = cfg.data_fetching.sleep_time_retry
+MAX_RETRIES = cfg.data_fetching.max_retries
+REQUESTS_HEADERS = {
+    'User-Agent': cfg.data_fetching.requests_user_agent
+}
+PUBLICATION_LIMIT = cfg.data_fetching.publication_limit_per_author
+
+# Get paths from config
+output_dir = cfg.paths.pdf_input_dir # Fetcher saves PDFs here
+user_ids_csv_path = cfg.paths.user_ids_csv # Path to user IDs CSV
+
+# --- End Configuration ---
+
 
 # Read user IDs from CSV
 user_ids = []
-script_dir = os.path.dirname(__file__) # Get the directory of the current script
-csv_path = os.path.join(script_dir, "user_ids.csv")
 try:
-    with open(csv_path, mode='r', encoding='utf-8') as infile:
+    with open(user_ids_csv_path, mode='r', encoding='utf-8') as infile:
         reader = csv.reader(infile)
         header = next(reader, None) # Skip header row if it exists
         for row in reader:
             if row: # Ensure row is not empty
                 user_ids.append(row[0].strip()) # Assume ID is in the first column
     if not user_ids:
-        print(f"Warning: No user IDs found in {csv_path}")
+        print(f"Warning: No user IDs found in {user_ids_csv_path}")
 except FileNotFoundError:
-    print(f"Error: {csv_path} not found. Please create it with user IDs.")
+    print(f"Error: {user_ids_csv_path} not found. Please create it with user IDs.")
     user_ids = [] # Ensure user_ids is an empty list if file not found
     # Optional: exit if no users?
     # sys.exit("Exiting: No user IDs provided.")
 except Exception as e:
-    print(f"Error reading {csv_path}: {e}")
+    print(f"Error reading {user_ids_csv_path}: {e}")
     user_ids = []
 
-output_dir = "recent_papers_all_sources_v2"
+# Create output directory if it doesn't exist
 os.makedirs(output_dir, exist_ok=True)
 
-# Be a good citizen: delays between external requests (in seconds)
-SLEEP_TIME_SCHOLARLY = 3 # Increased delay
-SLEEP_TIME_API = 1.5   # Increased delay
-SLEEP_TIME_RETRY = 5    # Delay before retrying after a rate limit error
-MAX_RETRIES = 2        # Max retries for API errors
-
-# Set a user agent to mimic a browser
-REQUESTS_HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36' # Updated UA
-}
-# --- End Configuration ---
 
 def sanitize_filename(title):
     """Cleans a string to be safe for use as a filename."""
@@ -429,15 +441,15 @@ for user_id in user_ids:
         # Use proxy if needed, configure scholarly for robustness
         # scholarly.use_proxy(http="your_proxy", https="your_proxy")
         scholarly.set_retries(5)
-        scholarly.set_sleep_interval(5)
+        scholarly.set_sleep_interval(SLEEP_TIME_SCHOLARLY)
 
         author = scholarly.search_author_id(user_id)
         print(f"  Fetching publications for: {author.get('name', 'Unknown Name')}")
-        author = scholarly.fill(author, sections=["publications"], sortby="year", publication_limit=10) # Limit pubs fetched per author
+        author = scholarly.fill(author, sections=["publications"], sortby="year", publication_limit=PUBLICATION_LIMIT)
         time.sleep(SLEEP_TIME_SCHOLARLY)
 
-        publications = author.get("publications", [])[:10] # Process last 10
-        print(f"  Checking {len(publications)} most recent publications.")
+        publications = author.get("publications", [])[:PUBLICATION_LIMIT]
+        print(f"  Checking {len(publications)} most recent publications (limit: {PUBLICATION_LIMIT}).")
 
         for i, pub_summary in enumerate(publications):
             pdf_found = False

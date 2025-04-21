@@ -2,6 +2,7 @@ import os
 import json
 import logging
 import argparse
+from paper_population.utils.config_loader import load_config, DEFAULT_CONFIG_PATH # Import config loader
 
 # --- Configuration ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -23,62 +24,82 @@ def load_kb_metadata(metadata_path):
         logging.warning(f"Knowledge base metadata not found at {metadata_path}. Proceeding without it.")
         return None
     try:
+        # Assuming JSONL format for metadata based on builder output
+        metadata_map = {}
         with open(metadata_path, 'r', encoding='utf-8') as f:
-            metadata_map = {int(k): v for k, v in json.load(f).items()}
+            for line in f:
+                if line.strip():
+                    data = json.loads(line)
+                    chunk_id = data.get('chunk_id')
+                    if chunk_id is not None:
+                        metadata_map[chunk_id] = data
+                    else:
+                         logging.warning(f"Skipping metadata line without 'chunk_id': {line.strip()}")
+
         logging.info(f"Loaded metadata for {len(metadata_map)} chunks from {metadata_path}.")
         return metadata_map
+    except json.JSONDecodeError as e:
+        logging.error(f"Failed to decode metadata JSONL line in {metadata_path}: {e}")
+        return None
     except Exception as e:
         logging.error(f"Failed to load metadata from {metadata_path}: {e}")
         return None
 
 def format_instruction_example(system_description, barrier_certificate):
     """Formats a single example into the instruction-following JSON structure."""
-    # You might refine this prompt structure based on the base model you choose
     instruction = ("Given the autonomous system described by the following dynamics, "
                    "propose a suitable barrier certificate function B(x) and, if possible, "
                    "briefly outline the conditions it must satisfy.")
     return {
         "instruction": instruction,
         "input": system_description, # The system dynamics, constraints, sets etc.
-        "output": barrier_certificate # The barrier function B(x), possibly with verification notes
+        "output": barrier_certificate, # The barrier function B(x), possibly with verification notes
+        "metadata": { "source": "manual" } # Add source metadata
     }
 
 def format_prompt_completion_example(system_description, barrier_certificate):
     """Formats a single example into a simpler prompt/completion structure."""
-    # This format might be simpler for some models or tasks
-    prompt = f"System Dynamics:\n{system_description}\n\nBarrier Certificate:" # Note: No space after colon
-    completion = f" {barrier_certificate}" # Note: Leading space is important for some models
+    prompt = f"System Dynamics:\n{system_description}\n\nBarrier Certificate:"
+    completion = f" {barrier_certificate}"
     return {
         "prompt": prompt,
-        "completion": completion
+        "completion": completion,
+        "metadata": { "source": "manual" } # Add source metadata
     }
 
 # --- Main Logic ---
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Manually create fine-tuning data for barrier certificate generation.")
-    parser.add_argument("--format", type=str, default="instruction", choices=["instruction", "prompt_completion"],
-                        help="Output format for the fine-tuning data (default: instruction).")
+    parser.add_argument("--config", type=str, default=DEFAULT_CONFIG_PATH,
+                        help="Path to the configuration YAML file.")
+    parser.add_argument("--format", type=str, default=None, choices=["instruction", "prompt_completion"],
+                        help="Override the output format for the fine-tuning data (default: from config fine_tuning.data_format).")
     parser.add_argument("--append", action="store_true",
                         help="Append to the existing output file instead of overwriting.")
-    # Allow specifying output file path
-    parser.add_argument("--output_file", type=str, default=FINETUNE_DATA_OUTPUT_FILE,
-                        help=f"Path to save the fine-tuning data JSONL file (default: {FINETUNE_DATA_OUTPUT_FILE}).")
-    # Allow specifying KB metadata path
-    parser.add_argument("--kb_meta", type=str, default=KB_METADATA_PATH,
-                         help=f"Path to knowledge base metadata JSON (default: {KB_METADATA_PATH})")
+    parser.add_argument("--output_file", type=str, default=None,
+                        help="Override path to save the fine-tuning data JSONL file (default: from config paths.ft_manual_data_file).")
+    parser.add_argument("--kb_meta", type=str, default=None,
+                         help="Override path to knowledge base metadata JSONL file (default: from config paths.kb_metadata_filename)")
 
     args = parser.parse_args()
 
-    output_file_path = args.output_file
-    kb_metadata_path_to_use = args.kb_meta
+    # Load configuration
+    cfg = load_config(args.config)
+
+    # Determine paths and format using config or overrides
+    output_file_path = args.output_file if args.output_file else cfg.paths.ft_manual_data_file
+    kb_metadata_path_to_use = args.kb_meta if args.kb_meta else cfg.paths.kb_metadata_filename
+    data_format = args.format if args.format else cfg.fine_tuning.data_format
 
     # Load existing KB metadata for reference (optional)
     kb_metadata = load_kb_metadata(kb_metadata_path_to_use)
     if kb_metadata:
         print("Knowledge base metadata loaded. You can refer to chunk texts if needed.")
         # Example: Print a chunk to show how to access it
-        # print("\nExample Chunk (Index 0):\n", kb_metadata.get(0, {}).get('text', 'Not Found'))
+        # first_key = next(iter(kb_metadata), None)
+        # if first_key is not None:
+        #    print("\nExample Chunk (Index {first_key}):\n", kb_metadata.get(first_key, {}).get('text', 'Not Found'))
 
     # Determine file mode
     file_mode = 'a' if args.append else 'w'
@@ -88,7 +109,7 @@ if __name__ == "__main__":
         print(f"Output file {output_file_path} does not exist. Creating new file.")
         file_mode = 'w' # Start fresh if appending to non-existent file
 
-    print(f"\n--- Starting Data Entry (Format: {args.format}) ---")
+    print(f"\n--- Starting Data Entry (Format: {data_format}) ---")
     print(f"Saving to: {output_file_path}")
     print(f"Enter system description and barrier certificate pairs.")
     print("System description can be multi-line. Type 'END_DESC' on a new line to finish description.")
@@ -152,7 +173,7 @@ if __name__ == "__main__":
                     continue
 
                 # Format the example based on selected format
-                if args.format == "instruction":
+                if data_format == "instruction":
                     example = format_instruction_example(system_desc, barrier_cert)
                 else: # prompt_completion
                     example = format_prompt_completion_example(system_desc, barrier_cert)
@@ -172,6 +193,8 @@ if __name__ == "__main__":
         print("\nNext steps:")
         print(f"1. Review the generated file: {output_file_path}")
         print("2. Add more high-quality examples.")
-        print("3. Use this file as input for the fine-tuning script ('finetune_llm.py').")
+        # Reference the combined data file path from config for the next step
+        print(f"3. Combine datasets (e.g., using combine_datasets.py to create {cfg.paths.ft_combined_data_file}).")
+        print(f"4. Use the combined file ({cfg.paths.ft_combined_data_file}) as input for the fine-tuning script ('finetune_llm.py').")
     elif not args.append:
         print("\nNo entries were saved. The output file might be empty or unchanged.") 

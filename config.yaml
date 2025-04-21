@@ -1,0 +1,123 @@
+# /Users/patrickcooper/code/FM-LLM-Solver/config.yaml
+# Central configuration for the FM-LLM-Solver project
+
+# --- Paths ---
+# Define paths relative to the project root (or use absolute paths)
+# The loading script will resolve relative paths based on project root.
+paths:
+  project_root: "." # Base path, usually the directory containing this config file
+  # Input Data
+  pdf_input_dir: "recent_papers_all_sources_v2" # Input for KB builder, Output of data_fetching
+  user_ids_csv: "paper_population/data_fetching/user_ids.csv" # Input for data_fetching
+  # Knowledge Base Output
+  kb_output_dir: "paper_population/knowledge_base/knowledge_base_mathpix"
+  kb_vector_store_filename: "paper_index_mathpix.faiss"
+  kb_metadata_filename: "paper_metadata_mathpix.jsonl"
+  # Fine-tuning Data & Output
+  ft_manual_data_file: "paper_population/fine_tuning/finetuning_data.jsonl"
+  ft_extracted_data_file: "paper_population/fine_tuning/extracted_data_verified.jsonl"
+  ft_combined_data_file: "paper_population/fine_tuning/finetuning_data_combined.jsonl"
+  ft_output_dir: "paper_population/results_barrier_certs" # Checkpoints and final adapter
+  # Evaluation
+  eval_benchmark_file: "paper_population/evaluation/benchmark_systems.json"
+  eval_results_file: "paper_population/evaluation/evaluation_results.csv"
+
+# --- Data Fetching (paper_fetcher.py) ---
+data_fetching:
+  # IMPORTANT: Set your email for API politeness via environment variable UNPAYWALL_EMAIL
+  # Example: export UNPAYWALL_EMAIL="your-email@example.com"
+  # unpaywall_email: "your-email@example.com" # Alternatively, set here but env var is safer
+  sleep_time_scholarly: 3
+  sleep_time_api: 1.5
+  sleep_time_retry: 5
+  max_retries: 2
+  requests_user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"
+  # 'output_dir' for fetcher is 'pdf_input_dir' in paths section.
+  # 'user_ids_csv' is in paths section.
+  publication_limit_per_author: 10 # Limit publications processed per author
+
+# --- Knowledge Base (knowledge_base_builder.py) ---
+knowledge_base:
+  # IMPORTANT: Mathpix API Keys MUST be set as environment variables:
+  # export MATHPIX_APP_ID='your_app_id'
+  # export MATHPIX_APP_KEY='your_app_key'
+  embedding_model_name: "all-mpnet-base-v2"
+  chunk_target_size_mmd: 1000 # Target characters per chunk
+  chunk_overlap_mmd: 150    # Character overlap
+  mathpix_poll_max_wait_sec: 600
+  mathpix_poll_interval: 10
+  # Output filenames defined in 'paths' section
+
+# --- Fine-Tuning (finetune_llm.py) ---
+fine_tuning:
+  base_model_name: "meta-llama/Meta-Llama-3-8B-Instruct"
+  # Final adapter path is derived from paths.ft_output_dir + "/final_adapter"
+  data_format: "instruction" # or "prompt_completion" - Ensure this matches combined data format
+
+  lora:
+    r: 64             # LoRA attention dimension (rank)
+    alpha: 16         # Alpha parameter for LoRA scaling
+    dropout: 0.1      # Dropout probability for LoRA layers
+    target_modules:   # Target modules vary by model arch
+      - "q_proj"
+      - "k_proj"
+      - "v_proj"
+      - "o_proj"
+      # - "gate_proj"
+      # - "up_proj"
+      # - "down_proj"
+
+  quantization:
+    use_4bit: True
+    bnb_4bit_compute_dtype: "float16" # "float16" or "bfloat16"
+    bnb_4bit_quant_type: "nf4"     # "fp4" or "nf4"
+    use_nested_quant: False
+
+  training:
+    num_train_epochs: 1
+    per_device_train_batch_size: 4   # Adjust based on VRAM
+    per_device_eval_batch_size: 4    # If using evaluation dataset
+    gradient_accumulation_steps: 1   # Increase if low VRAM
+    gradient_checkpointing: True
+    max_grad_norm: 0.3
+    learning_rate: 2.0e-4
+    weight_decay: 0.001
+    optim: "paged_adamw_32bit"
+    lr_scheduler_type: "cosine"
+    max_steps: -1             # Overrides num_train_epochs if > 0
+    warmup_ratio: 0.03
+    group_by_length: True     # Saves memory & speeds up training
+    save_steps: 25
+    logging_steps: 25
+    packing: False            # Pack multiple short examples (requires max_seq_length)
+    max_seq_length: null      # Set if packing=True (e.g., 1024, 2048)
+    # device_map: {"": 0}      # Default: use CUDA:0 if available
+
+# --- Inference (generate_certificate.py) ---
+inference:
+  # Models/paths are inherited from fine_tuning and knowledge_base sections
+  rag_k: 3                # Number of context chunks to retrieve
+  max_new_tokens: 512     # Max tokens for the generated certificate
+  temperature: 0.6        # Controls randomness (lower is more deterministic)
+  top_p: 0.9              # Nucleus sampling
+
+# --- Evaluation (evaluate_pipeline.py & verify_certificate.py) ---
+evaluation:
+  # RAG/Generation params can be inherited from 'inference' section if desired, or overridden here
+  rag_k: ${inference.rag_k} # Example of inheriting using OmegaConf style (requires OmegaConf install)
+  max_new_tokens: ${inference.max_new_tokens}
+  temperature: ${inference.temperature}
+  top_p: ${inference.top_p}
+
+  # Verification parameters used by verify_certificate.py
+  verification:
+    num_samples_lie: 10000
+    num_samples_boundary: 5000
+    numerical_tolerance: 1.0e-6
+    sos_default_degree: 2
+    # SOS_SOLVER: cp.MOSEK # Cannot serialize CVXPY objects easily, handle in code
+    sos_epsilon: 1.0e-7
+    optimization_max_iter: 100
+    optimization_pop_size: 15
+    attempt_sos: True           # Whether to try SOS verification if system is polynomial
+    attempt_optimization: True  # Whether to try optimization-based falsification 

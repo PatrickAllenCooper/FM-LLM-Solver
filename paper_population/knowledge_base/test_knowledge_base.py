@@ -6,6 +6,7 @@ from sentence_transformers import SentenceTransformer
 import logging
 import argparse
 import sys
+from paper_population.utils.config_loader import load_config, DEFAULT_CONFIG_PATH # Import config loader
 
 # --- Configuration ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -109,27 +110,29 @@ def search_kb(query, model, index, metadata_map, k=5):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Test the paper knowledge base.")
     parser.add_argument("query", type=str, help="The search query to run against the knowledge base.")
-    parser.add_argument("-k", type=int, default=3, help="Number of results to retrieve (default: 3).")
-    parser.add_argument("--kb_dir", type=str, default=DEFAULT_KB_DIR,
-                        help=f"Path to the knowledge base directory (default: {DEFAULT_KB_DIR})")
-    parser.add_argument("--index_file", type=str, default=DEFAULT_VECTOR_STORE_FILENAME,
-                        help=f"Vector store filename (default: {DEFAULT_VECTOR_STORE_FILENAME})")
-    parser.add_argument("--meta_file", type=str, default=DEFAULT_METADATA_FILENAME,
-                         help=f"Metadata filename (JSONL) (default: {DEFAULT_METADATA_FILENAME})")
-
+    parser.add_argument("-k", type=int, default=None, help="Number of results to retrieve (default: from config).")
+    parser.add_argument("--config", type=str, default=DEFAULT_CONFIG_PATH,
+                        help="Path to the configuration YAML file.")
     args = parser.parse_args()
 
-    # Use the provided or default KB directory and filenames
-    kb_directory_to_use = args.kb_dir
-    index_filename = args.index_file
-    metadata_filename = args.meta_file
+    # Load configuration using the provided or default path
+    cfg = load_config(args.config)
+
+    # Determine number of results 'k'
+    k_results = args.k if args.k is not None else cfg.inference.rag_k # Use CLI arg or default from inference config
+
+    # Get KB info from config
+    kb_directory_to_use = cfg.paths.kb_output_dir
+    index_filename = cfg.paths.kb_vector_store_filename
+    metadata_filename = cfg.paths.kb_metadata_filename
+    embedding_model_name = cfg.knowledge_base.embedding_model_name
 
     # 1. Load Embedding Model
-    logging.info(f"Loading embedding model: {EMBEDDING_MODEL_NAME}...")
+    logging.info(f"Loading embedding model: {embedding_model_name}...")
     try:
-        model = SentenceTransformer(EMBEDDING_MODEL_NAME)
+        model = SentenceTransformer(embedding_model_name)
     except Exception as e:
-        logging.error(f"Failed to load embedding model '{EMBEDDING_MODEL_NAME}': {e}")
+        logging.error(f"Failed to load embedding model '{embedding_model_name}': {e}")
         sys.exit(1)
 
     # 2. Load Knowledge Base
@@ -137,11 +140,11 @@ if __name__ == "__main__":
     if index is None or metadata_map is None:
         sys.exit(1)
 
-    # 3. Search
-    search_results = search_kb(args.query, model, index, metadata_map, k=args.k)
+    # 3. Search (Use k_results)
+    search_results = search_kb(args.query, model, index, metadata_map, k=k_results)
 
     # 4. Print Results (Adjusted for new metadata structure)
-    print(f"\n--- Search Results for: '{args.query}' ---")
+    print(f"\n--- Search Results for: '{args.query}' (Top {k_results}) ---")
     if not search_results:
         print("No relevant chunks found.")
     else:
