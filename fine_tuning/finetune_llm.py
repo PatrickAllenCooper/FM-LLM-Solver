@@ -13,7 +13,7 @@ from transformers import (
 from peft import LoraConfig, PeftModel, get_peft_model
 from trl import SFTTrainer
 import warnings
-from paper_population.utils.config_loader import load_config, DEFAULT_CONFIG_PATH # Import config loader
+from utils.config_loader import load_config, DEFAULT_CONFIG_PATH # Import config loader
 from omegaconf import OmegaConf, ListConfig # Import OmegaConf
 
 # Suppress warnings

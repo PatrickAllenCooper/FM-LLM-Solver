@@ -19,7 +19,7 @@ import time
 import re
 import pandas as pd # For results summary
 import sys
-from paper_population.utils.config_loader import load_config, DEFAULT_CONFIG_PATH # Import config loader
+from utils.config_loader import load_config, DEFAULT_CONFIG_PATH # Import config loader
 from omegaconf import OmegaConf
 
 # Ensure other scripts in the project are importable
@@ -30,9 +30,10 @@ sys.path.insert(0, PROJECT_ROOT) # Add project root to path
 
 # Import necessary functions from other modules
 try:
-    from .verify_certificate import verify_barrier_certificate
-    # Import functions from inference module (which should also use config now)
-    from paper_population.inference.generate_certificate import (
+    # Use absolute import from evaluation module
+    from evaluation.verify_certificate import verify_barrier_certificate
+    # Use absolute import from inference module
+    from inference.generate_certificate import (
         load_knowledge_base, load_finetuned_model,
         retrieve_context, format_prompt_with_context
     )

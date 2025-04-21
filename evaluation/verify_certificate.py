@@ -778,9 +778,10 @@ def verify_barrier_certificate(candidate_B_str: str, system_info: dict, verifica
 # --- Example Usage (Updated - Now needs a config object) ---
 if __name__ == '__main__':
     print("Testing verification logic...")
+    import sys # Import sys for exit
     # This example usage won't work directly without loading a config.
     # For standalone testing, manually create a DictConfig or load the main config.
-    from paper_population.utils.config_loader import load_config
+    from utils.config_loader import load_config
     cfg = load_config() # Load the default config
     if not cfg:
         sys.exit("Could not load config for testing.")

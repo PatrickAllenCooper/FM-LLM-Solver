@@ -2,7 +2,7 @@ import os
 import json
 import logging
 import argparse
-from paper_population.utils.config_loader import load_config, DEFAULT_CONFIG_PATH # Import config loader
+from utils.config_loader import load_config, DEFAULT_CONFIG_PATH # Import config loader
 
 # --- Configuration ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

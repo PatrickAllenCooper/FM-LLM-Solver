@@ -6,23 +6,30 @@
 # The loading script will resolve relative paths based on project root.
 paths:
   project_root: "." # Base path, usually the directory containing this config file
-  # Input Data
-  pdf_input_dir: "recent_papers_all_sources_v2" # Input for KB builder, Output of data_fetching
-  user_ids_csv: "paper_population/data_fetching/user_ids.csv" # Input for data_fetching
-  # Knowledge Base Output
-  kb_output_dir: "paper_population/knowledge_base/knowledge_base_mathpix"
-  kb_vector_store_filename: "paper_index_mathpix.faiss"
-  kb_metadata_filename: "paper_metadata_mathpix.jsonl"
-  # Fine-tuning Data & Output
-  ft_manual_data_file: "paper_population/fine_tuning/finetuning_data.jsonl"
-  ft_extracted_data_file: "paper_population/fine_tuning/extracted_data_verified.jsonl"
-  ft_combined_data_file: "paper_population/fine_tuning/finetuning_data_combined.jsonl"
-  ft_output_dir: "paper_population/results_barrier_certs" # Checkpoints and final adapter
-  # Evaluation
-  eval_benchmark_file: "paper_population/evaluation/benchmark_systems.json"
-  eval_results_file: "paper_population/evaluation/evaluation_results.csv"
+  # --- Input Data Directories ---
+  # Raw data inputs and fetched papers
+  data_dir: "data"
+  # Generated outputs (KB, models, results)
+  output_dir: "output"
 
-# --- Data Fetching (paper_fetcher.py) ---
+  # Specific Input Files/Dirs (relative to project_root unless abs)
+  pdf_input_dir: "${paths.data_dir}/fetched_papers" # Input for KB builder, Output of data_fetching
+  user_ids_csv: "${paths.data_dir}/user_ids.csv"     # Input for data_fetching
+  eval_benchmark_file: "${paths.data_dir}/benchmark_systems.json"
+
+  # Specific Output Files/Dirs (relative to project_root unless abs)
+  kb_output_dir: "${paths.output_dir}/knowledge_base"
+  kb_vector_store_filename: "paper_index_mathpix.faiss"      # Filename within kb_output_dir
+  kb_metadata_filename: "paper_metadata_mathpix.jsonl"      # Filename within kb_output_dir
+
+  ft_manual_data_file: "${paths.data_dir}/ft_manual_data.jsonl" # Note: moved manual data to data dir
+  ft_extracted_data_file: "${paths.data_dir}/ft_extracted_data_verified.jsonl" # Note: moved extracted to data
+  ft_combined_data_file: "${paths.data_dir}/ft_data_combined.jsonl" # Note: moved combined to data
+  ft_output_dir: "${paths.output_dir}/finetuning_results" # Checkpoints and final adapter
+
+  eval_results_file: "${paths.output_dir}/evaluation_results.csv"
+
+# --- Data Fetching (data_fetching/paper_fetcher.py) ---
 data_fetching:
   # IMPORTANT: Set your email for API politeness via environment variable UNPAYWALL_EMAIL
   # Example: export UNPAYWALL_EMAIL="your-email@example.com"
@@ -36,7 +43,7 @@ data_fetching:
   # 'user_ids_csv' is in paths section.
   publication_limit_per_author: 10 # Limit publications processed per author
 
-# --- Knowledge Base (knowledge_base_builder.py) ---
+# --- Knowledge Base (knowledge_base/knowledge_base_builder.py) ---
 knowledge_base:
   # IMPORTANT: Mathpix API Keys MUST be set as environment variables:
   # export MATHPIX_APP_ID='your_app_id'
@@ -48,7 +55,7 @@ knowledge_base:
   mathpix_poll_interval: 10
   # Output filenames defined in 'paths' section
 
-# --- Fine-Tuning (finetune_llm.py) ---
+# --- Fine-Tuning (fine_tuning/finetune_llm.py) ---
 fine_tuning:
   base_model_name: "meta-llama/Meta-Llama-3-8B-Instruct"
   # Final adapter path is derived from paths.ft_output_dir + "/final_adapter"
@@ -93,7 +100,7 @@ fine_tuning:
     max_seq_length: null      # Set if packing=True (e.g., 1024, 2048)
     # device_map: {"": 0}      # Default: use CUDA:0 if available
 
-# --- Inference (generate_certificate.py) ---
+# --- Inference (inference/generate_certificate.py) ---
 inference:
   # Models/paths are inherited from fine_tuning and knowledge_base sections
   rag_k: 3                # Number of context chunks to retrieve
@@ -101,7 +108,7 @@ inference:
   temperature: 0.6        # Controls randomness (lower is more deterministic)
   top_p: 0.9              # Nucleus sampling
 
-# --- Evaluation (evaluate_pipeline.py & verify_certificate.py) ---
+# --- Evaluation (evaluation/evaluate_pipeline.py & evaluation/verify_certificate.py) ---
 evaluation:
   # RAG/Generation params can be inherited from 'inference' section if desired, or overridden here
   rag_k: ${inference.rag_k} # Example of inheriting using OmegaConf style (requires OmegaConf install)

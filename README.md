@@ -43,55 +43,56 @@ The project is organized into modules based on functionality:
 
 ```
 ./
-├── paper_population/
-│   ├── data_fetching/              # Scripts for downloading papers
-│   │   ├── __init__.py
-│   │   ├── paper_fetcher.py        # Main script to fetch papers
-│   │   └── user_ids.csv            # Example author IDs (optional input)
-│   |
-│   ├── knowledge_base/             # Scripts & data for the RAG knowledge base
-│   │   ├── __init__.py
-│   │   ├── knowledge_base_builder.py # Script to build vector index & metadata (uses MathPix API)
-│   │   ├── test_knowledge_base.py    # Script to test KB retrieval
-│   │   └── knowledge_base_mathpix/ # Default output dir for MathPix-based KB data
-│   │       ├── paper_index_mathpix.faiss
-│   │       └── paper_metadata_mathpix.jsonl
-│   |
-│   ├── fine_tuning/                # Scripts & data for fine-tuning the LLM
-│   │   ├── __init__.py
-│   │   ├── create_finetuning_data.py # Interactive script for manual data creation
-│   │   ├── finetune_llm.py         # Script to run QLoRA fine-tuning
-│   │   ├── generate_synthetic_data.py # Generates simple synthetic examples
-│   │   ├── extract_from_papers.py  # Generates prompts for LLM-based extraction
-│   │   └── combine_datasets.py     # Utility to merge datasets
-│   │   # *.jsonl files are example outputs/inputs for datasets
-│   |
-│   ├── inference/                  # Scripts for running inference
-│   │   ├── __init__.py
-│   │   └── generate_certificate.py # Generates certificate using RAG + Fine-tuned LLM
-│   |
-│   ├── evaluation/                 # Scripts & data for pipeline evaluation
-│   │   ├── __init__.py
-│   │   ├── benchmark_systems.json    # Sample benchmark systems (incl. sampling bounds)
-│   │   ├── evaluate_pipeline.py    # Main script to run evaluation
-│   │   ├── verify_certificate.py     # Script for SOS, symbolic & numerical checks
-│   │   └── evaluation_results.csv    # (Output) Example evaluation results
-│   |
-│   ├── utils/                      # Utility functions (e.g., config loader)
-│   │   ├── __init__.py
-│   │   └── config_loader.py
-│   |
-│   ├── requirements.txt            # Python package dependencies
-│   └── README.md                   # (This file - will be moved)
+├── data_fetching/              # Scripts for downloading papers
+│   ├── __init__.py
+│   └── paper_fetcher.py
 |
-├── recent_papers_all_sources_v2/ # Default output directory for fetched papers
+├── knowledge_base/             # Scripts & data for the RAG knowledge base
+│   ├── __init__.py
+│   ├── knowledge_base_builder.py
+│   └── test_knowledge_base.py
 |
-├── results_barrier_certs/        # Default output directory for fine-tuning results
-│   └── final_adapter/            # Saved LoRA adapter weights
+├── fine_tuning/                # Scripts & data for fine-tuning the LLM
+│   ├── __init__.py
+│   ├── create_finetuning_data.py
+│   ├── finetune_llm.py
+│   ├── generate_synthetic_data.py # (Example)
+│   ├── extract_from_papers.py
+│   └── combine_datasets.py
+|
+├── inference/                  # Scripts for running inference
+│   ├── __init__.py
+│   └── generate_certificate.py
+|
+├── evaluation/                 # Scripts & data for pipeline evaluation
+│   ├── __init__.py
+│   ├── evaluate_pipeline.py
+│   └── verify_certificate.py
+|
+├── utils/                      # Utility functions
+│   ├── __init__.py
+│   └── config_loader.py
+|
+├── data/                       # Input data & fetched raw data
+│   ├── fetched_papers/         # Default location for downloaded PDFs
+│   ├── benchmark_systems.json  # Evaluation benchmarks
+│   ├── user_ids.csv            # Input for data_fetching
+│   ├── ft_manual_data.jsonl    # Example fine-tuning data file
+│   ├── ft_extracted_data_verified.jsonl # Example
+│   └── ft_data_combined.jsonl  # Example combined data file
+|
+├── output/                     # Generated outputs
+│   ├── knowledge_base/         # Default location for FAISS index & metadata
+│   │   ├── paper_index_mathpix.faiss
+│   │   └── paper_metadata_mathpix.jsonl
+│   ├── finetuning_results/     # Default location for model checkpoints/adapter
+│   │   └── final_adapter/
+│   └── evaluation_results.csv  # Default location for evaluation CSV
 |
 ├── config.yaml                   # Central configuration file
+├── requirements.txt            # Python package dependencies
 ├── .gitignore
-└── README.md                     # This file (Project root)
+└── README.md                     # This file
 ```
 
 ---
@@ -100,149 +101,110 @@ The project is organized into modules based on functionality:
 
 ### Prerequisites
 
-*   **Python:** Version 3.8 - 3.12 recommended. (Versions >= 3.13 may have compatibility issues with dependencies like `spacy`).
+*   **Python:** Version 3.8 - 3.12 recommended.
 *   **Git:** For cloning the repository.
-*   **MathPix API Credentials:** Required for the default knowledge base builder (`knowledge_base_builder.py`). Obtain an App ID and App Key from [MathPix](https://mathpix.com/) and set them as environment variables:
+*   **API Credentials & Email (Environment Variables):**
     ```bash
-    export MATHPIX_APP_ID='your_app_id'
-    export MATHPIX_APP_KEY='your_app_key'
+    export MATHPIX_APP_ID='your_app_id'         # Required for knowledge_base_builder.py
+    export MATHPIX_APP_KEY='your_app_key'         # Required for knowledge_base_builder.py
+    export UNPAYWALL_EMAIL='your-email@example.com' # Required for data_fetching/paper_fetcher.py
+    # Optional:
+    # export SEMANTIC_SCHOLAR_API_KEY='your_key'
     ```
-*   **UNPAYWALL Email:** Required for the data fetcher (`paper_fetcher.py`) for API politeness. Set as an environment variable:
-    ```bash
-    export UNPAYWALL_EMAIL='your-email@example.com'
-    ```
-*   **Tesseract OCR Engine:** Required by `pytesseract` if using OCR-based PDF extraction (not the default MathPix path).
-    *   *Debian/Ubuntu:* `sudo apt update && sudo apt install tesseract-ocr`
-    *   *macOS:* `brew install tesseract`
-    *   *Windows:* Download installer from [Tesseract at UB Mannheim](https://github.com/UB-Mannheim/tesseract/wiki) or build from source.
 *   **CUDA Toolkit:** Required for GPU acceleration.
-    *   Ensure compatibility with `torch` and `bitsandbytes` versions in `paper_population/requirements.txt`. Check NVIDIA's documentation for installation.
-*   **SDP Solver (for SOS Verification):** To use the Sum-of-Squares verification functionality (for polynomial systems), you need to install a compatible Semidefinite Programming solver.
-    *   **MOSEK:** Recommended (high-performance, commercial, free academic licenses available). Follow [MOSEK installation instructions](https://docs.mosek.com/latest/install/installation.html) and ensure `cvxpy` can find it.
-    *   **SCS:** Good open-source alternative. Install via pip: `pip install scs`. `cvxpy` should detect it automatically.
+*   **SDP Solver (Optional):** MOSEK (recommended) or SCS required for SOS verification in `evaluation/verify_certificate.py`.
 
 ### Installation
 
 1.  **Clone:**
     ```bash
-    # Replace with your repository URL
     git clone https://your-repository-url/FMLLMSolver.git
     cd FMLLMSolver
     ```
 
 2.  **Create Environment (Recommended):**
     ```bash
-    # Use a recommended Python version (e.g., 3.12)
-    conda create -n fmllm python=3.12 # Or python -m venv venv
-    conda activate fmllm             # Or source venv/bin/activate
+    conda create -n fmllm python=3.12
+    conda activate fmllm
     ```
 
 3.  **Install Dependencies:**
     ```bash
-    pip install -r paper_population/requirements.txt
+    pip install -r requirements.txt
     # Install SCS if not using MOSEK for SOS:
     # pip install scs
-    ```
-
-4.  **Download SpaCy Model (Optional):** Only needed if `knowledge_base_builder.py` relies on it (current MathPix version primarily uses paragraph splitting).
-    ```bash
-    # python -m spacy download en_core_web_sm
     ```
 
 ---
 
 ## Workflow / Usage
 
-Execute the steps in the following order. Ensure you are in the project root directory (`FMLLMSolver/`) and your environment is activated.
+Execute the steps in the following order from the project root directory (`FMLLMSolver/`). Scripts primarily use settings from `config.yaml`.
 
 ### 1. Data Fetching
 
-*   **(Optional)** Modify `paper_population/data_fetching/user_ids.csv` if needed.
-*   **Set Environment Variable:** `export UNPAYWALL_EMAIL='your-email@example.com'`
-*   Run the script:
+*   **(Optional)** Create/Modify `data/user_ids.csv`.
+*   **Set Env Var:** `export UNPAYWALL_EMAIL='...'`
+*   Run:
     ```bash
-    python paper_population/data_fetching/paper_fetcher.py
+    python data_fetching/paper_fetcher.py
     ```
-*   Downloads PDFs based on author IDs to the directory specified in `config.yaml` (`paths.pdf_input_dir`, default: `recent_papers_all_sources_v2/`).
+*   Downloads PDFs to `data/fetched_papers/` (default).
 
 ### 2. Build Knowledge Base
 
-*   **Set MathPix Credentials:** Ensure `MATHPIX_APP_ID` and `MATHPIX_APP_KEY` environment variables are set.
-*   Processes downloaded PDFs using the MathPix API.
+*   **Set Env Vars:** `export MATHPIX_APP_ID='...' MATHPIX_APP_KEY='...'`
+*   Run:
     ```bash
-    # Uses paths defined in config.yaml by default
-    python paper_population/knowledge_base/knowledge_base_builder.py
-    # Or specify a custom config
-    # python paper_population/knowledge_base/knowledge_base_builder.py --config path/to/your_config.yaml
+    python knowledge_base/knowledge_base_builder.py
     ```
-*   Creates the index (`.faiss`) and metadata (`.jsonl`) in the directory specified in `config.yaml` (`paths.kb_output_dir`, default: `paper_population/knowledge_base/knowledge_base_mathpix/`).
+*   Creates KB files in `output/knowledge_base/` (default).
 
 ### 3. Test Knowledge Base (Optional)
 
-*   Perform a quick check using the MathPix-generated knowledge base.
+*   Run:
     ```bash
-    python paper_population/knowledge_base/test_knowledge_base.py "What is a barrier certificate?" -k 3
+    python knowledge_base/test_knowledge_base.py "What is a barrier certificate?" -k 3
     ```
 
 ### 4. Create/Prepare Fine-tuning Data
 
-Choose one or more methods. Output paths are configurable via `config.yaml` or CLI overrides.
+Place or generate fine-tuning data files (e.g., `.jsonl`) in the `data/` directory. Update `config.yaml` paths (`paths.ft_manual_data_file`, etc.) if using different filenames.
 
-*   **Option A: Manual Creation**
+*   **Manual:** `python fine_tuning/create_finetuning_data.py`
+*   **Extraction:** `python fine_tuning/extract_from_papers.py` (Requires manual LLM step & review)
+*   **Combine:**
     ```bash
-    python paper_population/fine_tuning/create_finetuning_data.py
-    ```
-*   **Option B: Synthetic Generation**
-    ```bash
-    # (Assuming a synthetic generator script exists)
-    # python paper_population/fine_tuning/generate_synthetic_data.py
-    ```
-*   **Option C: LLM-Assisted Extraction**
-    1.  Generate prompts:
-        ```bash
-        python paper_population/fine_tuning/extract_from_papers.py
-        ```
-    2.  Manually run prompts (e.g., from `llm_extraction_prompts_mmd.txt`) with an external LLM.
-    3.  **CRITICALLY REVIEW** LLM outputs.
-    4.  Save **verified** JSON objects to the file specified in `config.yaml` (`paths.ft_extracted_data_file`).
-*   **Combine Datasets:**
-    ```bash
-    # Uses default input/output paths from config.yaml
-    python paper_population/fine_tuning/combine_datasets.py
-    # Or specify patterns/output via CLI
-    # python paper_population/fine_tuning/combine_datasets.py --input_patterns "path/to/manual.jsonl" "path/to/extracted.jsonl" --output_file path/to/combined.jsonl
+    # Uses paths specified in config.yaml by default to find inputs & determine output
+    python fine_tuning/combine_datasets.py
     ```
 
 ### 5. Fine-tune the LLM
 
-*   ⚠️ **Requires a CUDA-enabled GPU.**
-*   Execute the fine-tuning script. It will use the combined data file and output directory specified in `config.yaml` by default.
+*   ⚠️ **Requires CUDA GPU.**
+*   Run:
     ```bash
-    python paper_population/fine_tuning/finetune_llm.py
-    # Or specify a custom config
-    # python paper_population/fine_tuning/finetune_llm.py --config path/to/your_config.yaml
+    python fine_tuning/finetune_llm.py
     ```
-*   Saves the LoRA adapter weights to the directory specified in `config.yaml` (`paths.ft_output_dir`).
+*   Uses `data/ft_data_combined.jsonl` (default) and saves adapter to `output/finetuning_results/` (default).
 
 ### 6. Generate Certificate (Inference)
 
-*   Runs inference using the RAG pipeline and the fine-tuned adapter.
+*   Run:
     ```bash
-    python paper_population/inference/generate_certificate.py \
+    python inference/generate_certificate.py \
       "System Dynamics: dx/dt = -x**3 - y, dy/dt = x - y**3. Initial Set: x**2+y**2 <= 0.1. Unsafe Set: x >= 1.5"
     ```
-*   Uses model, adapter, and KB paths specified in `config.yaml` by default.
+*   Uses adapter from `output/finetuning_results/` and KB from `output/knowledge_base/` (defaults).
 
 ### 7. Evaluate the Pipeline
 
-*   **Populate Benchmark:** Add diverse systems to the file specified in `config.yaml` (`paths.eval_benchmark_file`).
-*   Run the evaluation script:
+*   **Populate Benchmark:** Modify `data/benchmark_systems.json`.
+*   Run:
     ```bash
-    python paper_population/evaluation/evaluate_pipeline.py
-    # Or specify a custom config
-    # python paper_population/evaluation/evaluate_pipeline.py --config path/to/your_config.yaml
+    python evaluation/evaluate_pipeline.py
     ```
-*   Uses benchmark file, adapter, KB paths, and saves results to paths specified in `config.yaml` by default.
+*   Uses benchmark from `data/`, adapter/KB from `output/`, saves results to `output/evaluation_results.csv` (defaults).
 
 ---
 
@@ -252,75 +214,52 @@ This project uses a central configuration file (`config.yaml`) located at the pr
 
 ### `config.yaml`
 
-This file contains parameters for all stages of the pipeline: data fetching, knowledge base creation, fine-tuning, inference, and evaluation. Paths defined within the `paths` section are typically relative to the project root and are resolved automatically by the loading script.
+Contains parameters for all pipeline stages. Relative paths are resolved based on project root. Edit this file to change defaults.
 
 **Key Sections:**
 
 *   `paths`: Defines input/output directories and key file locations.
-*   `data_fetching`: Parameters for `paper_fetcher.py`.
-*   `knowledge_base`: Parameters for `knowledge_base_builder.py`.
-*   `fine_tuning`: Parameters for `finetune_llm.py`, including model choice, LoRA, quantization, and training settings.
-*   `inference`: Parameters for `generate_certificate.py`.
-*   `evaluation`: Parameters for `evaluate_pipeline.py` and `verify_certificate.py`.
-
-You can modify this file directly to change default behaviors and settings.
+*   `data_fetching`: Parameters for `data_fetching/paper_fetcher.py`.
+*   `knowledge_base`: Parameters for `knowledge_base/knowledge_base_builder.py`.
+*   `fine_tuning`: Parameters for `fine_tuning/finetune_llm.py`.
+*   `inference`: Parameters for `inference/generate_certificate.py`.
+*   `evaluation`: Parameters for `evaluation/evaluate_pipeline.py` and `evaluation/verify_certificate.py`.
 
 ### Environment Variables
 
-Sensitive information, such as API keys, should **not** be stored directly in `config.yaml`. Instead, set them as environment variables:
-
-*   `UNPAYWALL_EMAIL`: Your email address for the Unpaywall API (used in data fetching).
-*   `MATHPIX_APP_ID`: Your Mathpix App ID (used in knowledge base building).
-*   `MATHPIX_APP_KEY`: Your Mathpix App Key (used in knowledge base building).
-*   `SEMANTIC_SCHOLAR_API_KEY`: (Optional) Your Semantic Scholar API key for potentially higher rate limits.
-
-The scripts that require these variables will check for their presence in the environment.
+Set required API keys/emails as environment variables (see [Prerequisites](#prerequisites)).
 
 ### Running Scripts with Custom Config / Overrides
 
-Most executable scripts (e.g., `knowledge_base_builder.py`, `finetune_llm.py`) now accept an optional `--config` argument to specify the path to the configuration file:
-
-```bash
-python paper_population/fine_tuning/finetune_llm.py --config /path/to/your/custom_config.yaml
-```
-
-If omitted, the default `config.yaml` at the project root will be used. Some scripts may also allow overriding specific configuration values via additional command-line arguments (check the script's `--help` message).
+Most executable scripts accept `--config /path/to/custom_config.yaml`. Some allow further overrides (check script `--help`).
 
 ---
 
 ## Verification Limitations
 
-⚠️ **The current verification (`paper_population/evaluation/verify_certificate.py`) attempts multiple methods but still has limitations, especially regarding formal guarantees.**
+⚠️ **The current verification (`evaluation/verify_certificate.py`) has limitations.**
 
-*   **Sum-of-Squares (SOS):**
-    *   Uses `cvxpy` to formulate and solve SOS conditions as SDPs for **polynomial systems only**. Provides **formal verification** if the solver returns an optimal solution.
-    *   Requires a separate SDP solver installation (**MOSEK** recommended, **SCS** alternative).
-    *   **Current Implementation Note:** The logic for translating SymPy polynomials and SOS constraints into the specific CVXPY format (`calculate_sos_poly_coeffs`, `add_sos_constraints_poly`) is **complex and experimental**. It may require debugging or refinement for robust use across diverse polynomial forms.
-    *   Failure (`infeasible` status) means the SOS relaxation (at the chosen degree) failed, but does not formally disprove the property.
-*   **Symbolic Checks:** Basic checks for trivial cases (e.g., \(\dot{B} = 0\)) using `sympy`. Generally **inconclusive** for complex expressions.
-*   **Numerical Checks (Sampling & Optimization):**
-    *   Uses `numpy` and `scipy` for random sampling and `differential_evolution` based optimization (falsification).
-    *   Can effectively find **counterexamples** for both polynomial and non-polynomial systems if they exist within the search bounds.
-    *   These methods **do not provide formal proof** of validity; they only demonstrate the absence of violations within the tested samples/optimization search.
-    *   Set membership checks rely on `sympy` parsing and numerical evaluation, which is more robust than `eval` but may face precision issues.
+*   **SOS:** Formal verification for polynomial systems only (requires MOSEK/SCS). Experimental.
+*   **Symbolic Checks:** Basic, often inconclusive.
+*   **Numerical Checks:** Sampling/Optimization find counterexamples but do not provide formal proof.
 
-For the highest confidence, **SOS verification (when applicable and successful) is preferred**. Numerical checks serve as a fallback and are the primary method for non-polynomial systems.
+**SOS (if applicable/successful) provides the strongest guarantee.**
 
 ---
 
 ## Author / Context
 
-This project was developed by **Patrick Cooper** as part of graduate work at the **University of Colorado Boulder (CU Boulder)**.
+Developed by **Patrick Cooper** at **CU Boulder**.
 
 ---
 
 ## Future Work / Enhancements
 
-*   **SOS Implementation:** Refine and rigorously test the SymPy-to-CVXPY conversion and SOS constraint formulation in `verify_certificate.py`. Consider using dedicated SOS libraries (like `SumOfSquares.jl` via Python interface, or others) if the current approach proves too slow or difficult to maintain.
-*   **Optimization Falsification:** Finish testing and refinement of the optimization-based checks in `verify_certificate.py`.
-*   **PDF Parsing:** Explore integrating GROBID for document structure analysis *in addition* to MathPix for math/text extraction.
-*   **Fine-tuning Data:** Explore semi-automated methods for extracting (System, Certificate) pairs, **leveraging the structured MathPix MMD output** to potentially guide LLM extraction more effectively.
-*   **LLM Output Parsing:** Improve the robustness of `extract_certificate_from_llm_output`.
-*   **Experimentation:** Test different base LLMs, embedding models, vector databases, and fine-tuning strategies.
-*   **Configuration:** Potentially allow command-line overrides for more parameters using OmegaConf's CLI support.
-*   **UI:** Develop a simple graphical or web interface. 
+*   Refine SOS implementation in `verify_certificate.py`.
+*   Improve optimization-based falsification.
+*   Explore alternative PDF parsing (e.g., GROBID + MathPix).
+*   Semi-automate fine-tuning data extraction using MMD structure.
+*   Improve robustness of LLM output parsing.
+*   Experiment with different models, embeddings, etc.
+*   Add command-line overrides for more config parameters.
+*   Develop a UI. 

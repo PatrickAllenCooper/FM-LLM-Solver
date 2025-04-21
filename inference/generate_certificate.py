@@ -15,7 +15,7 @@ from peft import PeftModel # To load LoRA adapter
 from sentence_transformers import SentenceTransformer
 import warnings
 import sys # Import sys
-from paper_population.utils.config_loader import load_config, DEFAULT_CONFIG_PATH # Import config loader
+from utils.config_loader import load_config, DEFAULT_CONFIG_PATH # Import config loader
 from omegaconf import OmegaConf
 
 # --- Configuration ---

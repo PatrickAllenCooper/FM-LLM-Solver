@@ -9,7 +9,7 @@ import csv # Add csv import
 from bs4 import BeautifulSoup # For parsing HTML
 import urllib.parse # For joining relative URLs
 import sys # For exiting
-from paper_population.utils.config_loader import load_config # Import config loader
+from utils.config_loader import load_config # Import config loader
 
 # Load configuration
 cfg = load_config()
