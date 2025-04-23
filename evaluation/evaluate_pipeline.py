@@ -50,50 +50,78 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 # --- Helper Functions ---
 def extract_certificate_from_llm_output(llm_text):
-    """Attempts to extract the barrier certificate B(x) string using regex."""
-    # This is fragile and likely needs improvement based on actual LLM output formats.
-    # Common patterns:
-    # - B(x, y) = ...
-    # - Barrier Certificate: ...
-    # - B = ... (less specific)
-
-    # Pattern 1: B(...) = expression_ending_at_newline_or_period_or_semicolon
-    # Make it less greedy, look for common function patterns or standard variables
-    match = re.search(r'B\s*\([^)]*\)\s*=\s*([^{};\n]+)', llm_text, re.IGNORECASE)
+    """
+    Extracts the barrier certificate B(x) string from LLM output using regex patterns.
+    
+    This function attempts to extract the barrier certificate expression using several
+    increasingly flexible regex patterns. Each pattern is designed to handle different
+    ways the LLM might format its response.
+    
+    Parameters
+    ----------
+    llm_text : str
+        The raw text output from the LLM
+        
+    Returns
+    -------
+    str or None
+        The extracted barrier certificate expression if found, otherwise None
+    """
+    if not llm_text:
+        logging.warning("Empty LLM output provided to extraction function")
+        return None
+        
+    # Pattern 1: Formal definition - B(x1, x2, ...) = expression
+    # This pattern looks for B followed by variables in parentheses, then equals sign, then expression
+    match = re.search(r'B\s*\([^)]*\)\s*=\s*([^{};\n\.]+)', llm_text, re.IGNORECASE)
     if match:
-        candidate = match.group(1).strip().rstrip('.') # Remove trailing period
-        logging.info(f"Extracted B(x) using pattern 1: {candidate}")
+        candidate = match.group(1).strip().rstrip('.').rstrip(',')
+        logging.info(f"Extracted B(x) using formal definition pattern: {candidate}")
         return candidate
 
-    # Pattern 2: Barrier Certificate: expression_ending_at_newline
-    match = re.search(r'Barrier Certificate\s*[:=]\s*([^{};\n]+)', llm_text, re.IGNORECASE)
+    # Pattern 2: "Barrier Certificate:" followed by expression
+    # This looks for the heading/label followed by the expression on the same line
+    match = re.search(r'Barrier\s+Certificate\s*[:=]\s*([^{};\n\.]+)', llm_text, re.IGNORECASE)
     if match:
-        candidate = match.group(1).strip().rstrip('.')
-        logging.info(f"Extracted B(x) using pattern 2: {candidate}")
+        candidate = match.group(1).strip().rstrip('.').rstrip(',')
+        logging.info(f"Extracted B(x) using labeled pattern: {candidate}")
         return candidate
-
-    # Pattern 3: Simple expression after keywords like "is given by", "is:", etc.
-    match = re.search(r'(?:is|certificate is|given by)\s*[:=]?\s*([^{};\n]+)', llm_text, re.IGNORECASE)
+        
+    # Pattern 3: "The barrier certificate is" or similar phrases
+    # This handles descriptive text identifying the certificate
+    match = re.search(r'(?:is|certificate is|given by|function is)\s*[:=]?\s*([^{};\n\.]+)', 
+                     llm_text, re.IGNORECASE)
     if match:
-        candidate = match.group(1).strip().rstrip('.')
-        # Basic check if it looks like an equation/expression involving common vars
-        if ('x' in candidate or 'y' in candidate or 'z' in candidate) and \
-           any(op in candidate for op in ['+', '-', '*', '**']):
-            logging.info(f"Extracted B(x) using pattern 3: {candidate}")
+        candidate = match.group(1).strip().rstrip('.').rstrip(',')
+        # Basic validation: must contain variables and operators
+        if re.search(r'[xyz]', candidate) and re.search(r'[+\-*/^()]', candidate):
+            logging.info(f"Extracted B(x) using descriptive pattern: {candidate}")
             return candidate
 
-
-    # Pattern 4: Look for simple expression after mentioning conditions (less reliable)
-    match = re.search(r'conditions it must satisfy\.?\s*([^{};\n]+)', llm_text, re.IGNORECASE | re.DOTALL)
+    # Pattern 4: Look for mathematical expressions with state variables
+    # This is the most general pattern - look for expressions after describing conditions
+    match = re.search(r'(?:conditions|function|certificate|propose)\s+(?:is|for|that|as)\s+([^{};\n\.]+)', 
+                     llm_text, re.IGNORECASE | re.DOTALL)
     if match:
-        candidate = match.group(1).strip().rstrip('.')
-        # Basic check if it looks like an equation/expression
-        if ('x' in candidate or 'y' in candidate or 'z' in candidate) and \
-           any(op in candidate for op in ['+', '-', '*', '**']):
-            logging.info(f"Extracted B(x) using pattern 4: {candidate}")
+        candidate = match.group(1).strip().rstrip('.').rstrip(',')
+        # More careful validation for this general pattern
+        if (('x' in candidate or 'y' in candidate or 'z' in candidate) and 
+            re.search(r'[+\-*/]', candidate) and '**' in candidate):
+            logging.info(f"Extracted B(x) using general pattern: {candidate}")
             return candidate
 
-    logging.warning(f"Could not reliably extract B(x) expression from LLM output:\\n{llm_text}")
+    # Advanced: Search for equations resembling certificates in any section
+    # Matches expressions with state variables and typical operations
+    equations = re.findall(r'([^\n;:]+\*\*2[^\n;:]+)', llm_text)
+    for eq in equations:
+        if ('x' in eq or 'y' in eq) and re.search(r'[+\-*/^()]', eq):
+            # Exclude expressions with invalid characters for coefficients
+            if not re.search(r'[a-wA-Z]', eq.replace('x', '').replace('y', '').replace('z', '')):
+                candidate = eq.strip().rstrip('.').rstrip(',')
+                logging.info(f"Extracted B(x) using equation pattern: {candidate}")
+                return candidate
+
+    logging.warning(f"Could not reliably extract B(x) expression from LLM output: {llm_text[:100]}...")
     return None
 
 

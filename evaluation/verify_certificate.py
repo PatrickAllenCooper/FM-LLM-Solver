@@ -563,7 +563,60 @@ def optimization_based_falsification(B_func, dB_dt_func, sampling_bounds, variab
 # --- Main Verification Function (Integrates SOS and Optimization) ---
 
 def verify_barrier_certificate(candidate_B_str: str, system_info: dict, verification_cfg: DictConfig):
-    """Main verification function. Uses parameters from the verification_cfg (OmegaConf DictConfig)."""
+    """
+    Main verification function for barrier certificate candidates.
+    
+    This function verifies if a candidate barrier function B(x) satisfies the required conditions:
+    1. B(x) <= 0 for all x in the initial set
+    2. B(x) >= 0 for all x outside the unsafe set
+    3. dB/dt <= 0 for all x in the safe set
+    
+    Parameters
+    ----------
+    candidate_B_str : str
+        String representation of the candidate barrier function B(x)
+    system_info : dict
+        Dictionary containing system information:
+        - id: System identifier
+        - state_variables: List of state variable names
+        - dynamics: List of dynamics equations (one per state variable)
+        - initial_set_conditions: List of expressions defining the initial set
+        - unsafe_set_conditions: List of expressions defining the unsafe set
+        - safe_set_conditions: List of expressions defining the safe set
+        - sampling_bounds: Dictionary mapping variable names to [min, max] bounds
+    verification_cfg : DictConfig
+        Configuration object with verification parameters:
+        - num_samples_lie: Number of samples for checking Lie derivative
+        - num_samples_boundary: Number of samples for checking boundary conditions
+        - numerical_tolerance: Tolerance for numerical checks
+        - sos_default_degree: Default degree for SOS multipliers
+        - sos_solver: SDP solver preference (e.g., MOSEK, SCS)
+        - attempt_sos: Whether to attempt SOS verification
+        - attempt_optimization: Whether to attempt optimization-based falsification
+    
+    Returns
+    -------
+    dict
+        Verification results dictionary containing:
+        - candidate_B: The barrier function candidate string
+        - system_id: System identifier
+        - parsing_B_successful: Whether B was parsed successfully
+        - parsing_sets_successful: Whether sets were parsed successfully
+        - is_polynomial_system: Whether the system is polynomial
+        - lie_derivative_calculated: The calculated Lie derivative
+        - sos_attempted: Whether SOS verification was attempted
+        - sos_passed: Whether SOS verification passed
+        - symbolic_lie_check_passed: Whether symbolic Lie derivative check passed
+        - numerical_sampling_lie_passed: Whether numerical Lie derivative check passed
+        - numerical_sampling_boundary_passed: Whether numerical boundary check passed
+        - numerical_opt_attempted: Whether optimization-based falsification was attempted
+        - numerical_opt_lie_violation_found: Whether optimization found Lie derivative violations
+        - numerical_opt_init_violation_found: Whether optimization found initial set violations
+        - numerical_opt_unsafe_violation_found: Whether optimization found unsafe set violations
+        - final_verdict: Overall verification result
+        - reason: Explanation for the verdict
+        - verification_time_seconds: Time taken for verification
+    """
     start_time = time.time()
     logging.info(f"--- Verifying Candidate: {candidate_B_str} --- ")
     logging.info(f"System ID: {system_info.get('id', 'N/A')}")
@@ -576,12 +629,13 @@ def verify_barrier_certificate(candidate_B_str: str, system_info: dict, verifica
     # sos_solver_pref = cp.MOSEK # Cannot serialize easily, handle lookup here
     sos_solver_pref_name = verification_cfg.get('sos_solver', 'MOSEK') # Get preferred solver name
     sos_solver_pref = getattr(cp, sos_solver_pref_name, cp.MOSEK) # Default to MOSEK if invalid
-    sos_epsilon = verification_cfg.sos_epsilon # Currently unused, but loaded
+    sos_epsilon = verification_cfg.sos_epsilon 
     opt_max_iter = verification_cfg.optimization_max_iter
     opt_pop_size = verification_cfg.optimization_pop_size
     attempt_sos = verification_cfg.attempt_sos
     attempt_optimization = verification_cfg.attempt_optimization
 
+    # Initialize results dictionary with default values
     results = {
         "candidate_B": candidate_B_str,
         "system_id": system_info.get('id', 'N/A'),
@@ -610,7 +664,8 @@ def verify_barrier_certificate(candidate_B_str: str, system_info: dict, verifica
         "verification_time_seconds": 0
     }
 
-    # --- Basic Setup & Parsing --- #
+    # --- STEP 1: Setup & Parsing --- #
+    # Extract system information
     state_vars_str = system_info.get('state_variables', [])
     dynamics_str = system_info.get('dynamics', [])
     initial_conditions_list = system_info.get('initial_set_conditions', [])
@@ -618,30 +673,50 @@ def verify_barrier_certificate(candidate_B_str: str, system_info: dict, verifica
     safe_conditions_list = system_info.get('safe_set_conditions', [])
     sampling_bounds = system_info.get('sampling_bounds', None)
 
-    if not state_vars_str or not dynamics_str: results['reason'] = "Incomplete system info"; results['verification_time_seconds'] = time.time() - start_time; return results
+    # Validate required system information
+    if not state_vars_str or not dynamics_str: 
+        results['reason'] = "Incomplete system info"
+        results['verification_time_seconds'] = time.time() - start_time
+        return results
+    
+    # Create symbolic variables and parse the barrier function
     variables = [sympy.symbols(var) for var in state_vars_str]
     B = parse_expression(candidate_B_str, variables)
-    if B is None: results['reason'] = "Failed to parse candidate B(x)."; results['verification_time_seconds'] = time.time() - start_time; return results
+    if B is None:
+        results['reason'] = "Failed to parse candidate B(x)."
+        results['verification_time_seconds'] = time.time() - start_time
+        return results
+    
     results['parsing_B_successful'] = True
     logging.info(f"Parsed B(x) = {B}")
 
+    # Parse set conditions
     initial_set_relationals, init_parse_msg = parse_set_conditions(initial_conditions_list, variables)
     unsafe_set_relationals, unsafe_parse_msg = parse_set_conditions(unsafe_conditions_list, variables)
     safe_set_relationals, safe_parse_msg = parse_set_conditions(safe_conditions_list, variables)
+    
     if initial_set_relationals is None or unsafe_set_relationals is None or safe_set_relationals is None:
-        results['reason'] = f"Set Parsing Failed: Init: {init_parse_msg}, Unsafe: {unsafe_parse_msg}, Safe: {safe_parse_msg}"; results['verification_time_seconds'] = time.time() - start_time; return results
+        results['reason'] = f"Set Parsing Failed: Init: {init_parse_msg}, Unsafe: {unsafe_parse_msg}, Safe: {safe_parse_msg}"
+        results['verification_time_seconds'] = time.time() - start_time
+        return results
+    
     results['parsing_sets_successful'] = True
     logging.info("Parsed set conditions successfully.")
 
+    # Calculate Lie derivative
     dB_dt = calculate_lie_derivative(B, variables, dynamics_str)
-    if dB_dt is None: results['reason'] = "Failed to calculate Lie derivative."; results['verification_time_seconds'] = time.time() - start_time; return results
+    if dB_dt is None:
+        results['reason'] = "Failed to calculate Lie derivative."
+        results['verification_time_seconds'] = time.time() - start_time
+        return results
+    
     results['lie_derivative_calculated'] = str(dB_dt)
     logging.info(f"Symbolic dB/dt = {dB_dt}")
 
-    # --- Check if Polynomial for SOS --- #
+    # --- STEP 2: Check if system is suitable for SOS verification --- #
     dynamics_exprs = [parse_expression(d, variables) for d in dynamics_str]
     init_polys = relationals_to_polynomials(initial_set_relationals, variables)
-    unsafe_polys = relationals_to_polynomials(unsafe_set_relationals, variables) # NOTE: Needs complement logic depending on B sign check
+    unsafe_polys = relationals_to_polynomials(unsafe_set_relationals, variables)
     safe_polys = relationals_to_polynomials(safe_set_relationals, variables)
 
     is_poly = check_polynomial(B, dB_dt, *dynamics_exprs, variables=variables) and \
@@ -649,7 +724,7 @@ def verify_barrier_certificate(candidate_B_str: str, system_info: dict, verifica
     results['is_polynomial_system'] = is_poly
     logging.info(f"System is polynomial and suitable for SOS: {is_poly}")
 
-    # --- SOS Verification Attempt --- #
+    # --- STEP 3: SOS Verification Attempt (if applicable) --- #
     sos_passed = None
     if is_poly and attempt_sos:
         try:
@@ -662,8 +737,8 @@ def verify_barrier_certificate(candidate_B_str: str, system_info: dict, verifica
                  unsafe_polys,
                  safe_polys,
                  variables,
-                 degree=sos_default_degree, # Use config value
-                 sos_solver_pref=sos_solver_pref # Use resolved solver pref
+                 degree=sos_default_degree,
+                 sos_solver_pref=sos_solver_pref
              )
             results['sos_attempted'] = True
             results['sos_passed'] = sos_passed
@@ -672,17 +747,17 @@ def verify_barrier_certificate(candidate_B_str: str, system_info: dict, verifica
             results['sos_init_passed'] = sos_details.get('init_passed')
             results['sos_unsafe_passed'] = sos_details.get('unsafe_passed')
             logging.info(f"SOS Verification Result: Passed={sos_passed}, Reason={sos_reason}")
-            # If SOS passes definitively, set final verdict and return
+            
+            # If SOS verification passes, set final verdict and return early
             if sos_passed:
                 results['final_verdict'] = "Passed SOS Checks"
                 results['reason'] = sos_reason
                 results['verification_time_seconds'] = time.time() - start_time
                 return results
             else:
-                # SOS failed or inconclusive, will proceed to numerical
+                # SOS failed or inconclusive, will proceed to numerical checks
                 results['reason'] = f"SOS Failed/Inconclusive: {sos_reason}"
                 current_reason = results['reason']
-
         except ImportError:
              logging.warning("CVXPY not installed. Skipping SOS verification.")
              results['sos_reason'] = "CVXPY not installed"
@@ -698,68 +773,71 @@ def verify_barrier_certificate(candidate_B_str: str, system_info: dict, verifica
         results['sos_reason'] = "Not applicable (non-polynomial)"
         current_reason = "SOS Skipped (Non-polynomial)"
 
-    # --- Symbolic Checks (Basic Fallback) --- #
+    # --- STEP 4: Symbolic Checks (basic fallback) --- #
     sym_lie_passed, sym_lie_reason = check_lie_derivative_symbolic(dB_dt, variables, safe_set_relationals)
     results['symbolic_lie_check_passed'] = sym_lie_passed
     sym_bound_passed, sym_bound_reason = check_boundary_symbolic(B, variables, initial_set_relationals, unsafe_set_relationals)
     results['symbolic_boundary_check_passed'] = sym_bound_passed
-    # Append symbolic reason if SOS wasn't conclusive/skipped
+    
+    # Update reason if SOS wasn't conclusive/skipped
     if results['final_verdict'] == "Verification Error":
         current_reason += f" | Symbolic Lie: {sym_lie_reason} | Symbolic Boundary: {sym_bound_reason}"
 
-    # --- Numerical Checks (Sampling & Optimization) --- #
+    # --- STEP 5: Numerical Checks (Sampling & Optimization) --- #
+    # Create numerical functions from symbolic expressions
     B_func = lambdify_expression(B, variables)
     dB_dt_func = lambdify_expression(dB_dt, variables)
 
     if B_func and dB_dt_func and sampling_bounds:
-        # Sampling
+        # Perform numerical sampling checks
         num_samp_lie_passed, num_samp_lie_reason = numerical_check_lie_derivative(
             dB_dt_func, sampling_bounds, variables, safe_set_relationals,
-            n_samples=num_samples_lie, tolerance=numerical_tolerance # Use config values
+            n_samples=num_samples_lie, tolerance=numerical_tolerance
         )
         num_samp_bound_passed, num_samp_bound_reason = numerical_check_boundary(
             B_func, sampling_bounds, variables, initial_set_relationals, unsafe_set_relationals,
-            n_samples=num_samples_boundary, tolerance=numerical_tolerance # Use config values
+            n_samples=num_samples_boundary, tolerance=numerical_tolerance
         )
         results['numerical_sampling_lie_passed'] = num_samp_lie_passed
         results['numerical_sampling_boundary_passed'] = num_samp_bound_passed
         current_reason = f"Sampling Lie: {num_samp_lie_reason} | Sampling Boundary: {num_samp_bound_reason}"
         results['numerical_sampling_reason'] = current_reason
 
-        # Optimization Falsification
+        # Perform optimization-based falsification (if enabled)
         if attempt_optimization:
             opt_violation_found, opt_details = optimization_based_falsification(
                 B_func, dB_dt_func, sampling_bounds, variables,
                 initial_set_relationals, unsafe_set_relationals, safe_set_relationals,
-                max_iter=opt_max_iter, pop_size=opt_pop_size, tolerance=numerical_tolerance # Use config values
+                max_iter=opt_max_iter, pop_size=opt_pop_size, tolerance=numerical_tolerance
             )
             results['numerical_opt_attempted'] = True
             results['numerical_opt_lie_violation_found'] = opt_details.get('lie_violation_found')
             results['numerical_opt_init_violation_found'] = opt_details.get('init_violation_found')
             results['numerical_opt_unsafe_violation_found'] = opt_details.get('unsafe_violation_found')
             results['numerical_opt_reason'] = opt_details.get('reason', "Optimization check ran.")
-            # If optimization finds a violation, it overrides sampling results for failure
+            
+            # If optimization finds violations, update numerical check results
             if opt_violation_found:
                  current_reason += " | Optimization found counterexample!"
-                 # Ensure numerical pass status reflects opt failure
-                 if results['numerical_opt_lie_violation_found']: num_samp_lie_passed = False
-                 if results['numerical_opt_init_violation_found'] or results['numerical_opt_unsafe_violation_found']: num_samp_bound_passed = False
+                 # Update numerical pass status to reflect optimization failure
+                 if results['numerical_opt_lie_violation_found']: 
+                     num_samp_lie_passed = False
+                 if results['numerical_opt_init_violation_found'] or results['numerical_opt_unsafe_violation_found']: 
+                     num_samp_bound_passed = False
             else:
                  current_reason += " | Optimization found no counterexample."
         else:
              results['numerical_opt_reason'] = "Not Attempted"
 
-        # Update overall numerical pass status based on combined sampling and optimization
+        # Update overall numerical pass status based on combined checks
         numerical_overall_passed = num_samp_lie_passed and num_samp_bound_passed
-        # We already set num_*_passed to False if opt found violation
-
     else:
          current_reason += " | Numerical checks skipped (lambdify failed or no bounds)."
          numerical_overall_passed = None # Indicate checks not performed
 
     results['reason'] = current_reason
 
-    # --- Final Verdict --- # 
+    # --- STEP 6: Determine Final Verdict --- # 
     if results['final_verdict'] != "Passed SOS Checks": # If SOS didn't already pass
         if numerical_overall_passed is True:
             results['final_verdict'] = "Passed Numerical Checks"

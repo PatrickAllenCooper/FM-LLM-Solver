@@ -135,50 +135,115 @@ def load_finetuned_model(base_model_name, adapter_path, cfg):
         return None, None
 
 def retrieve_context(query, embedding_model, index, metadata_map, k):
-    """Retrieves top-k relevant text chunks from the knowledge base."""
+    """
+    Retrieves top-k relevant text chunks from the knowledge base.
+    
+    This function performs semantic search using the following steps:
+    1. Encodes the query into an embedding vector using the provided model
+    2. Searches the FAISS index for the k nearest neighbors to the query embedding
+    3. Retrieves and formats the corresponding text chunks and their metadata
+    
+    Parameters
+    ----------
+    query : str
+        The user's query or system description
+    embedding_model : SentenceTransformer
+        Model to convert the query into an embedding vector
+    index : faiss.Index
+        FAISS index containing embeddings of the knowledge base chunks
+    metadata_map : dict
+        Dictionary mapping chunk indices to their content and metadata
+    k : int
+        Number of relevant chunks to retrieve
+        
+    Returns
+    -------
+    str
+        Formatted context string containing k relevant chunks with metadata
+        or empty string if retrieval fails
+    """
     if index is None or metadata_map is None:
+        py_logging.error("Cannot retrieve context: Knowledge base index or metadata is missing")
         return ""
+    
     try:
+        # Encode the query using the embedding model
         query_embedding = embedding_model.encode([query])
         query_embedding = np.array(query_embedding).astype('float32')
+        
+        # Search for nearest neighbors
         distances, indices = index.search(query_embedding, k)
-
+        
+        # Format the results
         context = ""
-        py_logging.info(f"Retrieved chunk indices: {indices[0]} distances: {distances[0]}")
+        py_logging.info(f"Retrieved {len([i for i in indices[0] if i != -1])} relevant chunks")
+        py_logging.debug(f"Chunk indices: {indices[0]}, distances: {distances[0]}")
+        
         for i, idx in enumerate(indices[0]):
-            if idx != -1:
-                chunk_data = metadata_map.get(idx) # Get full chunk object
-                if chunk_data:
-                    meta = chunk_data.get('metadata', {}) # Get nested metadata
-                    context += f"--- Context Chunk {i+1} (Source: {meta.get('source', 'N/A')}, Pages: {meta.get('pages', 'N/A')}) ---\n"
-                    context += chunk_data.get('text', '[Error retrieving text]') + "\n\n"
-                else:
-                    py_logging.warning(f"Metadata object not found for retrieved index {idx}.")
+            if idx == -1:  # FAISS returns -1 if fewer than k results are found
+                continue
+                
+            chunk_data = metadata_map.get(idx)
+            if not chunk_data:
+                py_logging.warning(f"Metadata not found for retrieved index {idx}")
+                continue
+                
+            # Extract metadata
+            meta = chunk_data.get('metadata', {})
+            source = meta.get('source', 'N/A')
+            pages = meta.get('pages', 'N/A')
+            
+            # Format chunk with metadata
+            context += f"--- Context Chunk {i+1} (Source: {source}, Pages: {pages}) ---\n"
+            context += chunk_data.get('text', '[Error retrieving text]') + "\n\n"
+            
         return context.strip()
+        
     except Exception as e:
-        py_logging.error(f"Error during context retrieval: {e}")
+        py_logging.error(f"Error during context retrieval: {str(e)}")
+        py_logging.debug("Exception details:", exc_info=True)
         return ""
 
 def format_prompt_with_context(system_description, context):
-    """Formats the prompt for the LLM, including the retrieved context."""
-    # This template should ideally match the one used implicitly or explicitly
-    # during fine-tuning (e.g., the one in formatting_prompts_func).
-    # Adapt if your fine-tuning used a different structure.
+    """
+    Formats the prompt for the LLM, including the retrieved context.
+    
+    This function creates a prompt that combines:
+    1. An instruction to generate a barrier certificate
+    2. Relevant context from research papers (if available)
+    3. The system description provided by the user
+    
+    The format follows the Llama 3 instruction style with <s>[INST] ... [/INST]
+    
+    Parameters
+    ----------
+    system_description : str
+        Description of the autonomous system including dynamics, constraints, and sets
+    context : str
+        Retrieved context chunks from the knowledge base (can be empty)
+    
+    Returns
+    -------
+    str
+        Formatted prompt ready for the LLM
+    """
+    # The instruction should match what was used during fine-tuning
     instruction = ("Given the autonomous system described below and potentially relevant context "
                    "from research papers, propose a suitable barrier certificate function B(x) "
                    "and briefly outline the conditions it must satisfy.")
 
+    # Format depends on whether context is available
     if context:
-        prompt = f"<s>[INST] {instruction}\n\nRelevant Context from Papers:\n{context}\n---\n\nSystem Description:\n{system_description} [/INST]" # Llama 3 format
+        prompt = f"<s>[INST] {instruction}\n\nRelevant Context from Papers:\n{context}\n---\n\nSystem Description:\n{system_description} [/INST]"
     else:
-        prompt = f"<s>[INST] {instruction}\n\nSystem Description:\n{system_description} [/INST]" # Llama 3 format
+        prompt = f"<s>[INST] {instruction}\n\nSystem Description:\n{system_description} [/INST]"
 
     return prompt
 
 # --- Main Execution --- #
 
 if __name__ == "__main__":
-    # Keep system_description as mandatory runtime argument
+    # Parse command-line arguments
     parser = argparse.ArgumentParser(description="Generate barrier certificate using RAG + Fine-tuned LLM.", parents=[parser_init]) # Inherit --config flag
     parser.add_argument("system_description", type=str,
                         help="Text description of the autonomous system (dynamics, constraints, sets). Put in quotes.")
@@ -189,10 +254,6 @@ if __name__ == "__main__":
                         help=f"Override maximum new tokens for generation (default: {MAX_NEW_TOKENS} from config).")
     parser.add_argument("--temp", type=float, default=None,
                         help=f"Override generation temperature (default: {TEMPERATURE} from config).")
-    # Add overrides for model/adapter/kb paths if needed, though config is preferred
-    # parser.add_argument("--base_model", type=str, help="Override base model name.")
-    # parser.add_argument("--adapter", type=str, help="Override adapter path.")
-    # parser.add_argument("--kb_dir", type=str, help="Override knowledge base directory.")
 
     args = parser.parse_args()
 
@@ -200,10 +261,6 @@ if __name__ == "__main__":
     k_to_use = args.k if args.k is not None else NUM_CONTEXT_CHUNKS
     max_tokens_to_use = args.max_tokens if args.max_tokens is not None else MAX_NEW_TOKENS
     temp_to_use = args.temp if args.temp is not None else TEMPERATURE
-    # Example override checks (if added to argparse):
-    # base_model_to_use = args.base_model if args.base_model else BASE_MODEL_NAME
-    # adapter_to_use = args.adapter if args.adapter else ADAPTER_PATH
-    # kb_dir_to_use = args.kb_dir if args.kb_dir else KB_DIR
     base_model_to_use = BASE_MODEL_NAME
     adapter_to_use = ADAPTER_PATH
     kb_dir_to_use = KB_DIR
@@ -211,78 +268,91 @@ if __name__ == "__main__":
     vector_store_to_use = VECTOR_STORE_FILENAME
     metadata_to_use = METADATA_FILENAME
 
-    print("--- Initializing RAG + Fine-tuned LLM Pipeline ---")
-    print(f"Using Config: {args.config}")
-    print(f"Runtime Params: k={k_to_use}, max_tokens={max_tokens_to_use}, temp={temp_to_use}")
-    print(f"Paths/Models: KB={kb_dir_to_use}, Base={base_model_to_use}, Adapter={adapter_to_use}")
+    print("=" * 60)
+    print("BARRIER CERTIFICATE GENERATION PIPELINE")
+    print("=" * 60)
+    print(f"Config file: {args.config}")
+    print(f"Parameters: k={k_to_use}, max_tokens={max_tokens_to_use}, temp={temp_to_use}")
+    print(f"Base model: {base_model_to_use}")
+    print(f"Knowledge base: {kb_dir_to_use}")
+    print("-" * 60)
 
-    # 1. Load Knowledge Base Components
-    print(f"Loading Knowledge Base from {kb_dir_to_use}...")
+    # --- STEP 1: Load Knowledge Base ---
+    print("\n[1/5] Loading Knowledge Base...")
     faiss_index, metadata = load_knowledge_base(kb_dir_to_use, vector_store_to_use, metadata_to_use)
     if faiss_index is None or metadata is None:
+        print("ERROR: Failed to load knowledge base. Exiting.")
         sys.exit(1)
+    print(f"Knowledge base loaded with {faiss_index.ntotal} documents.")
 
-    print(f"Loading Embedding Model: {embedding_model_to_use}...")
+    # --- STEP 2: Load Embedding Model ---
+    print("\n[2/5] Loading Embedding Model...")
     try:
         embed_model = SentenceTransformer(embedding_model_to_use)
+        print(f"Embedding model '{embedding_model_to_use}' loaded successfully.")
     except Exception as e:
-        print(f"Error loading embedding model '{embedding_model_to_use}': {e}")
+        print(f"ERROR: Failed to load embedding model: {e}")
         sys.exit(1)
 
-    # 2. Load Fine-tuned LLM
-    print(f"Loading Fine-tuned LLM (Base: {base_model_to_use}, Adapter: {adapter_to_use})...")
-    # Pass the loaded config object (cfg) to the model loader
+    # --- STEP 3: Load Fine-tuned LLM ---
+    print("\n[3/5] Loading Fine-tuned LLM...")
     model, tokenizer = load_finetuned_model(base_model_to_use, adapter_to_use, cfg)
     if model is None or tokenizer is None:
+        print("ERROR: Failed to load model or tokenizer. Exiting.")
         sys.exit(1)
-
-    # 3. Retrieve Context (RAG)
-    print(f"Retrieving top-{k_to_use} context chunks for the query...")
-    context = retrieve_context(args.system_description, embed_model, faiss_index, metadata, k_to_use)
-    if context:
-        print("--- Retrieved Context ---")
-        print(context)
-        print("-----------------------")
-    else:
-        print("No relevant context retrieved or KB is empty.")
-
-    # 4. Format Prompt
-    prompt = format_prompt_with_context(args.system_description, context)
-    print("--- Formatted Prompt for LLM ---")
-    print(prompt)
-    print("------------------------------")
-
-    # 5. Generate Certificate
-    print("Generating barrier certificate candidate...")
+    print(f"Model and tokenizer loaded successfully.")
+    
+    # Initialize generation pipeline
     pipe = pipeline(
         task="text-generation",
         model=model,
         tokenizer=tokenizer,
-        max_new_tokens=max_tokens_to_use, # Use determined value
-        temperature=temp_to_use,          # Use determined value
-        top_p=TOP_P,                      # Use value from config
-        do_sample=True if temp_to_use > 0 else False # Enable sampling if temp > 0
+        max_new_tokens=max_tokens_to_use,
+        temperature=temp_to_use,
+        top_p=TOP_P,
+        do_sample=True if temp_to_use > 0 else False
     )
 
+    # --- STEP 4: Retrieve Context (RAG) ---
+    print(f"\n[4/5] Retrieving Context (top-{k_to_use} chunks)...")
+    context = retrieve_context(args.system_description, embed_model, faiss_index, metadata, k_to_use)
+    
+    if context:
+        print(f"Retrieved {context.count('--- Context Chunk')} relevant context chunks.")
+        print("\nContext Preview:")
+        # Print a preview (first 300 chars)
+        context_preview = context[:300] + "..." if len(context) > 300 else context
+        print(context_preview)
+    else:
+        print("No relevant context retrieved or knowledge base is empty.")
+
+    # --- STEP 5: Generate Certificate ---
+    print("\n[5/5] Generating Barrier Certificate...")
+    prompt = format_prompt_with_context(args.system_description, context)
+    
     try:
+        # Generate text
         result = pipe(prompt)
         generated_text = result[0]['generated_text']
 
         # Extract only the generated part after the prompt
-        # Find the end of the prompt marker [/INST]
         prompt_end_marker = "[/INST]"
         output_start_index = generated_text.find(prompt_end_marker)
         if output_start_index != -1:
              llm_output = generated_text[output_start_index + len(prompt_end_marker):].strip()
         else:
-             # Fallback if marker not found (shouldn't happen with this prompt format)
-             llm_output = generated_text # Or handle differently
+             # Fallback if marker not found
+             llm_output = generated_text
 
-        print("\n--- Generated Output (Barrier Certificate Candidate) ---")
+        print("\n" + "=" * 60)
+        print("GENERATED BARRIER CERTIFICATE")
+        print("=" * 60)
         print(llm_output)
-        print("--------------------------------------------------------")
+        print("=" * 60)
 
     except Exception as e:
-        print(f"\nError during text generation: {e}")
+        print(f"\nERROR: Text generation failed: {e}")
+        sys.exit(1)
 
-    print("--- Pipeline Finished ---") 
+    print("\nGeneration complete! You may want to verify this certificate using: ")
+    print("python evaluation/verify_certificate.py") 

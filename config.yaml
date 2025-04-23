@@ -1,130 +1,159 @@
 # /Users/patrickcooper/code/FM-LLM-Solver/config.yaml
-# Central configuration for the FM-LLM-Solver project
+# Central configuration for FM-LLM-Solver: Barrier Certificate Generation using LLMs
 
-# --- Paths ---
+# --- Paths Configuration ---
 # Define paths relative to the project root (or use absolute paths)
-# The loading script will resolve relative paths based on project root.
+# The config_loader script will resolve relative paths based on project root.
 paths:
   project_root: "." # Base path, usually the directory containing this config file
-  # --- Input Data Directories ---
-  # Raw data inputs and fetched papers
-  data_dir: "data"
-  # Generated outputs (KB, models, results)
-  output_dir: "output"
+  
+  # Input/output directory structure
+  data_dir: "data"      # Raw data inputs and fetched papers
+  output_dir: "output"  # Generated outputs (KB, models, results)
 
-  # Specific Input Files/Dirs (relative to project_root unless abs)
+  # Specific Input Files/Dirs (relative to project_root unless absolute)
   pdf_input_dir: "${paths.data_dir}/fetched_papers" # Input for KB builder, Output of data_fetching
-  user_ids_csv: "${paths.data_dir}/user_ids.csv"     # Input for data_fetching
-  eval_benchmark_file: "${paths.data_dir}/benchmark_systems.json"
+  user_ids_csv: "${paths.data_dir}/user_ids.csv"    # Input for data_fetching (Google Scholar IDs)
+  eval_benchmark_file: "${paths.data_dir}/benchmark_systems.json" # Systems for evaluation
 
-  # Specific Output Files/Dirs (relative to project_root unless abs)
+  # Knowledge Base Outputs
   kb_output_dir: "${paths.output_dir}/knowledge_base"
-  kb_vector_store_filename: "paper_index_mathpix.faiss"      # Filename within kb_output_dir
-  kb_metadata_filename: "paper_metadata_mathpix.jsonl"      # Filename within kb_output_dir
+  kb_vector_store_filename: "paper_index_mathpix.faiss"  # FAISS index file
+  kb_metadata_filename: "paper_metadata_mathpix.jsonl"   # Metadata in JSONL format
+  
+  # Fine-tuning Data and Results
+  ft_manual_data_file: "${paths.data_dir}/ft_manual_data.jsonl"          # Manually created examples
+  ft_extracted_data_file: "${paths.data_dir}/ft_extracted_data_verified.jsonl" # Extracted from papers
+  ft_combined_data_file: "${paths.data_dir}/ft_data_combined.jsonl"      # Combined dataset
+  ft_output_dir: "${paths.output_dir}/finetuning_results"                # Model checkpoints
 
-  ft_manual_data_file: "${paths.data_dir}/ft_manual_data.jsonl" # Note: moved manual data to data dir
-  ft_extracted_data_file: "${paths.data_dir}/ft_extracted_data_verified.jsonl" # Note: moved extracted to data
-  ft_combined_data_file: "${paths.data_dir}/ft_data_combined.jsonl" # Note: moved combined to data
-  ft_output_dir: "${paths.output_dir}/finetuning_results" # Checkpoints and final adapter
+  # Evaluation Output
+  eval_results_file: "${paths.output_dir}/evaluation_results.csv"        # Evaluation metrics
 
-  eval_results_file: "${paths.output_dir}/evaluation_results.csv"
-
-# --- Data Fetching (data_fetching/paper_fetcher.py) ---
+# --- Data Fetching Configuration ---
+# Parameters for paper_fetcher.py which downloads PDFs from various sources
 data_fetching:
-  # IMPORTANT: Set your email for API politeness via environment variable UNPAYWALL_EMAIL
-  # Example: export UNPAYWALL_EMAIL="your-email@example.com"
-  # unpaywall_email: "your-email@example.com" # Alternatively, set here but env var is safer
-  sleep_time_scholarly: 3
-  sleep_time_api: 1.5
-  sleep_time_retry: 5
-  max_retries: 2
+  # IMPORTANT: Set environment variables for API access
+  # export UNPAYWALL_EMAIL="your-email@example.com" 
+  # export SEMANTIC_SCHOLAR_API_KEY="your-api-key" (optional)
+  
+  # Time delays between API requests to avoid rate limiting
+  sleep_time_scholarly: 3     # Seconds between Google Scholar requests
+  sleep_time_api: 1.5         # Seconds between other API requests
+  sleep_time_retry: 5         # Seconds to wait before retrying failed requests
+  max_retries: 2              # Number of times to retry failed requests
+  
+  # User agent for HTTP requests
   requests_user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"
-  # 'output_dir' for fetcher is 'pdf_input_dir' in paths section.
-  # 'user_ids_csv' is in paths section.
-  publication_limit_per_author: 10 # Limit publications processed per author
+  
+  # Limit publications per author to avoid excessive downloads
+  publication_limit_per_author: 10 
 
-# --- Knowledge Base (knowledge_base/knowledge_base_builder.py) ---
+# --- Knowledge Base Configuration ---
+# Parameters for building the vector database from PDFs
 knowledge_base:
-  # IMPORTANT: Mathpix API Keys MUST be set as environment variables:
+  # IMPORTANT: Mathpix API Keys for PDF to text conversion
   # export MATHPIX_APP_ID='your_app_id'
   # export MATHPIX_APP_KEY='your_app_key'
-  embedding_model_name: "all-mpnet-base-v2"
-  chunk_target_size_mmd: 1000 # Target characters per chunk
-  chunk_overlap_mmd: 150    # Character overlap
-  mathpix_poll_max_wait_sec: 600
-  mathpix_poll_interval: 10
-  # Output filenames defined in 'paths' section
+  
+  # Embedding model for semantic search
+  embedding_model_name: "all-mpnet-base-v2"  # SentenceTransformers model
+  
+  # Text chunking parameters
+  chunk_target_size_mmd: 1000  # Target characters per chunk
+  chunk_overlap_mmd: 150       # Character overlap between chunks
+  
+  # Mathpix API polling parameters
+  mathpix_poll_max_wait_sec: 600  # Maximum time to wait for PDF processing
+  mathpix_poll_interval: 10        # Polling interval in seconds
 
-# --- Fine-Tuning (fine_tuning/finetune_llm.py) ---
+# --- Fine-Tuning Configuration ---
+# Parameters for training the LLM on barrier certificate generation
 fine_tuning:
-  base_model_name: "meta-llama/Meta-Llama-3-8B-Instruct"
-  # Final adapter path is derived from paths.ft_output_dir + "/final_adapter"
-  data_format: "instruction" # or "prompt_completion" - Ensure this matches combined data format
+  # Base model selection
+  base_model_name: "meta-llama/Meta-Llama-3-8B-Instruct"  # Model to fine-tune
+  
+  # Data format for fine-tuning
+  data_format: "instruction"  # "instruction" or "prompt_completion"
 
+  # LoRA adapter configuration
   lora:
-    r: 64             # LoRA attention dimension (rank)
-    alpha: 16         # Alpha parameter for LoRA scaling
-    dropout: 0.1      # Dropout probability for LoRA layers
-    target_modules:   # Target modules vary by model arch
-      - "q_proj"
-      - "k_proj"
-      - "v_proj"
-      - "o_proj"
+    r: 64              # LoRA attention dimension (rank)
+    alpha: 16          # Alpha parameter for LoRA scaling
+    dropout: 0.1       # Dropout probability for LoRA layers
+    target_modules:    # Modules to apply LoRA to (varies by model architecture)
+      - "q_proj"       # Query projection
+      - "k_proj"       # Key projection
+      - "v_proj"       # Value projection
+      - "o_proj"       # Output projection
+      # Uncomment if needed for different model architectures:
       # - "gate_proj"
       # - "up_proj"
       # - "down_proj"
 
+  # Quantization settings for efficient fine-tuning
   quantization:
-    use_4bit: True
-    bnb_4bit_compute_dtype: "float16" # "float16" or "bfloat16"
-    bnb_4bit_quant_type: "nf4"     # "fp4" or "nf4"
-    use_nested_quant: False
+    use_4bit: True                    # Use 4-bit quantization
+    bnb_4bit_compute_dtype: "float16" # Compute dtype ("float16" or "bfloat16")
+    bnb_4bit_quant_type: "nf4"        # Quantization type ("fp4" or "nf4")
+    use_nested_quant: False           # Use nested quantization
 
+  # Training hyperparameters
   training:
-    num_train_epochs: 1
-    per_device_train_batch_size: 4   # Adjust based on VRAM
-    per_device_eval_batch_size: 4    # If using evaluation dataset
-    gradient_accumulation_steps: 1   # Increase if low VRAM
-    gradient_checkpointing: True
-    max_grad_norm: 0.3
-    learning_rate: 2.0e-4
-    weight_decay: 0.001
-    optim: "paged_adamw_32bit"
-    lr_scheduler_type: "cosine"
-    max_steps: -1             # Overrides num_train_epochs if > 0
-    warmup_ratio: 0.03
-    group_by_length: True     # Saves memory & speeds up training
-    save_steps: 25
-    logging_steps: 25
-    packing: False            # Pack multiple short examples (requires max_seq_length)
-    max_seq_length: null      # Set if packing=True (e.g., 1024, 2048)
-    # device_map: {"": 0}      # Default: use CUDA:0 if available
+    num_train_epochs: 1               # Number of training epochs
+    per_device_train_batch_size: 4    # Batch size per GPU for training
+    per_device_eval_batch_size: 4     # Batch size per GPU for evaluation
+    gradient_accumulation_steps: 1    # Steps to accumulate gradients over
+    gradient_checkpointing: True      # Enable gradient checkpointing (saves memory)
+    max_grad_norm: 0.3                # Gradient clipping
+    learning_rate: 2.0e-4             # Learning rate
+    weight_decay: 0.001               # Weight decay for regularization
+    optim: "paged_adamw_32bit"        # Optimizer
+    lr_scheduler_type: "cosine"       # Learning rate schedule
+    max_steps: -1                     # Override num_train_epochs if > 0
+    warmup_ratio: 0.03                # Ratio of steps for warmup
+    group_by_length: True             # Group sequences by length
+    save_steps: 25                    # Save checkpoint frequency
+    logging_steps: 25                 # Logging frequency
+    packing: False                    # Pack multiple examples (requires max_seq_length)
+    max_seq_length: null              # Maximum sequence length when packing
 
-# --- Inference (inference/generate_certificate.py) ---
+# --- Inference Configuration ---
+# Parameters for generating barrier certificates with the fine-tuned model
 inference:
-  # Models/paths are inherited from fine_tuning and knowledge_base sections
+  # RAG parameters
   rag_k: 3                # Number of context chunks to retrieve
-  max_new_tokens: 512     # Max tokens for the generated certificate
-  temperature: 0.6        # Controls randomness (lower is more deterministic)
-  top_p: 0.9              # Nucleus sampling
+  
+  # Generation parameters
+  max_new_tokens: 512     # Maximum new tokens to generate
+  temperature: 0.6        # Generation temperature (higher = more random)
+  top_p: 0.9              # Nucleus sampling parameter
 
-# --- Evaluation (evaluation/evaluate_pipeline.py & evaluation/verify_certificate.py) ---
+# --- Evaluation Configuration ---
+# Parameters for evaluating the barrier certificate generation pipeline
 evaluation:
-  # RAG/Generation params can be inherited from 'inference' section if desired, or overridden here
-  rag_k: ${inference.rag_k} # Example of inheriting using OmegaConf style (requires OmegaConf install)
+  # RAG/Generation parameters (inherited from inference section)
+  rag_k: ${inference.rag_k}
   max_new_tokens: ${inference.max_new_tokens}
   temperature: ${inference.temperature}
   top_p: ${inference.top_p}
 
-  # Verification parameters used by verify_certificate.py
+  # Verification parameters for certificate validation
   verification:
-    num_samples_lie: 10000
-    num_samples_boundary: 5000
-    numerical_tolerance: 1.0e-6
-    sos_default_degree: 2
-    # SOS_SOLVER: cp.MOSEK # Cannot serialize CVXPY objects easily, handle in code
-    sos_epsilon: 1.0e-7
-    optimization_max_iter: 100
-    optimization_pop_size: 15
-    attempt_sos: True           # Whether to try SOS verification if system is polynomial
-    attempt_optimization: True  # Whether to try optimization-based falsification 
+    # Numerical sampling parameters
+    num_samples_lie: 10000          # Samples for checking Lie derivative
+    num_samples_boundary: 5000      # Samples for checking boundary conditions
+    numerical_tolerance: 1.0e-6     # Tolerance for numerical checks
+    
+    # Sum-of-Squares (SOS) verification parameters
+    sos_default_degree: 2           # Default degree for SOS multipliers
+    # SOS solver handled in code: cp.MOSEK or cp.SCS
+    sos_epsilon: 1.0e-7             # Epsilon for SOS constraints
+    
+    # Optimization-based falsification parameters
+    optimization_max_iter: 100      # Max iterations for differential evolution
+    optimization_pop_size: 15       # Population size for differential evolution
+    
+    # Verification method flags
+    attempt_sos: True               # Whether to try SOS verification if system is polynomial
+    attempt_optimization: True      # Whether to try optimization-based falsification 

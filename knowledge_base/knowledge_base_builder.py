@@ -205,9 +205,22 @@ def chunk_mmd_content(mmd_text, target_size, overlap, source_pdf):
 
 # --- Main Logic (Refactored for Mathpix) ---
 def build_knowledge_base(cfg):
-    """Main function to build the vector store and metadata using Mathpix."""
-    # check_mathpix_credentials() # Already checked at top level
-
+    """
+    Main function to build the vector store and metadata using Mathpix.
+    
+    This function performs these key steps:
+    1. Processes PDF files using Mathpix API to convert to MMD format
+    2. Chunks the MMD content into manageable segments
+    3. Embeds the chunks using a sentence transformer model
+    4. Builds a FAISS vector index from the embeddings
+    5. Saves the index and metadata to disk
+    
+    Parameters
+    ----------
+    cfg : OmegaConf
+        Configuration object containing all necessary parameters
+    """
+    # Extract configuration parameters
     output_dir = cfg.paths.kb_output_dir
     pdf_input_dir = cfg.paths.pdf_input_dir
     embedding_model_name = cfg.knowledge_base.embedding_model_name
@@ -216,17 +229,22 @@ def build_knowledge_base(cfg):
     chunk_target_size = cfg.knowledge_base.chunk_target_size_mmd
     chunk_overlap = cfg.knowledge_base.chunk_overlap_mmd
 
-    # Get Mathpix keys loaded at top level
+    # Get Mathpix credentials loaded at top level
     mathpix_app_id = MATHPIX_APP_ID
     mathpix_app_key = MATHPIX_APP_KEY
 
+    # Create output directory if it doesn't exist
     os.makedirs(output_dir, exist_ok=True)
 
+    # Storage for processed chunks
     all_chunks_with_metadata = []
     processed_files = 0
     failed_files = 0
 
+    # --- STEP 1: Process PDF Files with Mathpix ---
     logging.info(f"Starting PDF processing from: {pdf_input_dir}")
+    
+    # Find all PDF files in input directory (including subdirectories)
     all_pdf_paths = []
     for root, _, files in os.walk(pdf_input_dir):
         for file in files:
@@ -234,10 +252,16 @@ def build_knowledge_base(cfg):
                 all_pdf_paths.append(os.path.join(root, file))
 
     logging.info(f"Found {len(all_pdf_paths)} PDF files.")
+    
+    if not all_pdf_paths:
+        logging.error(f"No PDF files found in {pdf_input_dir}. Exiting.")
+        return
 
+    # Process each PDF file
     for pdf_path in all_pdf_paths:
         logging.info(f"--- Processing: {os.path.basename(pdf_path)} ---")
-        # Pass keys to process_pdf_with_mathpix
+        
+        # Convert PDF to MMD using Mathpix API
         mmd_content = process_pdf_with_mathpix(pdf_path, mathpix_app_id, mathpix_app_key)
 
         if not mmd_content:
@@ -245,26 +269,28 @@ def build_knowledge_base(cfg):
             failed_files += 1
             continue
 
-        # Extract title from MMD (heuristic: first line if it looks like a title)
+        # Extract title heuristically (first line if it looks like a title)
         lines = mmd_content.strip().split('\n')
         potential_title = lines[0].strip("# ") if lines else "Unknown Title"
-        # You might add more heuristics here
 
-        # Pass chunk parameters to chunk_mmd_content
+        # --- STEP 2: Chunk the MMD Content ---
         doc_chunks = chunk_mmd_content(
             mmd_content,
-            chunk_target_size, # Use variable from config
-            chunk_overlap,     # Use variable from config
+            chunk_target_size,
+            chunk_overlap,
             pdf_path
         )
+        
         # Add potential title to metadata of each chunk
         for chunk in doc_chunks:
              chunk['metadata']['potential_title'] = potential_title
 
+        # Add chunks to collection
         all_chunks_with_metadata.extend(doc_chunks)
         processed_files += 1
-        time.sleep(0.5) # Small delay between processing files
+        time.sleep(0.5)  # Small delay between processing files
 
+    # Validate that we have chunks to process
     if not all_chunks_with_metadata:
         logging.error("No text chunks were generated from any PDF using Mathpix. Exiting.")
         return
@@ -272,7 +298,7 @@ def build_knowledge_base(cfg):
     logging.info(f"Successfully processed {processed_files} PDFs. Failed: {failed_files}.")
     logging.info(f"Total chunks created: {len(all_chunks_with_metadata)}.")
 
-    # 2. Embed Chunks
+    # --- STEP 3: Embed Chunks ---
     try:
         logging.info(f"Loading embedding model: {embedding_model_name}")
         model = SentenceTransformer(embedding_model_name)
@@ -283,6 +309,7 @@ def build_knowledge_base(cfg):
     logging.info("Embedding chunks...")
     chunk_texts = [chunk['text'] for chunk in all_chunks_with_metadata]
     try:
+        # Generate embeddings with progress bar
         embeddings = model.encode(chunk_texts, show_progress_bar=True, batch_size=32)
         embeddings = np.array(embeddings).astype('float32')
         logging.info(f"Embeddings generated with shape: {embeddings.shape}")
@@ -290,12 +317,15 @@ def build_knowledge_base(cfg):
         logging.error(f"Failed during embedding generation: {e}")
         return
 
-    # 3. Build and Save Vector Store
+    # --- STEP 4: Build and Save Vector Store ---
     dimension = embeddings.shape[1]
     index = faiss.IndexFlatL2(dimension)
     try:
+        # Add vectors to FAISS index
         index.add(embeddings)
         logging.info(f"Added {index.ntotal} vectors to FAISS index.")
+        
+        # Save FAISS index to disk
         index_path = os.path.join(output_dir, vector_store_filename)
         faiss.write_index(index, index_path)
         logging.info(f"Saved FAISS index to {index_path}")
@@ -303,12 +333,12 @@ def build_knowledge_base(cfg):
         logging.error(f"Failed to build or save FAISS index: {e}")
         return
 
-    # 4. Save Metadata (as JSON Lines)
+    # --- STEP 5: Save Metadata ---
     metadata_path = os.path.join(output_dir, metadata_filename)
     try:
         with open(metadata_path, 'w', encoding='utf-8') as f:
             for i, chunk in enumerate(all_chunks_with_metadata):
-                # Ensure metadata keys are consistent if needed downstream
+                # Format data for storage
                 data_to_save = {
                      "chunk_id": i,
                      "text": chunk['text'],
@@ -318,6 +348,11 @@ def build_knowledge_base(cfg):
         logging.info(f"Saved metadata mapping to {metadata_path}")
     except Exception as e:
         logging.error(f"Failed to save metadata JSONL: {e}")
+        
+    logging.info("Knowledge base construction complete.")
+    logging.info(f"FAISS index contains {index.ntotal} vectors.")
+    logging.info(f"Metadata contains {len(all_chunks_with_metadata)} entries.")
+    logging.info(f"Output saved to {output_dir}")
 
 if __name__ == "__main__":
     # Basic dependency check

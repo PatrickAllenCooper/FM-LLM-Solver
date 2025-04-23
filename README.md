@@ -1,5 +1,38 @@
 # FMLLMSolver: Barrier Certificate Generation using LLMs
 
+## Recent Code Improvements
+
+This codebase has recently undergone significant refactoring and improvements to enhance usability, clarity, and maintainability:
+
+1. **Enhanced Documentation**: 
+   - Improved docstrings in all core functions following NumPy style
+   - More comprehensive in-line comments explaining complex logic
+   - Better structured section headings in code files
+
+2. **Improved Error Handling**:
+   - More robust error handling and validation in critical functions
+   - Better reporting of error conditions with detailed messages
+   - Graceful failure modes with meaningful exit codes
+
+3. **Code Organization**:
+   - Standardized function structures with clear input/output documentation
+   - Better separation of concerns between data loading, processing, and evaluation
+   - Clearer step-by-step progression in main execution blocks
+
+4. **Configuration System**:
+   - More detailed comments in configuration file
+   - Improved validation and logging of configuration parameters
+   - Better organization of configuration sections
+
+5. **Data Processing**:
+   - Enhanced regex patterns for barrier certificate extraction
+   - More robust CSV processing for user IDs
+   - Expanded benchmark system examples
+
+These changes should make the codebase more accessible, easier to understand, and simpler to extend with new features.
+
+---
+
 **FMLLMSolver** explores the use of Large Language Models (LLMs), enhanced by Retrieval-Augmented Generation (RAG) and fine-tuning, to assist in or automate the generation of **barrier certificates** for autonomous systems. The core idea is to leverage a knowledge base built from relevant research papers to improve the LLM's ability to propose valid barrier functions for given system dynamics.
 
 ---
