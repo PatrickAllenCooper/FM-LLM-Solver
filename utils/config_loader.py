@@ -3,9 +3,10 @@ import os
 import sys
 from omegaconf import OmegaConf, MissingMandatoryValue
 
-# Determine Project Root dynamically assuming this util is in paper_population/utils
+# Determine Project Root dynamically
 UTILS_DIR = os.path.dirname(__file__)
-PROJECT_ROOT = os.path.abspath(os.path.join(UTILS_DIR, "..", "..")) # Go up two levels from utils
+# Go up one level from utils, as utils is directly in the project root
+PROJECT_ROOT = os.path.abspath(os.path.join(UTILS_DIR, ".."))
 DEFAULT_CONFIG_PATH = os.path.join(PROJECT_ROOT, "config.yaml")
 
 def load_config(config_path=DEFAULT_CONFIG_PATH):
