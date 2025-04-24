@@ -52,6 +52,7 @@ These changes should make the codebase more accessible, easier to understand, an
     *   [5. Fine-tune the LLM](#5-fine-tune-the-llm)
     *   [6. Generate Certificate (Inference)](#6-generate-certificate-inference)
     *   [7. Evaluate the Pipeline](#7-evaluate-the-pipeline)
+    *   [First Battery of Experiments: Complete Instructions](#first-battery-of-experiments-complete-instructions)
 *   [Configuration](#configuration)
 *   [Verification Limitations](#verification-limitations)
 *   [Author / Context](#author--context)
@@ -237,6 +238,146 @@ Place or generate fine-tuning data files (e.g., `.jsonl`) in the `data/` directo
     python evaluation/evaluate_pipeline.py
     ```
 *   Uses benchmark from `data/`, adapter/KB from `output/`, saves results to `output/evaluation_results.csv` (defaults).
+
+---
+
+## First Battery of Experiments: Complete Instructions
+
+This section provides detailed instructions for setting up and running the first set of experiments to evaluate the barrier certificate generation capabilities.
+
+### Prerequisites
+
+1. **Environment Setup**
+   - Ensure Python 3.8-3.12 is installed
+   - Set up a virtual environment:
+     ```bash
+     conda create -n fmllm python=3.12
+     conda activate fmllm
+     pip install -r requirements.txt
+     ```
+   - Ensure you have a CUDA-compatible GPU with appropriate drivers installed
+
+2. **API Keys Configuration**
+   - Export required environment variables:
+     ```bash
+     export MATHPIX_APP_ID='your_app_id'
+     export MATHPIX_APP_KEY='your_app_key'
+     export UNPAYWALL_EMAIL='your-email@example.com'
+     ```
+
+### Experiment Setup Steps
+
+1. **Data Preparation**
+   - Review the benchmark systems in `data/benchmark_systems.json`
+   - The default file includes 5 systems of varying complexity (2D nonlinear, linear stable, coupled linear, and 3D)
+   - You can add additional systems by following the same JSON structure
+
+2. **Knowledge Base Construction**
+   - Fetch papers to build the knowledge base:
+     ```bash
+     # Make sure data directory exists
+     mkdir -p data/fetched_papers
+     # Run the paper fetcher with default settings
+     python data_fetching/paper_fetcher.py
+     ```
+   - Build the knowledge base from the fetched papers:
+     ```bash
+     # Make sure output directory exists
+     mkdir -p output/knowledge_base
+     # Build the knowledge base
+     python knowledge_base/knowledge_base_builder.py
+     ```
+   - Verify the knowledge base works correctly:
+     ```bash
+     python knowledge_base/test_knowledge_base.py "What is a barrier certificate?" -k 3
+     ```
+
+3. **Fine-tuning Preparation**
+   - Prepare the training data:
+     ```bash
+     # Make sure directories exist
+     mkdir -p output/finetuning_results
+     # Combine existing datasets (or create a new one if needed)
+     python fine_tuning/combine_datasets.py
+     ```
+   - Fine-tune the LLM:
+     ```bash
+     python fine_tuning/finetune_llm.py
+     ```
+   - This process will take some time depending on your GPU capabilities
+   - The fine-tuned model adapter will be saved to `output/finetuning_results/final_adapter/`
+
+### Running the First Battery of Experiments
+
+1. **Initial Test Run with a Single Example**
+   - Test certificate generation on a single example:
+     ```bash
+     python inference/generate_certificate.py "System Dynamics: dx/dt = -x**3 - y, dy/dt = x - y**3. Initial Set: x**2+y**2 <= 0.1. Unsafe Set: x >= 1.5"
+     ```
+   - Review the output to ensure the model is generating reasonable barrier certificates
+
+2. **Full Benchmark Evaluation**
+   - Run the complete evaluation pipeline on all benchmark systems:
+     ```bash
+     python evaluation/evaluate_pipeline.py
+     ```
+   - This will:
+     - Process each system in `data/benchmark_systems.json`
+     - Use the RAG-enhanced fine-tuned model to generate barrier certificates
+     - Verify each certificate using numerical sampling and symbolic checks
+     - Attempt SOS verification when applicable
+     - Save detailed results to `output/evaluation_results.csv`
+
+3. **Evaluation with Different Parameters**
+   - Try varying the RAG context size:
+     ```bash
+     python evaluation/evaluate_pipeline.py -k 5
+     ```
+   - Adjust other parameters by modifying `config.yaml` or using command-line overrides:
+     ```bash
+     # Example: Save results to a different file for comparison
+     python evaluation/evaluate_pipeline.py --results output/eval_results_experiment1.csv
+     ```
+
+### Analyzing Experiment Results
+
+1. **Review the Summary Output**
+   - After evaluation completes, a summary will be displayed showing:
+     - Total systems evaluated
+     - Successful generations percentage
+     - Successfully parsed certificates percentage
+     - Verification success rate
+     - Breakdown by verification type (numerical, symbolic, SOS)
+
+2. **Examine Detailed Results**
+   - Open `output/evaluation_results.csv` to view detailed metrics for each system:
+     - Generated certificate expressions
+     - Verification outcomes for different checks
+     - Timing information
+     - Full LLM outputs
+
+3. **Result Interpretation**
+   - Key performance indicators:
+     - **Generation Rate**: Percentage of systems where the LLM successfully generated output
+     - **Parse Rate**: Percentage of outputs where a valid certificate could be extracted
+     - **Verification Rate**: Percentage of certificates that passed verification
+     - **Specific Verification Types**: Success rates for numerical, symbolic, and SOS checks
+
+### Experiment Variations to Try
+
+1. **Knowledge Base Variations**
+   - Try with different subsets of papers to see how knowledge base quality affects results
+   - Modify the `kb_vector_store_filename` in `config.yaml` to switch between different knowledge bases
+
+2. **Model Variations**
+   - Experiment with different base models by changing `base_model_name` in `config.yaml`
+   - Try different fine-tuning parameters (e.g., number of epochs, learning rate)
+
+3. **System Complexity Tests**
+   - Add more complex systems to `data/benchmark_systems.json` to test the limits of the approach
+   - Try systems with more state variables or more complex dynamics
+
+All experiment results will be saved to CSV files for later analysis and comparison.
 
 ---
 
