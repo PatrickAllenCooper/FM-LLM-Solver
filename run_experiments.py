@@ -15,7 +15,7 @@ import json
 import subprocess
 import dotenv
 from pathlib import Path
-from utils.config_loader import load_config
+from utils.config_loader import load_config, DEFAULT_CONFIG_PATH
 
 # Configure logging
 logging.basicConfig(
@@ -95,8 +95,8 @@ def fetch_data(cfg, args):
         
     try:
         cmd = [sys.executable, "data_fetching/paper_fetcher.py"]
-        if args.config:
-            cmd.extend(["--config", args.config])
+        config_path = args.config if args.config else DEFAULT_CONFIG_PATH
+        cmd.extend(["--config", config_path])
             
         logger.info(f"Executing: {' '.join(cmd)}")
         subprocess.run(cmd, check=True)
@@ -134,8 +134,8 @@ def build_knowledge_base(cfg, args):
         
     try:
         cmd = [sys.executable, "knowledge_base/knowledge_base_builder.py"]
-        if args.config:
-            cmd.extend(["--config", args.config])
+        config_path = args.config if args.config else DEFAULT_CONFIG_PATH
+        cmd.extend(["--config", config_path])
             
         logger.info(f"Executing: {' '.join(cmd)}")
         subprocess.run(cmd, check=True)
@@ -169,8 +169,8 @@ def prepare_finetune_data(cfg, args):
     
     try:
         cmd = [sys.executable, "fine_tuning/combine_datasets.py"]
-        if args.config:
-            cmd.extend(["--config", args.config])
+        config_path = args.config if args.config else DEFAULT_CONFIG_PATH
+        cmd.extend(["--config", config_path])
             
         logger.info(f"Executing: {' '.join(cmd)}")
         subprocess.run(cmd, check=True)
@@ -204,8 +204,8 @@ def finetune_model(cfg, args):
     
     try:
         cmd = [sys.executable, "fine_tuning/finetune_llm.py"]
-        if args.config:
-            cmd.extend(["--config", args.config])
+        config_path = args.config if args.config else DEFAULT_CONFIG_PATH
+        cmd.extend(["--config", config_path])
             
         logger.info(f"Executing: {' '.join(cmd)}")
         subprocess.run(cmd, check=True)
@@ -235,8 +235,8 @@ def run_experiment(cfg, args):
     
     try:
         cmd = [sys.executable, "evaluation/evaluate_pipeline.py"]
-        if args.config:
-            cmd.extend(["--config", args.config])
+        config_path = args.config if args.config else DEFAULT_CONFIG_PATH
+        cmd.extend(["--config", config_path])
         
         # Add additional arguments from command line
         if args.rag_k:
@@ -266,9 +266,12 @@ def full_pipeline(cfg, args):
             "inference/generate_certificate.py",
             "System Dynamics: dx/dt = -x**3 - y, dy/dt = x - y**3. Initial Set: x**2+y**2 <= 0.1. Unsafe Set: x >= 1.5"
         ]
-        if args.config:
-            test_cmd.extend(["--config", args.config])
         
+        # Use default config path if not specified
+        config_path = args.config if args.config else DEFAULT_CONFIG_PATH
+        test_cmd.extend(["--config", config_path])
+        
+        logger.info(f"Executing: {' '.join(test_cmd)}")
         subprocess.run(test_cmd)
         logger.info("Test example completed.")
         return
@@ -407,7 +410,9 @@ def main():
         return
     
     # Load configuration
-    cfg = load_config(args.config)
+    config_path = args.config if args.config else DEFAULT_CONFIG_PATH
+    logger.info(f"Loading configuration from: {config_path}")
+    cfg = load_config(config_path)
     
     # Handle "only run specific step" flags
     if args.only_data_fetch:
