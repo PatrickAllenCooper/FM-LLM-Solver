@@ -1,4 +1,5 @@
 import os
+import sys
 import argparse
 import torch
 from datasets import load_dataset
@@ -9,8 +10,10 @@ from transformers import (
     TrainingArguments,
     pipeline,
     logging,
+    HfArgumentParser,
+    DataCollatorForLanguageModeling
 )
-from peft import LoraConfig, PeftModel, get_peft_model
+from peft import LoraConfig, PeftModel, get_peft_model, prepare_model_for_kbit_training
 from trl import SFTTrainer
 import warnings
 from utils.config_loader import load_config, DEFAULT_CONFIG_PATH # Import config loader
@@ -19,6 +22,14 @@ from omegaconf import OmegaConf, ListConfig # Import OmegaConf
 # Suppress warnings
 warnings.filterwarnings("ignore")
 logging.set_verbosity_error() # Reduce transformers logging verbosity
+
+# Add project root to Python path
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
+sys.path.insert(0, PROJECT_ROOT)
+
+# Now we can import from utils
+from utils.config_loader import load_config, DEFAULT_CONFIG_PATH
 
 # --- Configuration --- #
 
@@ -115,10 +126,8 @@ def main(cfg):
 
     print(f"--- Starting Fine-tuning Process ---")
     # Log relevant config sections
-    print(f"Fine-tuning Config:
-{OmegaConf.to_yaml(cfg.fine_tuning)}")
-    print(f"Paths Config:
-{OmegaConf.to_yaml(cfg.paths)}")
+    print(f"Fine-tuning Config: {OmegaConf.to_yaml(cfg.fine_tuning)}")
+    print(f"Paths Config: {OmegaConf.to_yaml(cfg.paths)}")
 
     # 1. Load Dataset
     data_path = cfg.paths.ft_combined_data_file

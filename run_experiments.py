@@ -16,6 +16,7 @@ import subprocess
 import dotenv
 from pathlib import Path
 from utils.config_loader import load_config, DEFAULT_CONFIG_PATH
+from omegaconf import OmegaConf
 
 # Configure logging
 logging.basicConfig(
@@ -271,6 +272,14 @@ def full_pipeline(cfg, args):
         config_path = args.config if args.config else DEFAULT_CONFIG_PATH
         test_cmd.extend(["--config", config_path])
         
+        # Add --skip-kb-check option if requested
+        if args.skip_kb_check:
+            test_cmd.append("--skip-kb-check")
+            
+        # Add --skip-adapter option if requested
+        if args.skip_adapter:
+            test_cmd.append("--skip-adapter")
+        
         logger.info(f"Executing: {' '.join(test_cmd)}")
         subprocess.run(test_cmd)
         logger.info("Test example completed.")
@@ -367,7 +376,7 @@ def save_experiment_config(cfg, args, experiment_name):
     
     # Copy current config
     with open(experiment_dir / "config.yaml", "w") as f:
-        f.write(cfg.to_yaml())
+        f.write(OmegaConf.to_yaml(cfg))
     
     logger.info(f"Experiment configuration saved to {experiment_dir}")
     return experiment_dir
@@ -396,6 +405,8 @@ def main():
     parser.add_argument("--only-finetune", action="store_true", help="Only run model fine-tuning")
     parser.add_argument("--only-evaluate", action="store_true", help="Only run evaluation")
     parser.add_argument("--test-example", action="store_true", help="Only run a single test example")
+    parser.add_argument("--skip-kb-check", action="store_true", help="Skip knowledge base check when running test example")
+    parser.add_argument("--skip-adapter", action="store_true", help="Skip loading the adapter and use only the base model")
     
     # Experiment parameters
     parser.add_argument("--rag-k", type=int, help="Number of context chunks to retrieve")

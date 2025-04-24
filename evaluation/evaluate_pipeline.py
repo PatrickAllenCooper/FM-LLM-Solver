@@ -22,10 +22,9 @@ import sys
 from utils.config_loader import load_config, DEFAULT_CONFIG_PATH # Import config loader
 from omegaconf import OmegaConf
 
-# Ensure other scripts in the project are importable
-# (Keep this logic as it depends on script location)
-BASE_DIR = os.path.dirname(__file__)
-PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, ".."))
+# Add project root to Python path
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
 sys.path.insert(0, PROJECT_ROOT) # Add project root to path
 
 # Import necessary functions from other modules

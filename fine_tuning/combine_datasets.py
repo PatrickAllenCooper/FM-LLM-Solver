@@ -4,6 +4,14 @@ import logging
 import argparse
 import glob
 import re # Import re
+import sys
+
+# Add project root to Python path
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
+sys.path.insert(0, PROJECT_ROOT)
+
+# Now we can import the utils module
 from utils.config_loader import load_config, DEFAULT_CONFIG_PATH # Import config loader
 
 # --- Configuration ---

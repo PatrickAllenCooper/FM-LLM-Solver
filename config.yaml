@@ -6,7 +6,7 @@
 # Use with the run_experiments.py script with --env-from-config flag
 # For security, prefer using a .env file or environment variables over storing credentials here
 env_vars:
-  # MathPix credentials (for knowledge base building)
+  # MathPix credentials (for knowledge base construction)
   MATHPIX_APP_ID: ""
   MATHPIX_APP_KEY: ""
   
@@ -15,6 +15,16 @@ env_vars:
   
   # Optional: Semantic Scholar API key
   SEMANTIC_SCHOLAR_API_KEY: ""
+  
+  # Hugging Face API Token
+  # HUGGINGFACE_TOKEN: ""  # Uncomment and set this for accessing gated models
+
+# --- Hugging Face Configuration ---
+huggingface:
+  # Set to true to use the Hugging Face token stored in HF_TOKEN env var or env_vars.HUGGINGFACE_TOKEN
+  use_auth: false
+  # Uncomment and change to an open-source model if you don't have access to Llama models
+  local_model_path: ""  # Path to a local model directory if using a local model
 
 # --- Paths Configuration ---
 # Define paths relative to the project root (or use absolute paths)
@@ -86,7 +96,8 @@ knowledge_base:
 # Parameters for training the LLM on barrier certificate generation
 fine_tuning:
   # Base model selection
-  base_model_name: "meta-llama/Meta-Llama-3-8B-Instruct"  # Model to fine-tune
+  base_model_name: "mistralai/Mistral-7B-Instruct-v0.2"  # Open-source model, requires GPU
+  # base_model_name: "meta-llama/Meta-Llama-3-8B-Instruct"  # Gated model - requires HF authentication
   
   # Data format for fine-tuning
   data_format: "instruction"  # "instruction" or "prompt_completion"
@@ -108,10 +119,10 @@ fine_tuning:
 
   # Quantization settings for efficient fine-tuning
   quantization:
-    use_4bit: True                    # Use 4-bit quantization
+    use_4bit: true                    # Use 4-bit quantization
     bnb_4bit_compute_dtype: "float16" # Compute dtype ("float16" or "bfloat16")
     bnb_4bit_quant_type: "nf4"        # Quantization type ("fp4" or "nf4")
-    use_nested_quant: False           # Use nested quantization
+    use_nested_quant: false           # Use nested quantization
 
   # Training hyperparameters
   training:

@@ -1,15 +1,29 @@
-import requests
 import os
-import xml.etree.ElementTree as ET
-from scholarly import scholarly, MaxTriesExceededException, TimeoutException
+import sys
+import csv
 import time
-import re
-import json # For parsing Semantic Scholar response
-import csv # Add csv import
-from bs4 import BeautifulSoup # For parsing HTML
+import requests
+from bs4 import BeautifulSoup
+import logging
 import urllib.parse # For joining relative URLs
-import sys # For exiting
-from utils.config_loader import load_config # Import config loader
+import argparse # For command line arguments
+
+# Add project root to Python path
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
+sys.path.insert(0, PROJECT_ROOT)
+
+# Now we can import utils and scholarly
+from utils.config_loader import load_config, DEFAULT_CONFIG_PATH # Import config loader
+from scholarly import scholarly
+try:
+    from scholarly import MaxTriesExceededException, TimeoutException
+except ImportError:
+    # Create custom exceptions if not available in the installed version of scholarly
+    class MaxTriesExceededException(Exception):
+        pass
+    class TimeoutException(Exception):
+        pass
 
 # Load configuration
 cfg = load_config()

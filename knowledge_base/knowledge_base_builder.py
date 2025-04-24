@@ -1,4 +1,15 @@
+import argparse # Keep argparse ONLY for --config override
+
+# Add project root to Python path
 import os
+import sys
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
+sys.path.insert(0, PROJECT_ROOT)
+
+# Now we can import the utils module
+from utils.config_loader import load_config, DEFAULT_CONFIG_PATH # Import config loader
+
 import re
 import json
 import numpy as np
@@ -6,11 +17,8 @@ from sentence_transformers import SentenceTransformer
 import faiss
 import spacy # Keep for potential MMD chunking or fallback
 import logging
-import sys
 import requests # For MathPix API calls
 import time
-import argparse # Keep argparse ONLY for --config override
-from utils.config_loader import load_config, DEFAULT_CONFIG_PATH # Import config loader
 
 # --- Configuration ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
