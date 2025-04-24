@@ -444,6 +444,26 @@ def safe_year(p):
     except (ValueError, TypeError):
         return 0
 
+# Configure scholarly based on what methods are available in the installed version
+def configure_scholarly(sleep_time=3):
+    """Configure scholarly with appropriate settings based on available methods."""
+    try:
+        if hasattr(scholarly, 'set_retries'):
+            scholarly.set_retries(5)
+            print("Configured scholarly retries.")
+        
+        # Different versions of scholarly use different methods for setting the sleep interval
+        if hasattr(scholarly, 'set_sleep_interval'):
+            scholarly.set_sleep_interval(sleep_time)
+            print("Configured scholarly sleep interval.")
+        elif hasattr(scholarly, 'scholarly_instance') and hasattr(scholarly.scholarly_instance, 'set_timeout'):
+            scholarly.scholarly_instance.set_timeout(sleep_time)
+            print("Configured scholarly timeout.")
+        else:
+            print("Warning: Could not configure scholarly sleep interval or timeout. Using manual delays.")
+    except Exception as e:
+        print(f"Warning: Error configuring scholarly: {e}")
+
 # --- Main Execution (Updated Error Handling) ---
 if not user_ids:
     print("No user IDs loaded. Exiting.")
@@ -452,15 +472,13 @@ if not user_ids:
 for user_id in user_ids:
     print(f"\nProcessing researcher: {user_id}")
     try:
-        # Use proxy if needed, configure scholarly for robustness
-        # scholarly.use_proxy(http="your_proxy", https="your_proxy")
-        scholarly.set_retries(5)
-        scholarly.set_sleep_interval(SLEEP_TIME_SCHOLARLY)
-
+        # Configure scholarly based on available methods
+        configure_scholarly(SLEEP_TIME_SCHOLARLY)
+        
         author = scholarly.search_author_id(user_id)
         print(f"  Fetching publications for: {author.get('name', 'Unknown Name')}")
         author = scholarly.fill(author, sections=["publications"], sortby="year", publication_limit=PUBLICATION_LIMIT)
-        time.sleep(SLEEP_TIME_SCHOLARLY)
+        time.sleep(SLEEP_TIME_SCHOLARLY)  # Always add explicit sleep
 
         publications = author.get("publications", [])[:PUBLICATION_LIMIT]
         print(f"  Checking {len(publications)} most recent publications (limit: {PUBLICATION_LIMIT}).")
