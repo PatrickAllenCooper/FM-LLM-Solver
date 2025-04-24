@@ -24,4 +24,6 @@ sympy>=1.12 # For symbolic mathematics in verification
 scipy>=1.10 # For numerical operations (sampling, optimization)
 cvxpy>=1.4 # For SOS programming (requires SDP solver like MOSEK or SCS)
 PyYAML>=6.0 # For loading config file
-omegaconf>=2.3 # For advanced config loading (interpolation, merging) 
+omegaconf>=2.3 # For advanced config loading (interpolation, merging)
+python-dotenv>=1.0.0 # For loading environment variables from .env files
+pandas>=2.0.0 # For data manipulation and CSV handling 

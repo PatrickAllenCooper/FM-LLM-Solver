@@ -1,6 +1,21 @@
 # /Users/patrickcooper/code/FM-LLM-Solver/config.yaml
 # Central configuration for FM-LLM-Solver: Barrier Certificate Generation using LLMs
 
+# --- Environment Variables Configuration ---
+# These values can be used instead of setting environment variables manually
+# Use with the run_experiments.py script with --env-from-config flag
+# For security, prefer using a .env file or environment variables over storing credentials here
+env_vars:
+  # MathPix credentials (for knowledge base building)
+  MATHPIX_APP_ID: ""
+  MATHPIX_APP_KEY: ""
+  
+  # Unpaywall email (for data fetching)
+  UNPAYWALL_EMAIL: ""
+  
+  # Optional: Semantic Scholar API key
+  SEMANTIC_SCHOLAR_API_KEY: ""
+
 # --- Paths Configuration ---
 # Define paths relative to the project root (or use absolute paths)
 # The config_loader script will resolve relative paths based on project root.

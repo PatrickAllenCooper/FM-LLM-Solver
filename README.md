@@ -53,6 +53,7 @@ These changes should make the codebase more accessible, easier to understand, an
     *   [6. Generate Certificate (Inference)](#6-generate-certificate-inference)
     *   [7. Evaluate the Pipeline](#7-evaluate-the-pipeline)
     *   [First Battery of Experiments: Complete Instructions](#first-battery-of-experiments-complete-instructions)
+*   [Unified Experiment Runner](#unified-experiment-runner)
 *   [Configuration](#configuration)
 *   [Verification Limitations](#verification-limitations)
 *   [Author / Context](#author--context)
@@ -378,6 +379,121 @@ This section provides detailed instructions for setting up and running the first
    - Try systems with more state variables or more complex dynamics
 
 All experiment results will be saved to CSV files for later analysis and comparison.
+
+---
+
+## Unified Experiment Runner
+
+A unified experiment runner script has been added to simplify the process of running experiments.
+
+### Overview
+
+The `run_experiments.py` script provides a single command to execute the entire pipeline or specific parts of it. It handles:
+
+- Setting up directories
+- Loading environment variables from .env file or config
+- Running each step in sequence
+- Logging progress and errors
+- Saving experiment configurations for reproducibility
+
+### Basic Usage
+
+To run the complete experiment pipeline:
+
+```bash
+python run_experiments.py
+```
+
+This will execute all steps in sequence using settings from `config.yaml`.
+
+### Environment Variables
+
+You can manage environment variables in three ways:
+
+1. **Using a .env file** (recommended):
+   ```bash
+   # Create a template .env file
+   python run_experiments.py --create-env-template
+   
+   # Edit the file with your credentials
+   nano .env
+   ```
+
+2. **Using config.yaml**:
+   - Add your credentials to the `env_vars` section in `config.yaml`
+   - Run with the `--env-from-config` flag:
+     ```bash
+     python run_experiments.py --env-from-config
+     ```
+
+3. **Using system environment variables** (traditional method):
+   ```bash
+   export MATHPIX_APP_ID="your_id"
+   export MATHPIX_APP_KEY="your_key"
+   export UNPAYWALL_EMAIL="your_email"
+   ```
+
+### Running Specific Steps
+
+You can run specific parts of the pipeline:
+
+```bash
+# Run only data fetching
+python run_experiments.py --only-data-fetch
+
+# Run only knowledge base building
+python run_experiments.py --only-kb-build
+
+# Run only fine-tuning
+python run_experiments.py --only-finetune
+
+# Run only evaluation
+python run_experiments.py --only-evaluate
+
+# Run a single test example
+python run_experiments.py --test-example
+```
+
+Or skip specific steps:
+
+```bash
+# Skip data fetching and KB building (if already done)
+python run_experiments.py --skip-data-fetching --skip-kb-building
+```
+
+### Experiment Variations
+
+Control experiment parameters directly:
+
+```bash
+# Change RAG context size
+python run_experiments.py --rag-k 5
+
+# Use a different benchmark file
+python run_experiments.py --benchmark-file data/custom_benchmarks.json
+
+# Save results to a specific file
+python run_experiments.py --results-file output/experiment1_results.csv
+```
+
+### Experiment Tracking
+
+Track and save experiment configurations:
+
+```bash
+# Name and describe your experiment for tracking
+python run_experiments.py --experiment-name "experiment1" --description "Testing RAG with k=5"
+```
+
+This saves a copy of the configuration and metadata in the `experiments/experiment1/` directory.
+
+### Help
+
+For a full list of options:
+
+```bash
+python run_experiments.py --help
+```
 
 ---
 
