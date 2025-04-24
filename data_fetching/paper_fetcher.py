@@ -3,6 +3,7 @@ import sys
 import csv
 import time
 import requests
+import re  # Add missing re (regex) module
 from bs4 import BeautifulSoup
 import logging
 import urllib.parse # For joining relative URLs
