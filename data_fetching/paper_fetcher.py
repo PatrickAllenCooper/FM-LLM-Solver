@@ -4,10 +4,13 @@ import csv
 import time
 import requests
 import re  # Add missing re (regex) module
+import xml.etree.ElementTree as ET  # Add missing ElementTree import
+import json  # Add missing json module
 from bs4 import BeautifulSoup
 import logging
 import urllib.parse # For joining relative URLs
 import argparse # For command line arguments
+import random # For jitter in backoff
 
 # Add project root to Python path
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -48,6 +51,8 @@ REQUESTS_HEADERS = {
     'User-Agent': cfg.data_fetching.requests_user_agent
 }
 PUBLICATION_LIMIT = cfg.data_fetching.publication_limit_per_author
+INITIAL_BACKOFF_SECONDS = 5 # Base for exponential backoff
+MAX_BACKOFF_SECONDS = 60 # Maximum wait time
 
 # Get paths from config
 output_dir = cfg.paths.pdf_input_dir # Fetcher saves PDFs here
@@ -250,8 +255,15 @@ def extract_doi_from_url(url):
         return doi_match.group(1).strip().rstrip('/')
     return None
 
+def _exponential_backoff_sleep(attempt, base_delay=INITIAL_BACKOFF_SECONDS, max_delay=MAX_BACKOFF_SECONDS):
+    """Calculates sleep time with exponential backoff and jitter."""
+    delay = base_delay * (2 ** attempt) + random.uniform(0, 1) # Add jitter
+    sleep_time = min(delay, max_delay)
+    print(f"        Sleeping for {sleep_time:.2f} seconds...")
+    time.sleep(sleep_time)
+
 def get_pdf_from_unpaywall(doi):
-    """Queries Unpaywall API for the best Open Access PDF URL with retries."""
+    """Queries Unpaywall API for the best Open Access PDF URL with retries using exponential backoff."""
     if not doi: return None
     print(f"    Querying Unpaywall for DOI: {doi}")
     api_url = f"https://api.unpaywall.org/v2/{doi}?email={UNPAYWALL_EMAIL}"
@@ -260,10 +272,15 @@ def get_pdf_from_unpaywall(doi):
         try:
             resp = requests.get(api_url, headers=REQUESTS_HEADERS, timeout=15)
             if resp.status_code == 429: # Rate limited
-                print(f"      Unpaywall rate limit hit (attempt {attempt+1}). Retrying after {SLEEP_TIME_RETRY}s...")
-                if attempt < retries: time.sleep(SLEEP_TIME_RETRY); continue
-                else: resp.raise_for_status() # Raise after final retry
-            resp.raise_for_status()
+                print(f"      Unpaywall rate limit hit (attempt {attempt+1}/{retries+1}).")
+                if attempt < retries:
+                    _exponential_backoff_sleep(attempt)
+                    continue
+                else:
+                    print(f"      Max retries reached for rate limit.")
+                    resp.raise_for_status() # Raise after final retry
+
+            resp.raise_for_status() # Raise for other HTTP errors
             data = resp.json()
             oa_location = data.get("best_oa_location")
             if oa_location and oa_location.get("url_for_pdf"):
@@ -273,71 +290,99 @@ def get_pdf_from_unpaywall(doi):
             else:
                 print("      Unpaywall: No OA PDF found.")
                 return None # Success, but no PDF
+
         except requests.exceptions.RequestException as e:
-            print(f"      Unpaywall API error (attempt {attempt+1}) for DOI {doi}: {e}")
-            if attempt >= retries: return None # Give up after retries
-            time.sleep(SLEEP_TIME_RETRY)
+            print(f"      Unpaywall API error (attempt {attempt+1}/{retries+1}) for DOI {doi}: {e}")
+            if attempt >= retries:
+                 print(f"      Max retries reached for request errors.")
+                 return None # Give up after retries
+            _exponential_backoff_sleep(attempt) # Wait before retrying request errors
         except json.JSONDecodeError:
             print(f"      Unpaywall returned non-JSON response for DOI {doi}")
             return None # Don't retry JSON errors
         except Exception as e:
             print(f"      Unexpected Unpaywall error for DOI {doi}: {e}")
             return None # Don't retry unknown errors
+    # Reached only if all retries fail
+    print(f"      Unpaywall query failed after {retries + 1} attempts.")
     return None
 
-def search_arxiv(title, author_names=None):
+def search_arxiv(title, author_names=None, max_fallback_authors=5):
     """Searches arXiv API by title and optionally authors with retries."""
     print(f"    Querying arXiv for title: '{title}'")
     # Try precise title search first
-    query_url = f'http://export.arxiv.org/api/query?search_query=ti:"{title.replace(" ", "+")}"&start=0&max_results=1'
+    # Sanitize title for URL query (basic)
+    precise_title_query = title.replace(" ", "+")
+    # Escape special characters that might interfere with arXiv query syntax (like colons)
+    precise_title_query = ''.join(c if c.isalnum() or c in [' ', '+'] else urllib.parse.quote(c) for c in precise_title_query)
+    query_url = f'http://export.arxiv.org/api/query?search_query=ti:"{precise_title_query}"&start=0&max_results=1'
     pdf_url = _fetch_arxiv_results(query_url, title)
     if pdf_url:
         return pdf_url
 
     # Fallback: broader title search (remove quotes) and add authors if available
     print(f"    Querying arXiv (fallback) for title: {title}")
-    # Sanitize title for URL query
-    sanitized_title = re.sub(r'[\W_]+', '+', title.split(':')[0].strip())
-    search_terms = f"ti:{sanitized_title}"
-    if author_names:
-         last_names = [re.sub(r'[\W_]+', '', name.split()[-1]) for name in author_names if name.strip()]
-         if last_names:
-             author_query = "+AND+".join([f'au:{name}' for name in last_names])
-             search_terms += f"+AND+({author_query})"
+    # Sanitize title for URL query - be less aggressive, allow spaces initially
+    # Remove common problematic characters like quotes, maybe keep colons for specific searches?
+    # Let urllib.parse.quote handle most encoding needs later.
+    fallback_title = re.sub(r'["\'<>\\|?*]', '', title.split(':')[0].strip()) # Remove chars bad for URLs/queries
+    search_terms = f'ti:{fallback_title}'
 
-    query_url = f"http://export.arxiv.org/api/query?search_query={search_terms}&start=0&max_results=3" # Get a few results
+    if author_names:
+         # Extract and sanitize last names, limit the number
+         last_names = [re.sub(r'[\W_]+', '', name.split()[-1]) \
+                       for name in author_names if name.strip() and name.split()]
+         if last_names:
+             limited_authors = last_names[:max_fallback_authors]
+             author_query = ' AND '.join([f'au:{name}' for name in limited_authors])
+             search_terms += f' AND ({author_query})'
+
+    # URL encode the final search terms
+    encoded_search_terms = urllib.parse.quote(search_terms)
+    query_url = f'http://export.arxiv.org/api/query?search_query={encoded_search_terms}&start=0&max_results=3' # Get a few results
     return _fetch_arxiv_results(query_url, title)
 
 def _fetch_arxiv_results(query_url, original_title):
-    """Helper function to fetch and parse arXiv results with retries."""
+    """Helper function to fetch and parse arXiv results with retries using exponential backoff."""
     retries = MAX_RETRIES
     for attempt in range(retries + 1):
         try:
             print(f"      Querying arXiv API: {query_url}")
             resp = requests.get(query_url, headers=REQUESTS_HEADERS, timeout=20)
             if resp.status_code == 503: # Service Unavailable (common for arXiv)
-                 print(f"      arXiv API unavailable (503). Retrying after {SLEEP_TIME_RETRY}s...")
-                 if attempt < retries: time.sleep(SLEEP_TIME_RETRY); continue
-                 else: resp.raise_for_status()
-            resp.raise_for_status()
+                 print(f"      arXiv API unavailable (503, attempt {attempt+1}/{retries+1}).")
+                 if attempt < retries:
+                     _exponential_backoff_sleep(attempt)
+                     continue
+                 else:
+                     print(f"      Max retries reached for 503 error.")
+                     resp.raise_for_status()
+
+            resp.raise_for_status() # Raise for other HTTP errors
 
             # --- Improved XML Parsing --- #
             # Define the Atom namespace
             namespaces = {'atom': 'http://www.w3.org/2005/Atom'}
             try:
-                 root = ET.fromstring(resp.content)
+                 # Decode explicitly to handle potential encoding issues before parsing
+                 response_text = resp.content.decode('utf-8', errors='replace')
+                 root = ET.fromstring(response_text)
                  entries = root.findall('.//atom:entry', namespaces)
             except ET.ParseError as pe:
-                 print(f"      arXiv returned invalid XML (attempt {attempt+1}). Error: {pe}")
+                 print(f"      arXiv returned invalid XML (attempt {attempt+1}/{retries+1}). Error: {pe}")
                  # Log response content for debugging
-                 # print(f"Response content:\n{resp.text[:500]}...")
-                 if attempt < retries: time.sleep(SLEEP_TIME_RETRY); continue
-                 else: return None # Give up on parse error
+                 print(f"        Response content snippet (first 500 chars):\n{response_text[:500]}...")
+                 if attempt < retries:
+                     _exponential_backoff_sleep(attempt) # Retry on parse error too
+                     continue
+                 else:
+                    print(f"      Max retries reached for XML parse error.")
+                    return None # Give up on parse error after retries
             # --- End Improved XML Parsing --- #
 
             if not entries:
                 print("      arXiv: No matching entries found in feed.")
-                return None
+                return None # No entries found, success but no match
 
             for entry in entries: # Check all returned entries
                 entry_title_elem = entry.find('atom:title', namespaces)
@@ -347,36 +392,50 @@ def _fetch_arxiv_results(query_url, original_title):
                 # Normalize whitespace for comparison
                 norm_orig_title = ' '.join(original_title.lower().split())
                 norm_entry_title = ' '.join(entry_title.lower().split())
+                # Allow if one title is a substring of the other (handles subtitle variations)
                 if norm_orig_title not in norm_entry_title and norm_entry_title not in norm_orig_title:
                     print(f"      arXiv: Entry title '{entry_title}' mismatch. Skipping.")
                     continue
 
                 print(f"      arXiv: Found matching entry: '{entry_title}'")
                 for link in entry.findall('atom:link', namespaces):
+                    # Prefer the link with title='pdf'
                     if link.get("title") == "pdf" and link.get("href"):
                          pdf_url = link.get("href")
-                         print(f"      arXiv found potential PDF link: {pdf_url}")
+                         print(f"      arXiv found specific PDF link: {pdf_url}")
                          # Ensure .pdf extension ONLY if it seems missing (handles version numbers)
                          parsed_url = urllib.parse.urlparse(pdf_url)
                          if not parsed_url.path.lower().endswith('.pdf'):
-                             pdf_url += ".pdf"
-                             print(f"        (Appended .pdf extension: {pdf_url})")
+                             pdf_url_with_ext = pdf_url.rstrip('/') + ".pdf"
+                             print(f"        (Appended .pdf extension: {pdf_url_with_ext})")
+                             return pdf_url_with_ext
                          return pdf_url
+
+                # Fallback: If no link with title='pdf', check if any link *ends* in .pdf
+                for link in entry.findall('atom:link', namespaces):
+                     href = link.get("href")
+                     if href and href.lower().endswith('.pdf'):
+                         print(f"      arXiv found fallback PDF link (ends in .pdf): {href}")
+                         return href
 
             print("      arXiv: Found entries but no PDF links.")
             return None # No PDF link found in relevant entries
 
         except requests.exceptions.RequestException as e:
-            print(f"      arXiv API search error (attempt {attempt+1}): {e}")
-            if attempt >= retries: return None
-            time.sleep(SLEEP_TIME_RETRY)
+            print(f"      arXiv API search error (attempt {attempt+1}/{retries+1}): {e}")
+            if attempt >= retries:
+                print(f"      Max retries reached for request errors.")
+                return None
+            _exponential_backoff_sleep(attempt) # Retry on request errors
         except Exception as e:
             print(f"      Unexpected arXiv search error: {e}")
             return None # Don't retry unknown errors
+    # Reached only if all retries fail
+    print(f"      arXiv search failed after {retries + 1} attempts.")
     return None
 
 def search_semantic_scholar(title, doi=None):
-    """Queries Semantic Scholar (S2) API with retries."""
+    """Queries Semantic Scholar (S2) API with retries using exponential backoff."""
     print(f"    Querying Semantic Scholar for: '{title}'")
     base_url = "https://api.semanticscholar.org/graph/v1"
     if doi:
@@ -396,10 +455,15 @@ def search_semantic_scholar(title, doi=None):
         try:
             resp = requests.get(api_url, headers=s2_headers, params=params, timeout=20)
             if resp.status_code == 429:
-                 print(f"      S2 rate limit hit (attempt {attempt+1}). Retrying after {SLEEP_TIME_RETRY}s...")
-                 if attempt < retries: time.sleep(SLEEP_TIME_RETRY); continue
-                 else: resp.raise_for_status()
-            resp.raise_for_status()
+                 print(f"      S2 rate limit hit (attempt {attempt+1}/{retries+1}).")
+                 if attempt < retries:
+                     _exponential_backoff_sleep(attempt)
+                     continue
+                 else:
+                     print(f"      Max retries reached for rate limit.")
+                     resp.raise_for_status() # Raise after final retry fails due to rate limit
+
+            resp.raise_for_status() # Raise for other HTTP errors (4xx, 5xx)
             data = resp.json()
             paper_data = None
             if doi: paper_data = data
@@ -423,18 +487,22 @@ def search_semantic_scholar(title, doi=None):
                     print(f"      Semantic Scholar: No Open Access PDF link available.")
             else:
                 print(f"      Semantic Scholar: No definitive match found.")
-            return None # Success, but no match/PDF found
+            return None # Success, but no match/PDF found (or non-OA)
 
         except requests.exceptions.RequestException as e:
-            print(f"      Semantic Scholar API error (attempt {attempt+1}): {e}")
-            if attempt >= retries: return None
-            time.sleep(SLEEP_TIME_RETRY)
+            print(f"      Semantic Scholar API request error (attempt {attempt+1}/{retries+1}): {e}")
+            if attempt >= retries:
+                print(f"      Max retries reached for request errors.")
+                return None # Give up after retries for request errors
+            _exponential_backoff_sleep(attempt) # Wait before retrying request errors too
         except json.JSONDecodeError:
             print(f"      Semantic Scholar returned non-JSON response.")
-            return None
+            return None # Don't retry JSON errors
         except Exception as e:
             print(f"      Unexpected Semantic Scholar error: {e}")
-            return None
+            return None # Don't retry unknown errors
+    # This part is reached only if all retries (including the initial attempt) fail
+    print(f"      Semantic Scholar search failed after {retries + 1} attempts.")
     return None
 
 def safe_year(p):
