@@ -90,5 +90,189 @@
        "z": [-2.0, 2.0]
     },
     "notes": "Tests the LLM's ability to handle higher dimensional state spaces."
+  },
+  {
+    "id": "nonpoly_trig",
+    "description": "Non-polynomial system with trigonometric dynamics",
+    "state_variables": ["x", "y"],
+    "dynamics": [
+      "-sin(x) - 0.5*x + y",
+      "-y - 0.2*cos(x*y)"
+    ],
+    "initial_set_conditions": ["x**2 + y**2 <= 0.4"],
+    "unsafe_set_conditions": ["x**2 + y**2 >= 4.0"],
+    "safe_set_conditions": ["x**2 + y**2 < 4.0"],
+    "known_valid_certificate": null,
+    "sampling_bounds": {
+       "x": [-3.0, 3.0],
+       "y": [-3.0, 3.0]
+    },
+    "notes": "Tests the LLM's ability to handle non-polynomial dynamics with trigonometric terms. SOS verification will be skipped, but numerical checks should work."
+  },
+  {
+    "id": "van_der_pol",
+    "description": "Van der Pol oscillator with limit cycle behavior",
+    "state_variables": ["x", "y"],
+    "dynamics": [
+      "y",
+      "-x + 2*(1-x**2)*y"
+    ],
+    "initial_set_conditions": ["(x+1)**2 + y**2 <= 0.16"],
+    "unsafe_set_conditions": ["(x-1)**2 + y**2 <= 0.16"],
+    "safe_set_conditions": ["(x-1)**2 + y**2 > 0.16"],
+    "known_valid_certificate": null,
+    "sampling_bounds": {
+       "x": [-3.0, 3.0],
+       "y": [-3.0, 3.0]
+    },
+    "notes": "Classic Van der Pol oscillator benchmark with challenging limit cycle dynamics. Tests the LLM's knowledge of standard benchmark systems."
+  },
+  {
+    "id": "polynomial_high_degree",
+    "description": "System with high-degree polynomial dynamics",
+    "state_variables": ["x", "y"],
+    "dynamics": [
+      "-x**5 - 0.5*y**3",
+      "-y + x**3"
+    ],
+    "initial_set_conditions": ["(x-0.5)**2 + (y-0.5)**2 <= 0.04"],
+    "unsafe_set_conditions": ["(x+0.7)**2 + (y+0.7)**2 <= 0.09"],
+    "safe_set_conditions": ["(x+0.7)**2 + (y+0.7)**2 > 0.09"],
+    "known_valid_certificate": null,
+    "sampling_bounds": {
+       "x": [-1.5, 1.5],
+       "y": [-1.5, 1.5]
+    },
+    "notes": "High-degree polynomial system which may require more complex certificate forms. Tests the LLM's ability to handle higher-degree dynamics."
+  },
+  {
+    "id": "hybrid_switching",
+    "description": "Simple hybrid system with two modes",
+    "state_variables": ["x", "y"],
+    "dynamics": [
+      "-x + max(0, y)",
+      "-y - max(0, x)"
+    ],
+    "initial_set_conditions": ["x**2 + y**2 <= 0.25", "x >= 0", "y >= 0"],
+    "unsafe_set_conditions": ["x <= -1.0", "y <= -1.0"],
+    "safe_set_conditions": ["x > -1.0 or y > -1.0"],
+    "known_valid_certificate": null,
+    "sampling_bounds": {
+       "x": [-2.0, 2.0],
+       "y": [-2.0, 2.0]
+    },
+    "notes": "A hybrid system with non-smooth dynamics using max functions. Tests the LLM's ability to handle non-smooth systems and mode switching."
+  },
+  {
+    "id": "complex_regions",
+    "description": "System with non-convex initial and unsafe regions",
+    "state_variables": ["x", "y"],
+    "dynamics": [
+      "-0.5*x - y",
+      "x - 0.5*y"
+    ],
+    "initial_set_conditions": ["(x**2 + y**2)*(x**2 + y**2 - 0.16) <= 0"],
+    "unsafe_set_conditions": ["(x-1)**4 + (y-1)**4 <= 0.01"],
+    "safe_set_conditions": ["(x-1)**4 + (y-1)**4 > 0.01"],
+    "known_valid_certificate": null,
+    "sampling_bounds": {
+       "x": [-1.0, 2.0],
+       "y": [-1.0, 2.0]
+    },
+    "notes": "System with complex regions: annular initial set and non-standard unsafe region. Tests the LLM's ability to handle non-trivial sets."
+  },
+  {
+    "id": "4d_linear",
+    "description": "4D linear system to test higher dimensionality",
+    "state_variables": ["x", "y", "z", "w"],
+    "dynamics": [
+      "-x + 0.1*y",
+      "-y + 0.1*z",
+      "-z + 0.1*w",
+      "-w"
+    ],
+    "initial_set_conditions": ["x**2 + y**2 + z**2 + w**2 <= 0.04"],
+    "unsafe_set_conditions": ["x**2 + w**2 >= 4"],
+    "safe_set_conditions": ["x**2 + w**2 < 4"],
+    "known_valid_certificate": null,
+    "sampling_bounds": {
+       "x": [-3.0, 3.0],
+       "y": [-3.0, 3.0],
+       "z": [-3.0, 3.0],
+       "w": [-3.0, 3.0]
+    },
+    "notes": "Higher-dimensional (4D) system to test scalability. LLM knowledge may not extend to this dimensionality."
+  },
+  {
+    "id": "lotka_volterra",
+    "description": "Lotka-Volterra predator-prey model (biological system)",
+    "state_variables": ["x", "y"],
+    "dynamics": [
+      "x*(1 - 0.5*y)",
+      "-0.5*y*(1 - x)"
+    ],
+    "initial_set_conditions": ["(x-0.2)**2 + (y-0.2)**2 <= 0.01"],
+    "unsafe_set_conditions": ["(x-3)**2 + (y-3)**2 <= 0.25"],
+    "safe_set_conditions": ["(x-3)**2 + (y-3)**2 > 0.25"],
+    "known_valid_certificate": null,
+    "sampling_bounds": {
+       "x": [0.0, 4.0],
+       "y": [0.0, 4.0]
+    },
+    "notes": "Classical predator-prey model with oscillatory behavior and equilibrium at (1,2). Tests knowledge of biological systems."
+  },
+  {
+    "id": "pendulum",
+    "description": "Nonlinear pendulum model (mechanical system)",
+    "state_variables": ["theta", "omega"],
+    "dynamics": [
+      "omega",
+      "-sin(theta) - 0.1*omega"
+    ],
+    "initial_set_conditions": ["theta**2 + omega**2 <= 0.01"],
+    "unsafe_set_conditions": ["theta**2 >= 3"],
+    "safe_set_conditions": ["theta**2 < 3"],
+    "known_valid_certificate": null,
+    "sampling_bounds": {
+       "theta": [-2.0, 2.0],
+       "omega": [-2.0, 2.0]
+    },
+    "notes": "Nonlinear pendulum with damping. Tests the LLM's knowledge of mechanical systems and ability to reason about physical constraints."
+  },
+  {
+    "id": "circuit_rlc",
+    "description": "Linear RLC circuit model (electrical system)",
+    "state_variables": ["i", "v"],
+    "dynamics": [
+      "-0.2*i - v",
+      "i - 0.1*v"
+    ],
+    "initial_set_conditions": ["i**2 + v**2 <= 0.01"],
+    "unsafe_set_conditions": ["i >= 1.0"],
+    "safe_set_conditions": ["i < 1.0"],
+    "known_valid_certificate": null,
+    "sampling_bounds": {
+       "i": [-1.5, 1.5],
+       "v": [-1.5, 1.5]
+    },
+    "notes": "Linear model of an RLC circuit. Tests the LLM's knowledge of electrical systems and domain-specific terminology."
+  },
+  {
+    "id": "chemical_reaction",
+    "description": "Simple chemical reaction network",
+    "state_variables": ["a", "b"],
+    "dynamics": [
+      "-0.1*a*b",
+      "0.1*a*b - 0.05*b"
+    ],
+    "initial_set_conditions": ["a >= 0.9", "a <= 1.1", "b >= 0", "b <= 0.1"],
+    "unsafe_set_conditions": ["b >= 5.0"],
+    "safe_set_conditions": ["b < 5.0"],
+    "known_valid_certificate": null,
+    "sampling_bounds": {
+       "a": [0.0, 2.0],
+       "b": [0.0, 6.0]
+    },
+    "notes": "Simple chemical reaction system with bilinear terms. Tests the LLM's ability to handle chemical systems with non-negative state variables."
   }
 ] 
