@@ -96,7 +96,8 @@ knowledge_base:
 # Parameters for training the LLM on barrier certificate generation
 fine_tuning:
   # Base model selection
-  base_model_name: "mistralai/Mistral-7B-Instruct-v0.2"  # Open-source model, requires GPU
+  # base_model_name: "mistralai/Mistral-7B-Instruct-v0.2"  # Open-source model, requires GPU
+  base_model_name: "Qwen/Qwen2.5-7B-Instruct"             # Qwen 2.5 7B Instruct model
   # base_model_name: "meta-llama/Meta-Llama-3-8B-Instruct"  # Gated model - requires HF authentication
   
   # Data format for fine-tuning
