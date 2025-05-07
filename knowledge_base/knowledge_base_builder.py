@@ -76,7 +76,7 @@ def process_pdf_with_mathpix(pdf_path, mathpix_app_id, mathpix_app_key):
     }
     # Options for the conversion, requesting MMD format
     options = {
-        "conversion_formats": {"mmd": True}, # Request Mathpix Markdown
+        # "conversion_formats": {"mmd": True}, # REMOVED: MMD is fetched via GET .mmd
         "math_inline_delimiters": ["$", "$"],
         "math_display_delimiters": ["$$", "$$"],
         # Add other options if needed, e.g., "include_line_data": True

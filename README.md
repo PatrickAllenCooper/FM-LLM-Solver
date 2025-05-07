@@ -135,7 +135,7 @@ The project is organized into modules based on functionality:
 
 ### Prerequisites
 
-*   **Python:** Version 3.8 - 3.12 recommended.
+*   **Python:** Version 3.10 required.
 *   **Git:** For cloning the repository.
 *   **API Credentials & Email (Environment Variables):**
     ```bash
@@ -158,7 +158,7 @@ The project is organized into modules based on functionality:
 
 2.  **Create Environment (Recommended):**
     ```bash
-    conda create -n fmllm python=3.12
+    conda create -n fmllm python=3.10
     conda activate fmllm
     ```
 

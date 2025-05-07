@@ -1,4 +1,11 @@
 import os
+import sys
+
+# Add project root to Python path
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
+sys.path.insert(0, PROJECT_ROOT) # Add project root to path
+
 import argparse
 import json
 import faiss
@@ -18,14 +25,8 @@ import logging
 import time
 import re
 import pandas as pd # For results summary
-import sys
 from utils.config_loader import load_config, DEFAULT_CONFIG_PATH # Import config loader
 from omegaconf import OmegaConf
-
-# Add project root to Python path
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
-sys.path.insert(0, PROJECT_ROOT) # Add project root to path
 
 # Import necessary functions from other modules
 try:

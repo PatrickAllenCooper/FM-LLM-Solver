@@ -13,7 +13,7 @@ import logging
 import time
 import json
 import subprocess
-import dotenv
+from dotenv import load_dotenv
 from pathlib import Path
 from utils.config_loader import load_config, DEFAULT_CONFIG_PATH
 from omegaconf import OmegaConf
@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 dotenv_path = Path(".env")
 if dotenv_path.exists():
     logger.info(f"Loading environment variables from {dotenv_path}")
-    dotenv.load_dotenv(dotenv_path)
+    load_dotenv(dotenv_path)
 else:
     logger.info("No .env file found. Using system environment variables or values from config.")
 
