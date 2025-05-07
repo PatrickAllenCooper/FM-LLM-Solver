@@ -135,10 +135,11 @@ def build_knowledge_base(cfg, args):
     
     # Ensure paths are absolute if needed, assuming they are relative to kb_dir or project root
     # (Config loader usually handles this, but double-check if issues arise)
+    project_root_path = Path(cfg.paths.project_root)
     if not vector_store_path.is_absolute():
-         vector_store_path = Path(PROJECT_ROOT) / vector_store_path # Adjust if paths are relative differently
+         vector_store_path = project_root_path / vector_store_path
     if not metadata_path.is_absolute():
-         metadata_path = Path(PROJECT_ROOT) / metadata_path # Adjust if paths are relative differently
+         metadata_path = project_root_path / metadata_path
          
     if vector_store_path.exists() and metadata_path.exists():
         logger.info(f"Knowledge base files found ({vector_store_path.name}, {metadata_path.name}). Skipping build.")
