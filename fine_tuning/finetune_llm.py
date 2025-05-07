@@ -133,7 +133,8 @@ def main(cfg):
     data_format = cfg.fine_tuning.data_format
     print(f"Loading dataset from {data_path} (Format: {data_format})...")
     try:
-        dataset = load_dataset('json', data_path=data_path, split='train')
+        # Use data_files instead of data_path for Hugging Face datasets library
+        dataset = load_dataset('json', data_files=data_path, split='train')
         print(f"Dataset loaded: {dataset}")
         dataset = dataset.shuffle(seed=42)
         # TODO: Add train/test split based on config flag if needed
@@ -141,7 +142,7 @@ def main(cfg):
         eval_dataset = None
     except Exception as e:
         print(f"Error loading dataset: {e}")
-        return
+        return False
 
     # 2. Configure Quantization (QLoRA)
     compute_dtype = getattr(torch, cfg.fine_tuning.quantization.bnb_4bit_compute_dtype)
@@ -175,7 +176,7 @@ def main(cfg):
         model.config.pretraining_tp = 1
     except Exception as e:
         print(f"Error loading base model: {e}")
-        return
+        return False
 
     # 4. Load Tokenizer
     print(f"Loading tokenizer for {model_name}...")
@@ -187,7 +188,7 @@ def main(cfg):
         tokenizer.padding_side = "right"
     except Exception as e:
         print(f"Error loading tokenizer: {e}")
-        return
+        return False
 
     # 5. Configure LoRA
     # Convert OmegaConf ListConfig to Python list for target_modules
@@ -280,7 +281,7 @@ def main(cfg):
     except Exception as e:
         print(f"Error during training: {e}")
         # Consider saving state or model here if possible
-        return
+        return False
 
     # 9. Save Final Adapter
     final_adapter_path = os.path.join(output_dir, "final_adapter")
@@ -294,6 +295,7 @@ def main(cfg):
         print(f"Error saving final adapter: {e}")
 
     print("\n--- Fine-tuning Script Completed ---")
+    return True
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Fine-tune a model for barrier certificate generation using QLoRA.")
@@ -311,7 +313,20 @@ if __name__ == "__main__":
     #     print(f"Overriding num_train_epochs with CLI value: {args.num_train_epochs}")
     #     cfg.fine_tuning.training.num_train_epochs = args.num_train_epochs
 
-    # Ensure output directory exists
-    os.makedirs(cfg.paths.ft_output_dir, exist_ok=True)
-
-    main(cfg) 
+    try:
+        # Ensure output directory exists
+        os.makedirs(cfg.paths.ft_output_dir, exist_ok=True)
+        # Run main function and check success
+        success = main(cfg)
+        if success:
+            logging.info("Fine-tuning process finished successfully.") # Use logging
+            sys.exit(0)
+        else:
+            logging.error("Fine-tuning process failed.") # Use logging
+            sys.exit(1)
+    except Exception as e:
+        # Use standard Python logging here
+        import logging # Ensure standard logging is imported if not already at top level
+        logger = logging.getLogger(__name__) # Get a logger instance
+        logger.error(f"An unexpected error occurred during fine-tuning setup or execution: {e}", exc_info=True)
+        sys.exit(1) # Exit with error on unexpected exception 

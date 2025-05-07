@@ -110,6 +110,7 @@ def fetch_data(cfg, args):
 def build_knowledge_base(cfg, args):
     """
     Execute the knowledge base building step based on config.
+    Checks if KB files already exist before running the builder.
     
     Parameters
     ----------
@@ -121,11 +122,29 @@ def build_knowledge_base(cfg, args):
     Returns
     -------
     bool
-        True if successful, False otherwise
+        True if successful or skipped, False otherwise
     """
     if args.skip_kb_building:
         logger.info("Skipping knowledge base building step.")
         return True
+        
+    # Check if knowledge base files already exist
+    kb_dir = cfg.paths.kb_output_dir
+    vector_store_path = Path(cfg.paths.kb_vector_store_filename)
+    metadata_path = Path(cfg.paths.kb_metadata_filename)
+    
+    # Ensure paths are absolute if needed, assuming they are relative to kb_dir or project root
+    # (Config loader usually handles this, but double-check if issues arise)
+    if not vector_store_path.is_absolute():
+         vector_store_path = Path(PROJECT_ROOT) / vector_store_path # Adjust if paths are relative differently
+    if not metadata_path.is_absolute():
+         metadata_path = Path(PROJECT_ROOT) / metadata_path # Adjust if paths are relative differently
+         
+    if vector_store_path.exists() and metadata_path.exists():
+        logger.info(f"Knowledge base files found ({vector_store_path.name}, {metadata_path.name}). Skipping build.")
+        return True
+    else:
+        logger.info("Knowledge base files not found. Proceeding with build...")
         
     logger.info("Starting knowledge base building...")
     
@@ -139,11 +158,16 @@ def build_knowledge_base(cfg, args):
         cmd.extend(["--config", config_path])
             
         logger.info(f"Executing: {' '.join(cmd)}")
-        subprocess.run(cmd, check=True)
-        logger.info("Knowledge base building completed successfully.")
-        return True
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Knowledge base building failed with error code {e.returncode}.")
+        # Use run and capture the exit code
+        result = subprocess.run(cmd)
+        if result.returncode == 0:
+            logger.info("Knowledge base building script finished successfully.")
+            return True
+        else:
+            logger.error(f"Knowledge base building script failed with exit code {result.returncode}.")
+            return False
+    except Exception as e:
+        logger.error(f"Error executing knowledge base building script: {e}", exc_info=True)
         return False
 
 def prepare_finetune_data(cfg, args):

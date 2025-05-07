@@ -91,8 +91,9 @@ def process_pdf_with_mathpix(pdf_path, mathpix_app_id, mathpix_app_key):
 
         if response.status_code == 200:
             response_data = response.json()
-            if "request_id" in response_data: # Async processing started
-                 pdf_id = response_data["request_id"]
+            # Check for pdf_id to handle async response
+            if "pdf_id" in response_data: # CHANGED from request_id
+                 pdf_id = response_data["pdf_id"] # CHANGED from request_id
                  logging.info(f"  Mathpix request submitted. PDF ID: {pdf_id}. Waiting for conversion...")
                  # Pass keys and config polling values to get_mathpix_result
                  return get_mathpix_result(pdf_id, mathpix_app_id, mathpix_app_key, POLL_MAX_WAIT, POLL_INTERVAL)
@@ -100,6 +101,8 @@ def process_pdf_with_mathpix(pdf_path, mathpix_app_id, mathpix_app_key):
                  logging.info("  Mathpix returned result directly.")
                  return response_data["mmd"]
             else:
+                 # Log the raw response for debugging
+                 logging.error(f"  Mathpix API Error: Unexpected response format. Response Text: {response.text} Raw Response Object: {response_data}")
                  logging.error(f"  Mathpix API Error: Unexpected response format. {response_data.get('error', '')}")
                  return None
         else:
@@ -227,6 +230,11 @@ def build_knowledge_base(cfg):
     ----------
     cfg : OmegaConf
         Configuration object containing all necessary parameters
+    
+    Returns
+    -------
+    bool
+        True if the knowledge base was built successfully, False otherwise.
     """
     # Extract configuration parameters
     output_dir = cfg.paths.kb_output_dir
@@ -263,7 +271,7 @@ def build_knowledge_base(cfg):
     
     if not all_pdf_paths:
         logging.error(f"No PDF files found in {pdf_input_dir}. Exiting.")
-        return
+        return False # <-- RETURN False on failure
 
     # Process each PDF file
     for pdf_path in all_pdf_paths:
@@ -301,7 +309,7 @@ def build_knowledge_base(cfg):
     # Validate that we have chunks to process
     if not all_chunks_with_metadata:
         logging.error("No text chunks were generated from any PDF using Mathpix. Exiting.")
-        return
+        return False # <-- RETURN False on failure
 
     logging.info(f"Successfully processed {processed_files} PDFs. Failed: {failed_files}.")
     logging.info(f"Total chunks created: {len(all_chunks_with_metadata)}.")
@@ -312,7 +320,7 @@ def build_knowledge_base(cfg):
         model = SentenceTransformer(embedding_model_name)
     except Exception as e:
         logging.error(f"Failed to load embedding model '{embedding_model_name}': {e}")
-        return
+        return False # <-- RETURN False on failure
 
     logging.info("Embedding chunks...")
     chunk_texts = [chunk['text'] for chunk in all_chunks_with_metadata]
@@ -323,7 +331,7 @@ def build_knowledge_base(cfg):
         logging.info(f"Embeddings generated with shape: {embeddings.shape}")
     except Exception as e:
         logging.error(f"Failed during embedding generation: {e}")
-        return
+        return False # <-- RETURN False on failure
 
     # --- STEP 4: Build and Save Vector Store ---
     dimension = embeddings.shape[1]
@@ -339,7 +347,7 @@ def build_knowledge_base(cfg):
         logging.info(f"Saved FAISS index to {index_path}")
     except Exception as e:
         logging.error(f"Failed to build or save FAISS index: {e}")
-        return
+        return False # <-- RETURN False on failure
 
     # --- STEP 5: Save Metadata ---
     metadata_path = os.path.join(output_dir, metadata_filename)
@@ -356,11 +364,13 @@ def build_knowledge_base(cfg):
         logging.info(f"Saved metadata mapping to {metadata_path}")
     except Exception as e:
         logging.error(f"Failed to save metadata JSONL: {e}")
+        return False # <-- Changed return to False
         
     logging.info("Knowledge base construction complete.")
     logging.info(f"FAISS index contains {index.ntotal} vectors.")
     logging.info(f"Metadata contains {len(all_chunks_with_metadata)} entries.")
     logging.info(f"Output saved to {output_dir}")
+    return True # <-- RETURN True on full success
 
 if __name__ == "__main__":
     # Basic dependency check
@@ -378,5 +388,10 @@ if __name__ == "__main__":
         sys.exit(1)
 
     # Config is already loaded at the top
-    build_knowledge_base(cfg)
-    logging.info("Mathpix-based knowledge base build process finished.") 
+    success = build_knowledge_base(cfg)
+    if success:
+        logging.info("Mathpix-based knowledge base build process finished successfully.")
+        sys.exit(0)
+    else:
+        logging.error("Mathpix-based knowledge base build process failed.")
+        sys.exit(1) # <-- Exit with non-zero code on failure 
