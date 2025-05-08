@@ -162,9 +162,28 @@ The project is organized into modules based on functionality:
     conda activate fmllm
     ```
 
-3.  **Install Dependencies:**
+3.  **Setup Environment with CUDA Support:**
     ```bash
+    # This script automatically sets up the environment with proper CUDA support
+    python setup_environment.py
+    ```
+    The setup script will:
+    - Check for CUDA-compatible GPU
+    - Install PyTorch with the correct CUDA support
+    - Install other dependencies from requirements.txt
+    - Verify the installation
+
+    If you need to reinstall PyTorch with CUDA support later:
+    ```bash
+    python setup_environment.py --force-reinstall
+    ```
+
+4.  **Alternative Manual Installation (NOT RECOMMENDED):**
+    ```bash
+    # WARNING: May result in CPU-only PyTorch which cannot be used for fine-tuning
     pip install -r requirements.txt
+    # Install PyTorch with CUDA support separately
+    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
     # Install SCS if not using MOSEK for SOS:
     # pip install scs
     ```
@@ -215,12 +234,22 @@ Place or generate fine-tuning data files (e.g., `.jsonl`) in the `data/` directo
 
 ### 5. Fine-tune the LLM
 
-*   ⚠️ **Requires CUDA GPU.**
+*   ⚠️ **REQUIRES CUDA GPU with PyTorch CUDA support!**
+*   Ensure the environment is set up correctly:
+    ```bash
+    # Verify PyTorch CUDA support
+    python -c "import torch; print('CUDA available:', torch.cuda.is_available())"
+    # Should output: CUDA available: True
+    
+    # If False, run the setup script
+    python setup_environment.py --force-reinstall
+    ```
 *   Run:
     ```bash
     python fine_tuning/finetune_llm.py
     ```
 *   Uses `data/ft_data_combined.jsonl` (default) and saves adapter to `output/finetuning_results/` (default).
+*   If you encounter errors related to CUDA, check [Troubleshooting](#troubleshooting) section.
 
 ### 6. Generate Certificate (Inference)
 
@@ -551,4 +580,86 @@ Developed by **Patrick Cooper** at **CU Boulder**.
 *   Improve robustness of LLM output parsing.
 *   Experiment with different models, embeddings, etc.
 *   Add command-line overrides for more config parameters.
-*   Develop a UI. 
+*   Develop a UI.
+
+---
+
+## Troubleshooting
+
+### CUDA Issues
+
+**Problem: "AssertionError: Torch not compiled with CUDA enabled"**
+
+This error occurs when PyTorch was installed without CUDA support but the fine-tuning script attempts to use CUDA.
+
+**Solution:**
+1. Run the setup script to reinstall PyTorch with CUDA support:
+   ```bash
+   python setup_environment.py --force-reinstall
+   ```
+2. Verify the installation:
+   ```bash
+   python -c "import torch; print('CUDA available:', torch.cuda.is_available()); print('PyTorch version:', torch.__version__); print('CUDA version:', torch.version.cuda)"
+   ```
+   You should see `CUDA available: True` and a non-empty CUDA version.
+
+**Problem: "RuntimeError: CUDA error: no kernel image is available for execution on the device"**
+
+This typically means your CUDA toolkit version doesn't match the PyTorch build.
+
+**Solution:**
+1. Check your GPU capabilities:
+   ```bash
+   nvidia-smi
+   ```
+2. Based on your GPU's CUDA capability, reinstall PyTorch with the appropriate CUDA version.
+   For newer GPUs (RTX 30xx, 40xx series):
+   ```bash
+   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+   ```
+   For older GPUs, stick with CUDA 11.8:
+   ```bash
+   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+   ```
+
+### General Issues
+
+**Problem: Library or module not found errors**
+
+**Solution:**
+1. Ensure all dependencies are installed:
+   ```bash
+   python setup_environment.py
+   ```
+2. If specific packages are still missing, install them manually:
+   ```bash
+   pip install <package-name>
+   ```
+
+**Problem: API-related errors in data fetching or knowledge base construction**
+
+**Solution:**
+1. Verify your environment variables are set correctly:
+   ```bash
+   echo $MATHPIX_APP_ID
+   echo $MATHPIX_APP_KEY
+   echo $UNPAYWALL_EMAIL
+   ```
+2. Try using the .env file approach:
+   ```bash
+   python run_experiments.py --create-env-template
+   # Edit the .env file with your credentials
+   ```
+
+**Problem: "Out of memory" errors during fine-tuning**
+
+**Solution:**
+1. Reduce batch size in `config.yaml`:
+   ```yaml
+   fine_tuning:
+     training:
+       per_device_train_batch_size: 1  # Try a smaller value
+       gradient_accumulation_steps: 8  # Increase this value
+   ```
+2. Enable gradient checkpointing (already enabled by default)
+3. Use a smaller model or increase quantization (e.g., enable 4-bit) 

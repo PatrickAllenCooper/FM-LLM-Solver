@@ -57,6 +57,43 @@ def setup_experiment_env(cfg, args):
     os.makedirs(cfg.paths.kb_output_dir, exist_ok=True)
     os.makedirs(cfg.paths.ft_output_dir, exist_ok=True)
     
+    # Check PyTorch CUDA support if fine-tuning is required
+    if not args.skip_finetuning:
+        logger.info("Verifying PyTorch CUDA installation...")
+        try:
+            import torch
+            cuda_available = torch.cuda.is_available()
+            if not cuda_available:
+                # Check if we have CPU-only PyTorch but CUDA hardware is available
+                try:
+                    # Try to check if CUDA hardware is available with nvidia-smi
+                    result = subprocess.run(['nvidia-smi'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                    if result.returncode == 0:
+                        # We have CUDA hardware but PyTorch doesn't see it - need to reinstall
+                        logger.warning("CUDA hardware detected but PyTorch was installed without CUDA support!")
+                        if not args.skip_deps_check:
+                            logger.info("Running environment setup script to fix PyTorch installation...")
+                            setup_cmd = [sys.executable, "setup_environment.py", "--force-reinstall"]
+                            subprocess.run(setup_cmd, check=True)
+                            
+                            # Verify again
+                            import importlib
+                            importlib.reload(torch)
+                            if not torch.cuda.is_available():
+                                logger.error("Failed to install PyTorch with CUDA support. Fine-tuning will likely fail.")
+                except (subprocess.SubprocessError, FileNotFoundError):
+                    # CUDA hardware not available
+                    logger.warning("PyTorch installed without CUDA support, and no CUDA hardware detected.")
+                    logger.warning("Fine-tuning will be slow without GPU acceleration.")
+            else:
+                logger.info(f"PyTorch CUDA support verified. Using device: {torch.cuda.get_device_name(0)}")
+        except ImportError:
+            logger.error("PyTorch not installed. Please run setup_environment.py first.")
+            if not args.skip_deps_check:
+                logger.info("Running environment setup script...")
+                setup_cmd = [sys.executable, "setup_environment.py"]
+                subprocess.run(setup_cmd, check=True)
+    
     # Set environment variables from config
     if args.env_from_config:
         logger.info("Setting environment variables from config...")
@@ -423,6 +460,7 @@ def main():
     parser.add_argument("--skip-kb-building", action="store_true", help="Skip knowledge base building step")
     parser.add_argument("--skip-data-prep", action="store_true", help="Skip fine-tuning data preparation step")
     parser.add_argument("--skip-finetuning", action="store_true", help="Skip model fine-tuning step")
+    parser.add_argument("--skip-deps-check", action="store_true", help="Skip dependency checking (PyTorch CUDA)")
     
     # Run only specific steps
     parser.add_argument("--only-data-fetch", action="store_true", help="Only run data fetching")
