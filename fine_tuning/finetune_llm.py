@@ -14,7 +14,7 @@ from transformers import (
     DataCollatorForLanguageModeling
 )
 from peft import LoraConfig, PeftModel, get_peft_model, prepare_model_for_kbit_training
-from trl import SFTTrainer
+from trl import SFTTrainer, SFTConfig
 import warnings
 from omegaconf import OmegaConf, ListConfig # Import OmegaConf
 
@@ -94,28 +94,28 @@ MAX_SEQ_LENGTH = None             # Maximum sequence length to use (set if using
 
 def formatting_prompts_func(example):
     """Function to format dataset examples for instruction fine-tuning."""
-    output_texts = []
-    for i in range(len(example['instruction'])):
-        # Apply a chat template if the base model supports it (recommended for Instruct models)
-        # This example assumes a simple concatenation, adapt based on model docs/tokenizer
-        text = f"<s>[INST] {example['instruction'][i]} \n System: {example['input'][i]} [/INST] {example['output'][i]} </s>"
-        output_texts.append(text)
-    return output_texts
+    # Process a single example (dictionary)
+    # Create a simpler combined text. Let SFTTrainer and the tokenizer's chat_template handle final formatting.
+    # This is to avoid potential conflicts if SFTTrainer re-templates an already chat-formatted string.
+    instruction = example.get('instruction', '')
+    input_text = example.get('input', '')
+    output_text = example.get('output', '')
+
+    # Basic concatenation, actual chat structure will be applied by the tokenizer's chat_template if available
+    text = f"Instruction:\n{instruction}\n\nInput:\n{input_text}\n\nOutput:\n{output_text}"
+    
+    # Return string directly instead of a dictionary
+    return text
 
 def formatting_prompt_completion_func(example):
     """Function to format dataset examples for prompt/completion fine-tuning."""
-    # Directly use the 'prompt' and 'completion' fields if they exist
-    # The SFTTrainer expects a 'text' field by default, or you can specify dataset_text_field
-    # This function ensures the data is in the expected "prompt" + "completion" format
-    # (Assuming the SFTTrainer handles this implicitly or via dataset_text_field)
-    # If using dataset_text_field="text", combine them here:
-    output_texts = []
-    for i in range(len(example['prompt'])):
-         text = example['prompt'][i] + example['completion'][i]
-         # Add EOS token if needed by the model/trainer setup
-         # text += "</s>" # Example for Llama
-         output_texts.append(text)
-    return output_texts
+    # Process a single example (dictionary)
+    prompt = example.get('prompt', '')
+    completion = example.get('completion', '')
+    text = prompt + completion
+    
+    # Return string directly instead of a dictionary
+    return text
 
 
 # --- Main Fine-tuning Logic ---
@@ -226,7 +226,8 @@ def main(cfg):
         print("Warning: bf16=True but not supported by GPU. Setting bf16=False.")
         use_bf16 = False
 
-    training_arguments = TrainingArguments(
+    # Use SFTConfig instead of TrainingArguments
+    training_arguments = SFTConfig(
         output_dir=output_dir,
         per_device_train_batch_size=training_args_dict['per_device_train_batch_size'],
         gradient_accumulation_steps=training_args_dict['gradient_accumulation_steps'],
@@ -243,12 +244,13 @@ def main(cfg):
         warmup_ratio=training_args_dict['warmup_ratio'],
         group_by_length=group_by_length_setting,
         lr_scheduler_type=training_args_dict['lr_scheduler_type'],
-        report_to="tensorboard",
+        report_to="none",
         gradient_checkpointing=gradient_checkpointing_setting,
+        # SFTConfig specific arguments
+        packing=packing_setting,
+        max_seq_length=cfg.fine_tuning.training.max_seq_length if packing_setting else None,
         # Add eval args if eval_dataset exists and configured
         # evaluation_strategy="steps" if eval_dataset else "no",
-        # eval_steps=training_args_dict['save_steps'] if eval_dataset else None,
-        # per_device_eval_batch_size=training_args_dict['per_device_eval_batch_size'] if eval_dataset else None,
     )
 
     # 7. Initialize SFT Trainer
@@ -267,10 +269,10 @@ def main(cfg):
         eval_dataset=eval_dataset,
         peft_config=peft_config, # Pass LoRA config here
         formatting_func=formatting_func,
-        max_seq_length=cfg.fine_tuning.training.max_seq_length if packing_setting else None,
-        tokenizer=tokenizer,
+        # max_seq_length and packing are now in SFTConfig (passed via args)
+        processing_class=tokenizer,  # Use processing_class for tokenizer
         args=training_arguments,
-        packing=packing_setting,
+        # packing=packing_setting, # Removed from here
     )
 
     # 8. Start Training
@@ -313,20 +315,22 @@ if __name__ == "__main__":
     #     print(f"Overriding num_train_epochs with CLI value: {args.num_train_epochs}")
     #     cfg.fine_tuning.training.num_train_epochs = args.num_train_epochs
 
+    # Setup Python's standard logging
+    import logging as py_logging
+    logger = py_logging.getLogger(__name__)
+    
     try:
         # Ensure output directory exists
         os.makedirs(cfg.paths.ft_output_dir, exist_ok=True)
         # Run main function and check success
         success = main(cfg)
         if success:
-            logging.info("Fine-tuning process finished successfully.") # Use logging
+            logger.info("Fine-tuning process finished successfully.")
             sys.exit(0)
         else:
-            logging.error("Fine-tuning process failed.") # Use logging
+            logger.error("Fine-tuning process failed.")
             sys.exit(1)
     except Exception as e:
         # Use standard Python logging here
-        import logging # Ensure standard logging is imported if not already at top level
-        logger = logging.getLogger(__name__) # Get a logger instance
         logger.error(f"An unexpected error occurred during fine-tuning setup or execution: {e}", exc_info=True)
         sys.exit(1) # Exit with error on unexpected exception 

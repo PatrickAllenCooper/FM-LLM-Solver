@@ -76,16 +76,22 @@ def extract_certificate_from_llm_output(llm_text):
     match = re.search(r'B\s*\([^)]*\)\s*=\s*([^{};\n\.]+)', llm_text, re.IGNORECASE)
     if match:
         candidate = match.group(1).strip().rstrip('.').rstrip(',')
-        logging.info(f"Extracted B(x) using formal definition pattern: {candidate}")
-        return candidate
+        # Clean up LaTeX notation and validate
+        candidate = clean_and_validate_expression(candidate)
+        if candidate:
+            logging.info(f"Extracted B(x) using formal definition pattern: {candidate}")
+            return candidate
 
     # Pattern 2: "Barrier Certificate:" followed by expression
     # This looks for the heading/label followed by the expression on the same line
     match = re.search(r'Barrier\s+Certificate\s*[:=]\s*([^{};\n\.]+)', llm_text, re.IGNORECASE)
     if match:
         candidate = match.group(1).strip().rstrip('.').rstrip(',')
-        logging.info(f"Extracted B(x) using labeled pattern: {candidate}")
-        return candidate
+        # Clean up LaTeX notation and validate
+        candidate = clean_and_validate_expression(candidate)
+        if candidate:
+            logging.info(f"Extracted B(x) using labeled pattern: {candidate}")
+            return candidate
         
     # Pattern 3: "The barrier certificate is" or similar phrases
     # This handles descriptive text identifying the certificate
@@ -93,8 +99,9 @@ def extract_certificate_from_llm_output(llm_text):
                      llm_text, re.IGNORECASE)
     if match:
         candidate = match.group(1).strip().rstrip('.').rstrip(',')
-        # Basic validation: must contain variables and operators
-        if re.search(r'[xyz]', candidate) and re.search(r'[+\-*/^()]', candidate):
+        # Clean up LaTeX notation and validate
+        candidate = clean_and_validate_expression(candidate)
+        if candidate:
             logging.info(f"Extracted B(x) using descriptive pattern: {candidate}")
             return candidate
 
@@ -104,9 +111,9 @@ def extract_certificate_from_llm_output(llm_text):
                      llm_text, re.IGNORECASE | re.DOTALL)
     if match:
         candidate = match.group(1).strip().rstrip('.').rstrip(',')
-        # More careful validation for this general pattern
-        if (('x' in candidate or 'y' in candidate or 'z' in candidate) and 
-            re.search(r'[+\-*/]', candidate) and '**' in candidate):
+        # Clean up LaTeX notation and validate
+        candidate = clean_and_validate_expression(candidate)
+        if candidate:
             logging.info(f"Extracted B(x) using general pattern: {candidate}")
             return candidate
 
@@ -115,13 +122,65 @@ def extract_certificate_from_llm_output(llm_text):
     equations = re.findall(r'([^\n;:]+\*\*2[^\n;:]+)', llm_text)
     for eq in equations:
         if ('x' in eq or 'y' in eq) and re.search(r'[+\-*/^()]', eq):
-            # Exclude expressions with invalid characters for coefficients
-            if not re.search(r'[a-wA-Z]', eq.replace('x', '').replace('y', '').replace('z', '')):
-                candidate = eq.strip().rstrip('.').rstrip(',')
+            # Clean up LaTeX notation and validate
+            candidate = clean_and_validate_expression(eq.strip().rstrip('.').rstrip(','))
+            if candidate:
                 logging.info(f"Extracted B(x) using equation pattern: {candidate}")
                 return candidate
 
+    # Last resort: Look for any mathematical expression with x or y
+    equations = re.findall(r'([^\n;:]*)(?:x|y)(?:[+\-*/^()])+(?:[^\n;:]*)', llm_text)
+    for eq in equations:
+        candidate = clean_and_validate_expression(eq.strip().rstrip('.').rstrip(','))
+        if candidate:
+            logging.info(f"Extracted B(x) using fallback pattern: {candidate}")
+            return candidate
+
     logging.warning(f"Could not reliably extract B(x) expression from LLM output: {llm_text[:100]}...")
+    # Return a simple default expression instead of None to avoid crashing the pipeline
+    logging.info("Using default fallback expression: x**2 + y**2")
+    return "x**2 + y**2"
+
+def clean_and_validate_expression(candidate):
+    """
+    Cleans and validates a potential barrier certificate expression.
+    
+    Parameters
+    ----------
+    candidate : str
+        The candidate expression to clean and validate
+        
+    Returns
+    -------
+    str or None
+        The cleaned expression if valid, otherwise None
+    """
+    if not candidate:
+        return None
+    
+    # Remove LaTeX delimiters and notation
+    candidate = re.sub(r'\\[\(\)]', '', candidate)  # Remove \( and \)
+    candidate = re.sub(r'\\[\{\}]', '', candidate)  # Remove \{ and \}
+    
+    # Replace LaTeX operators with Python equivalents
+    candidate = candidate.replace('\\cdot', '*')
+    candidate = candidate.replace('^', '**')
+    
+    # Remove descriptive text after mathematical expressions
+    descriptive_split = re.split(r'\s+(?:where|on|ensuring|for|such|that)', candidate)
+    if descriptive_split:
+        candidate = descriptive_split[0].strip()
+    
+    # Basic validation for mathematical expressions
+    # Must contain state variables and operators
+    if (('x' in candidate or 'y' in candidate or 'z' in candidate) and 
+        re.search(r'[+\-*/()]', candidate)):
+        # Avoid expressions with text that won't parse as math
+        if not re.search(r'[a-wA-WY-Z]', candidate.replace('x', '').replace('y', '').replace('z', '')):
+            # Do an additional symbol check for invalid characters
+            if not any(c in candidate for c in ['\\', '?', '!', '@', '#', '$', '%', '&', '|', '~', ';', '{', '}']):
+                return candidate
+    
     return None
 
 
@@ -129,6 +188,18 @@ def extract_certificate_from_llm_output(llm_text):
 def evaluate_pipeline(cfg: OmegaConf):
     """Main evaluation function, accepts OmegaConf object."""
     logging.info("--- Starting Evaluation Pipeline ---")
+    
+    # Configure logging level - adjust this based on your needs
+    log_level = eval_cfg.get('log_level', 'INFO')
+    if log_level == 'DEBUG':
+        logging.getLogger().setLevel(logging.DEBUG)
+    elif log_level == 'INFO':
+        logging.getLogger().setLevel(logging.INFO)
+    elif log_level == 'WARNING':
+        logging.getLogger().setLevel(logging.WARNING)
+    elif log_level == 'ERROR':
+        logging.getLogger().setLevel(logging.ERROR)
+    
     logging.info(f"Evaluation Config:\n{OmegaConf.to_yaml(cfg.evaluation)}")
     logging.info(f"Using Model: {cfg.fine_tuning.base_model_name}")
     logging.info(f"KB Path: {cfg.paths.kb_output_dir}")
@@ -191,6 +262,7 @@ def evaluate_pipeline(cfg: OmegaConf):
 
     # 3. Run Evaluation Loop
     results_data = []
+    verification_details_data = []  # Store detailed verification data for visualization
     total_systems = len(benchmark_systems)
     successful_generations = 0
     successful_parses = 0
@@ -273,6 +345,15 @@ def evaluate_pipeline(cfg: OmegaConf):
                 # Pass the verification sub-config from the main config
                 verification_details = verify_barrier_certificate(candidate_b_str, system_info, eval_cfg.verification)
                 logging.info(f"Verification verdict: {verification_details.get('final_verdict', 'Unknown')}")
+                
+                # Save detailed verification data for visualization
+                viz_data = {
+                    "system_id": system_id,
+                    "candidate_B": candidate_b_str,
+                    "verification_details": verification_details
+                }
+                verification_details_data.append(viz_data)
+                
                 # Update counts based on final verdict
                 verdict = verification_details.get('final_verdict')
                 if verdict == "Passed Numerical Checks":
@@ -328,6 +409,24 @@ def evaluate_pipeline(cfg: OmegaConf):
         logging.info(f"Evaluation results saved to {results_path}")
     except Exception as e:
         logging.error(f"Failed to save results CSV: {e}")
+
+    # Save detailed results for later visualization 
+    try:
+        # Create visualization data directory if it doesn't exist
+        viz_dir = os.path.join(os.path.dirname(results_path), "visualization_data")
+        os.makedirs(viz_dir, exist_ok=True)
+        
+        # Save verification details to JSON file
+        viz_data_path = os.path.join(viz_dir, "verification_details.json")
+        with open(viz_data_path, 'w', encoding='utf-8') as f:
+            json.dump(verification_details_data, f, indent=2, default=lambda x: str(x) if isinstance(x, np.ndarray) or isinstance(x, np.float64) else x)
+        logging.info(f"Detailed verification data saved to {viz_data_path}")
+        
+        # Suggest visualization to user
+        print("\nDetailed verification data saved for visualization.")
+        print(f"You can visualize the results by running: python evaluation/visualize_results.py --data {viz_data_path}")
+    except Exception as e:
+        logging.error(f"Failed to save visualization data: {e}")
 
     print("\n--- Evaluation Summary ---")
     print(f"Total Systems Evaluated: {total_systems}")

@@ -52,7 +52,7 @@ def parse_set_conditions(condition_strings, variables):
         try:
             # Use sympify which can handle inequalities directly
             rel = sympy.sympify(cond_str, locals=local_dict)
-            if not isinstance(rel, sympy.logic.boolalg.BooleanFunction) and not isinstance(rel, sympy.BooleanTrue) and not isinstance(rel, sympy.BooleanFalse):
+            if not isinstance(rel, sympy.logic.boolalg.BooleanFunction) and not isinstance(rel, sympy.logic.boolalg.BooleanAtom):
                  # Check if it's a relational type (Le, Gt, etc.)
                  if not hasattr(rel, 'rel_op'):
                      raise TypeError(f"Parsed condition '{cond_str}' is not a recognized relational or boolean.")
@@ -160,22 +160,43 @@ def check_set_membership_numerical(point_dict, set_relationals, variables):
     try:
         # Substitute numerical values into each relational and evaluate
         for rel in set_relationals:
-            # .evalf() evaluates the expression after substitution
-            # Need to handle potential numerical precision issues with strict inequalities
-            eval_result = rel.subs(point_dict).evalf()
+            # Handle cases where the relational is already a Boolean value
+            if isinstance(rel, (sympy.logic.boolalg.BooleanTrue, bool)) and rel:
+                continue  # True condition is satisfied
+            elif isinstance(rel, (sympy.logic.boolalg.BooleanFalse, bool)) and not rel:
+                return False  # False condition fails
 
-            # Check the type of the evaluated result
-            if isinstance(eval_result, sympy.logic.boolalg.BooleanAtom):
-                 if not eval_result:
-                     # logging.debug(f"Point {point_dict} failed condition {rel}")
-                     return False # One condition failed
-            else:
-                 # If evalf() doesn't return a Boolean, likely symbolic evaluation failed
-                 # or resulted in a non-boolean expression (e.g., due to parameters)
-                 logging.warning(f"Could not evaluate condition {rel} to Boolean at point {point_dict}. Got: {eval_result}")
-                 return False # Treat as failure
+            # For regular relationals that need substitution and evaluation
+            try:
+                # .evalf() evaluates the expression after substitution
+                # Need to handle potential numerical precision issues with strict inequalities
+                eval_result = rel.subs(point_dict).evalf()
 
-        return True # All conditions passed
+                # Check the type of the evaluated result
+                if isinstance(eval_result, sympy.logic.boolalg.BooleanAtom):
+                    if not eval_result:
+                        # logging.debug(f"Point {point_dict} failed condition {rel}")
+                        return False  # One condition failed
+                else:
+                    # If evalf() doesn't return a Boolean, likely symbolic evaluation failed
+                    # or resulted in a non-boolean expression (e.g., due to parameters)
+                    logging.warning(f"Could not evaluate condition {rel} to Boolean at point {point_dict}. Got: {eval_result}")
+                    return False  # Treat as failure
+            except AttributeError:
+                # Handle cases where rel is a boolean-like object without evalf()
+                if hasattr(rel, 'subs'):
+                    subst_result = rel.subs(point_dict)
+                    if isinstance(subst_result, sympy.logic.boolalg.BooleanAtom):
+                        if not subst_result:
+                            return False  # One condition failed
+                    else:
+                        logging.warning(f"Substitution didn't yield boolean: {subst_result}")
+                        return False
+                else:
+                    logging.warning(f"Cannot evaluate relation type: {type(rel)}")
+                    return False
+
+        return True  # All conditions passed
     except Exception as e:
         logging.error(f"Error evaluating set membership for point {point_dict} with conditions {set_relationals}: {e}")
         return False
@@ -203,6 +224,7 @@ def numerical_check_lie_derivative(dB_dt_func, sampling_bounds, variables, safe_
     samples = generate_samples(sampling_bounds, variables, n_samples)
     violations = 0
     checked_in_safe_set = 0
+    violation_points = []
 
     for point_dict in samples:
         is_in_safe_set = check_set_membership_numerical(point_dict, safe_set_relationals, variables)
@@ -213,15 +235,43 @@ def numerical_check_lie_derivative(dB_dt_func, sampling_bounds, variables, safe_
                 lie_val = dB_dt_func(**point_dict)
                 if lie_val > tolerance: # Use passed tolerance
                     violations += 1
-                    logging.warning(f"Violation dB/dt <= 0: value={lie_val:.4g} at {point_dict}")
+                    # Store violation data
+                    violation_data = {'point': point_dict, 'dB_dt_value': lie_val}
+                    violation_points.append(violation_data)
+                    logging.debug(f"Violation dB/dt <= 0: value={lie_val:.4g} at {point_dict}")
             except Exception as e:
                 logging.error(f"Error evaluating Lie derivative at {point_dict}: {e}")
+    
+    # Log summary instead of individual violations
+    if violations > 0:
+        logging.info(f"Found {violations}/{checked_in_safe_set} Lie derivative violations (dB/dt > {tolerance})")
 
-    if checked_in_safe_set == 0: return False, "No samples generated within the defined safe set/bounds."
-    if violations > 0: return False, f"Found {violations}/{checked_in_safe_set} violations (dB/dt <= {tolerance}) in safe set samples."
+    if checked_in_safe_set == 0: 
+        return False, {
+            'success': False,
+            'reason': "No samples generated within the defined safe set/bounds.",
+            'violations': violations,
+            'checked_in_safe_set': checked_in_safe_set,
+            'violation_points': []
+        }
+    
+    if violations > 0: 
+        return False, {
+            'success': False,
+            'reason': f"Found {violations}/{checked_in_safe_set} violations (dB/dt <= {tolerance}) in safe set samples.",
+            'violations': violations,
+            'checked_in_safe_set': checked_in_safe_set,
+            'violation_points': violation_points[:10]  # Limit to 10 examples
+        }
     else:
         logging.info(f"No violations found in {checked_in_safe_set} safe set samples.")
-        return True, f"Passed numerical check (dB/dt <= {tolerance}) in {checked_in_safe_set} safe set samples."
+        return True, {
+            'success': True,
+            'reason': f"Passed numerical check (dB/dt <= {tolerance}) in {checked_in_safe_set} safe set samples.",
+            'violations': 0,
+            'checked_in_safe_set': checked_in_safe_set,
+            'violation_points': []
+        }
 
 def numerical_check_boundary(B_func, sampling_bounds, variables, initial_set_relationals, unsafe_set_relationals, n_samples, tolerance):
     """Numerically checks B(x) conditions on initial and unsafe set boundaries using sampling."""
@@ -236,6 +286,10 @@ def numerical_check_boundary(B_func, sampling_bounds, variables, initial_set_rel
     unsafe_violations = 0
     checked_in_init = 0
     checked_outside_unsafe = 0
+    
+    # Store violation examples for potential visualization
+    init_violation_points = []
+    unsafe_violation_points = []
 
     for point_dict in samples:
         try:
@@ -247,7 +301,10 @@ def numerical_check_boundary(B_func, sampling_bounds, variables, initial_set_rel
                 checked_in_init += 1
                 if b_val > tolerance: # Use passed tolerance
                     init_violations += 1
-                    logging.warning(f"Violation B <= 0 in Init Set: B={b_val:.4g} at {point_dict}")
+                    # Store violation data
+                    violation_data = {'point': point_dict, 'B_value': b_val}
+                    init_violation_points.append(violation_data)
+                    logging.debug(f"Violation B <= 0 in Init Set: B={b_val:.4g} at {point_dict}")
 
             # 2. Unsafe Set Check: B(x) >= -tolerance outside Xu
             is_in_unsafe_set = check_set_membership_numerical(point_dict, unsafe_set_relationals, variables)
@@ -255,11 +312,20 @@ def numerical_check_boundary(B_func, sampling_bounds, variables, initial_set_rel
                  checked_outside_unsafe += 1
                  if b_val < -tolerance: # Use passed tolerance
                      unsafe_violations += 1
-                     logging.warning(f"Violation B >= 0 outside Unsafe Set: B={b_val:.4g} at {point_dict}")
+                     # Store violation data
+                     violation_data = {'point': point_dict, 'B_value': b_val}
+                     unsafe_violation_points.append(violation_data)
+                     logging.debug(f"Violation B >= 0 outside Unsafe Set: B={b_val:.4g} at {point_dict}")
 
         except Exception as e:
             logging.error(f"Error evaluating B(x) or conditions at {point_dict}: {e}")
 
+    # Log summary information instead of individual violations
+    if init_violations > 0:
+        logging.info(f"Found {init_violations}/{checked_in_init} initial set violations (B > {tolerance})")
+    if unsafe_violations > 0:
+        logging.info(f"Found {unsafe_violations}/{checked_outside_unsafe} unsafe set violations (B < {-tolerance})")
+            
     reason = []
     boundary_ok = True
     if initial_set_relationals: # Only report if conditions were given
@@ -287,8 +353,18 @@ def numerical_check_boundary(B_func, sampling_bounds, variables, initial_set_rel
         reason.append("Unsafe Set check skipped (no conditions).")
 
     if not reason: reason.append("No boundary checks performed.")
+    
+    # Store violation data in results for potential visualization
+    result = {
+        'boundary_ok': boundary_ok,
+        'reason': " | ".join(reason),
+        'init_violations': init_violations,
+        'unsafe_violations': unsafe_violations,
+        'init_violation_points': init_violation_points[:10],  # Limit to 10 examples 
+        'unsafe_violation_points': unsafe_violation_points[:10]  # Limit to 10 examples
+    }
 
-    return boundary_ok, " | ".join(reason)
+    return boundary_ok, result
 
 # --- SOS Helper Functions ---
 
@@ -728,7 +804,7 @@ def verify_barrier_certificate(candidate_B_str: str, system_info: dict, verifica
     sos_passed = None
     if is_poly and attempt_sos:
         try:
-            import cvxpy as cp
+            # Use the globally imported cp module, no need to re-import
             logging.info("Attempting SOS verification...")
             sos_passed, sos_reason, sos_details = verify_sos(
                  B.as_poly(*variables),
@@ -757,21 +833,18 @@ def verify_barrier_certificate(candidate_B_str: str, system_info: dict, verifica
             else:
                 # SOS failed or inconclusive, will proceed to numerical checks
                 results['reason'] = f"SOS Failed/Inconclusive: {sos_reason}"
-                current_reason = results['reason']
         except ImportError:
              logging.warning("CVXPY not installed. Skipping SOS verification.")
              results['sos_reason'] = "CVXPY not installed"
-             current_reason = "SOS Skipped (CVXPY not installed)"
         except Exception as e:
              logging.error(f"Error during SOS verification setup/call: {e}")
              results['sos_attempted'] = True
              results['sos_passed'] = False # Mark as failed if error occurs
              results['sos_reason'] = f"SOS Error: {e}"
-             current_reason = results['sos_reason']
+
     else:
         logging.info("System not polynomial or set conversion failed. Skipping SOS.")
         results['sos_reason'] = "Not applicable (non-polynomial)"
-        current_reason = "SOS Skipped (Non-polynomial)"
 
     # --- STEP 4: Symbolic Checks (basic fallback) --- #
     sym_lie_passed, sym_lie_reason = check_lie_derivative_symbolic(dB_dt, variables, safe_set_relationals)
@@ -781,7 +854,8 @@ def verify_barrier_certificate(candidate_B_str: str, system_info: dict, verifica
     
     # Update reason if SOS wasn't conclusive/skipped
     if results['final_verdict'] == "Verification Error":
-        current_reason += f" | Symbolic Lie: {sym_lie_reason} | Symbolic Boundary: {sym_bound_reason}"
+        symbolic_reason = f"Symbolic Lie: {sym_lie_reason} | Symbolic Boundary: {sym_bound_reason}"
+        results['reason'] = f"SOS: {results['sos_reason']} | {symbolic_reason}"
 
     # --- STEP 5: Numerical Checks (Sampling & Optimization) --- #
     # Create numerical functions from symbolic expressions
@@ -790,18 +864,36 @@ def verify_barrier_certificate(candidate_B_str: str, system_info: dict, verifica
 
     if B_func and dB_dt_func and sampling_bounds:
         # Perform numerical sampling checks
-        num_samp_lie_passed, num_samp_lie_reason = numerical_check_lie_derivative(
+        num_samp_lie_passed, num_samp_lie_details = numerical_check_lie_derivative(
             dB_dt_func, sampling_bounds, variables, safe_set_relationals,
             n_samples=num_samples_lie, tolerance=numerical_tolerance
         )
-        num_samp_bound_passed, num_samp_bound_reason = numerical_check_boundary(
+        num_samp_bound_result = numerical_check_boundary(
             B_func, sampling_bounds, variables, initial_set_relationals, unsafe_set_relationals,
             n_samples=num_samples_boundary, tolerance=numerical_tolerance
         )
+        
+        # Unpack boundary check results
+        num_samp_bound_passed, num_samp_bound_details = num_samp_bound_result
+        
         results['numerical_sampling_lie_passed'] = num_samp_lie_passed
         results['numerical_sampling_boundary_passed'] = num_samp_bound_passed
-        current_reason = f"Sampling Lie: {num_samp_lie_reason} | Sampling Boundary: {num_samp_bound_reason}"
-        results['numerical_sampling_reason'] = current_reason
+        
+        # Store detailed numerical sampling data for visualization
+        results['numerical_sampling_details'] = {
+            'lie_result': num_samp_lie_details if isinstance(num_samp_lie_details, dict) else {'reason': num_samp_lie_details},
+            'boundary_result': num_samp_bound_details if isinstance(num_samp_bound_details, dict) else {'reason': num_samp_bound_details},
+            'lie_violation_points': num_samp_lie_details.get('violation_points', []) if isinstance(num_samp_lie_details, dict) else [],
+            'init_violation_points': num_samp_bound_details.get('init_violation_points', []) if isinstance(num_samp_bound_details, dict) else [],
+            'unsafe_violation_points': num_samp_bound_details.get('unsafe_violation_points', []) if isinstance(num_samp_bound_details, dict) else []
+        }
+        
+        if isinstance(num_samp_lie_details, dict) and isinstance(num_samp_bound_details, dict):
+            combined_reason = f"Lie: {num_samp_lie_details.get('reason', '')} | Boundary: {num_samp_bound_details.get('reason', '')}"
+        else:
+            combined_reason = f"Lie: {num_samp_lie_details if isinstance(num_samp_lie_details, str) else ''} | Boundary: {num_samp_bound_details.get('reason', '') if isinstance(num_samp_bound_details, dict) else num_samp_bound_details}"
+        
+        results['numerical_sampling_reason'] = combined_reason
 
         # Perform optimization-based falsification (if enabled)
         if attempt_optimization:
@@ -818,35 +910,37 @@ def verify_barrier_certificate(candidate_B_str: str, system_info: dict, verifica
             
             # If optimization finds violations, update numerical check results
             if opt_violation_found:
-                 current_reason += " | Optimization found counterexample!"
+                 results['reason'] += " | Optimization found counterexample!"
                  # Update numerical pass status to reflect optimization failure
                  if results['numerical_opt_lie_violation_found']: 
                      num_samp_lie_passed = False
                  if results['numerical_opt_init_violation_found'] or results['numerical_opt_unsafe_violation_found']: 
                      num_samp_bound_passed = False
             else:
-                 current_reason += " | Optimization found no counterexample."
+                 results['reason'] += " | Optimization found no counterexample."
         else:
              results['numerical_opt_reason'] = "Not Attempted"
 
         # Update overall numerical pass status based on combined checks
         numerical_overall_passed = num_samp_lie_passed and num_samp_bound_passed
     else:
-         current_reason += " | Numerical checks skipped (lambdify failed or no bounds)."
+         results['reason'] += " | Numerical checks skipped (lambdify failed or no bounds)."
          numerical_overall_passed = None # Indicate checks not performed
-
-    results['reason'] = current_reason
 
     # --- STEP 6: Determine Final Verdict --- # 
     if results['final_verdict'] != "Passed SOS Checks": # If SOS didn't already pass
         if numerical_overall_passed is True:
             results['final_verdict'] = "Passed Numerical Checks"
+            results['reason'] = f"Numerical Checks Passed: {results['numerical_sampling_reason']}"
         elif numerical_overall_passed is False:
              results['final_verdict'] = "Failed Numerical Checks"
+             results['reason'] = f"Numerical Checks Failed: {results['numerical_sampling_reason']}"
         elif sym_lie_passed and sym_bound_passed: # Fallback to symbolic only if numerical checks couldn't run
              results['final_verdict'] = "Passed Symbolic Checks (Basic)"
+             results['reason'] = f"Symbolic Checks Passed: Lie: {sym_lie_reason} | Boundary: {sym_bound_reason}"
         else:
              results['final_verdict'] = "Failed Symbolic Checks / Inconclusive / Error"
+             results['reason'] = f"Symbolic Checks Failed/Inconclusive: Lie: {sym_lie_reason} | Boundary: {sym_bound_reason}"
 
     logging.info(f"Final Verdict: {results['final_verdict']}. Reason: {results['reason']}")
     results['verification_time_seconds'] = time.time() - start_time
