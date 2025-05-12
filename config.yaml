@@ -91,6 +91,7 @@ knowledge_base:
   # Mathpix API polling parameters
   mathpix_poll_max_wait_sec: 600  # Maximum time to wait for PDF processing
   mathpix_poll_interval: 10        # Polling interval in seconds
+  pipeline: "mathpix"  # Pipeline for PDF processing: 'mathpix' or 'open_source'
 
 # --- Fine-Tuning Configuration ---
 # Parameters for training the LLM on barrier certificate generation

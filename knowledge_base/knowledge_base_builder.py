@@ -20,6 +20,9 @@ import logging
 import requests # For MathPix API calls
 import time
 
+# Alternative PDF processing pipeline
+from knowledge_base.alternative_pdf_processor import process_pdf as process_pdf_open_source
+
 # --- Configuration ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -30,14 +33,22 @@ parser_init.add_argument("--config", type=str, default=DEFAULT_CONFIG_PATH, help
 args_init, _ = parser_init.parse_known_args()
 cfg = load_config(args_init.config)
 
-# Mathpix API Credentials (READ FROM ENVIRONMENT VARIABLES)
-MATHPIX_APP_ID = os.environ.get("MATHPIX_APP_ID")
-MATHPIX_APP_KEY = os.environ.get("MATHPIX_APP_KEY")
-if not MATHPIX_APP_ID or not MATHPIX_APP_KEY:
-    logging.error("Mathpix API credentials (MATHPIX_APP_ID, MATHPIX_APP_KEY) not found in environment variables.")
-    logging.error("Please set them before running. Exiting.")
-    sys.exit(1)
-logging.info("Mathpix credentials found.")
+# Determine which PDF processing pipeline to use: 'mathpix' or 'open_source'
+PDF_PIPELINE = cfg.knowledge_base.pipeline
+
+# Mathpix API Credentials (only required if pipeline is mathpix)
+MATHPIX_APP_ID = None
+MATHPIX_APP_KEY = None
+if PDF_PIPELINE == "mathpix":
+    MATHPIX_APP_ID = os.environ.get("MATHPIX_APP_ID")
+    MATHPIX_APP_KEY = os.environ.get("MATHPIX_APP_KEY")
+    if not MATHPIX_APP_ID or not MATHPIX_APP_KEY:
+        logging.error("Mathpix API credentials (MATHPIX_APP_ID, MATHPIX_APP_KEY) not found in environment variables.")
+        logging.error("Please set them before running with 'mathpix' pipeline. Exiting.")
+        sys.exit(1)
+    logging.info("Mathpix credentials found.")
+else:
+    logging.info("Using open-source PDF processing pipeline (no Mathpix credentials needed).")
 
 MATHPIX_API_URL = "https://api.mathpix.com/v3/pdf"
 
@@ -217,10 +228,10 @@ def chunk_mmd_content(mmd_text, target_size, overlap, source_pdf):
 # --- Main Logic (Refactored for Mathpix) ---
 def build_knowledge_base(cfg):
     """
-    Main function to build the vector store and metadata using Mathpix.
+    Main function to build the vector store and metadata using the configured PDF processing pipeline.
     
     This function performs these key steps:
-    1. Processes PDF files using Mathpix API to convert to MMD format
+    1. Processes PDF files using the selected pipeline to convert to MMD format
     2. Chunks the MMD content into manageable segments
     3. Embeds the chunks using a sentence transformer model
     4. Builds a FAISS vector index from the embeddings
@@ -257,8 +268,8 @@ def build_knowledge_base(cfg):
     processed_files = 0
     failed_files = 0
 
-    # --- STEP 1: Process PDF Files with Mathpix ---
-    logging.info(f"Starting PDF processing from: {pdf_input_dir}")
+    # --- STEP 1: Process PDF Files with selected pipeline ---
+    logging.info(f"Starting PDF processing from: {pdf_input_dir} using pipeline '{PDF_PIPELINE}'")
     
     # Find all PDF files in input directory (including subdirectories)
     all_pdf_paths = []
@@ -277,11 +288,14 @@ def build_knowledge_base(cfg):
     for pdf_path in all_pdf_paths:
         logging.info(f"--- Processing: {os.path.basename(pdf_path)} ---")
         
-        # Convert PDF to MMD using Mathpix API
-        mmd_content = process_pdf_with_mathpix(pdf_path, mathpix_app_id, mathpix_app_key)
+        # Convert PDF to MMD using selected pipeline
+        if PDF_PIPELINE == "mathpix":
+            mmd_content = process_pdf_with_mathpix(pdf_path, mathpix_app_id, mathpix_app_key)
+        else:
+            mmd_content = process_pdf_open_source(pdf_path)
 
         if not mmd_content:
-            logging.warning(f"Failed to get MMD content from Mathpix for {os.path.basename(pdf_path)}")
+            logging.warning(f"Failed to get MMD content using pipeline '{PDF_PIPELINE}' for {os.path.basename(pdf_path)}")
             failed_files += 1
             continue
 
@@ -390,8 +404,8 @@ if __name__ == "__main__":
     # Config is already loaded at the top
     success = build_knowledge_base(cfg)
     if success:
-        logging.info("Mathpix-based knowledge base build process finished successfully.")
+        logging.info(f"{PDF_PIPELINE}-based knowledge base build process finished successfully.")
         sys.exit(0)
     else:
-        logging.error("Mathpix-based knowledge base build process failed.")
+        logging.error(f"{PDF_PIPELINE}-based knowledge base build process failed.")
         sys.exit(1) # <-- Exit with non-zero code on failure 
