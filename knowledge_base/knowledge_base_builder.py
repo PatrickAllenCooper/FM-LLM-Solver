@@ -19,9 +19,12 @@ import spacy # Keep for potential MMD chunking or fallback
 import logging
 import requests # For MathPix API calls
 import time
+import platform
+import hashlib
+from pathlib import Path
 
 # Alternative PDF processing pipeline
-from knowledge_base.alternative_pdf_processor import process_pdf as process_pdf_open_source
+from knowledge_base.alternative_pdf_processor import process_pdf as process_pdf_open_source, detect_hardware
 
 # --- Configuration ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -247,144 +250,214 @@ def build_knowledge_base(cfg):
     bool
         True if the knowledge base was built successfully, False otherwise.
     """
-    # Extract configuration parameters
-    output_dir = cfg.paths.kb_output_dir
-    pdf_input_dir = cfg.paths.pdf_input_dir
-    embedding_model_name = cfg.knowledge_base.embedding_model_name
-    vector_store_filename = cfg.paths.kb_vector_store_filename
-    metadata_filename = cfg.paths.kb_metadata_filename
-    chunk_target_size = cfg.knowledge_base.chunk_target_size_mmd
-    chunk_overlap = cfg.knowledge_base.chunk_overlap_mmd
+    # Hardware detection for logging and optimization
+    hardware_info = detect_hardware()
+    
+    # Determine the pipeline
+    pipeline = cfg.knowledge_base.pipeline.lower()
+    logging.info(f"Using '{pipeline}' PDF processing pipeline on {platform.machine()} architecture")
+    
+    # Generate a hash of the pipeline configuration to detect changes
+    config_hash = generate_pipeline_config_hash(cfg)
+    
+    # Get paths
+    paper_dir = cfg.data.pdf_dir
+    output_dir = cfg.output.knowledge_base_dir
+    vector_index_path = os.path.join(output_dir, "paper_index_mathpix.faiss")
+    metadata_path = os.path.join(output_dir, "paper_metadata_mathpix.jsonl")
+    
+    # Check if config has changed to force rebuild
+    config_changed = check_if_pipeline_config_changed(config_hash, output_dir)
+    force_rebuild = config_changed
 
-    # Get Mathpix credentials loaded at top level
-    mathpix_app_id = MATHPIX_APP_ID
-    mathpix_app_key = MATHPIX_APP_KEY
-
-    # Create output directory if it doesn't exist
+    # Add additional information if running on Apple Silicon
+    if hardware_info["is_apple_silicon"]:
+        logging.info("Running on Apple Silicon - optimizing for M-series chip")
+    if hardware_info["has_gpu"]:
+        logging.info("GPU detected - CUDA optimizations available")
+    
+    # Check for existing knowledge base files
+    if os.path.exists(vector_index_path) and os.path.exists(metadata_path) and not force_rebuild:
+        logging.info(f"Knowledge base files found ({os.path.basename(vector_index_path)}, {os.path.basename(metadata_path)}). Skipping build.")
+        return True
+    
+    # Make sure the output directory exists
     os.makedirs(output_dir, exist_ok=True)
-
-    # Storage for processed chunks
-    all_chunks_with_metadata = []
-    processed_files = 0
-    failed_files = 0
-
-    # --- STEP 1: Process PDF Files with selected pipeline ---
-    logging.info(f"Starting PDF processing from: {pdf_input_dir} using pipeline '{PDF_PIPELINE}'")
     
-    # Find all PDF files in input directory (including subdirectories)
-    all_pdf_paths = []
-    for root, _, files in os.walk(pdf_input_dir):
+    # Save pipeline config hash for future reference
+    save_pipeline_config_hash(config_hash, output_dir)
+    
+    # Check if any papers are available
+    if not os.path.exists(paper_dir) or not os.listdir(paper_dir):
+        logging.warning(f"No paper PDFs found in {paper_dir}. Knowledge base build aborted.")
+        return False
+
+    # Get list of PDFs
+    logging.info(f"Scanning for PDFs in {paper_dir}")
+    pdf_files = []
+    for root, dirs, files in os.walk(paper_dir):
         for file in files:
-            if file.lower().endswith(".pdf"):
-                all_pdf_paths.append(os.path.join(root, file))
-
-    logging.info(f"Found {len(all_pdf_paths)} PDF files.")
+            if file.lower().endswith('.pdf'):
+                pdf_files.append(os.path.join(root, file))
+                
+    if not pdf_files:
+        logging.warning("No PDF files found. Knowledge base build aborted.")
+        return False
+        
+    logging.info(f"Found {len(pdf_files)} PDF files")
     
-    if not all_pdf_paths:
-        logging.error(f"No PDF files found in {pdf_input_dir}. Exiting.")
-        return False # <-- RETURN False on failure
-
-    # Process each PDF file
-    for pdf_path in all_pdf_paths:
-        logging.info(f"--- Processing: {os.path.basename(pdf_path)} ---")
+    # Process PDFs and build knowledge base
+    metadata_list = []
+    all_embeddings = []
+    
+    # Use SentenceTransformer for embeddings
+    embedding_model = cfg.embeddings.model_name
+    logging.info(f"Loading embedding model: {embedding_model}")
+    
+    try:
+        from sentence_transformers import SentenceTransformer
+        model = SentenceTransformer(embedding_model)
         
-        # Convert PDF to MMD using selected pipeline
-        if PDF_PIPELINE == "mathpix":
-            mmd_content = process_pdf_with_mathpix(pdf_path, mathpix_app_id, mathpix_app_key)
-        else:
-            mmd_content = process_pdf_open_source(pdf_path)
-
-        if not mmd_content:
-            logging.warning(f"Failed to get MMD content using pipeline '{PDF_PIPELINE}' for {os.path.basename(pdf_path)}")
-            failed_files += 1
+        # Try to optimize for hardware if possible
+        if hardware_info["is_apple_silicon"]:
+            # Enable MPS if available for transformers
+            logging.info("Attempting to enable Metal Performance Shaders for embeddings")
+            try:
+                import torch
+                if hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+                    logging.info("MPS is available, using Apple Metal for embeddings")
+                    model = model.to('mps')
+            except (ImportError, AttributeError) as e:
+                logging.warning(f"Could not enable MPS: {str(e)}")
+        elif hardware_info["has_gpu"]:
+            # Enable CUDA if available
+            try:
+                import torch
+                if torch.cuda.is_available():
+                    logging.info("Using CUDA for embeddings")
+                    model = model.to('cuda')
+            except (ImportError, AttributeError) as e:
+                logging.warning(f"Could not enable CUDA: {str(e)}")
+    except ImportError:
+        logging.error("Failed to load sentence-transformers. Please install with 'pip install sentence-transformers'")
+        return False
+    
+    # Process each PDF
+    for i, pdf_path in enumerate(pdf_files):
+        try:
+            logging.info(f"Processing PDF {i+1}/{len(pdf_files)}: {os.path.basename(pdf_path)}")
+            
+            # Use the configured pipeline to extract text
+            if pipeline == "mathpix":
+                # Use existing Mathpix code
+                mmd_content = process_pdf_with_mathpix(pdf_path, MATHPIX_APP_ID, MATHPIX_APP_KEY)
+            elif pipeline == "open_source":
+                # Use our alternative processor
+                mmd_content = process_pdf_open_source(pdf_path)
+            else:
+                logging.error(f"Unknown pipeline: {pipeline}")
+                continue
+                
+            if not mmd_content:
+                logging.warning(f"No content extracted from {os.path.basename(pdf_path)}")
+                continue
+                
+            # Split content into chunks
+            chunk_size = cfg.embeddings.chunk_size
+            overlap = cfg.embeddings.chunk_overlap
+            chunks = split_into_chunks(mmd_content, chunk_size, overlap)
+            
+            logging.info(f"Generated {len(chunks)} chunks from PDF")
+            
+            # Create metadata for this PDF
+            base_metadata = {
+                "source": os.path.basename(pdf_path),
+                "path": pdf_path
+            }
+            
+            # Embed chunks
+            for chunk_id, chunk in enumerate(chunks):
+                chunk_metadata = base_metadata.copy()
+                chunk_metadata["chunk_id"] = chunk_id
+                chunk_metadata["text"] = chunk
+                metadata_list.append(chunk_metadata)
+                
+                # Create embedding
+                embedding = model.encode(chunk)
+                all_embeddings.append(embedding)
+                
+        except Exception as e:
+            logging.error(f"Error processing {os.path.basename(pdf_path)}: {str(e)}")
             continue
-
-        # Extract title heuristically (first line if it looks like a title)
-        lines = mmd_content.strip().split('\n')
-        potential_title = lines[0].strip("# ") if lines else "Unknown Title"
-
-        # --- STEP 2: Chunk the MMD Content ---
-        doc_chunks = chunk_mmd_content(
-            mmd_content,
-            chunk_target_size,
-            chunk_overlap,
-            pdf_path
-        )
+            
+    # Check if we have any successful embeddings
+    if not all_embeddings:
+        logging.error("No embeddings were generated. Knowledge base build failed.")
+        return False
         
-        # Add potential title to metadata of each chunk
-        for chunk in doc_chunks:
-             chunk['metadata']['potential_title'] = potential_title
-
-        # Add chunks to collection
-        all_chunks_with_metadata.extend(doc_chunks)
-        processed_files += 1
-        time.sleep(0.5)  # Small delay between processing files
-
-    # Validate that we have chunks to process
-    if not all_chunks_with_metadata:
-        logging.error("No text chunks were generated from any PDF using Mathpix. Exiting.")
-        return False # <-- RETURN False on failure
-
-    logging.info(f"Successfully processed {processed_files} PDFs. Failed: {failed_files}.")
-    logging.info(f"Total chunks created: {len(all_chunks_with_metadata)}.")
-
-    # --- STEP 3: Embed Chunks ---
+    # Build FAISS index
+    logging.info("Building FAISS index")
     try:
-        logging.info(f"Loading embedding model: {embedding_model_name}")
-        model = SentenceTransformer(embedding_model_name)
-    except Exception as e:
-        logging.error(f"Failed to load embedding model '{embedding_model_name}': {e}")
-        return False # <-- RETURN False on failure
-
-    logging.info("Embedding chunks...")
-    chunk_texts = [chunk['text'] for chunk in all_chunks_with_metadata]
-    try:
-        # Generate embeddings with progress bar
-        embeddings = model.encode(chunk_texts, show_progress_bar=True, batch_size=32)
-        embeddings = np.array(embeddings).astype('float32')
-        logging.info(f"Embeddings generated with shape: {embeddings.shape}")
-    except Exception as e:
-        logging.error(f"Failed during embedding generation: {e}")
-        return False # <-- RETURN False on failure
-
-    # --- STEP 4: Build and Save Vector Store ---
-    dimension = embeddings.shape[1]
-    index = faiss.IndexFlatL2(dimension)
-    try:
-        # Add vectors to FAISS index
-        index.add(embeddings)
-        logging.info(f"Added {index.ntotal} vectors to FAISS index.")
+        import numpy as np
+        import faiss
         
-        # Save FAISS index to disk
-        index_path = os.path.join(output_dir, vector_store_filename)
-        faiss.write_index(index, index_path)
-        logging.info(f"Saved FAISS index to {index_path}")
-    except Exception as e:
-        logging.error(f"Failed to build or save FAISS index: {e}")
-        return False # <-- RETURN False on failure
-
-    # --- STEP 5: Save Metadata ---
-    metadata_path = os.path.join(output_dir, metadata_filename)
-    try:
-        with open(metadata_path, 'w', encoding='utf-8') as f:
-            for i, chunk in enumerate(all_chunks_with_metadata):
-                # Format data for storage
-                data_to_save = {
-                     "chunk_id": i,
-                     "text": chunk['text'],
-                     "metadata": chunk['metadata']
-                }
-                f.write(json.dumps(data_to_save) + '\n')
-        logging.info(f"Saved metadata mapping to {metadata_path}")
-    except Exception as e:
-        logging.error(f"Failed to save metadata JSONL: {e}")
-        return False # <-- Changed return to False
+        # Convert embeddings to numpy array
+        embeddings_array = np.array(all_embeddings).astype(np.float32)
         
-    logging.info("Knowledge base construction complete.")
-    logging.info(f"FAISS index contains {index.ntotal} vectors.")
-    logging.info(f"Metadata contains {len(all_chunks_with_metadata)} entries.")
-    logging.info(f"Output saved to {output_dir}")
-    return True # <-- RETURN True on full success
+        # Create and train the index
+        dimension = embeddings_array.shape[1]
+        index = faiss.IndexFlatL2(dimension)
+        index.add(embeddings_array)
+        
+        # Save the index
+        faiss.write_index(index, vector_index_path)
+        logging.info(f"Saved FAISS index to {vector_index_path}")
+        
+        # Save metadata
+        with open(metadata_path, 'w') as f:
+            for item in metadata_list:
+                f.write(json.dumps(item) + '\n')
+        logging.info(f"Saved metadata to {metadata_path}")
+        
+    except Exception as e:
+        logging.error(f"Error building FAISS index: {str(e)}")
+        return False
+        
+    logging.info(f"{pipeline.capitalize()} knowledge base build process finished successfully.")
+    return True
+
+def generate_pipeline_config_hash(cfg):
+    """Generate a hash of the pipeline configuration to detect changes"""
+    # Extract the relevant configuration parameters
+    config_str = f"{cfg.knowledge_base.pipeline}:{cfg.embeddings.model_name}:{cfg.embeddings.chunk_size}:{cfg.embeddings.chunk_overlap}"
+    
+    # Generate a hash
+    return hashlib.md5(config_str.encode('utf-8')).hexdigest()
+
+def check_if_pipeline_config_changed(new_hash, output_dir):
+    """Check if the pipeline configuration has changed"""
+    hash_file = os.path.join(output_dir, "pipeline_config.hash")
+    
+    if not os.path.exists(hash_file):
+        return True
+        
+    try:
+        with open(hash_file, 'r') as f:
+            old_hash = f.read().strip()
+            return old_hash != new_hash
+    except:
+        return True
+
+def save_pipeline_config_hash(config_hash, output_dir):
+    """Save the pipeline configuration hash"""
+    os.makedirs(output_dir, exist_ok=True)
+    hash_file = os.path.join(output_dir, "pipeline_config.hash")
+    
+    try:
+        with open(hash_file, 'w') as f:
+            f.write(config_hash)
+    except Exception as e:
+        logging.warning(f"Could not save pipeline config hash: {str(e)}")
 
 if __name__ == "__main__":
     # Basic dependency check
@@ -393,19 +466,18 @@ if __name__ == "__main__":
         import faiss
         import numpy
         import requests
-        from omegaconf import OmegaConf # Add check for omegaconf
+        from omegaconf import OmegaConf
         # SpaCy is optional now
     except ImportError as e:
         print(f"Error: Missing dependency - {e}", file=sys.stderr)
         print("Please install required packages:", file=sys.stderr)
-        print("pip install -r paper_population/requirements.txt", file=sys.stderr)
+        print("pip install -r requirements.txt", file=sys.stderr)
         sys.exit(1)
 
     # Config is already loaded at the top
     success = build_knowledge_base(cfg)
     if success:
-        logging.info(f"{PDF_PIPELINE}-based knowledge base build process finished successfully.")
-        sys.exit(0)
+        logging.info(f"{cfg.knowledge_base.pipeline.capitalize()}-based knowledge base build process finished successfully.")
     else:
-        logging.error(f"{PDF_PIPELINE}-based knowledge base build process failed.")
-        sys.exit(1) # <-- Exit with non-zero code on failure 
+        logging.error("Knowledge base building process failed.")
+        sys.exit(1) 
