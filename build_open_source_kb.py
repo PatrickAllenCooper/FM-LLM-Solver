@@ -6,6 +6,17 @@ This script bypasses the standard pipeline to directly build a knowledge base
 using our minimal PDF processor, avoiding NumPy version conflicts.
 """
 
+# Required packages:
+# numpy<2.0.0  # Using older version to avoid compatibility issues
+# faiss-cpu  # or faiss-gpu for CUDA support
+# tqdm
+# sentence-transformers  # Primary embedding method
+# transformers  # Fallback embedding method
+# scikit-learn  # For TF-IDF fallback
+# torch
+# pdf2image  # For PDF processing
+# pytesseract  # For OCR
+
 import os
 import sys
 import glob
@@ -104,11 +115,14 @@ def split_text_into_chunks(text, chunk_size=1000, overlap=150):
 
 def embed_text(chunks, model_name="all-mpnet-base-v2"):
     """
-    Create embeddings for text chunks.
+    Create embeddings for text chunks with multiple fallback options.
     
-    This function will try to use SentenceTransformer with hardware optimizations.
-    If that fails, it will fall back to a basic mean word vector approach.
+    This function tries different embedding methods in order of preference:
+    1. SentenceTransformer with hardware acceleration
+    2. HuggingFace transformers directly
+    3. Simple TF-IDF vectorization as emergency fallback
     """
+    # Try SentenceTransformer first
     try:
         from sentence_transformers import SentenceTransformer
         
@@ -121,11 +135,12 @@ def embed_text(chunks, model_name="all-mpnet-base-v2"):
             if torch.cuda.is_available():
                 logging.info("Using CUDA for embeddings")
                 model = model.to('cuda')
-            elif torch.backends.mps.is_available():
+            elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
                 logging.info("Using MPS for embeddings on Apple Silicon")
                 model = model.to('mps')
-        except (ImportError, AttributeError):
-            logging.info("Using CPU for embeddings (no GPU acceleration)")
+        except (ImportError, AttributeError) as e:
+            logging.warning(f"GPU acceleration unavailable: {e}")
+            logging.info("Using CPU for embeddings")
             
         # Generate embeddings
         logging.info(f"Generating embeddings for {len(chunks)} chunks")
@@ -134,12 +149,72 @@ def embed_text(chunks, model_name="all-mpnet-base-v2"):
         
     except Exception as e:
         logging.error(f"Error using SentenceTransformer: {e}")
-        logging.warning("Falling back to basic word vector averaging for embeddings")
+        logging.warning("Trying alternative embedding method...")
         
-        # Very basic fallback - just use random vectors
-        # In a real implementation, you could implement a simple word2vec here
-        logging.warning("Using random vectors as embeddings (EMERGENCY FALLBACK)")
-        return np.random.randn(len(chunks), 384).astype('float32')
+        # Try using transformers directly
+        try:
+            logging.info("Attempting to use HuggingFace transformers directly")
+            from transformers import AutoTokenizer, AutoModel
+            import torch
+            import numpy as np
+            
+            # Mean Pooling function
+            def mean_pooling(model_output, attention_mask):
+                token_embeddings = model_output[0]
+                input_mask_expanded = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
+                return torch.sum(token_embeddings * input_mask_expanded, 1) / torch.clamp(input_mask_expanded.sum(1), min=1e-9)
+            
+            # Load model and tokenizer
+            tokenizer = AutoTokenizer.from_pretrained('sentence-transformers/all-mpnet-base-v2')
+            model = AutoModel.from_pretrained('sentence-transformers/all-mpnet-base-v2')
+            
+            # Process in batches to avoid OOM
+            batch_size = 8
+            all_embeddings = []
+            
+            for i in range(0, len(chunks), batch_size):
+                batch = chunks[i:i+batch_size]
+                encoded_input = tokenizer(batch, padding=True, truncation=True, return_tensors='pt', max_length=512)
+                
+                # Compute token embeddings
+                with torch.no_grad():
+                    model_output = model(**encoded_input)
+                
+                # Perform pooling
+                batch_embeddings = mean_pooling(model_output, encoded_input['attention_mask'])
+                all_embeddings.append(batch_embeddings.numpy())
+            
+            # Concatenate all embeddings
+            embeddings = np.vstack(all_embeddings).astype('float32')
+            return embeddings
+            
+        except Exception as e:
+            logging.error(f"Error using transformers directly: {e}")
+            logging.warning("Falling back to TF-IDF vectorization...")
+            
+            # Fallback to sklearn's TF-IDF
+            try:
+                from sklearn.feature_extraction.text import TfidfVectorizer
+                from sklearn.decomposition import TruncatedSVD
+                
+                # Create TF-IDF vectorizer
+                vectorizer = TfidfVectorizer(max_features=10000)
+                tfidf_matrix = vectorizer.fit_transform(chunks)
+                
+                # Reduce to 384 dimensions with SVD to match typical embedding size
+                svd = TruncatedSVD(n_components=384)
+                embeddings = svd.fit_transform(tfidf_matrix)
+                
+                logging.info("Successfully created TF-IDF based embeddings")
+                return embeddings.astype('float32')
+                
+            except Exception as e:
+                logging.error(f"Error with TF-IDF fallback: {e}")
+                logging.warning("Using random vectors as last resort")
+                
+                # Last resort - random vectors
+                dimension = 384  # Standard embedding size
+                return np.random.randn(len(chunks), dimension).astype('float32')
 
 def build_knowledge_base():
     """
