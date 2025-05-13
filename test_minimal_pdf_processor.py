@@ -82,9 +82,9 @@ def process_pdf_simple(pdf_path, params):
                     os.unlink(temp_img_path)
             
             # Process only the first 3 pages for quick testing
-            if i >= 2:
-                full_text += "\n## Remaining pages omitted for quick testing\n"
-                break
+            # if i >= 2:
+            #     full_text += "\n## Remaining pages omitted for quick testing\n"
+            #     break
                 
         return full_text
     except Exception as e:
