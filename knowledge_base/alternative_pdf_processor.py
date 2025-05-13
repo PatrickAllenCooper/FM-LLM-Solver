@@ -24,11 +24,16 @@ def detect_hardware() -> Dict[str, bool]:
     # Check for Apple Silicon
     if platform.system() == "Darwin" and platform.machine() == "arm64":
         hardware_info["is_apple_silicon"] = True
+        logging.info("Apple Silicon detected, will optimize processing accordingly")
+        # Don't try to use torch on Apple Silicon, as it may have compatibility issues
+        return hardware_info
         
-    # Try to check for GPU availability without requiring torch
+    # Only try to check for CUDA on non-Apple systems
     try:
         import torch
         hardware_info["has_gpu"] = torch.cuda.is_available() if hasattr(torch, 'cuda') else False
+        if hardware_info["has_gpu"]:
+            logging.info(f"CUDA-capable GPU detected")
     except (ImportError, AttributeError):
         # If torch isn't available or doesn't have CUDA, assume no GPU
         pass
