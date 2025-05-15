@@ -49,7 +49,7 @@ hf_logging.set_verbosity_error() # Reduce transformers logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # --- Helper Functions ---
-def extract_certificate_from_llm_output(llm_text):
+def extract_certificate_from_llm_output(llm_text, variables):
     """
     Extracts the barrier certificate B(x) string from LLM output using regex patterns.
     
@@ -61,6 +61,8 @@ def extract_certificate_from_llm_output(llm_text):
     ----------
     llm_text : str
         The raw text output from the LLM
+    variables : list
+        List of Symbol objects representing the variables in the system
         
     Returns
     -------
@@ -137,9 +139,16 @@ def extract_certificate_from_llm_output(llm_text):
             return candidate
 
     logging.warning(f"Could not reliably extract B(x) expression from LLM output: {llm_text[:100]}...")
-    # Return a simple default expression instead of None to avoid crashing the pipeline
-    logging.info("Using default fallback expression: x**2 + y**2")
-    return "x**2 + y**2"
+    # 'variables' here is system_info.get('state_variables', []) which is a list of string names as per current call site
+    if variables: # variables is a list of string names
+        fallback_expr_str = " + ".join([f"{var_name}**2" for var_name in variables])
+        if not fallback_expr_str: 
+            fallback_expr_str = "0" # Default if no variables or an empty list was passed
+    else: 
+        fallback_expr_str = "x**2 + y**2" # Fallback if state_variables was empty in system_info
+    
+    logging.info(f"Using default fallback expression: {fallback_expr_str}")
+    return fallback_expr_str
 
 def clean_and_validate_expression(candidate):
     """
@@ -190,7 +199,7 @@ def evaluate_pipeline(cfg: OmegaConf):
     logging.info("--- Starting Evaluation Pipeline ---")
     
     # Configure logging level - adjust this based on your needs
-    log_level = eval_cfg.get('log_level', 'INFO')
+    log_level = cfg.evaluation.get('log_level', 'INFO')
     if log_level == 'DEBUG':
         logging.getLogger().setLevel(logging.DEBUG)
     elif log_level == 'INFO':
@@ -314,7 +323,8 @@ def evaluate_pipeline(cfg: OmegaConf):
         candidate_b_str = None
         parsing_successful = False
         if generation_successful:
-            candidate_b_str = extract_certificate_from_llm_output(llm_output)
+            # Pass `variables` (list of Symbol objects for the current system)
+            candidate_b_str = extract_certificate_from_llm_output(llm_output, system_info.get('state_variables', []))
             if candidate_b_str:
                  successful_parses += 1
                  parsing_successful = True

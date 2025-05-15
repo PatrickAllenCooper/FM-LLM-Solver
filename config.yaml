@@ -51,7 +51,7 @@ fine_tuning:
   base_model_name: Qwen/Qwen2.5-7B-Instruct
   data_format: instruction
   lora:
-    r: 64
+    r: 16
     alpha: 16
     dropout: 0.1
     target_modules:
@@ -66,9 +66,9 @@ fine_tuning:
     use_nested_quant: false
   training:
     num_train_epochs: 1
-    per_device_train_batch_size: 4
+    per_device_train_batch_size: 1
     per_device_eval_batch_size: 4
-    gradient_accumulation_steps: 1
+    gradient_accumulation_steps: 4
     gradient_checkpointing: true
     max_grad_norm: 0.3
     learning_rate: 0.0002

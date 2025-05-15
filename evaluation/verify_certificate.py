@@ -9,6 +9,7 @@ from itertools import product, combinations_with_replacement
 from collections import defaultdict
 from scipy.optimize import differential_evolution # Import for optimization
 from omegaconf import DictConfig # To type hint config object
+from sympy.polys.monomials import itermonomials
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -52,10 +53,11 @@ def parse_set_conditions(condition_strings, variables):
         try:
             # Use sympify which can handle inequalities directly
             rel = sympy.sympify(cond_str, locals=local_dict)
-            if not isinstance(rel, sympy.logic.boolalg.BooleanFunction) and not isinstance(rel, sympy.logic.boolalg.BooleanAtom):
-                 # Check if it's a relational type (Le, Gt, etc.)
-                 if not hasattr(rel, 'rel_op'):
-                     raise TypeError(f"Parsed condition '{cond_str}' is not a recognized relational or boolean.")
+            # Check if it's a SymPy boolean (True/False) or a Relational object
+            if not (isinstance(rel, sympy.logic.boolalg.BooleanAtom) or \
+                    isinstance(rel, sympy.core.relational.Relational)):
+                # If it's neither, it's not a valid condition type for our purposes here.
+                raise TypeError(f"Parsed condition '{cond_str}' (result: '{rel}', type: {type(rel)}) is not a recognized Relational or SymPy Boolean.")
             relationals.append(rel)
         except (SyntaxError, TypeError, sympy.SympifyError) as e:
             logging.error(f"Failed to parse set condition '{cond_str}': {e}")
@@ -168,33 +170,54 @@ def check_set_membership_numerical(point_dict, set_relationals, variables):
 
             # For regular relationals that need substitution and evaluation
             try:
-                # .evalf() evaluates the expression after substitution
-                # Need to handle potential numerical precision issues with strict inequalities
-                eval_result = rel.subs(point_dict).evalf()
+                substituted_rel = rel.subs(point_dict)
 
-                # Check the type of the evaluated result
-                if isinstance(eval_result, sympy.logic.boolalg.BooleanAtom):
-                    if not eval_result:
-                        # logging.debug(f"Point {point_dict} failed condition {rel}")
-                        return False  # One condition failed
-                else:
-                    # If evalf() doesn't return a Boolean, likely symbolic evaluation failed
-                    # or resulted in a non-boolean expression (e.g., due to parameters)
-                    logging.warning(f"Could not evaluate condition {rel} to Boolean at point {point_dict}. Got: {eval_result}")
-                    return False  # Treat as failure
-            except AttributeError:
-                # Handle cases where rel is a boolean-like object without evalf()
-                if hasattr(rel, 'subs'):
-                    subst_result = rel.subs(point_dict)
-                    if isinstance(subst_result, sympy.logic.boolalg.BooleanAtom):
-                        if not subst_result:
-                            return False  # One condition failed
-                    else:
-                        logging.warning(f"Substitution didn't yield boolean: {subst_result}")
-                        return False
-                else:
-                    logging.warning(f"Cannot evaluate relation type: {type(rel)}")
+                if substituted_rel is sympy.true:
+                    # Condition is true, continue to next relational
+                    continue 
+                elif substituted_rel is sympy.false:
+                    # Condition is false, point is not in set
+                    # logging.debug(f"Point {point_dict} failed condition {rel} (substituted to false).")
                     return False
+                
+                # If not already a boolean, try to evaluate it numerically
+                if hasattr(substituted_rel, 'evalf'):
+                    eval_result = substituted_rel.evalf(chop=True)
+                    if eval_result is sympy.true:
+                        continue # Condition met, check next relational
+                    elif eval_result is sympy.false:
+                        # logging.debug(f"Point {point_dict} failed condition {rel} (evalf to false).")
+                        return False # Condition not met, point is not in set
+                    else:
+                        # evalf() did not result in a clear True/False.
+                        logging.warning(
+                            f"Condition '{rel}' for point {point_dict} (original sub: '{substituted_rel}') evaluated to non-boolean "
+                            f"SymPy expression after evalf: '{eval_result}' (type: {type(eval_result)}). "
+                            f"Treating as set membership failure."
+                        )
+                        return False # Membership cannot be confirmed
+                else:
+                    # It's not a SymPy boolean, and not evaluatable with evalf - problematic.
+                    # This path should ideally not be hit if 'rel' is a valid Relational or BooleanAtom.
+                    logging.warning(
+                        f"Condition '{rel}' for point {point_dict} substituted to non-evaluatable and non-boolean "
+                        f"expression: '{substituted_rel}' (type: {type(substituted_rel)}). Treating as failure."
+                    )
+                    return False # Membership cannot be confirmed
+            except TypeError as te:
+                logging.error(
+                    f"TypeError during substitution/evaluation of condition '{rel}' "
+                    f"for point {point_dict}: {te}. Original relational: '{rel}'. Substituted: '{substituted_rel if 'substituted_rel' in locals() else 'N/A'}'."
+                    f" Treating as set membership failure."
+                )
+                return False # Membership cannot be confirmed due to error
+            except Exception as e_inner:
+                # Catch exceptions during subs or evalf specifically for this relational
+                logging.error(
+                    f"Unexpected exception during substitution/evaluation of condition '{rel}' "
+                    f"for point {point_dict}: {e_inner}. Treating as set membership failure."
+                )
+                return False # Membership cannot be confirmed due to error
 
         return True  # All conditions passed
     except Exception as e:
@@ -232,7 +255,13 @@ def numerical_check_lie_derivative(dB_dt_func, sampling_bounds, variables, safe_
         if is_in_safe_set:
             checked_in_safe_set += 1
             try:
-                lie_val = dB_dt_func(**point_dict)
+                lie_val_sympy = dB_dt_func(**point_dict)
+                try:
+                    lie_val = float(lie_val_sympy)
+                except (TypeError, ValueError) as conversion_e:
+                    logging.warning(f"Could not convert Lie derivative value '{lie_val_sympy}' to float at {point_dict}: {conversion_e}. Skipping sample.")
+                    continue # Skip this sample if conversion fails
+
                 if lie_val > tolerance: # Use passed tolerance
                     violations += 1
                     # Store violation data
@@ -240,7 +269,7 @@ def numerical_check_lie_derivative(dB_dt_func, sampling_bounds, variables, safe_
                     violation_points.append(violation_data)
                     logging.debug(f"Violation dB/dt <= 0: value={lie_val:.4g} at {point_dict}")
             except Exception as e:
-                logging.error(f"Error evaluating Lie derivative at {point_dict}: {e}")
+                logging.error(f"Error evaluating Lie derivative at {point_dict} (original sympy_val: {lie_val_sympy if 'lie_val_sympy' in locals() else 'N/A'}): {e}")
     
     # Log summary instead of individual violations
     if violations > 0:
@@ -293,7 +322,12 @@ def numerical_check_boundary(B_func, sampling_bounds, variables, initial_set_rel
 
     for point_dict in samples:
         try:
-            b_val = B_func(**point_dict)
+            b_val_sympy = B_func(**point_dict)
+            try:
+                b_val = float(b_val_sympy)
+            except (TypeError, ValueError) as conversion_e:
+                logging.warning(f"Could not convert B(x) value '{b_val_sympy}' to float at {point_dict}: {conversion_e}. Skipping sample.")
+                continue # Skip this sample if conversion fails
 
             # 1. Initial Set Check: B(x) <= tolerance inside X0
             is_in_init_set = check_set_membership_numerical(point_dict, initial_set_relationals, variables)
@@ -318,7 +352,7 @@ def numerical_check_boundary(B_func, sampling_bounds, variables, initial_set_rel
                      logging.debug(f"Violation B >= 0 outside Unsafe Set: B={b_val:.4g} at {point_dict}")
 
         except Exception as e:
-            logging.error(f"Error evaluating B(x) or conditions at {point_dict}: {e}")
+            logging.error(f"Error evaluating B(x) or conditions at {point_dict} (original sympy_B_val: {b_val_sympy if 'b_val_sympy' in locals() else 'N/A'}): {e}")
 
     # Log summary information instead of individual violations
     if init_violations > 0:
@@ -370,10 +404,11 @@ def numerical_check_boundary(B_func, sampling_bounds, variables, initial_set_rel
 
 def get_monomials(variables, degree):
     """Generates a list of sympy monomials up to a given degree."""
-    monoms = [sympy.S.One]
-    for i in range(1, degree + 1):
-        monoms.extend(list(sympy.ordered(sympy.monomials(variables, i))))
-    unique_monoms = sorted(list(set(monoms)), key=sympy.default_sort_key)
+    # itermonomials generates monomials with total degree up to specified degree.
+    # It includes S.One if degree >= 0.
+    raw_monoms = list(itermonomials(variables, degree))
+    # Ensure unique_monoms and sorted as per original logic.
+    unique_monoms = sorted(list(set(raw_monoms)), key=sympy.default_sort_key)
     return unique_monoms
 
 def sympy_poly_to_coeffs(sympy_poly, basis, variables):
@@ -503,10 +538,18 @@ def verify_sos(B_poly, dB_dt_poly, initial_polys, unsafe_polys, safe_polys, vari
         results["unsafe_passed"] = prob_unsafe.status in [cp.OPTIMAL, cp.OPTIMAL_INACCURATE]
         results["unsafe_reason"] = f"SOS Solver Status: {prob_unsafe.status}"
 
-    # --- Handle Errors --- #
     except ValueError as ve: err_msg = f"SOS Value Error: {ve}"; logging.error(err_msg); results['lie_reason'] = results['lie_reason'] if results['lie_reason'] != "Not attempted" else err_msg; results['init_reason'] = results['init_reason'] if results['init_reason'] != "Not attempted" else err_msg; results['unsafe_reason'] = results['unsafe_reason'] if results['unsafe_reason'] != "Not attempted" else err_msg
     except cp.SolverError as se: err_msg = f"CVXPY Solver Error: {se}"; logging.error(err_msg); results['lie_reason'] = results['lie_reason'] if results['lie_reason'] != "Not attempted" else err_msg; results['init_reason'] = results['init_reason'] if results['init_reason'] != "Not attempted" else err_msg; results['unsafe_reason'] = results['unsafe_reason'] if results['unsafe_reason'] != "Not attempted" else err_msg
-    except Exception as e: err_msg = f"Unexpected SOS Error: {e}"; logging.error(err_msg, exc_info=True); results['lie_reason'] = results['lie_reason'] if results['lie_reason'] != "Not attempted" else err_msg; results['init_reason'] = results['init_reason'] if results['init_reason'] != "Not attempted" else err_msg; results['unsafe_reason'] = results['unsafe_reason'] if results['unsafe_reason'] != "Not attempted" else err_msg
+    except Exception as e:
+        err_msg = f"Unexpected SOS Error: {e}"
+        logging.error(err_msg, exc_info=True)
+        results['lie_reason'] = results['lie_reason'] if results['lie_reason'] != "Not attempted" else err_msg
+        results['init_reason'] = results['init_reason'] if results['init_reason'] != "Not attempted" else err_msg
+        results['unsafe_reason'] = results['unsafe_reason'] if results['unsafe_reason'] != "Not attempted" else err_msg
+        if results['sos_reason'] == "Not Attempted" or results['sos_reason'] is None:
+            results['sos_reason'] = err_msg
+        results['sos_passed'] = False
+        results['sos_attempted'] = True
 
     # --- Final Result --- #
     sos_passed = None
@@ -766,13 +809,26 @@ def verify_barrier_certificate(candidate_B_str: str, system_info: dict, verifica
     results['parsing_B_successful'] = True
     logging.info(f"Parsed B(x) = {B}")
 
+    # Create a dictionary of symbolic parameters from system_info
+    system_params_sympy = {sympy.symbols(k): v for k, v in system_info.get('parameters', {}).items()}
+
     # Parse set conditions
-    initial_set_relationals, init_parse_msg = parse_set_conditions(initial_conditions_list, variables)
-    unsafe_set_relationals, unsafe_parse_msg = parse_set_conditions(unsafe_conditions_list, variables)
-    safe_set_relationals, safe_parse_msg = parse_set_conditions(safe_conditions_list, variables)
+    raw_initial_rels, init_parse_msg = parse_set_conditions(initial_conditions_list, variables)
+    raw_unsafe_rels, unsafe_parse_msg = parse_set_conditions(unsafe_conditions_list, variables)
+    raw_safe_rels, safe_parse_msg = parse_set_conditions(safe_conditions_list, variables)
+
+    # Substitute system parameters into parsed relationals
+    initial_set_relationals = [r.subs(system_params_sympy) for r in raw_initial_rels] if raw_initial_rels else []
+    unsafe_set_relationals = [r.subs(system_params_sympy) for r in raw_unsafe_rels] if raw_unsafe_rels else []
+    safe_set_relationals = [r.subs(system_params_sympy) for r in raw_safe_rels] if raw_safe_rels else []
     
-    if initial_set_relationals is None or unsafe_set_relationals is None or safe_set_relationals is None:
-        results['reason'] = f"Set Parsing Failed: Init: {init_parse_msg}, Unsafe: {unsafe_parse_msg}, Safe: {safe_parse_msg}"
+    if raw_initial_rels is None or raw_unsafe_rels is None or raw_safe_rels is None:
+        # Update reason if parsing itself failed for any of the raw sets
+        err_parts = []
+        if raw_initial_rels is None: err_parts.append(f"Init: {init_parse_msg}")
+        if raw_unsafe_rels is None: err_parts.append(f"Unsafe: {unsafe_parse_msg}")
+        if raw_safe_rels is None: err_parts.append(f"Safe: {safe_parse_msg}")
+        results['reason'] = f"Set Parsing Failed: {'; '.join(err_parts)}"
         results['verification_time_seconds'] = time.time() - start_time
         return results
     
@@ -788,6 +844,30 @@ def verify_barrier_certificate(candidate_B_str: str, system_info: dict, verifica
     
     results['lie_derivative_calculated'] = str(dB_dt)
     logging.info(f"Symbolic dB/dt = {dB_dt}")
+
+    # Prepare numerical sampling bounds by substituting parameters
+    numerical_sampling_bounds = {}
+    if sampling_bounds:
+        for var_name_str, bounds_list_sym in sampling_bounds.items():
+            # Ensure var_name is a symbol if it needs to be looked up in system_params_sympy, though typically it's a string key
+            # For bounds, sympify then substitute, then evalf to ensure float
+            try:
+                nb_min = sympy.sympify(bounds_list_sym[0]).subs(system_params_sympy).evalf()
+                nb_max = sympy.sympify(bounds_list_sym[1]).subs(system_params_sympy).evalf()
+                numerical_sampling_bounds[var_name_str] = [float(nb_min), float(nb_max)]
+            except (AttributeError, TypeError, sympy.SympifyError) as e:
+                logging.error(f"Could not process sampling bound '{bounds_list_sym}' for var '{var_name_str}': {e}. Check if params are defined in benchmark.")
+                # Fallback or error, for now, try to use original if sympify fails (e.g. already float)
+                try:
+                    numerical_sampling_bounds[var_name_str] = [float(bounds_list_sym[0]), float(bounds_list_sym[1])]
+                except Exception as e_fb:
+                    logging.error(f"Fallback to float for sampling bounds for '{var_name_str}' also failed: {e_fb}")
+                    results['reason'] = f"Invalid sampling bounds for {var_name_str}"
+                    results['verification_time_seconds'] = time.time() - start_time
+                    return results # Cannot proceed without valid numerical bounds
+    else:
+        logging.warning("No sampling_bounds provided in system_info. Numerical checks might be limited or fail.")
+        # Potentially set default wide bounds if appropriate, or let downstream functions handle missing bounds
 
     # --- STEP 2: Check if system is suitable for SOS verification --- #
     dynamics_exprs = [parse_expression(d, variables) for d in dynamics_str]
@@ -862,14 +942,14 @@ def verify_barrier_certificate(candidate_B_str: str, system_info: dict, verifica
     B_func = lambdify_expression(B, variables)
     dB_dt_func = lambdify_expression(dB_dt, variables)
 
-    if B_func and dB_dt_func and sampling_bounds:
+    if B_func and dB_dt_func and numerical_sampling_bounds:
         # Perform numerical sampling checks
         num_samp_lie_passed, num_samp_lie_details = numerical_check_lie_derivative(
-            dB_dt_func, sampling_bounds, variables, safe_set_relationals,
+            dB_dt_func, numerical_sampling_bounds, variables, safe_set_relationals,
             n_samples=num_samples_lie, tolerance=numerical_tolerance
         )
         num_samp_bound_result = numerical_check_boundary(
-            B_func, sampling_bounds, variables, initial_set_relationals, unsafe_set_relationals,
+            B_func, numerical_sampling_bounds, variables, initial_set_relationals, unsafe_set_relationals,
             n_samples=num_samples_boundary, tolerance=numerical_tolerance
         )
         
@@ -898,7 +978,7 @@ def verify_barrier_certificate(candidate_B_str: str, system_info: dict, verifica
         # Perform optimization-based falsification (if enabled)
         if attempt_optimization:
             opt_violation_found, opt_details = optimization_based_falsification(
-                B_func, dB_dt_func, sampling_bounds, variables,
+                B_func, dB_dt_func, numerical_sampling_bounds, variables,
                 initial_set_relationals, unsafe_set_relationals, safe_set_relationals,
                 max_iter=opt_max_iter, pop_size=opt_pop_size, tolerance=numerical_tolerance
             )
@@ -924,7 +1004,7 @@ def verify_barrier_certificate(candidate_B_str: str, system_info: dict, verifica
         # Update overall numerical pass status based on combined checks
         numerical_overall_passed = num_samp_lie_passed and num_samp_bound_passed
     else:
-         results['reason'] += " | Numerical checks skipped (lambdify failed or no bounds)."
+         results['reason'] += " | Numerical checks skipped (lambdify failed or no numerical_sampling_bounds)."
          numerical_overall_passed = None # Indicate checks not performed
 
     # --- STEP 6: Determine Final Verdict --- # 
