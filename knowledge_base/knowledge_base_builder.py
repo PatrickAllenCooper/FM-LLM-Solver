@@ -444,16 +444,32 @@ def build_knowledge_base(cfg):
                 "path": pdf_path
             }
             
+            # ===== EMBEDDING GENERATION - CPU INTENSIVE PHASE =====
+            # Tell user explicitly that we're now in the embedding phase
+            if tqdm_available:
+                tqdm.write(f"Starting embedding generation for {len(chunks)} chunks (slow on CPU - please wait)...")
+                if low_memory_mode:
+                    tqdm.write("Low memory mode is enabled, using CPU for embeddings (much slower than GPU)")
+            else:
+                logging.info(f"Starting embedding generation for {len(chunks)} chunks (slow on CPU - please wait)...")
+                if low_memory_mode:
+                    logging.info("Low memory mode is enabled, using CPU for embeddings (much slower than GPU)")
+                
             # Process chunks in batches to manage memory
             current_chunks = []
             current_metadata = []
             
             # Create a progress bar for chunks in this PDF
+            # Add a clear label to indicate this is the slow embedding phase
             chunk_progress = tqdm(
                 total=len(chunks), 
-                desc=f"Generating embeddings for {os.path.basename(pdf_path)}", 
-                disable=not tqdm_available
+                desc=f"Generating embeddings for {os.path.basename(pdf_path)} (CPU slow phase)", 
+                disable=not tqdm_available,
+                leave=False  # Don't leave the bar after completion to avoid cluttering the output
             )
+            
+            # Get timestamp for monitoring embedding time
+            embedding_start_time = time.time()
             
             for chunk_id, chunk in enumerate(chunks):
                 chunk_metadata = base_metadata.copy()
@@ -465,9 +481,14 @@ def build_knowledge_base(cfg):
                 # Process in batches
                 if len(current_chunks) >= batch_size:
                     # Update description to show embedding progress clearly
+                    batch_start_time = time.time()
                     chunk_progress.set_description(
-                        f"Embedding chunks {total_chunks_processed+1}-{total_chunks_processed+len(current_chunks)}/{total_chunks}"
+                        f"Embedding batch {total_chunks_processed+1}-{total_chunks_processed+len(current_chunks)}/{total_chunks}"
                     )
+                    
+                    # Show a more detailed log when starting a batch (especially important on CPU)
+                    if tqdm_available and (total_chunks_processed == 0 or total_chunks_processed % 100 == 0):
+                        tqdm.write(f"Processing embedding batch {total_chunks_processed+1}-{total_chunks_processed+len(current_chunks)} of {total_chunks}...")
                     
                     # Create embeddings for the batch (with show_progress_bar=False to avoid nested bars)
                     batch_embeddings = model.encode(
@@ -475,6 +496,12 @@ def build_knowledge_base(cfg):
                         batch_size=batch_size, 
                         show_progress_bar=False
                     )
+                    
+                    # Report how long the batch took (helpful for CPU timing)
+                    batch_end_time = time.time()
+                    batch_duration = batch_end_time - batch_start_time
+                    if tqdm_available and (total_chunks_processed == 0 or total_chunks_processed % 100 == 0):
+                        tqdm.write(f"Batch embedding took {batch_duration:.2f} seconds ({batch_duration/len(current_chunks):.2f} sec/chunk)")
                     
                     # Add embeddings and metadata to lists
                     all_embeddings.extend(batch_embeddings)
@@ -500,11 +527,19 @@ def build_knowledge_base(cfg):
             # Process remaining chunks
             if current_chunks:
                 # Update description for final chunks
+                batch_start_time = time.time()
                 chunk_progress.set_description(
                     f"Embedding final chunks {total_chunks_processed+1}-{total_chunks_processed+len(current_chunks)}/{total_chunks}"
                 )
                 
                 batch_embeddings = model.encode(current_chunks, batch_size=batch_size, show_progress_bar=False)
+                
+                # Report how long the batch took
+                batch_end_time = time.time()
+                batch_duration = batch_end_time - batch_start_time
+                if tqdm_available:
+                    tqdm.write(f"Final batch embedding took {batch_duration:.2f} seconds ({batch_duration/len(current_chunks):.2f} sec/chunk)")
+                
                 all_embeddings.extend(batch_embeddings)
                 metadata_list.extend(current_metadata)
                 
@@ -523,6 +558,17 @@ def build_knowledge_base(cfg):
             
             # Close the chunk progress bar
             chunk_progress.close()
+            
+            # Report total embedding time for this PDF
+            embedding_end_time = time.time()
+            embedding_duration = embedding_end_time - embedding_start_time
+            if tqdm_available:
+                tqdm.write(f"Finished embedding all chunks for PDF {i+1}/{len(pdf_files)} in {embedding_duration:.2f} seconds")
+                # Update the main progress bar now that the PDF is fully processed
+                if hasattr(tqdm, 'refresh'):
+                    tqdm.refresh()  # Force refresh of the main progress bar
+            else:
+                logging.info(f"Finished embedding all chunks for PDF {i+1}/{len(pdf_files)} in {embedding_duration:.2f} seconds")
                 
         except Exception as e:
             logging.error(f"Error processing {os.path.basename(pdf_path)}: {str(e)}")
