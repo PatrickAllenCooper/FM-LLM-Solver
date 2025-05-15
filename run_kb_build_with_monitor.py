@@ -131,7 +131,32 @@ def monkey_patch_kb_builder():
         
         # Import tqdm and monkey-patch it
         try:
+            # Handle tqdm import and patching more carefully
+            import tqdm as tqdm_module
             from tqdm import tqdm as original_tqdm
+            
+            # Create a patched write function 
+            def patched_write(s, *args, **kwargs):
+                # Forward to original write function if possible
+                if hasattr(original_tqdm, 'write'):
+                    original_tqdm.write(s, *args, **kwargs)
+                else:
+                    # Fallback if write not available
+                    print(s)
+                
+                # Update our monitor based on the content
+                # Detect specific messages
+                if "Generated" in s and "chunks" in s:
+                    # Extract number of chunks
+                    import re
+                    chunks_match = re.search(r'Generated (\d+) chunks', s)
+                    if chunks_match:
+                        chunk_count = int(chunks_match.group(1))
+                        update_state(total_chunks=monitor_state['total_chunks'] + chunk_count,
+                                     current_phase='preparing to generate embeddings')
+                
+                # Force flush stdout
+                sys.stdout.flush()
             
             # Create a wrapper that updates our monitor
             def patched_tqdm(*args, **kwargs):
@@ -158,9 +183,9 @@ def monkey_patch_kb_builder():
                     result = original_update(n)
                     
                     # Update our monitor based on the progress bar type
-                    if tqdm_instance.desc.startswith('Processing PDFs'):
+                    if tqdm_instance.desc and tqdm_instance.desc.startswith('Processing PDFs'):
                         update_state(processed_pdfs=tqdm_instance.n, current_phase='processing PDFs')
-                    elif tqdm_instance.desc.startswith('Generating'):
+                    elif tqdm_instance.desc and tqdm_instance.desc.startswith('Generating'):
                         update_state(processed_chunks=monitor_state['processed_chunks'] + n, 
                                      current_phase='generating embeddings')
                     
@@ -174,37 +199,19 @@ def monkey_patch_kb_builder():
                 
                 return tqdm_instance
             
+            # Add write function to our patched function
+            patched_tqdm.write = patched_write
+            
             # Replace tqdm in the kb module
-            import tqdm as tqdm_module
-            tqdm_module.tqdm = patched_tqdm
             kb.tqdm = patched_tqdm
             
-            # Also patch the tqdm.write function
-            original_write = tqdm_module.tqdm.write
-            
-            def patched_write(s, *args, **kwargs):
-                # Call the original write function
-                result = original_write(s, *args, **kwargs)
+            # Also add to tqdm module if it can access it
+            try:
+                tqdm_module.tqdm = patched_tqdm
+            except AttributeError:
+                # Handle case where tqdm module structure is different
+                pass
                 
-                # Also update our monitor based on the content
-                # Detect specific messages
-                if "Generated" in s and "chunks" in s:
-                    # Extract number of chunks
-                    import re
-                    chunks_match = re.search(r'Generated (\d+) chunks', s)
-                    if chunks_match:
-                        chunk_count = int(chunks_match.group(1))
-                        update_state(total_chunks=monitor_state['total_chunks'] + chunk_count,
-                                     current_phase='preparing to generate embeddings')
-                
-                # Force flush stdout
-                sys.stdout.flush()
-                
-                return result
-            
-            # Replace tqdm.write
-            tqdm_module.tqdm.write = patched_write
-            
         except ImportError:
             print("[MONITOR] tqdm not available, using basic progress monitoring only")
     
