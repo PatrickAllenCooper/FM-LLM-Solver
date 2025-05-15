@@ -288,14 +288,32 @@ def split_into_chunks(text: str, chunk_size: int = 1000, overlap: int = 200) -> 
                     end = search_start + sentence_pos
         
         # Add this chunk to our list
-        chunks.append(text[start:end])
+        # Ensure the chunk is not empty, which shouldn't happen if start < end.
+        current_chunk_text = text[start:end]
+        if not current_chunk_text and start < len(text):
+            # This is unexpected if start < end. As a safeguard, advance start by 1 to prevent potential hang.
+            start += 1
+            continue
+        if current_chunk_text: # Only add non-empty chunks
+            chunks.append(current_chunk_text)
         
-        # Calculate the start of the next chunk with overlap
-        start = max(start, end - overlap)
-        
-        # Ensure we're making progress
-        if start >= end:
-            start = end
+        # Calculate the start of the next chunk
+        if end >= len(text): # If the current chunk reached the end of the text
+            start = len(text) # Move start to the end to terminate the loop
+        else:
+            # Normal case: current chunk did not reach end of text
+            prev_start = start
+            # The desired start of the next overlapping chunk
+            potential_next_start = end - overlap
+            
+            # If the desired next start doesn't make progress (i.e., it's <= prev_start),
+            # it means the chunk just processed was too short relative to the overlap
+            # (specifically, end - prev_start <= overlap).
+            # Force progress to prevent an infinite loop.
+            if potential_next_start <= prev_start:
+                start = prev_start + 1 
+            else:
+                start = potential_next_start
     
     return chunks
 

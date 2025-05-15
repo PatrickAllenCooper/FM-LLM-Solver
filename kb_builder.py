@@ -23,6 +23,7 @@ import threading
 import gc
 import json
 import logging
+import numpy as np
 from pathlib import Path
 from datetime import datetime, timedelta
 
@@ -226,11 +227,17 @@ def merge_kb_files(temp_vector_path, temp_metadata_path, final_vector_path, fina
                 logging.info(f"DEBUG: Final index loaded in {final_index_end-final_index_start:.2f}s, contains {final_index.ntotal} vectors")
                 
                 # Merge indices
-                logging.info(f"DEBUG: Extracting vectors from temp index")
+                logging.info(f"DEBUG: Reconstructing vectors from temp index")
                 extract_start = time.time()
-                temp_vectors = faiss.extract_index_vector(temp_index).at(0).numpy()
+                if temp_index.ntotal > 0:
+                    # Reconstruct all vectors. This returns a NumPy array.
+                    # ids_to_reconstruct = np.arange(temp_index.ntotal) # Not strictly needed for reconstruct_n
+                    temp_vectors = temp_index.reconstruct_n(0, temp_index.ntotal)
+                else:
+                    # Handle case with 0 vectors. Ensure correct shape for d > 0 if index was initialized.
+                    temp_vectors = np.array([], dtype=np.float32).reshape(0, temp_index.d if temp_index.d > 0 else 1)
                 extract_end = time.time()
-                logging.info(f"DEBUG: Vector extraction completed in {extract_end-extract_start:.2f}s")
+                logging.info(f"DEBUG: Vector reconstruction completed in {extract_end-extract_start:.2f}s. Reconstructed {len(temp_vectors)} vectors.")
                 
                 logging.info(f"DEBUG: Adding {len(temp_vectors)} vectors to final index")
                 add_start = time.time()

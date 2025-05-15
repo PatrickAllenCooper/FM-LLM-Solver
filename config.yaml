@@ -38,7 +38,7 @@ knowledge_base:
   pipeline: "open_source"  # Pipeline for PDF processing: 'mathpix' or 'open_source'
   gpu_memory_limit: 4096   # Max VRAM to use in MB (set to ~4GB for RTX 3080)
   embedding_batch_size: 32  # Batch size for embedding generation
-  low_memory_mode: true    # Enables memory optimizations (CPU fallback when necessary)
+  low_memory_mode: false    # Enables memory optimizations (CPU fallback when necessary)
 
 # Added embeddings section to match the structure expected by the code
 embeddings:

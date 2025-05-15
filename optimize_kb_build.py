@@ -13,10 +13,14 @@ import argparse
 # Make sure Python's output is unbuffered
 os.environ['PYTHONUNBUFFERED'] = '1'
 
+# Set PyTorch CUDA allocation options to avoid fragmentation
+os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True,garbage_collection_threshold:0.6'
+
 def main():
     parser = argparse.ArgumentParser(description="Optimize and run knowledge base builder")
     parser.add_argument("--config", type=str, help="Path to configuration file")
     parser.add_argument("--force", action="store_true", help="Force rebuilding knowledge base even if files exist")
+    parser.add_argument("--cpu-only", action="store_true", help="Force CPU usage even if GPU is available")
     args = parser.parse_args()
     
     print("\n")
@@ -47,6 +51,63 @@ def main():
         
         print("Chunking function patched successfully!")
         
+        # Memory management patch - add this to the knowledge_base_builder module
+        print("Adding memory management patches...")
+        
+        # Monkey-patch for aggressive cache clearing
+        import knowledge_base.knowledge_base_builder as kb
+        
+        # Store original functions
+        original_process_pdf = alt_pdf.process_pdf
+        
+        # Create a wrapper to clear CUDA cache after each PDF
+        def clear_gpu_memory():
+            try:
+                import torch
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                    import gc
+                    gc.collect()
+                    print("CUDA cache cleared")
+            except:
+                pass
+        
+        # Patch the process_pdf function to clear cache after each file
+        def patched_process_pdf(pdf_path, cfg=None):
+            # Clear GPU memory before processing
+            clear_gpu_memory()
+            
+            # Try to process the PDF
+            try:
+                result = original_process_pdf(pdf_path, cfg)
+                # Clear GPU memory after processing
+                clear_gpu_memory()
+                return result
+            except Exception as e:
+                # If CUDA out of memory, try to recover
+                if "CUDA out of memory" in str(e):
+                    print(f"CUDA out of memory on {os.path.basename(pdf_path)}, attempting fallback...")
+                    # Force garbage collection
+                    import gc
+                    gc.collect()
+                    
+                    # Try again with CPU mode
+                    if cfg is not None:
+                        cfg.knowledge_base.low_memory_mode = True  # Force CPU mode
+                        print("Switched to CPU mode for this PDF")
+                        try:
+                            result = original_process_pdf(pdf_path, cfg)
+                            clear_gpu_memory()
+                            return result
+                        except Exception as inner_e:
+                            print(f"Fallback also failed: {inner_e}")
+                
+                # Re-raise the original exception if recovery failed
+                raise
+        
+        # Apply the patched function
+        alt_pdf.process_pdf = patched_process_pdf
+        
         # Now run the knowledge base builder directly
         print("\nStep 2: Running knowledge base builder with optimized chunking...")
         
@@ -56,8 +117,12 @@ def main():
         cfg = load_config(config_path)
         
         # Set optimal memory settings
-        cfg.knowledge_base.low_memory_mode = False
-        cfg.knowledge_base.gpu_memory_limit = 4096
+        if args.cpu_only:
+            print("Forcing CPU-only mode as requested")
+            cfg.knowledge_base.low_memory_mode = True
+        else:
+            cfg.knowledge_base.low_memory_mode = False
+            cfg.knowledge_base.gpu_memory_limit = 2048  # Reduce to 2GB to be safer
         
         # Clean existing KB files if requested
         if args.force:

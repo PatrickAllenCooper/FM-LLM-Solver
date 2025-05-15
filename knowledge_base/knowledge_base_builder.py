@@ -379,7 +379,16 @@ def build_knowledge_base(cfg):
                         # Limit GPU memory usage if specified
                         if gpu_memory_limit > 0:
                             logging.info(f"Limiting GPU memory usage to {gpu_memory_limit}MB")
-                            torch.cuda.set_per_process_memory_fraction(gpu_memory_limit / torch.cuda.get_device_properties(0).total_memory)
+                            total_memory_bytes = torch.cuda.get_device_properties(0).total_memory
+                            fraction = (gpu_memory_limit * 1024 * 1024) / total_memory_bytes
+                            if fraction < 0.01: # Safety check for extremely small fractions
+                                logging.warning(f"Calculated GPU memory fraction {fraction} is very small. Clamping to 0.01 (1%).")
+                                fraction = 0.01
+                            elif fraction > 1.0: # Safety check if limit exceeds total
+                                logging.warning(f"Calculated GPU memory fraction {fraction} > 1.0. Clamping to 1.0.")
+                                fraction = 1.0
+                            logging.info(f"Setting GPU memory fraction to: {fraction:.4f}")
+                            torch.cuda.set_per_process_memory_fraction(fraction, 0) # Explicitly for device 0
                             
                         model = model.to('cuda')
                         use_gpu = True
