@@ -36,12 +36,16 @@ knowledge_base:
   mathpix_poll_max_wait_sec: 600
   mathpix_poll_interval: 10
   pipeline: "open_source"  # Pipeline for PDF processing: 'mathpix' or 'open_source'
+  gpu_memory_limit: 4096   # Max VRAM to use in MB (set to ~4GB for RTX 3080)
+  embedding_batch_size: 32  # Batch size for embedding generation
+  low_memory_mode: true    # Enables memory optimizations (CPU fallback when necessary)
 
 # Added embeddings section to match the structure expected by the code
 embeddings:
   model_name: all-mpnet-base-v2
   chunk_size: 1000
   chunk_overlap: 150
+  batch_size: 32           # Control batch size for embedding generation
 
 fine_tuning:
   base_model_name: Qwen/Qwen2.5-7B-Instruct

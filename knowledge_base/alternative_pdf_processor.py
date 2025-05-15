@@ -41,17 +41,45 @@ def detect_hardware() -> Dict[str, bool]:
         
     return hardware_info
 
-def optimize_for_hardware(hardware_info: Dict[str, bool]) -> Dict[str, any]:
+def optimize_for_hardware(hardware_info: Dict[str, bool], cfg=None) -> Dict[str, any]:
     """
-    Return optimized parameters based on hardware detection.
+    Return optimized parameters based on hardware detection and configuration.
+    
+    Parameters
+    ----------
+    hardware_info : Dict[str, bool]
+        Hardware detection results
+    cfg : omegaconf.dictconfig.DictConfig, optional
+        Configuration object with memory optimization settings
     """
     params = {
         "dpi": 300,  # Default DPI for PDF conversion
         "batch_size": 1,  # Default batch size for processing
         "threads": 1,  # Default thread count
-        "use_mps": False  # Whether to use Metal Performance Shaders
+        "use_mps": False,  # Whether to use Metal Performance Shaders
+        "low_memory_mode": False  # Conservative memory usage
     }
     
+    # Check if config is provided
+    if cfg is not None:
+        # Get low memory mode from config
+        if hasattr(cfg, 'knowledge_base') and hasattr(cfg.knowledge_base, 'low_memory_mode'):
+            params["low_memory_mode"] = cfg.knowledge_base.low_memory_mode
+            
+        # Check if we have GPU memory limit from config
+        if hasattr(cfg, 'knowledge_base') and hasattr(cfg.knowledge_base, 'gpu_memory_limit'):
+            params["gpu_memory_limit"] = cfg.knowledge_base.gpu_memory_limit
+    
+    # If low memory mode, adjust parameters regardless of hardware
+    if params.get("low_memory_mode", False):
+        logging.info("Low memory mode enabled, using conservative settings")
+        params["dpi"] = 150  # Lower DPI for faster processing and less memory
+        params["batch_size"] = 1  # Process one page at a time
+        params["threads"] = 1  # Single thread to limit memory
+        params["use_mps"] = False  # Disable GPU acceleration
+        return params
+    
+    # Normal hardware-based optimization
     if hardware_info["is_apple_silicon"]:
         logging.info("Apple Silicon detected, optimizing for M-series")
         params["threads"] = min(hardware_info["cpu_cores"], 4)  # Use up to 4 cores on M-series
@@ -68,16 +96,24 @@ def optimize_for_hardware(hardware_info: Dict[str, bool]) -> Dict[str, any]:
     
     return params
 
-def process_pdf(pdf_path: str) -> str:
+def process_pdf(pdf_path: str, cfg=None) -> str:
     """
     Alternative open-source pipeline to extract text from PDF without external dependencies.
     Uses PyMuPDF (fitz) to extract text directly from the PDF.
     
     Hardware-aware: Optimizes for Apple Silicon or GPU systems.
+    Memory-aware: Respects low_memory_mode setting from config.
+    
+    Parameters
+    ----------
+    pdf_path : str
+        Path to the PDF file
+    cfg : omegaconf.dictconfig.DictConfig, optional
+        Configuration object with memory optimization settings
     """
     # Detect hardware and get optimized parameters
     hardware_info = detect_hardware()
-    params = optimize_for_hardware(hardware_info)
+    params = optimize_for_hardware(hardware_info, cfg)
     
     # Initialize output string
     full_mmd = ""
@@ -92,30 +128,77 @@ def process_pdf(pdf_path: str) -> str:
     except Exception as e:
         raise RuntimeError(f"Failed to open PDF: {str(e)}")
     
-    # Process each page
-    for i, page in enumerate(doc):
-        logging.info(f"Processing page {i+1}/{len(doc)}")
-        
-        try:
-            # Extract text from the page
-            text = page.get_text()
+    # Get memory mode
+    low_memory_mode = params.get("low_memory_mode", False)
+    
+    # In low memory mode, explicitly free memory during processing
+    if low_memory_mode:
+        # Process each page and clear memory after each one
+        for i in range(len(doc)):
+            logging.info(f"Processing page {i+1}/{len(doc)} (low memory mode)")
             
-            # Extract images if needed for better processing
-            if len(text.strip()) < 100:  # If very little text was extracted, try image extraction
-                logging.info(f"Page {i+1} has limited text, attempting image-based extraction")
-                page_text = extract_text_from_page_images(page, params)
-                if page_text.strip():
-                    text = page_text
+            try:
+                # Get the page
+                page = doc[i]
+                
+                # Extract text from the page
+                text = page.get_text()
+                
+                # Extract images if really needed and not too many
+                if len(text.strip()) < 100 and i < 20:  # Only try for the first 20 pages to save memory
+                    logging.info(f"Page {i+1} has limited text, attempting image-based extraction")
+                    page_text = extract_text_from_page_images(page, params)
+                    if page_text.strip():
+                        text = page_text
+                
+                # Add to full document
+                full_mmd += f"\n## Page {i+1}\n\n{text}\n\n"
+                
+                # Clear page (garbage collection)
+                page = None
+                
+            except Exception as e:
+                logging.error(f"Error processing page {i+1}: {str(e)}")
+                full_mmd += f"\n## Page {i+1}\n\n[PDF Processing Error: {str(e)}]\n\n"
             
-            # Add to full document
-            full_mmd += f"\n## Page {i+1}\n\n{text}\n\n"
+            # Force Python garbage collection
+            try:
+                import gc
+                gc.collect()
+            except:
+                pass
+    else:
+        # Process each page normally (more efficient but uses more memory)
+        for i, page in enumerate(doc):
+            logging.info(f"Processing page {i+1}/{len(doc)}")
             
-        except Exception as e:
-            logging.error(f"Error processing page {i+1}: {str(e)}")
-            full_mmd += f"\n## Page {i+1}\n\n[PDF Processing Error: {str(e)}]\n\n"
+            try:
+                # Extract text from the page
+                text = page.get_text()
+                
+                # Extract images if needed for better processing
+                if len(text.strip()) < 100:  # If very little text was extracted, try image extraction
+                    logging.info(f"Page {i+1} has limited text, attempting image-based extraction")
+                    page_text = extract_text_from_page_images(page, params)
+                    if page_text.strip():
+                        text = page_text
+                
+                # Add to full document
+                full_mmd += f"\n## Page {i+1}\n\n{text}\n\n"
+                
+            except Exception as e:
+                logging.error(f"Error processing page {i+1}: {str(e)}")
+                full_mmd += f"\n## Page {i+1}\n\n[PDF Processing Error: {str(e)}]\n\n"
     
     # Close the document
     doc.close()
+    
+    # Force Python garbage collection
+    try:
+        import gc
+        gc.collect()
+    except:
+        pass
     
     # Post-process the full document
     full_mmd = post_process_document(full_mmd)

@@ -309,9 +309,23 @@ def build_knowledge_base(cfg):
     embedding_model = cfg.embeddings.model_name
     logging.info(f"Loading embedding model: {embedding_model}")
     
+    # Get memory optimization settings
+    low_memory_mode = cfg.knowledge_base.get('low_memory_mode', False)
+    gpu_memory_limit = cfg.knowledge_base.get('gpu_memory_limit', 0)  # 0 means no limit
+    batch_size = cfg.knowledge_base.get('embedding_batch_size', 32)
+    
+    # Also check in embeddings section
+    if not batch_size:
+        batch_size = cfg.embeddings.get('batch_size', 32)
+    
+    logging.info(f"Memory optimization settings: low_memory_mode={low_memory_mode}, gpu_memory_limit={gpu_memory_limit}MB, batch_size={batch_size}")
+    
     try:
         from sentence_transformers import SentenceTransformer
         model = SentenceTransformer(embedding_model)
+        
+        # Memory management based on configuration
+        use_gpu = False
         
         # Try to optimize for hardware if possible
         if hardware_info["is_apple_silicon"]:
@@ -320,8 +334,12 @@ def build_knowledge_base(cfg):
             try:
                 import torch
                 if hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
-                    logging.info("MPS is available, using Apple Metal for embeddings")
-                    model = model.to('mps')
+                    if not low_memory_mode:
+                        logging.info("MPS is available, using Apple Metal for embeddings")
+                        model = model.to('mps')
+                        use_gpu = True
+                    else:
+                        logging.info("Low memory mode enabled, using CPU for embeddings despite MPS availability")
             except (ImportError, AttributeError) as e:
                 logging.warning(f"Could not enable MPS: {str(e)}")
         elif hardware_info["has_gpu"]:
@@ -329,8 +347,18 @@ def build_knowledge_base(cfg):
             try:
                 import torch
                 if torch.cuda.is_available():
-                    logging.info("Using CUDA for embeddings")
-                    model = model.to('cuda')
+                    if not low_memory_mode:
+                        logging.info("Using CUDA for embeddings")
+                        
+                        # Limit GPU memory usage if specified
+                        if gpu_memory_limit > 0:
+                            logging.info(f"Limiting GPU memory usage to {gpu_memory_limit}MB")
+                            torch.cuda.set_per_process_memory_fraction(gpu_memory_limit / torch.cuda.get_device_properties(0).total_memory)
+                            
+                        model = model.to('cuda')
+                        use_gpu = True
+                    else:
+                        logging.info("Low memory mode enabled, using CPU for embeddings despite CUDA availability")
             except (ImportError, AttributeError) as e:
                 logging.warning(f"Could not enable CUDA: {str(e)}")
     except ImportError:
@@ -347,8 +375,8 @@ def build_knowledge_base(cfg):
                 # Use existing Mathpix code
                 mmd_content = process_pdf_with_mathpix(pdf_path, MATHPIX_APP_ID, MATHPIX_APP_KEY)
             elif pipeline == "open_source":
-                # Use our alternative processor
-                mmd_content = process_pdf_open_source(pdf_path)
+                # Use our alternative processor, passing config for memory optimization
+                mmd_content = process_pdf_open_source(pdf_path, cfg)
             else:
                 logging.error(f"Unknown pipeline: {pipeline}")
                 continue
@@ -370,16 +398,56 @@ def build_knowledge_base(cfg):
                 "path": pdf_path
             }
             
-            # Embed chunks
+            # Process chunks in batches to manage memory
+            current_chunks = []
+            current_metadata = []
+            
             for chunk_id, chunk in enumerate(chunks):
                 chunk_metadata = base_metadata.copy()
                 chunk_metadata["chunk_id"] = chunk_id
                 chunk_metadata["text"] = chunk
-                metadata_list.append(chunk_metadata)
+                current_metadata.append(chunk_metadata)
+                current_chunks.append(chunk)
                 
-                # Create embedding
-                embedding = model.encode(chunk)
-                all_embeddings.append(embedding)
+                # Process in batches
+                if len(current_chunks) >= batch_size:
+                    logging.info(f"Processing batch of {len(current_chunks)} chunks...")
+                    
+                    # Create embeddings for the batch
+                    batch_embeddings = model.encode(current_chunks, batch_size=batch_size, show_progress_bar=False)
+                    
+                    # Add embeddings and metadata to lists
+                    all_embeddings.extend(batch_embeddings)
+                    metadata_list.extend(current_metadata)
+                    
+                    # Clear batch
+                    current_chunks = []
+                    current_metadata = []
+                    
+                    # Clear GPU cache if using GPU
+                    if use_gpu:
+                        try:
+                            import torch
+                            if torch.cuda.is_available():
+                                torch.cuda.empty_cache()
+                        except:
+                            pass
+            
+            # Process remaining chunks
+            if current_chunks:
+                logging.info(f"Processing final batch of {len(current_chunks)} chunks...")
+                batch_embeddings = model.encode(current_chunks, batch_size=batch_size, show_progress_bar=False)
+                all_embeddings.extend(batch_embeddings)
+                metadata_list.extend(current_metadata)
+                
+                # Clear GPU cache if using GPU
+                if use_gpu:
+                    try:
+                        import torch
+                        if torch.cuda.is_available():
+                            torch.cuda.empty_cache()
+                    except:
+                        pass
                 
         except Exception as e:
             logging.error(f"Error processing {os.path.basename(pdf_path)}: {str(e)}")
