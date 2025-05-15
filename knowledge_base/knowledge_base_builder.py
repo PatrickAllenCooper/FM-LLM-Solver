@@ -25,6 +25,32 @@ from pathlib import Path
 from omegaconf import OmegaConf
 from typing import Dict, List, Optional
 
+# Add tqdm for progress bars (with fallback to avoid dependency issues)
+try:
+    from tqdm import tqdm
+    tqdm_available = True
+except ImportError:
+    tqdm_available = False
+    # Define a simple no-op tqdm fallback
+    class DummyTqdm:
+        def __init__(self, iterable=None, **kwargs):
+            self.iterable = iterable
+            
+        def __iter__(self):
+            for item in self.iterable:
+                yield item
+                
+        def update(self, n=1):
+            pass
+        
+        def set_description(self, desc=""):
+            pass
+        
+        def close(self):
+            pass
+    
+    tqdm = DummyTqdm
+
 # Alternative PDF processing pipeline
 from knowledge_base.alternative_pdf_processor import process_pdf as process_pdf_open_source, detect_hardware, split_into_chunks
 
@@ -365,10 +391,24 @@ def build_knowledge_base(cfg):
         logging.error("Failed to load sentence-transformers. Please install with 'pip install sentence-transformers'")
         return False
     
-    # Process each PDF
-    for i, pdf_path in enumerate(pdf_files):
+    # Process each PDF with progress bar
+    total_chunks_processed = 0
+    total_chunks = 0  # Will be updated as we process
+    
+    # Create a progress bar for PDF processing
+    if tqdm_available:
+        logging.info("Progress bar enabled for processing")
+    else:
+        logging.warning("tqdm not installed - progress bars disabled. Install with 'pip install tqdm'")
+    
+    # Process each PDF with progress bar
+    for i, pdf_path in enumerate(tqdm(pdf_files, desc="Processing PDFs", disable=not tqdm_available)):
         try:
-            logging.info(f"Processing PDF {i+1}/{len(pdf_files)}: {os.path.basename(pdf_path)}")
+            if tqdm_available:
+                # When using tqdm, we don't need redundant logging for each file
+                tqdm.write(f"Processing PDF {i+1}/{len(pdf_files)}: {os.path.basename(pdf_path)}")
+            else:
+                logging.info(f"Processing PDF {i+1}/{len(pdf_files)}: {os.path.basename(pdf_path)}")
             
             # Use the configured pipeline to extract text
             if pipeline == "mathpix":
@@ -390,7 +430,13 @@ def build_knowledge_base(cfg):
             overlap = cfg.embeddings.chunk_overlap
             chunks = split_into_chunks(mmd_content, chunk_size, overlap)
             
-            logging.info(f"Generated {len(chunks)} chunks from PDF")
+            if tqdm_available:
+                tqdm.write(f"Generated {len(chunks)} chunks from PDF")
+            else:
+                logging.info(f"Generated {len(chunks)} chunks from PDF")
+            
+            # Update total chunks counter for overall progress
+            total_chunks += len(chunks)
             
             # Create metadata for this PDF
             base_metadata = {
@@ -402,6 +448,13 @@ def build_knowledge_base(cfg):
             current_chunks = []
             current_metadata = []
             
+            # Create a progress bar for chunks in this PDF
+            chunk_progress = tqdm(
+                total=len(chunks), 
+                desc=f"Generating embeddings for {os.path.basename(pdf_path)}", 
+                disable=not tqdm_available
+            )
+            
             for chunk_id, chunk in enumerate(chunks):
                 chunk_metadata = base_metadata.copy()
                 chunk_metadata["chunk_id"] = chunk_id
@@ -411,14 +464,25 @@ def build_knowledge_base(cfg):
                 
                 # Process in batches
                 if len(current_chunks) >= batch_size:
-                    logging.info(f"Processing batch of {len(current_chunks)} chunks...")
+                    # Update description to show embedding progress clearly
+                    chunk_progress.set_description(
+                        f"Embedding chunks {total_chunks_processed+1}-{total_chunks_processed+len(current_chunks)}/{total_chunks}"
+                    )
                     
-                    # Create embeddings for the batch
-                    batch_embeddings = model.encode(current_chunks, batch_size=batch_size, show_progress_bar=False)
+                    # Create embeddings for the batch (with show_progress_bar=False to avoid nested bars)
+                    batch_embeddings = model.encode(
+                        current_chunks, 
+                        batch_size=batch_size, 
+                        show_progress_bar=False
+                    )
                     
                     # Add embeddings and metadata to lists
                     all_embeddings.extend(batch_embeddings)
                     metadata_list.extend(current_metadata)
+                    
+                    # Update chunk progress
+                    chunk_progress.update(len(current_chunks))
+                    total_chunks_processed += len(current_chunks)
                     
                     # Clear batch
                     current_chunks = []
@@ -435,10 +499,18 @@ def build_knowledge_base(cfg):
             
             # Process remaining chunks
             if current_chunks:
-                logging.info(f"Processing final batch of {len(current_chunks)} chunks...")
+                # Update description for final chunks
+                chunk_progress.set_description(
+                    f"Embedding final chunks {total_chunks_processed+1}-{total_chunks_processed+len(current_chunks)}/{total_chunks}"
+                )
+                
                 batch_embeddings = model.encode(current_chunks, batch_size=batch_size, show_progress_bar=False)
                 all_embeddings.extend(batch_embeddings)
                 metadata_list.extend(current_metadata)
+                
+                # Update progress
+                chunk_progress.update(len(current_chunks))
+                total_chunks_processed += len(current_chunks)
                 
                 # Clear GPU cache if using GPU
                 if use_gpu:
@@ -448,6 +520,9 @@ def build_knowledge_base(cfg):
                             torch.cuda.empty_cache()
                     except:
                         pass
+            
+            # Close the chunk progress bar
+            chunk_progress.close()
                 
         except Exception as e:
             logging.error(f"Error processing {os.path.basename(pdf_path)}: {str(e)}")
@@ -465,22 +540,37 @@ def build_knowledge_base(cfg):
         import faiss
         
         # Convert embeddings to numpy array
+        logging.info(f"Converting {len(all_embeddings)} embeddings to numpy array")
         embeddings_array = np.array(all_embeddings).astype(np.float32)
         
-        # Create and train the index
+        # Create and train the index with progress indication
         dimension = embeddings_array.shape[1]
+        logging.info(f"Creating FAISS index with dimension {dimension}")
         index = faiss.IndexFlatL2(dimension)
-        index.add(embeddings_array)
+        
+        logging.info("Adding vectors to FAISS index")
+        index_progress = tqdm(total=len(embeddings_array), desc="Adding vectors to index", disable=not tqdm_available)
+        
+        # Add vectors in batches to show progress
+        faiss_batch_size = 10000  # A reasonable batch size for FAISS
+        for i in range(0, len(embeddings_array), faiss_batch_size):
+            batch = embeddings_array[i:i+faiss_batch_size]
+            index.add(batch)
+            index_progress.update(len(batch))
+        
+        index_progress.close()
         
         # Save the index
+        logging.info(f"Saving FAISS index to {vector_index_path}")
         faiss.write_index(index, vector_index_path)
-        logging.info(f"Saved FAISS index to {vector_index_path}")
+        logging.info(f"Saved FAISS index with {index.ntotal} vectors")
         
         # Save metadata
+        logging.info(f"Saving metadata to {metadata_path}")
         with open(metadata_path, 'w') as f:
             for item in metadata_list:
                 f.write(json.dumps(item) + '\n')
-        logging.info(f"Saved metadata to {metadata_path}")
+        logging.info(f"Saved metadata for {len(metadata_list)} chunks")
         
     except Exception as e:
         logging.error(f"Error building FAISS index: {str(e)}")
