@@ -5,10 +5,11 @@ import subprocess
 import platform
 import sys
 from typing import List, Dict, Tuple, Optional
-from pdf2image import convert_from_path
-import pytesseract
-from pytesseract import Output
+import fitz  # PyMuPDF for PDF processing
+import numpy as np
+from PIL import Image
 import logging
+import io
 
 # Hardware detection
 def detect_hardware() -> Dict[str, bool]:
@@ -69,12 +70,8 @@ def optimize_for_hardware(hardware_info: Dict[str, bool]) -> Dict[str, any]:
 
 def process_pdf(pdf_path: str) -> str:
     """
-    Alternative open-source pipeline to convert PDF to MMD-like markdown.
-    Steps:
-    1. Convert PDF pages to images.
-    2. Extract plain text via Tesseract OCR.
-    3. Detect and convert formula regions (naively).
-    4. Merge text and LaTeX formulas into a markdown string.
+    Alternative open-source pipeline to extract text from PDF without external dependencies.
+    Uses PyMuPDF (fitz) to extract text directly from the PDF.
     
     Hardware-aware: Optimizes for Apple Silicon or GPU systems.
     """
@@ -88,142 +85,54 @@ def process_pdf(pdf_path: str) -> str:
     # Log hardware detection results
     logging.info(f"Processing PDF with hardware-aware settings: {params}")
     
-    # Convert PDF pages to images (one per page)
+    # Open the PDF file with PyMuPDF
     try:
-        logging.info(f"Converting PDF to images with DPI={params['dpi']}")
-        pages = convert_from_path(
-            pdf_path, 
-            dpi=params['dpi'],
-            thread_count=params['threads']
-        )
+        doc = fitz.open(pdf_path)
+        logging.info(f"Opened PDF with {len(doc)} pages")
     except Exception as e:
-        raise RuntimeError(f"Failed to convert PDF to images: {str(e)}")
-    
-    logging.info(f"Extracted {len(pages)} pages from PDF")
+        raise RuntimeError(f"Failed to open PDF: {str(e)}")
     
     # Process each page
-    for i, page in enumerate(pages):
-        logging.info(f"Processing page {i+1}/{len(pages)}")
-        
-        # Save page to temporary image file
-        with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as temp_img:
-            temp_img_path = temp_img.name
-            page.save(temp_img_path, 'PNG')
+    for i, page in enumerate(doc):
+        logging.info(f"Processing page {i+1}/{len(doc)}")
         
         try:
-            # Extract text using Tesseract OCR
-            ocr_config = f"--oem 1 --psm 6"
-            if hardware_info["is_apple_silicon"]:
-                # Adjust OCR settings for Apple Silicon
-                ocr_config += " -c tessedit_do_invert=0"
-                
-            text_data = pytesseract.image_to_data(
-                temp_img_path, 
-                config=ocr_config,
-                output_type=Output.DICT
-            )
+            # Extract text from the page
+            text = page.get_text()
             
-            # Extract and process page text
-            page_text = process_ocr_data(text_data, hardware_info)
+            # Extract images if needed for better processing
+            if len(text.strip()) < 100:  # If very little text was extracted, try image extraction
+                logging.info(f"Page {i+1} has limited text, attempting image-based extraction")
+                page_text = extract_text_from_page_images(page, params)
+                if page_text.strip():
+                    text = page_text
             
             # Add to full document
-            full_mmd += f"\n## Page {i+1}\n\n{page_text}\n\n"
+            full_mmd += f"\n## Page {i+1}\n\n{text}\n\n"
             
         except Exception as e:
             logging.error(f"Error processing page {i+1}: {str(e)}")
-            full_mmd += f"\n## Page {i+1}\n\n[OCR Processing Error: {str(e)}]\n\n"
-        finally:
-            # Clean up
-            os.unlink(temp_img_path)
+            full_mmd += f"\n## Page {i+1}\n\n[PDF Processing Error: {str(e)}]\n\n"
+    
+    # Close the document
+    doc.close()
     
     # Post-process the full document
     full_mmd = post_process_document(full_mmd)
     
     return full_mmd
 
-def process_ocr_data(text_data: Dict, hardware_info: Dict[str, bool]) -> str:
+def extract_text_from_page_images(page, params):
     """
-    Process OCR data and detect potential mathematical formulas.
+    Extract text from images on a page when direct text extraction fails.
+    This function would ideally use OCR, but can be simplified for dependency-free operation.
     """
-    page_text = ""
-    line_text = ""
-    in_potential_formula = False
-    formula_buffer = ""
-    
-    # Simple heuristics to detect possible math formulas
-    math_indicators = [
-        r"[=+\-*/^]", r"\([a-z0-9]+\)", r"\[[a-z0-9]+\]", 
-        r"\\sum", r"\\int", r"\\frac", r"\$", r"\{"
-    ]
-    
-    line_num = -1
-    for i, text in enumerate(text_data['text']):
-        if not text.strip():
-            continue
-            
-        # Track line changes
-        if text_data['line_num'][i] != line_num:
-            if line_text:
-                page_text += line_text + "\n"
-                line_text = ""
-            line_num = text_data['line_num'][i]
-            
-        # Check if this text block might be a formula
-        is_formula = False
-        for pattern in math_indicators:
-            if re.search(pattern, text):
-                is_formula = True
-                break
-        
-        # Handle formula detection state
-        if is_formula and not in_potential_formula:
-            in_potential_formula = True
-            formula_buffer = text
-        elif is_formula and in_potential_formula:
-            formula_buffer += " " + text
-        elif not is_formula and in_potential_formula:
-            # End of formula - convert using pix2tex if available, otherwise use as-is
-            in_potential_formula = False
-            formula = process_formula(formula_buffer, hardware_info)
-            line_text += f" {formula} "
-            formula_buffer = ""
-            line_text += text + " "
-        else:
-            line_text += text + " "
-    
-    # Add any remaining text
-    if line_text:
-        page_text += line_text + "\n"
-    
-    return page_text
-
-def process_formula(formula_text: str, hardware_info: Dict[str, bool]) -> str:
-    """
-    Process a detected formula area - attempt to convert to LaTeX.
-    Basic implementation - could be enhanced with pix2tex or similar.
-    """
-    # Clean up the formula text
-    formula_text = formula_text.strip()
-    
-    # For the naive implementation, we just wrap suspected formulas in LaTeX delimiters
-    # In a real implementation, you would use pix2tex or a similar model here
-    try:
-        # Check if pix2tex is available and use it if possible
-        latex_formula = convert_to_latex(formula_text, hardware_info)
-        return f"${latex_formula}$"
-    except (ImportError, Exception) as e:
-        logging.warning(f"Could not process formula with pix2tex: {str(e)}")
-        # Fallback: Just use naive formula detection
-        return f"${formula_text}$" 
-
-def convert_to_latex(formula_text: str, hardware_info: Dict[str, bool]) -> str:
-    """
-    Attempt to convert formula text to LaTeX using pix2tex if available.
-    Simplified implementation - actual usage would need image extraction.
-    """
-    # This is a placeholder - actual implementation would use pix2tex
-    # with an image of the formula region
-    return formula_text
+    # If OCR is available, we'd use it here
+    # For now, we'll just return a message to indicate image content
+    images = page.get_images(full=True)
+    if images:
+        return f"[This page contains {len(images)} images. Text extraction limited without OCR.]"
+    return ""
 
 def post_process_document(mmd_text: str) -> str:
     """
@@ -232,12 +141,12 @@ def post_process_document(mmd_text: str) -> str:
     # Remove consecutive blank lines
     mmd_text = re.sub(r'\n{3,}', '\n\n', mmd_text)
     
-    # Fix common OCR errors in mathematical notation
+    # Fix common issues in mathematical notation
     fixes = {
-        r'\$([^$]*?)([0-9])\s+\+\s+([0-9])([^$]*?)\$': r'$\1\2+\3\4$',  # Fix spacing in additions
-        r'\$([^$]*?)([0-9])\s+\-\s+([0-9])([^$]*?)\$': r'$\1\2-\3\4$',  # Fix spacing in subtractions
-        r'\$([^$]*?)([0-9])\s+\*\s+([0-9])([^$]*?)\$': r'$\1\2*\3\4$',  # Fix spacing in multiplications
-        r'\$([^$]*?)([0-9])\s+\/\s+([0-9])([^$]*?)\$': r'$\1\2/\3\4$',  # Fix spacing in divisions
+        r'([0-9])\s+\+\s+([0-9])': r'\1+\2',  # Fix spacing in additions
+        r'([0-9])\s+\-\s+([0-9])': r'\1-\2',  # Fix spacing in subtractions
+        r'([0-9])\s+\*\s+([0-9])': r'\1*\2',  # Fix spacing in multiplications
+        r'([0-9])\s+\/\s+([0-9])': r'\1/\2',  # Fix spacing in divisions
     }
     
     for pattern, replacement in fixes.items():
@@ -250,10 +159,7 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         pdf_path = sys.argv[1]
         logging.basicConfig(level=logging.INFO)
-        hardware_info = detect_hardware()
-        print(f"Detected hardware: {hardware_info}")
-        print(f"Optimized parameters: {optimize_for_hardware(hardware_info)}")
         result = process_pdf(pdf_path)
-        print(f"Generated {len(result)} characters of markdown")
+        print(result)
     else:
-        print("Please provide a PDF path as argument") 
+        print("Usage: python alternative_pdf_processor.py <path_to_pdf>") 

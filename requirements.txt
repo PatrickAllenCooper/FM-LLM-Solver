@@ -5,7 +5,7 @@ beautifulsoup4 # For parsing HTML landing pages
 lxml         # Faster HTML/XML parser for BeautifulSoup
 
 # Knowledge Base / RAG
-PyMuPDF
+PyMuPDF      # For PDF processing (no system dependencies required)
 sentence-transformers
 faiss-cpu
 numpy
@@ -32,8 +32,8 @@ PyYAML>=6.0 # For loading config file
 omegaconf>=2.3 # For advanced config loading (interpolation, merging)
 python-dotenv>=1.0.0 # For loading environment variables from .env files
 pandas>=2.0.0 # For data manipulation and CSV handling 
-# Alternative PDF processing dependencies
-pdf2image>=1.16.0  # Convert PDF pages to images
-pytesseract>=0.3.8  # OCR engine wrapper (requires Tesseract installed)
-pix2tex>=0.1.0  # For LaTeX formula recognition
-# Note: Requires system-level poppler-utils and Tesseract OCR engine 
+
+# Optional PDF processing packages that are commented out as they require system dependencies
+# pdf2image>=1.16.0  # Convert PDF pages to images (requires poppler)
+# pytesseract>=0.3.8  # OCR engine wrapper (requires Tesseract installed)
+# pix2tex>=0.1.0  # For LaTeX formula recognition 
