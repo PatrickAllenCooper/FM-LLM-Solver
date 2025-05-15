@@ -190,28 +190,48 @@ def build_knowledge_base(cfg, args):
             
         logger.info(f"Executing: {' '.join(cmd)}")
         
-        # Use Popen instead of run to display real-time output including progress bars
-        with subprocess.Popen(
-            cmd, 
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            universal_newlines=True,
-            bufsize=1  # Line buffered
-        ) as process:
-            # Read output in real-time and print it
-            for line in process.stdout:
-                # Display the line without extra newlines
-                print(line.rstrip(), flush=True)
-                
-            # Wait for completion
-            exit_code = process.wait()
+        # Detect Windows and use a different approach for subprocess management
+        if os.name == 'nt':  # Windows
+            logger.info("Using Windows-specific subprocess handling for real-time output")
+            import msvcrt
             
-            if exit_code == 0:
-                logger.info("Knowledge base building script finished successfully.")
-                return True
-            else:
-                logger.error(f"Knowledge base building script failed with exit code {exit_code}.")
-                return False
+            # Windows-specific: run the command directly
+            # We don't use Popen with read loops as it often hangs in Windows
+            os.environ['PYTHONUNBUFFERED'] = '1'  # Force Python to unbuffer output
+            
+            # Run the subprocess with direct output
+            result = subprocess.run(
+                cmd, 
+                check=False,  # Don't raise exception on non-zero exit
+                env=dict(os.environ, PYTHONUNBUFFERED='1')  # Ensure unbuffered output
+            )
+            
+            exit_code = result.returncode
+        else:
+            # Unix/Linux/Mac approach - use Popen with real-time output
+            with subprocess.Popen(
+                cmd, 
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                universal_newlines=True,
+                bufsize=1,  # Line buffered
+                env=dict(os.environ, PYTHONUNBUFFERED='1')  # Ensure unbuffered output
+            ) as process:
+                # Read output in real-time and print it
+                for line in process.stdout:
+                    # Display the line without extra newlines
+                    print(line.rstrip(), flush=True)
+                    
+                # Wait for completion
+                exit_code = process.wait()
+            
+        # Process result
+        if exit_code == 0:
+            logger.info("Knowledge base building script finished successfully.")
+            return True
+        else:
+            logger.error(f"Knowledge base building script failed with exit code {exit_code}.")
+            return False
     except Exception as e:
         logger.error(f"Error executing knowledge base building script: {e}", exc_info=True)
         return False
