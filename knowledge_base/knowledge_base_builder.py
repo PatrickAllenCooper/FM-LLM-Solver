@@ -231,20 +231,13 @@ def chunk_mmd_content(mmd_text, target_size, overlap, source_pdf):
 # --- Main Logic (Refactored for Mathpix) ---
 def build_knowledge_base(cfg):
     """
-    Main function to build the vector store and metadata using the configured PDF processing pipeline.
-    
-    This function performs these key steps:
-    1. Processes PDF files using the selected pipeline to convert to MMD format
-    2. Chunks the MMD content into manageable segments
-    3. Embeds the chunks using a sentence transformer model
-    4. Builds a FAISS vector index from the embeddings
-    5. Saves the index and metadata to disk
+    Builds a knowledge base from PDFs in the specified directory.
     
     Parameters
     ----------
-    cfg : OmegaConf
-        Configuration object containing all necessary parameters
-    
+    cfg : omegaconf.dictconfig.DictConfig
+        Configuration object
+        
     Returns
     -------
     bool
@@ -261,10 +254,10 @@ def build_knowledge_base(cfg):
     config_hash = generate_pipeline_config_hash(cfg)
     
     # Get paths
-    paper_dir = cfg.data.pdf_dir
-    output_dir = cfg.output.knowledge_base_dir
-    vector_index_path = os.path.join(output_dir, "paper_index_mathpix.faiss")
-    metadata_path = os.path.join(output_dir, "paper_metadata_mathpix.jsonl")
+    paper_dir = cfg.paths.pdf_input_dir
+    output_dir = cfg.paths.kb_output_dir
+    vector_index_path = os.path.join(output_dir, cfg.paths.kb_vector_store_filename)
+    metadata_path = os.path.join(output_dir, cfg.paths.kb_metadata_filename)
     
     # Check if config has changed to force rebuild
     config_changed = check_if_pipeline_config_changed(config_hash, output_dir)
