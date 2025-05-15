@@ -154,6 +154,68 @@ def post_process_document(mmd_text: str) -> str:
     
     return mmd_text
 
+def split_into_chunks(text: str, chunk_size: int = 1000, overlap: int = 200) -> List[str]:
+    """
+    Split text into overlapping chunks for embedding.
+    
+    Parameters
+    ----------
+    text : str
+        The input text to split
+    chunk_size : int, optional
+        Target size (in characters) for each chunk, by default 1000
+    overlap : int, optional
+        Number of characters to overlap between chunks, by default 200
+        
+    Returns
+    -------
+    List[str]
+        List of text chunks
+    """
+    # If text is shorter than chunk_size, return it as a single chunk
+    if len(text) <= chunk_size:
+        return [text]
+    
+    chunks = []
+    start = 0
+    
+    # Try to split on paragraph boundaries when possible
+    while start < len(text):
+        # Calculate the potential end of this chunk
+        end = min(start + chunk_size, len(text))
+        
+        # If we're not at the end of the text, try to find a paragraph break
+        if end < len(text):
+            # Look for paragraph breaks (double newline) within the last 1/4 of the chunk
+            search_start = max(start + (chunk_size * 3) // 4, start)
+            search_text = text[search_start:end]
+            
+            # Find the last paragraph break in this range
+            para_break = search_text.rfind('\n\n')
+            
+            if para_break != -1:
+                # Adjust end to break at the paragraph
+                end = search_start + para_break + 2  # +2 to include the newlines
+            else:
+                # If no paragraph break, try to break at a sentence
+                sentence_end = re.search(r'[.!?]\s+', search_text[::-1])
+                if sentence_end is not None:
+                    # Calculate position from the end
+                    sentence_pos = len(search_text) - sentence_end.start()
+                    end = search_start + sentence_pos
+        
+        # Add this chunk to our list
+        chunks.append(text[start:end])
+        
+        # Calculate the start of the next chunk with overlap
+        start = max(start, end - overlap)
+        
+        # Ensure we're making progress
+        if start >= end:
+            start = end
+    
+    return chunks
+
 # For testing
 if __name__ == "__main__":
     if len(sys.argv) > 1:
