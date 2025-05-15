@@ -22,9 +22,11 @@ import time
 import platform
 import hashlib
 from pathlib import Path
+from omegaconf import OmegaConf
+from typing import Dict, List, Optional
 
 # Alternative PDF processing pipeline
-from knowledge_base.alternative_pdf_processor import process_pdf as process_pdf_open_source, detect_hardware
+from knowledge_base.alternative_pdf_processor import process_pdf as process_pdf_open_source, detect_hardware, split_into_chunks
 
 # --- Configuration ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
