@@ -101,6 +101,13 @@ def install_dependencies(hardware_info):
     logging.info(f"Installing base requirements from {requirements_file}")
     subprocess.run([sys.executable, "-m", "pip", "install", "-r", requirements_file])
     
+    # Install compatibility packages - ensure tf-keras is installed for newer Keras versions
+    try:
+        logging.info("Ensuring tf-keras compatibility package is installed")
+        subprocess.run([sys.executable, "-m", "pip", "install", "tf-keras"])
+    except subprocess.SubprocessError as e:
+        logging.warning(f"Failed to install tf-keras: {e}")
+    
     # Install hardware-specific packages
     if hardware_info["is_apple_silicon"]:
         logging.info("Installing Apple Silicon optimized packages")

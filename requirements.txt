@@ -17,6 +17,7 @@ peft>=0.9.0 # For LoRA/QLoRA
 accelerate>=0.27.0 # For distributed training/optimization
 bitsandbytes>=0.41.0 # For 4-bit quantization (QLoRA)
 datasets>=2.14.0 # For loading data
+tf-keras # Required for Transformers compatibility with Keras 3
 # PyTorch CUDA dependencies - IMPORTANT: Do NOT install these via requirements.txt
 # Instead, use the following command separately:
 # pip install torch>=2.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
