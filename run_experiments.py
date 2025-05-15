@@ -386,15 +386,16 @@ def create_env_template():
     if not env_path.exists():
         with open(env_path, "w") as f:
             f.write("""# Environment variables for FMLLMSolver
-# API keys for MathPix (required for knowledge base construction)
-MATHPIX_APP_ID=
-MATHPIX_APP_KEY=
+
+# API keys for MathPix (required for knowledge base construction with 'mathpix' pipeline)
+MATHPIX_APP_ID=YOUR_APP_ID_HERE
+MATHPIX_APP_KEY=YOUR_APP_KEY_HERE
 
 # Email for Unpaywall (required for data fetching)
-UNPAYWALL_EMAIL=
+UNPAYWALL_EMAIL=YOUR_EMAIL_HERE
 
-# Optional: API key for Semantic Scholar
-# SEMANTIC_SCHOLAR_API_KEY=
+# Optional: API key for Semantic Scholar (enhances paper fetching)
+SEMANTIC_SCHOLAR_API_KEY=YOUR_SEMANTIC_SCHOLAR_KEY_HERE
 """)
         logger.info(f"Created template .env file at {env_path.absolute()}")
         logger.info("Please edit this file to add your API keys and credentials.")

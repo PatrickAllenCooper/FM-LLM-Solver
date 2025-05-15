@@ -66,12 +66,15 @@ def create_env_template():
     template = """# API Credentials
 # Replace these with your actual credentials
 
-# Mathpix API credentials
+# Mathpix API credentials (required for knowledge base construction with 'mathpix' pipeline)
 MATHPIX_APP_ID=YOUR_APP_ID_HERE
 MATHPIX_APP_KEY=YOUR_APP_KEY_HERE
 
-# OpenAI API key (for fine-tuning/evaluation)
-OPENAI_API_KEY=YOUR_OPENAI_API_KEY_HERE
+# Email for Unpaywall (required for data fetching)
+UNPAYWALL_EMAIL=YOUR_EMAIL_HERE
+
+# Optional: API key for Semantic Scholar (enhances paper fetching)
+SEMANTIC_SCHOLAR_API_KEY=YOUR_SEMANTIC_SCHOLAR_KEY_HERE
 """
     
     with open('.env', 'w') as f:
