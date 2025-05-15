@@ -90,10 +90,8 @@ def install_dependencies(hardware_info):
     ]
     
     gpu_packages = [
-        "tensorflow-gpu>=2.9.0",       # TensorFlow with GPU support
-        "torch>=2.0.0+cu118",          # PyTorch with CUDA 11.8 
-        "torchvision>=0.15.0+cu118",
-        "torchaudio>=2.0.0+cu118"
+        "tensorflow",       # Modern TensorFlow includes GPU support when available
+        # Using PyTorch pip command instead of direct package specification due to +cu118 syntax issues
     ]
     
     # Install base requirements
@@ -118,6 +116,13 @@ def install_dependencies(hardware_info):
                 subprocess.run([sys.executable, "-m", "pip", "install", package])
             except subprocess.SubprocessError as e:
                 logging.warning(f"Failed to install {package}: {e}")
+        
+        # Install PyTorch with CUDA support using the recommended command
+        try:
+            logging.info("Installing PyTorch with CUDA support")
+            subprocess.run([sys.executable, "-m", "pip", "install", "torch", "torchvision", "torchaudio", "--index-url", "https://download.pytorch.org/whl/cu118"])
+        except subprocess.SubprocessError as e:
+            logging.warning(f"Failed to install PyTorch with CUDA: {e}")
 
 def prepare_directories():
     """Create necessary directories"""
