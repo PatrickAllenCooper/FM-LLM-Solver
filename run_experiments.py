@@ -167,17 +167,9 @@ def build_knowledge_base(cfg, args):
         
     # Check if knowledge base files already exist
     kb_dir = cfg.paths.kb_output_dir
-    vector_store_path = Path(cfg.paths.kb_vector_store_filename)
-    metadata_path = Path(cfg.paths.kb_metadata_filename)
+    vector_store_path = Path(kb_dir) / Path(cfg.paths.kb_vector_store_filename)
+    metadata_path = Path(kb_dir) / Path(cfg.paths.kb_metadata_filename)
     
-    # Ensure paths are absolute if needed, assuming they are relative to kb_dir or project root
-    # (Config loader usually handles this, but double-check if issues arise)
-    project_root_path = Path(cfg.paths.project_root)
-    if not vector_store_path.is_absolute():
-         vector_store_path = project_root_path / vector_store_path
-    if not metadata_path.is_absolute():
-         metadata_path = project_root_path / metadata_path
-         
     if vector_store_path.exists() and metadata_path.exists():
         logger.info(f"Knowledge base files found ({vector_store_path.name}, {metadata_path.name}). Skipping build.")
         return True
@@ -186,8 +178,9 @@ def build_knowledge_base(cfg, args):
         
     logger.info("Starting knowledge base building...")
     
-    if 'MATHPIX_APP_ID' not in os.environ or 'MATHPIX_APP_KEY' not in os.environ:
-        logger.error("MATHPIX_APP_ID and/or MATHPIX_APP_KEY environment variables not set. Required for KB building.")
+    # Check for required environment variables if using Mathpix
+    if cfg.knowledge_base.pipeline.lower() == "mathpix" and ('MATHPIX_APP_ID' not in os.environ or 'MATHPIX_APP_KEY' not in os.environ):
+        logger.error("MATHPIX_APP_ID and/or MATHPIX_APP_KEY environment variables not set. Required for Mathpix pipeline.")
         return False
         
     try:
@@ -196,14 +189,29 @@ def build_knowledge_base(cfg, args):
         cmd.extend(["--config", config_path])
             
         logger.info(f"Executing: {' '.join(cmd)}")
-        # Use run and capture the exit code
-        result = subprocess.run(cmd)
-        if result.returncode == 0:
-            logger.info("Knowledge base building script finished successfully.")
-            return True
-        else:
-            logger.error(f"Knowledge base building script failed with exit code {result.returncode}.")
-            return False
+        
+        # Use Popen instead of run to display real-time output including progress bars
+        with subprocess.Popen(
+            cmd, 
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            universal_newlines=True,
+            bufsize=1  # Line buffered
+        ) as process:
+            # Read output in real-time and print it
+            for line in process.stdout:
+                # Display the line without extra newlines
+                print(line.rstrip(), flush=True)
+                
+            # Wait for completion
+            exit_code = process.wait()
+            
+            if exit_code == 0:
+                logger.info("Knowledge base building script finished successfully.")
+                return True
+            else:
+                logger.error(f"Knowledge base building script failed with exit code {exit_code}.")
+                return False
     except Exception as e:
         logger.error(f"Error executing knowledge base building script: {e}", exc_info=True)
         return False
