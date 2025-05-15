@@ -175,44 +175,88 @@ def clear_gpu_memory():
 
 def merge_kb_files(temp_vector_path, temp_metadata_path, final_vector_path, final_metadata_path):
     """Merge temporary KB files with existing KB files"""
+    logging.info(f"DEBUG: Starting merge operation")
+    logging.info(f"DEBUG: Temp vector: {temp_vector_path} (exists: {temp_vector_path.exists()})")
+    logging.info(f"DEBUG: Temp metadata: {temp_metadata_path} (exists: {temp_metadata_path.exists()})")
+    logging.info(f"DEBUG: Final vector: {final_vector_path} (exists: {final_vector_path.exists()})")
+    logging.info(f"DEBUG: Final metadata: {final_metadata_path} (exists: {final_metadata_path.exists()})")
+    
     # For metadata, simply append the new content
     if temp_metadata_path.exists():
-        with open(temp_metadata_path, 'r') as src:
-            if final_metadata_path.exists():
-                with open(final_metadata_path, 'a') as dst:
-                    # Append temp metadata to final file
-                    dst.write(src.read())
-            else:
-                # Create new final metadata file
-                shutil.copy2(temp_metadata_path, final_metadata_path)
+        logging.info(f"DEBUG: Merging metadata files")
+        metadata_start = time.time()
+        try:
+            with open(temp_metadata_path, 'r') as src:
+                if final_metadata_path.exists():
+                    with open(final_metadata_path, 'a') as dst:
+                        # Append temp metadata to final file
+                        content = src.read()
+                        logging.info(f"DEBUG: Appending {len(content)} bytes to metadata file")
+                        dst.write(content)
+                else:
+                    # Create new final metadata file
+                    logging.info(f"DEBUG: Creating new metadata file (copying)")
+                    shutil.copy2(temp_metadata_path, final_metadata_path)
+            metadata_end = time.time()
+            logging.info(f"DEBUG: Metadata merge completed in {metadata_end-metadata_start:.2f}s")
+        except Exception as e:
+            logging.error(f"DEBUG: Error merging metadata: {e}")
+            import traceback
+            traceback.print_exc()
     
     # For vector index, we need to use FAISS-specific merging
     if temp_vector_path.exists():
+        logging.info(f"DEBUG: Starting FAISS vector index merge")
+        vector_start = time.time()
         try:
             import faiss
             
             if final_vector_path.exists():
                 # Load both indices
+                logging.info(f"DEBUG: Loading temp index from {temp_vector_path}")
+                temp_index_start = time.time()
                 temp_index = faiss.read_index(str(temp_vector_path))
+                temp_index_end = time.time()
+                logging.info(f"DEBUG: Temp index loaded in {temp_index_end-temp_index_start:.2f}s, contains {temp_index.ntotal} vectors")
+                
+                logging.info(f"DEBUG: Loading final index from {final_vector_path}")
+                final_index_start = time.time() 
                 final_index = faiss.read_index(str(final_vector_path))
+                final_index_end = time.time()
+                logging.info(f"DEBUG: Final index loaded in {final_index_end-final_index_start:.2f}s, contains {final_index.ntotal} vectors")
                 
                 # Merge indices
-                logging.info(f"Merging index with {temp_index.ntotal} vectors into existing index with {final_index.ntotal} vectors")
-                
-                # Get vectors from temp index
+                logging.info(f"DEBUG: Extracting vectors from temp index")
+                extract_start = time.time()
                 temp_vectors = faiss.extract_index_vector(temp_index).at(0).numpy()
+                extract_end = time.time()
+                logging.info(f"DEBUG: Vector extraction completed in {extract_end-extract_start:.2f}s")
                 
-                # Add vectors to final index
+                logging.info(f"DEBUG: Adding {len(temp_vectors)} vectors to final index")
+                add_start = time.time()
                 final_index.add(temp_vectors)
+                add_end = time.time()
+                logging.info(f"DEBUG: Vector addition completed in {add_end-add_start:.2f}s")
                 
-                # Save merged index
+                logging.info(f"DEBUG: Saving merged index to {final_vector_path}")
+                save_start = time.time()
                 faiss.write_index(final_index, str(final_vector_path))
+                save_end = time.time()
+                logging.info(f"DEBUG: Index saved in {save_end-save_start:.2f}s")
+                
                 logging.info(f"Successfully merged indices. Final index now has {final_index.ntotal} vectors")
             else:
                 # Just copy the temp index as the final index
+                logging.info(f"DEBUG: No existing index, copying temp index to final location")
+                copy_start = time.time()
                 shutil.copy2(temp_vector_path, final_vector_path)
+                copy_end = time.time()
+                logging.info(f"DEBUG: Index copy completed in {copy_end-copy_start:.2f}s")
+            
+            vector_end = time.time()
+            logging.info(f"DEBUG: Vector index merge completed in {vector_end-vector_start:.2f}s")
         except Exception as e:
-            logging.error(f"Error merging vector indices: {e}")
+            logging.error(f"DEBUG: Error merging vector indices: {e}")
             import traceback
             traceback.print_exc()
             return False
@@ -232,7 +276,32 @@ def monkey_patch_kb_modules():
         
         # 1. Patch the chunking function with our optimized version
         logging.info("Patching chunking function with optimized version...")
-        alt_pdf.split_into_chunks = optimized_split_into_chunks
+        
+        # Store original chunking function for debugging
+        original_split = alt_pdf.split_into_chunks
+        
+        # Create a debug wrapper for chunking function
+        def debug_split_into_chunks(text, chunk_size=1000, overlap=200):
+            logging.info(f"DEBUG: Starting chunking of text ({len(text)} chars)")
+            start_time = time.time()
+            try:
+                chunks = optimized_split_into_chunks(text, chunk_size, overlap)
+                end_time = time.time()
+                logging.info(f"DEBUG: Chunking completed in {end_time-start_time:.2f}s - produced {len(chunks)} chunks")
+                return chunks
+            except Exception as e:
+                logging.error(f"DEBUG: Error during chunking: {e}")
+                # Fall back to original in case of error
+                logging.info("DEBUG: Falling back to original chunking method")
+                try:
+                    return original_split(text, chunk_size, overlap)
+                except Exception as fallback_e:
+                    logging.error(f"DEBUG: Fallback chunking also failed: {fallback_e}")
+                    # Return minimal chunks to avoid complete failure
+                    return [text]
+        
+        # Use our debug chunking function
+        alt_pdf.split_into_chunks = debug_split_into_chunks
         
         # 2. Store original process_pdf function for patching
         original_process_pdf = alt_pdf.process_pdf
@@ -247,7 +316,11 @@ def monkey_patch_kb_modules():
             
             # Try to process the PDF
             try:
+                logging.info(f"DEBUG: Starting PDF processing for {os.path.basename(pdf_path)}")
+                start_time = time.time()
                 result = original_process_pdf(pdf_path, cfg)
+                end_time = time.time()
+                logging.info(f"DEBUG: PDF processing completed in {end_time-start_time:.2f}s")
                 # Clear GPU memory after processing
                 clear_gpu_memory()
                 return result
@@ -279,8 +352,40 @@ def monkey_patch_kb_modules():
         original_build_kb = kb.build_knowledge_base
         
         def patched_build_kb(cfg, *args, **kwargs):
+            logging.info("DEBUG: Starting knowledge base build")
             update_state(current_phase='building knowledge base')
-            return original_build_kb(cfg, *args, **kwargs)
+            
+            # Patch the SentenceTransformer encode method to track embedding progress
+            try:
+                from sentence_transformers import SentenceTransformer
+                original_encode = SentenceTransformer.encode
+                
+                def patched_encode(self, sentences, *args, **kwargs):
+                    logging.info(f"DEBUG: Starting embedding generation for {len(sentences)} texts")
+                    update_state(current_phase=f'generating embeddings for {len(sentences)} texts')
+                    start_time = time.time()
+                    try:
+                        result = original_encode(self, sentences, *args, **kwargs)
+                        end_time = time.time()
+                        logging.info(f"DEBUG: Embedding generation completed in {end_time-start_time:.2f}s")
+                        return result
+                    except Exception as e:
+                        logging.error(f"DEBUG: Error during embedding generation: {e}")
+                        raise
+                
+                SentenceTransformer.encode = patched_encode
+                logging.info("DEBUG: Successfully patched SentenceTransformer.encode for monitoring")
+            except Exception as e:
+                logging.warning(f"DEBUG: Could not patch SentenceTransformer.encode: {e}")
+            
+            # Now call the original build function
+            try:
+                result = original_build_kb(cfg, *args, **kwargs)
+                logging.info("DEBUG: Knowledge base build completed")
+                return result
+            except Exception as e:
+                logging.error(f"DEBUG: Error during knowledge base build: {e}")
+                raise
         
         # Replace the function
         kb.build_knowledge_base = patched_build_kb
@@ -291,15 +396,20 @@ def monkey_patch_kb_modules():
             from tqdm import tqdm as original_tqdm
             
             def patched_tqdm(*args, **kwargs):
+                # Log the tqdm initialization
+                if 'desc' in kwargs:
+                    logging.info(f"DEBUG: Starting progress tracking: {kwargs['desc']}")
+                
                 # Extract total items if available
                 if args and len(args) > 0 and hasattr(args[0], '__len__'):
                     total_items = len(args[0])
                     if kwargs.get('desc', '').startswith('Processing PDFs'):
                         update_state(total_pdfs=total_items)
+                        logging.info(f"DEBUG: Starting processing of {total_items} PDFs")
                 elif 'total' in kwargs:
                     total_items = kwargs['total']
                     if kwargs.get('desc', '').startswith('Generating embeddings'):
-                        pass  # Chunk embedding progress
+                        logging.info(f"DEBUG: Tracking embedding generation for {total_items} chunks")
                 
                 # Create the original tqdm instance
                 tqdm_instance = original_tqdm(*args, **kwargs)
@@ -315,9 +425,15 @@ def monkey_patch_kb_modules():
                     # Update our monitor based on the progress bar type
                     if tqdm_instance.desc and tqdm_instance.desc.startswith('Processing PDFs'):
                         update_state(processed_pdfs=tqdm_instance.n, current_phase='processing PDFs')
+                        # Log every 10 PDFs
+                        if tqdm_instance.n % 10 == 0:
+                            logging.info(f"DEBUG: Processed {tqdm_instance.n} PDFs")
                     elif tqdm_instance.desc and tqdm_instance.desc.startswith('Generating'):
                         update_state(processed_chunks=monitor_state['processed_chunks'] + n, 
                                     current_phase='generating embeddings')
+                        # Log every 100 chunks
+                        if monitor_state['processed_chunks'] % 100 == 0:
+                            logging.info(f"DEBUG: Generated embeddings for {monitor_state['processed_chunks']} chunks")
                     
                     # Force flush stdout to ensure progress is visible
                     sys.stdout.flush()
@@ -326,6 +442,18 @@ def monkey_patch_kb_modules():
                 
                 # Replace the update method
                 tqdm_instance.update = patched_update
+                
+                # Store the original close method
+                original_close = tqdm_instance.close
+                
+                # Create a patched close method to log completion
+                def patched_close():
+                    if tqdm_instance.desc:
+                        logging.info(f"DEBUG: Completed progress tracking: {tqdm_instance.desc}")
+                    return original_close()
+                
+                # Replace the close method
+                tqdm_instance.close = patched_close
                 
                 return tqdm_instance
             
@@ -380,11 +508,15 @@ def process_in_batches(args, cfg, log_file):
     # Get list of PDF files (recursively search subdirectories)
     pdf_files = []
     logging.info(f"Searching for PDFs in {pdf_input_dir} (including subdirectories)")
+    search_start = time.time()
     
     # Recursively search for PDFs in all subdirectories
     for pdf_path in pdf_input_dir.glob("**/*.pdf"):
         if pdf_path.is_file():
             pdf_files.append((pdf_path, pdf_path.name))
+    
+    search_end = time.time()
+    logging.info(f"DEBUG: PDF search completed in {search_end-search_start:.2f}s")
     
     if not pdf_files:
         logging.error(f"No PDF files found in {pdf_input_dir} or its subdirectories")
@@ -393,6 +525,7 @@ def process_in_batches(args, cfg, log_file):
     logging.info(f"Found {len(pdf_files)} PDF files")
     
     # Get already processed PDFs
+    logging.info(f"DEBUG: Checking for already processed PDFs in {final_metadata_path}")
     processed_pdfs = get_processed_pdfs(final_metadata_path)
     logging.info(f"Found {len(processed_pdfs)} already processed PDFs")
     
@@ -424,6 +557,7 @@ def process_in_batches(args, cfg, log_file):
         
         # Prepare temporary directory with just this batch of PDFs
         # Create temporary directory
+        logging.info(f"DEBUG: Preparing temp directory for batch {batch_idx+1}")
         temp_pdf_dir.mkdir(exist_ok=True, parents=True)
         
         # Clear any existing files
@@ -431,9 +565,13 @@ def process_in_batches(args, cfg, log_file):
             file.unlink()
         
         # Copy the batch PDFs
+        logging.info(f"DEBUG: Copying {len(current_batch)} PDFs to temp directory")
+        copy_start = time.time()
         for pdf_path, pdf_name in current_batch:
             dst = temp_pdf_dir / pdf_name
             shutil.copy2(pdf_path, dst)
+        copy_end = time.time()
+        logging.info(f"DEBUG: PDF copying completed in {copy_end-copy_start:.2f}s")
         
         # Update config to use temporary directories
         batch_cfg = cfg.copy()
@@ -442,24 +580,40 @@ def process_in_batches(args, cfg, log_file):
         
         # Clear any existing temp KB files
         if temp_vector_path.exists():
+            logging.info(f"DEBUG: Removing existing temp vector store: {temp_vector_path}")
             temp_vector_path.unlink()
         if temp_metadata_path.exists():
+            logging.info(f"DEBUG: Removing existing temp metadata: {temp_metadata_path}")
             temp_metadata_path.unlink()
         
         # Process this batch
         logging.info(f"Building knowledge base for batch {batch_idx+1}")
         try:
             batch_start_time = time.time()
+            logging.info(f"DEBUG: Starting build_knowledge_base call for batch {batch_idx+1}")
             success = build_knowledge_base(batch_cfg)
             batch_end_time = time.time()
+            
+            logging.info(f"DEBUG: build_knowledge_base call completed in {batch_end_time-batch_start_time:.2f}s")
             
             if success:
                 logging.info(f"Batch {batch_idx+1} completed in {batch_end_time - batch_start_time:.2f} seconds")
                 
                 # Merge results into main knowledge base
+                logging.info(f"DEBUG: Starting merge of batch {batch_idx+1} results")
                 logging.info("Merging batch results into main knowledge base")
+                
+                # Check if temp files exist
+                if not temp_vector_path.exists():
+                    logging.error(f"DEBUG: Expected temp vector file not found: {temp_vector_path}")
+                if not temp_metadata_path.exists():
+                    logging.error(f"DEBUG: Expected temp metadata file not found: {temp_metadata_path}")
+                
+                merge_start = time.time()
                 merge_success = merge_kb_files(temp_vector_path, temp_metadata_path, 
                                             final_vector_path, final_metadata_path)
+                merge_end = time.time()
+                logging.info(f"DEBUG: Merge operation completed in {merge_end-merge_start:.2f}s")
                 
                 if merge_success:
                     logging.info(f"Successfully merged batch {batch_idx+1} into main knowledge base")
@@ -474,10 +628,12 @@ def process_in_batches(args, cfg, log_file):
             logging.info("Will try to continue with next batch")
         
         # Force cleanup
+        logging.info(f"DEBUG: Performing memory cleanup after batch {batch_idx+1}")
         clear_gpu_memory()
         gc.collect()
         
         # Small delay to ensure resources are released
+        logging.info(f"DEBUG: Waiting 2 seconds before next batch")
         time.sleep(2)
     
     logging.info("=" * 80)
@@ -487,6 +643,84 @@ def process_in_batches(args, cfg, log_file):
     
     return True
 
+def start_watchdog_thread():
+    """Start a watchdog thread to monitor for hangs and provide diagnostics"""
+    def watchdog_thread():
+        """Thread function to detect hangs and log diagnostics"""
+        last_activity_time = time.time()
+        long_inactivity_threshold = 120  # 2 minutes of no activity is considered a hang
+        check_interval = 30  # Check every 30 seconds
+        
+        while monitor_state['running']:
+            current_time = time.time()
+            current_inactivity = current_time - monitor_state['last_activity']
+            
+            # Check if we're seeing a long period of inactivity
+            if current_inactivity > long_inactivity_threshold:
+                # We might be hanging - log detailed system info
+                logging.warning(f"WATCHDOG: Potential hang detected - no activity for {current_inactivity:.1f} seconds")
+                
+                # Log current state
+                logging.warning(f"WATCHDOG: Current phase: {monitor_state['current_phase']}")
+                logging.warning(f"WATCHDOG: Current file: {monitor_state['current_file']}")
+                logging.warning(f"WATCHDOG: Current batch: {monitor_state['batch_number']}/{monitor_state['total_batches']}")
+                
+                # Try to get GPU memory info
+                try:
+                    import torch
+                    if torch.cuda.is_available():
+                        # Get memory stats
+                        allocated = torch.cuda.memory_allocated() / (1024 ** 3)  # GB
+                        reserved = torch.cuda.memory_reserved() / (1024 ** 3)    # GB
+                        max_mem = torch.cuda.get_device_properties(0).total_memory / (1024 ** 3)  # GB
+                        
+                        logging.warning(f"WATCHDOG: GPU Memory - Allocated: {allocated:.2f}GB, Reserved: {reserved:.2f}GB, Total: {max_mem:.2f}GB")
+                        
+                        # Get detailed memory stats by device if available
+                        for i in range(torch.cuda.device_count()):
+                            logging.warning(f"WATCHDOG: Device {i} memory: {torch.cuda.memory_allocated(i) / (1024 ** 3):.2f}GB allocated")
+                except Exception as e:
+                    logging.warning(f"WATCHDOG: Could not get GPU memory info: {e}")
+                
+                # Try to log CPU and system memory 
+                try:
+                    import psutil
+                    process = psutil.Process()
+                    cpu_percent = process.cpu_percent(interval=1)
+                    ram_used = process.memory_info().rss / (1024 ** 3)  # GB
+                    system_ram = psutil.virtual_memory().total / (1024 ** 3)  # GB
+                    
+                    logging.warning(f"WATCHDOG: CPU Usage: {cpu_percent}%, RAM Used: {ram_used:.2f}GB, System RAM: {system_ram:.2f}GB")
+                except ImportError:
+                    logging.warning("WATCHDOG: psutil not available, can't get CPU/RAM info")
+                except Exception as e:
+                    logging.warning(f"WATCHDOG: Error getting CPU/RAM info: {e}")
+                
+                # Try to log active threads
+                try:
+                    import threading
+                    active_threads = threading.enumerate()
+                    logging.warning(f"WATCHDOG: {len(active_threads)} active threads:")
+                    for thread in active_threads:
+                        logging.warning(f"WATCHDOG: Thread {thread.name} - Daemon: {thread.daemon}, Alive: {thread.is_alive()}")
+                except Exception as e:
+                    logging.warning(f"WATCHDOG: Could not enumerate threads: {e}")
+                
+                # Force a garbage collection to see if it helps
+                try:
+                    gc.collect()
+                    logging.warning("WATCHDOG: Forced garbage collection")
+                except Exception as e:
+                    logging.warning(f"WATCHDOG: Error during forced GC: {e}")
+            
+            # Sleep for a while before checking again
+            time.sleep(check_interval)
+    
+    # Start the watchdog thread
+    watchdog = threading.Thread(target=watchdog_thread, daemon=True, name="Watchdog")
+    watchdog.start()
+    return watchdog
+
 def main():
     parser = argparse.ArgumentParser(description="FM-LLM-Solver Knowledge Base Builder")
     parser.add_argument("--config", type=str, help="Path to configuration file")
@@ -494,6 +728,7 @@ def main():
     parser.add_argument("--force", action="store_true", help="Force rebuilding entire knowledge base")
     parser.add_argument("--cpu-only", action="store_true", help="Force CPU usage even if GPU is available")
     parser.add_argument("--skip-monitor", action="store_true", help="Skip the progress monitor thread")
+    parser.add_argument("--debug", action="store_true", help="Enable additional debug logging")
     args = parser.parse_args()
     
     # Set up logging
@@ -510,11 +745,19 @@ def main():
     print("=" * 80)
     print("\n")
     
+    # Enable debug logging if requested
+    if args.debug:
+        logging.info("Debug logging enabled - you'll see detailed progress information")
+    
     # Start the monitor thread if not skipped
     monitor_thread = None
     if not args.skip_monitor:
-        monitor_thread = threading.Thread(target=progress_monitor_thread, daemon=True)
+        monitor_thread = threading.Thread(target=progress_monitor_thread, daemon=True, name="ProgressMonitor")
         monitor_thread.start()
+    
+    # Start the watchdog thread to detect hangs
+    watchdog_thread = start_watchdog_thread()
+    logging.info("Watchdog thread started to monitor for potential hangs")
     
     try:
         # Apply all the necessary patches and optimizations

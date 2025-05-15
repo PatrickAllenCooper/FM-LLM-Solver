@@ -11,9 +11,10 @@ ECHO You can customize this process with the following options:
 ECHO   --batch-size N    : Process N PDFs at a time (default: 3)
 ECHO   --force           : Force rebuild entire knowledge base
 ECHO   --cpu-only        : Use CPU only (slower but more reliable)
+ECHO   --debug           : Enable detailed debug logging
 ECHO.
 set PYTHONUNBUFFERED=1
-python kb_builder.py %*
+python kb_builder.py --debug %*
 ECHO.
 ECHO ================================================================================
 ECHO Process completed. Press any key to exit.
