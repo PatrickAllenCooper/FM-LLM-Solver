@@ -191,6 +191,11 @@ def retrieve_context(query, embedding_model, index, metadata_map, k):
         Formatted context string containing k relevant chunks with metadata
         or empty string if retrieval fails
     """
+    # Skip retrieval if k=0 (RAG disabled)
+    if k <= 0:
+        py_logging.info("Context retrieval skipped (k=0, RAG disabled)")
+        return ""
+        
     if index is None or metadata_map is None:
         py_logging.error("Cannot retrieve context: Knowledge base index or metadata is missing")
         return ""
@@ -214,12 +219,7 @@ def retrieve_context(query, embedding_model, index, metadata_map, k):
                 
             chunk_data = metadata_map.get(idx)
             if not chunk_data:
-                py_logging.warning(f"Metadata not found for retrieved FAISS index {idx} (type: {type(idx)}).")
-                py_logging.debug(f"FAISS ntotal: {index.ntotal}, metadata_map size: {len(metadata_map)}")
-                if metadata_map:
-                    py_logging.debug(f"Metadata map keys min/max: {min(metadata_map.keys()) if metadata_map else 'N/A'} / {max(metadata_map.keys()) if metadata_map else 'N/A'}")
-                # Potentially log a few keys from metadata_map to see their type if needed
-                # py_logging.debug(f"Sample metadata keys: {list(metadata_map.keys())[:5]}")
+                py_logging.warning(f"Metadata not found for retrieved FAISS index {idx} (type: {type(idx)}).") 
                 continue
                 
             # Extract metadata
