@@ -33,6 +33,10 @@ omegaconf>=2.3 # For advanced config loading (interpolation, merging)
 python-dotenv>=1.0.0 # For loading environment variables from .env files
 pandas>=2.0.0 # For data manipulation and CSV handling 
 
+# Model comparison and visualization
+matplotlib>=3.7.0 # For generating charts and visualizations
+seaborn>=0.12.0 # For enhanced visualization styling
+
 # Optional PDF processing packages that are commented out as they require system dependencies
 # pdf2image>=1.16.0  # Convert PDF pages to images (requires poppler)
 # pytesseract>=0.3.8  # OCR engine wrapper (requires Tesseract installed)
