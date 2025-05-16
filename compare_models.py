@@ -87,7 +87,7 @@ def setup_finetuned_model_config(cfg):
     # Return the modified config
     return ft_cfg
 
-def generate_comparison_report(base_results_path, ft_results_path, output_path):
+def generate_comparison_report(base_results_path, ft_results_path, output_path, model_name_prefix=""):
     """Generate a comparison report between base and fine-tuned model results."""
     try:
         # Load results from CSV files
@@ -97,9 +97,9 @@ def generate_comparison_report(base_results_path, ft_results_path, output_path):
         logging.info(f"Loaded base model results from {base_results_path} ({len(base_df)} systems)")
         logging.info(f"Loaded fine-tuned model results from {ft_results_path} ({len(ft_df)} systems)")
         
-        # Add model column
-        base_df['model'] = 'Base Model'
-        ft_df['model'] = 'Fine-tuned Model with RAG'
+        # Add model column with optional prefix
+        base_df['model'] = f'{model_name_prefix}Base Model'
+        ft_df['model'] = f'{model_name_prefix}Fine-tuned Model with RAG'
         
         # Merge dataframes
         combined_df = pd.concat([base_df, ft_df], ignore_index=True)
@@ -263,7 +263,7 @@ def generate_comparison_report(base_results_path, ft_results_path, output_path):
         
         success_data = []
         for metric, label in zip(metrics, labels):
-            for model in ['Base Model', 'Fine-tuned Model with RAG']:
+            for model in combined_df['model'].unique():
                 model_df = combined_df[combined_df['model'] == model]
                 success_rate = model_df[metric].mean() * 100
                 success_data.append({
@@ -323,6 +323,7 @@ def main():
     parser.add_argument("--ft-only", action="store_true", help="Run only the fine-tuned model evaluation.")
     parser.add_argument("--report-only", action="store_true", help="Generate comparison report only (skip evaluations).")
     parser.add_argument("--log-dir", type=str, default="output/logs", help="Directory to save detailed log files.")
+    parser.add_argument("--qwen15b", action="store_true", help="Run comparison with Qwen 15B model (separate output directory).")
     args = parser.parse_args()
     
     # Setup logging
@@ -359,37 +360,47 @@ def main():
     # Create output directory if it doesn't exist
     os.makedirs(cfg.paths.output_dir, exist_ok=True)
     
-    # Create comparison output directory
-    comparison_dir = os.path.join(cfg.paths.output_dir, "model_comparison")
+    # Set output directory based on model version
+    if args.qwen15b:
+        comparison_dir = os.path.join(cfg.paths.output_dir, "model_comparison_qwen15b")
+        model_name_prefix = "Qwen 15B "
+    else:
+        comparison_dir = os.path.join(cfg.paths.output_dir, "model_comparison")
+        model_name_prefix = ""
+    
     os.makedirs(comparison_dir, exist_ok=True)
     
     # Define paths
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    base_results_path = os.path.join(cfg.paths.output_dir, "evaluation_results_base_model.csv")
-    ft_results_path = os.path.join(cfg.paths.output_dir, "evaluation_results_finetuned_model.csv")
+    base_results_path = os.path.join(comparison_dir, "evaluation_results_base_model.csv")
+    ft_results_path = os.path.join(comparison_dir, "evaluation_results_finetuned_model.csv")
     comparison_output_path = os.path.join(comparison_dir, f"model_comparison_report_{timestamp}.csv")
     
     # Run evaluations
     if not args.report_only:
         # Modify config for base model (no fine-tuning, no RAG)
         if not args.ft_only:
-            logging.info("===== RUNNING BASE MODEL EVALUATION =====")
+            logging.info(f"===== RUNNING {model_name_prefix}BASE MODEL EVALUATION =====")
             base_cfg = setup_base_model_config(cfg)
+            # Override the default path with our custom output path
+            base_cfg.paths.eval_results_file = base_results_path
             logging.debug(f"Base model config: {OmegaConf.to_yaml(base_cfg)}")
             evaluate_pipeline(base_cfg)
             logging.info(f"Base model evaluation complete. Results saved to {base_results_path}")
         
         # Run evaluation with fine-tuned model and RAG
         if not args.base_only:
-            logging.info("===== RUNNING FINE-TUNED MODEL EVALUATION =====")
+            logging.info(f"===== RUNNING {model_name_prefix}FINE-TUNED MODEL EVALUATION =====")
             ft_cfg = setup_finetuned_model_config(cfg)
+            # Override the default path with our custom output path
+            ft_cfg.paths.eval_results_file = ft_results_path
             logging.debug(f"Fine-tuned model config: {OmegaConf.to_yaml(ft_cfg)}")
             evaluate_pipeline(ft_cfg)
             logging.info(f"Fine-tuned model evaluation complete. Results saved to {ft_results_path}")
     
     # Generate comparison report
     logging.info("===== GENERATING COMPARISON REPORT =====")
-    generate_comparison_report(base_results_path, ft_results_path, comparison_output_path)
+    generate_comparison_report(base_results_path, ft_results_path, comparison_output_path, model_name_prefix)
     
     # Calculate and log total run time
     end_time = datetime.now()
