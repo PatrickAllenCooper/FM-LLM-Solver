@@ -330,6 +330,7 @@ def build_knowledge_base(cfg):
     # Process PDFs and build knowledge base
     metadata_list = []
     all_embeddings = []
+    global_chunk_idx_counter = 0 # Initialize global counter
     
     # Use SentenceTransformer for embeddings
     embedding_model = cfg.embeddings.model_name
@@ -404,17 +405,21 @@ def build_knowledge_base(cfg):
     total_chunks_processed = 0
     total_chunks = 0  # Will be updated as we process
     
-    # Create a progress bar for PDF processing
     if tqdm_available:
         logging.info("Progress bar enabled for processing")
     else:
         logging.warning("tqdm not installed - progress bars disabled. Install with 'pip install tqdm'")
     
-    # Process each PDF with progress bar
-    for i, pdf_path in enumerate(tqdm(pdf_files, desc="Processing PDFs", disable=not tqdm_available)):
+    # Assign the tqdm iterator to a variable
+    pdf_progress_bar = tqdm(pdf_files, desc="Processing PDFs", disable=not tqdm_available)
+    for i, pdf_path in enumerate(pdf_progress_bar):
         try:
             if tqdm_available:
                 # When using tqdm, we don't need redundant logging for each file
+                # Update the description of the main progress bar if it has the set_description method
+                if hasattr(pdf_progress_bar, 'set_description'):
+                    pdf_progress_bar.set_description(f"Processing PDF {i+1}/{len(pdf_files)}: {os.path.basename(pdf_path)}")
+                else: # Fallback to tqdm.write if set_description is not on the iterable itself
                 tqdm.write(f"Processing PDF {i+1}/{len(pdf_files)}: {os.path.basename(pdf_path)}")
             else:
                 logging.info(f"Processing PDF {i+1}/{len(pdf_files)}: {os.path.basename(pdf_path)}")
@@ -480,12 +485,15 @@ def build_knowledge_base(cfg):
             # Get timestamp for monitoring embedding time
             embedding_start_time = time.time()
             
-            for chunk_id, chunk in enumerate(chunks):
+            # Corrected loop to use global_chunk_idx_counter
+            for chunk_text_from_pdf in chunks: # Iterate through chunk texts
                 chunk_metadata = base_metadata.copy()
-                chunk_metadata["chunk_id"] = chunk_id
-                chunk_metadata["text"] = chunk
+                # Assign the global, unique chunk_id that will correspond to its FAISS index
+                chunk_metadata["chunk_id"] = global_chunk_idx_counter 
+                chunk_metadata["text"] = chunk_text_from_pdf
                 current_metadata.append(chunk_metadata)
-                current_chunks.append(chunk)
+                current_chunks.append(chunk_text_from_pdf)
+                global_chunk_idx_counter += 1 # Increment for the next chunk across all PDFs
                 
                 # Process in batches
                 if len(current_chunks) >= batch_size:
@@ -572,10 +580,17 @@ def build_knowledge_base(cfg):
             embedding_end_time = time.time()
             embedding_duration = embedding_end_time - embedding_start_time
             if tqdm_available:
-                tqdm.write(f"Finished embedding all chunks for PDF {i+1}/{len(pdf_files)} in {embedding_duration:.2f} seconds")
-                # Update the main progress bar now that the PDF is fully processed
-                if hasattr(tqdm, 'refresh'):
-                    tqdm.refresh()  # Force refresh of the main progress bar
+                # Now use the instance method
+                if hasattr(pdf_progress_bar, 'refresh'):
+                    pdf_progress_bar.refresh()  # Force refresh of the main progress bar
+                # Update description for the next PDF or completion
+                if i + 1 < len(pdf_files):
+                    if hasattr(pdf_progress_bar, 'set_description'):
+                         pdf_progress_bar.set_description(f"Processed {os.path.basename(pdf_path)}. Next: {os.path.basename(pdf_files[i+1])}")
+                else:
+                    if hasattr(pdf_progress_bar, 'set_description'):
+                        pdf_progress_bar.set_description("All PDFs processed")
+
             else:
                 logging.info(f"Finished embedding all chunks for PDF {i+1}/{len(pdf_files)} in {embedding_duration:.2f} seconds")
                 

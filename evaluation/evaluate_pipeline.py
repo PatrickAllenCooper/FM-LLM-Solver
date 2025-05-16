@@ -1,5 +1,6 @@
 import os
 import sys
+import sympy # Ensure sympy is imported for parse_expr
 
 # Add project root to Python path
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -51,146 +52,215 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # --- Helper Functions ---
 def extract_certificate_from_llm_output(llm_text, variables):
     """
-    Extracts the barrier certificate B(x) string from LLM output using regex patterns.
-    
-    This function attempts to extract the barrier certificate expression using several
-    increasingly flexible regex patterns. Each pattern is designed to handle different
-    ways the LLM might format its response.
+    Extracts the barrier certificate B(x) string from LLM output.
+    Prioritizes a delimited block, then falls back to regex patterns.
     
     Parameters
     ----------
     llm_text : str
         The raw text output from the LLM
     variables : list
-        List of Symbol objects representing the variables in the system
+        List of string names representing the variables in the system (e.g. ["x", "y"])
         
     Returns
     -------
-    str or None
-        The extracted barrier certificate expression if found, otherwise None
+    tuple (str or None, bool)
+        (extracted_expression, True_if_extraction_failed_else_False)
     """
     if not llm_text:
         logging.warning("Empty LLM output provided to extraction function")
-        return None
-        
-    # Pattern 1: Formal definition - B(x1, x2, ...) = expression
-    # This pattern looks for B followed by variables in parentheses, then equals sign, then expression
-    match = re.search(r'B\s*\([^)]*\)\s*=\s*([^{};\n\.]+)', llm_text, re.IGNORECASE)
-    if match:
-        candidate = match.group(1).strip().rstrip('.').rstrip(',')
-        # Clean up LaTeX notation and validate
-        candidate = clean_and_validate_expression(candidate)
-        if candidate:
-            logging.info(f"Extracted B(x) using formal definition pattern: {candidate}")
-            return candidate
+        return None, True
 
-    # Pattern 2: "Barrier Certificate:" followed by expression
-    # This looks for the heading/label followed by the expression on the same line
-    match = re.search(r'Barrier\s+Certificate\s*[:=]\s*([^{};\n\.]+)', llm_text, re.IGNORECASE)
-    if match:
-        candidate = match.group(1).strip().rstrip('.').rstrip(',')
-        # Clean up LaTeX notation and validate
-        candidate = clean_and_validate_expression(candidate)
-        if candidate:
-            logging.info(f"Extracted B(x) using labeled pattern: {candidate}")
-            return candidate
-        
-    # Pattern 3: "The barrier certificate is" or similar phrases
-    # This handles descriptive text identifying the certificate
-    match = re.search(r'(?:is|certificate is|given by|function is)\s*[:=]?\s*([^{};\n\.]+)', 
-                     llm_text, re.IGNORECASE)
-    if match:
-        candidate = match.group(1).strip().rstrip('.').rstrip(',')
-        # Clean up LaTeX notation and validate
-        candidate = clean_and_validate_expression(candidate)
-        if candidate:
-            logging.info(f"Extracted B(x) using descriptive pattern: {candidate}")
-            return candidate
-
-    # Pattern 4: Look for mathematical expressions with state variables
-    # This is the most general pattern - look for expressions after describing conditions
-    match = re.search(r'(?:conditions|function|certificate|propose)\s+(?:is|for|that|as)\s+([^{};\n\.]+)', 
-                     llm_text, re.IGNORECASE | re.DOTALL)
-    if match:
-        candidate = match.group(1).strip().rstrip('.').rstrip(',')
-        # Clean up LaTeX notation and validate
-        candidate = clean_and_validate_expression(candidate)
-        if candidate:
-            logging.info(f"Extracted B(x) using general pattern: {candidate}")
-            return candidate
-
-    # Advanced: Search for equations resembling certificates in any section
-    # Matches expressions with state variables and typical operations
-    equations = re.findall(r'([^\n;:]+\*\*2[^\n;:]+)', llm_text)
-    for eq in equations:
-        if ('x' in eq or 'y' in eq) and re.search(r'[+\-*/^()]', eq):
-            # Clean up LaTeX notation and validate
-            candidate = clean_and_validate_expression(eq.strip().rstrip('.').rstrip(','))
-            if candidate:
-                logging.info(f"Extracted B(x) using equation pattern: {candidate}")
-                return candidate
-
-    # Last resort: Look for any mathematical expression with x or y
-    equations = re.findall(r'([^\n;:]*)(?:x|y)(?:[+\-*/^()])+(?:[^\n;:]*)', llm_text)
-    for eq in equations:
-        candidate = clean_and_validate_expression(eq.strip().rstrip('.').rstrip(','))
-        if candidate:
-            logging.info(f"Extracted B(x) using fallback pattern: {candidate}")
-            return candidate
-
-    logging.warning(f"Could not reliably extract B(x) expression from LLM output: {llm_text[:100]}...")
-    # 'variables' here is system_info.get('state_variables', []) which is a list of string names as per current call site
-    if variables: # variables is a list of string names
-        fallback_expr_str = " + ".join([f"{var_name}**2" for var_name in variables])
-        if not fallback_expr_str: 
-            fallback_expr_str = "0" # Default if no variables or an empty list was passed
-    else: 
-        fallback_expr_str = "x**2 + y**2" # Fallback if state_variables was empty in system_info
+    # Primary extraction: Look for the delimited block
+    # Regex to find B(vars) = expression within the delimiters
+    # Handles optional spaces around vars and equals sign
+    vars_for_b_func_str = ",\s*".join(map(re.escape, variables)) if variables else r"[\w\s,]+" # Regex for var list
+    # Pattern to capture the expression part after B(...) =
+    delimited_pattern_str = (
+        r"BARRIER_CERTIFICATE_START\s*\n"
+        r"B\s*\(\s*" + vars_for_b_func_str + r"\s*\)\s*=\s*(.*?)\s*\n" # Capture the expression
+        r"BARRIER_CERTIFICATE_END"
+    )
     
-    logging.info(f"Using default fallback expression: {fallback_expr_str}")
-    return fallback_expr_str
+    match = re.search(delimited_pattern_str, llm_text, re.DOTALL | re.IGNORECASE)
+    if match:
+        candidate_expr = match.group(1).strip()
+        logging.info(f"Found delimited certificate: B(...) = {candidate_expr}")
+        cleaned_expr = clean_and_validate_expression(candidate_expr, variables)
+        if cleaned_expr:
+            logging.info(f"Extracted and validated B(x) from delimited block: {cleaned_expr}")
+            return cleaned_expr, False # Success
+        logging.warning("Delimited certificate found but content was invalid/unparsable by clean_and_validate_expression. Trying regex patterns.")
 
-def clean_and_validate_expression(candidate):
+    # Fallback regex patterns
+    vars_regex_part = '|'.join(map(re.escape, variables)) if variables else 'x|y'
+    
+    # Special pattern to extract the expression part from "B(x) = expression"
+    b_func_pattern = r'B\s*\([^)]*\)\s*=\s*([^;\.]+)'
+    match = re.search(b_func_pattern, llm_text)
+    if match:
+        expr_part = match.group(1).strip()
+        # Check if the expression contains a descriptive phrase
+        descriptive_keywords = [
+            'penalizes', 'guarantees', 'ensures', 'maintains', 'establishes', 'represents', 
+            'captures', 'describes', 'measures', 'provides', 'implements', 'achieves',
+            'prevents', 'avoids', 'limits', 'restricts', 'controls', 'monitors',
+            'sufficient', 'necessary', 'required', 'appropriate', 'suitable',
+            'the', 'this', 'that', 'these', 'those', 'can', 'will', 'should', 'could'
+        ]
+        if any(word in expr_part.lower() for word in descriptive_keywords):
+            logging.warning(f"Skipping B(x) notation candidate '{expr_part}' because it appears to be a descriptive phrase.")
+        else:
+            # Clean up the expression by removing anything before the first operation if needed
+            cleaned_expr = clean_and_validate_expression(expr_part, variables)
+            if cleaned_expr:
+                logging.info(f"Extracted and validated B(x) from B(x) notation: {cleaned_expr}")
+                return cleaned_expr, False
+    
+    # Other standard patterns
+    patterns = [
+        r'B\s*\(\s*(?:" + vars_regex_part + r"(?:\s*,\s*" + vars_regex_part + r")*\s*)\)\s*=\s*([^{};\n\.]+)', # Formal: B(var1,var2,...) = expr
+        r'Barrier\s+Certificate\s*[:=]\s*([^{};\n\.]+)', # Labeled: Barrier Certificate: expr
+        r'(?:is|certificate is|given by|function is)\s*[:=]?\s*([^{};\n\.]+)', # Descriptive: ...is expr
+        r'(?:conditions|function|certificate|propose)\s+(?:is|for|that|as)\s+([^{};\n\.]+)', # General
+        r'([^\n;:]+\*\*2[^\n;:]+)', # Advanced: equations with x**2 etc.
+        r'([^\n;:]*)(?:{vars_regex_part})(?:[+\-*/^()])+(?:[^\n;:]*)'.format(vars_regex_part=vars_regex_part)
+    ]
+
+    # Words that indicate an extracted text is a descriptive phrase and not an actual certificate
+    descriptive_keywords = [
+        'penalizes', 'guarantees', 'ensures', 'maintains', 'establishes', 'represents', 
+        'captures', 'describes', 'measures', 'provides', 'implements', 'achieves',
+        'prevents', 'avoids', 'limits', 'restricts', 'controls', 'monitors',
+        'sufficient', 'necessary', 'required', 'appropriate', 'suitable',
+        'the', 'this', 'that', 'these', 'those', 'can', 'will', 'should', 'could'
+    ]
+
+    for i, pattern_str in enumerate(patterns):
+        try:
+            # For the general pattern, ensure it can find at least one variable if variables are specified
+            if i == len(patterns) -1 and variables and not any(v in llm_text for v in variables):
+                 continue
+
+            match = re.search(pattern_str, llm_text, re.IGNORECASE | (re.DOTALL if i == 3 else 0))
+            if match:
+                candidate_text = match.group(1) if match.groups() and match.group(1) else match.group(0)
+                
+                # Skip this candidate if it contains descriptive keywords
+                contains_descriptive_word = any(word in candidate_text.lower() for word in descriptive_keywords)
+                if contains_descriptive_word:
+                    logging.warning(f"Skipping candidate '{candidate_text}' because it appears to be a descriptive phrase.")
+                    continue
+                
+                # Check if it contains at least one of the system variables
+                if variables and not any(var in candidate_text for var in variables):
+                    logging.warning(f"Skipping candidate '{candidate_text}' because it doesn't contain any system variables.")
+                    continue
+                
+                cleaned_expr = clean_and_validate_expression(candidate_text, variables)
+                if cleaned_expr:
+                    logging.info(f"Extracted and validated B(x) using regex pattern {i+1}: {cleaned_expr}")
+                    return cleaned_expr, False # Success
+        except re.error as re_err:
+            logging.error(f"Regex error with pattern {i+1} ('{pattern_str}'): {re_err}")
+
+    logging.warning(f"Could not reliably extract or validate a specific B(x) expression from LLM output via any method: {llm_text[:100]}...")
+    return None, True
+
+def clean_and_validate_expression(candidate_str, system_variables_str_list): # system_variables is list of strings
     """
-    Cleans and validates a potential barrier certificate expression.
-    
-    Parameters
-    ----------
-    candidate : str
-        The candidate expression to clean and validate
-        
-    Returns
-    -------
-    str or None
-        The cleaned expression if valid, otherwise None
+    Cleans and validates a potential barrier certificate expression string.
+    Returns the cleaned string if valid and parsable by SymPy and contains system variables, otherwise None.
     """
-    if not candidate:
+    if not candidate_str:
         return None
     
-    # Remove LaTeX delimiters and notation
-    candidate = re.sub(r'\\[\(\)]', '', candidate)  # Remove \( and \)
-    candidate = re.sub(r'\\[\{\}]', '', candidate)  # Remove \{ and \}
+    candidate_str = str(candidate_str).strip()
     
-    # Replace LaTeX operators with Python equivalents
-    candidate = candidate.replace('\\cdot', '*')
-    candidate = candidate.replace('^', '**')
+    # Handle specific patterns that might cause issues
     
-    # Remove descriptive text after mathematical expressions
-    descriptive_split = re.split(r'\s+(?:where|on|ensuring|for|such|that)', candidate)
-    if descriptive_split:
-        candidate = descriptive_split[0].strip()
+    # 1. Remove B(x) = prefix if it exists (to avoid interpreting B and x as variables)
+    b_prefix_match = re.match(r'B\s*\([^)]*\)\s*=\s*(.*)', candidate_str)
+    if b_prefix_match:
+        candidate_str = b_prefix_match.group(1).strip()
     
-    # Basic validation for mathematical expressions
-    # Must contain state variables and operators
-    if (('x' in candidate or 'y' in candidate or 'z' in candidate) and 
-        re.search(r'[+\-*/()]', candidate)):
-        # Avoid expressions with text that won't parse as math
-        if not re.search(r'[a-wA-WY-Z]', candidate.replace('x', '').replace('y', '').replace('z', '')):
-            # Do an additional symbol check for invalid characters
-            if not any(c in candidate for c in ['\\', '?', '!', '@', '#', '$', '%', '&', '|', '~', ';', '{', '}']):
-                return candidate
+    # 2. Basic structure checks (parentheses, trailing operators)
+    if candidate_str.count('(') != candidate_str.count(')'):
+        logging.debug(f"CleanValidate: Invalid - Unbalanced parentheses in '{candidate_str}'")
+        return None
+    if candidate_str.endswith(('+', '-', '*', '/', '**', '^', '(')):
+        logging.debug(f"CleanValidate: Invalid - Trailing operator/open paren in '{candidate_str}'")
+        return None
+    if re.search(r'B\(\s*\)\s*=', candidate_str, re.IGNORECASE):
+        logging.debug(f"CleanValidate: Invalid - Empty B() function in '{candidate_str}'")
+        return None
+
+    # 3. Standard cleaning (LaTeX, descriptive text, trailing punctuation)
+    cleaned_str = re.sub(r'\\[\(\)]', '', candidate_str)  
+    cleaned_str = re.sub(r'\\[\{\}]', '', cleaned_str)
+    cleaned_str = cleaned_str.replace('\\cdot', '*')
+    cleaned_str = cleaned_str.replace('^', '**')
     
-    return None
+    descriptive_match = re.match(r"(.*?)(?:\s+(?:where|for|such that|on|ensuring|if|assuming|denotes|represents)\s+[a-zA-Z].*)", cleaned_str, re.DOTALL | re.IGNORECASE)
+    if descriptive_match:
+        cleaned_str = descriptive_match.group(1).strip()
+    else:
+        cleaned_str = cleaned_str.strip()
+    cleaned_str = cleaned_str.rstrip('.,;')
+
+    if not cleaned_str:
+        logging.debug(f"CleanValidate: Candidate '{candidate_str}' became empty after cleaning.")
+        return None
+
+    # 4. Attempt to parse with SymPy
+    try:
+        local_sympy_dict = {var_name: sympy.symbols(var_name) for var_name in system_variables_str_list} if system_variables_str_list else {}
+        parsed_expr = sympy.parse_expr(cleaned_str, local_dict=local_sympy_dict, transformations='all')
+        
+        if parsed_expr is None or parsed_expr is sympy.S.EmptySet: 
+             logging.debug(f"CleanValidate: Candidate '{cleaned_str}' (from '{candidate_str}') parsed to SymPy EmptySet or None.")
+             return None
+
+    except (SyntaxError, TypeError, sympy.SympifyError, AttributeError, RecursionError) as e: 
+        logging.warning(f"CleanValidate: Candidate '{cleaned_str}' (from '{candidate_str}') failed SymPy parsing: {e}")
+        return None
+    except Exception as e: 
+        logging.warning(f"CleanValidate: Candidate '{cleaned_str}' (from '{candidate_str}') failed SymPy parsing with unexpected error: {e}")
+        return None
+
+    # 5. Check if the parsed expression contains any of the system variables (if specified)
+    if system_variables_str_list:
+        try:
+            expr_free_symbols_names = {s.name for s in parsed_expr.free_symbols}
+        except AttributeError: # e.g. if parsed_expr is a number
+            expr_free_symbols_names = set()
+
+        # Fix: Check if parsed_expr is a tuple or has the is_number attribute before accessing it
+        is_number = False
+        if isinstance(parsed_expr, tuple):
+            logging.warning(f"CleanValidate: Parsed expression is a tuple: {parsed_expr}")
+            return None
+        elif hasattr(parsed_expr, 'is_number'):
+            is_number = parsed_expr.is_number
+        else:
+            logging.warning(f"CleanValidate: Parsed expression has unexpected type: {type(parsed_expr)}")
+            return None
+
+        if not any(var_name in expr_free_symbols_names for var_name in system_variables_str_list):
+            if is_number: # Allow constants if they parse correctly
+                logging.debug(f"CleanValidate: Candidate '{cleaned_str}' (parsed: '{parsed_expr}') is a constant. Allowing as potentially valid.")
+            else:
+                logging.debug(f"CleanValidate: Parsed '{parsed_expr}' from '{cleaned_str}' does not contain expected system variables: {system_variables_str_list}")
+                return None
+    
+    # 6. Final check for obviously disallowed characters (might be redundant now)
+    disallowed_chars = ['\\', '?', '!', '@', '#', '$', '%', '&', '|', '~', ';', '{', '}']
+    if any(c in cleaned_str for c in disallowed_chars):
+        logging.debug(f"CleanValidate: Candidate '{cleaned_str}' contains disallowed characters after all other checks.")
+        return None
+
+    logging.debug(f"CleanValidate: Successfully cleaned and validated '{candidate_str}' to '{cleaned_str}'")
+    return cleaned_str # Return the cleaned string, not the parsed_expr object
 
 
 # --- Main Evaluation Logic ---
@@ -298,46 +368,85 @@ def evaluate_pipeline(cfg: OmegaConf):
         # Prompt Formatting
         prompt = format_prompt_with_context(system_input_text, context)
 
-        # Generation Step
-        logging.info("Generating certificate candidate...")
-        llm_output = "[Generation Failed]"
-        generation_successful = False
-        try:
-            gen_result = pipe(prompt)
-            generated_text = gen_result[0]['generated_text']
-            prompt_end_marker = "[/INST]" # Corrected marker
-            output_start_index = generated_text.find(prompt_end_marker)
-            if output_start_index != -1:
-                llm_output = generated_text[output_start_index + len(prompt_end_marker):].strip()
-            else:
-                llm_output = generated_text # Fallback
-            generation_successful = True
-            successful_generations += 1
-            logging.info("Generation successful.")
-            logging.debug(f"LLM Raw Output:\n{llm_output}")
-        except Exception as e:
-            logging.error(f"Text generation failed for system {system_id}: {e}")
+        # Generation and Parsing with Retries
+        max_retries = eval_cfg.get('generation_max_retries', 10) # Increase default to 10 instead of 3
+        generation_retry_delay_sec = eval_cfg.get('generation_retry_delay_sec', 1)
 
-        # Parsing Step
-        logging.info("Parsing generated certificate...")
-        candidate_b_str = None
-        parsing_successful = False
-        if generation_successful:
-            # Pass `variables` (list of Symbol objects for the current system)
-            candidate_b_str = extract_certificate_from_llm_output(llm_output, system_info.get('state_variables', []))
-            if candidate_b_str:
-                 successful_parses += 1
-                 parsing_successful = True
-                 logging.info(f"Parsed candidate: {candidate_b_str}")
+        candidate_b_str = None # Final candidate string to be verified
+        llm_output_for_csv = "[No successful generation or parsing]" 
+        
+        generation_attempt_successful = False 
+        parsing_of_llm_output_successful = False # True if LLM provided a usable, non-fallback certificate
+
+        var_names_for_extraction = system_info.get('state_variables', []) 
+
+        # Keep trying until we get a successful parse or reach max_retries
+        retry_count = 0
+        while not parsing_of_llm_output_successful and retry_count < max_retries:
+            retry_count += 1
+            logging.info(f"System {system_id}: Generating certificate candidate (Attempt {retry_count}/{max_retries})...")
+            
+            current_llm_raw_output = "[Generation Failed this Attempt]"
+            current_generation_succeeded = False
+            try:
+                gen_result = pipe(prompt)
+                generated_text = gen_result[0]['generated_text']
+                prompt_end_marker = "[/INST]" 
+                output_start_index = generated_text.find(prompt_end_marker)
+                if output_start_index != -1:
+                    current_llm_raw_output = generated_text[output_start_index + len(prompt_end_marker):].strip()
+                else:
+                    current_llm_raw_output = generated_text
+                
+                llm_output_for_csv = current_llm_raw_output 
+                current_generation_succeeded = True
+                if not generation_attempt_successful: 
+                    generation_attempt_successful = True 
+                logging.info(f"System {system_id}: Generation attempt {retry_count} successful.")
+                logging.debug(f"LLM Raw Output (System {system_id}, Attempt {retry_count}):\\n{current_llm_raw_output}")
+
+            except Exception as e:
+                logging.error(f"System {system_id}: Text generation failed (Attempt {retry_count}): {e}")
+                llm_output_for_csv = f"[Generation Failed on attempt {retry_count}]"
+                if retry_count == max_retries: 
+                    logging.warning(f"System {system_id}: All generation attempts failed.")
+                time.sleep(generation_retry_delay_sec) # Wait before next attempt or finishing
+                continue 
+
+            # If generation was successful for this attempt, try to parse
+            logging.info(f"System {system_id}: Parsing generated certificate (Attempt {retry_count})...")
+            # extract_certificate_from_llm_output now returns (parsed_string_or_None, True_if_failed)
+            parsed_expr_str, parsing_failed = extract_certificate_from_llm_output(current_llm_raw_output, var_names_for_extraction)
+            
+            if not parsing_failed and parsed_expr_str is not None:
+                candidate_b_str = parsed_expr_str
+                parsing_of_llm_output_successful = True 
+                logging.info(f"System {system_id}: Successfully parsed LLM-specific certificate (Attempt {retry_count}): {candidate_b_str}")
+                break # Exit retry loop, we have a good LLM-specific candidate
             else:
-                 logging.warning("Parsing failed.")
+                candidate_b_str = None # Ensure it's None if parsing failed
+                logging.warning(f"System {system_id}: Parsing LLM output failed to yield usable certificate (Attempt {retry_count}). LLM Output: {current_llm_raw_output[:100]}...")
+                if retry_count < max_retries:
+                    logging.info(f"System {system_id}: Retrying generation and parsing...")
+                    time.sleep(generation_retry_delay_sec) 
+                else:
+                    logging.warning(f"System {system_id}: Max retries reached. No usable certificate parsed from LLM.")
+
+        # Update overall successful_generations counter if any attempt within the loop was successful
+        if generation_attempt_successful:
+            successful_generations +=1 
+        
+        # successful_parses counter is incremented only if parsing_of_llm_output_successful becomes True
+        if parsing_of_llm_output_successful: 
+            successful_parses += 1
 
         # Verification Step
-        logging.info("Verifying candidate certificate...")
+        # candidate_b_str will be None if all parsing attempts failed, or the successfully parsed string.
+        logging.info(f"System {system_id}: Verifying candidate certificate: {candidate_b_str if candidate_b_str else '[No usable certificate from LLM]'}...")
         verification_details = {
             "candidate_B": candidate_b_str,
             "system_id": system_id,
-            "parsing_successful": parsing_successful,
+            "parsing_successful": parsing_of_llm_output_successful, # This now means LLM output was successfully parsed (not a fallback)
             "lie_derivative_calculated": None,
             "symbolic_lie_check_passed": None,
             "symbolic_boundary_check_passed": None,
@@ -345,12 +454,15 @@ def evaluate_pipeline(cfg: OmegaConf):
             "numerical_boundary_check_passed": None,
             "sos_attempted": False,
             "sos_passed": None,
-            "final_verdict": "Parsing Failed" if not parsing_successful else "Verification Error",
-            "reason": "Parsing failed or verification not run" if not parsing_successful else "Verification pending",
+            "sos_lie_passed": None,
+            "sos_init_passed": None,
+            "sos_unsafe_passed": None,
+            "final_verdict": "Parsing Failed" if not parsing_of_llm_output_successful else "Verification Pending",
+            "reason": "LLM output parsing failed or yielded no usable certificate" if not parsing_of_llm_output_successful else "Verification pending",
             "verification_time_seconds": 0
         }
 
-        if parsing_successful:
+        if candidate_b_str: # Only proceed to verification if we have a candidate string
             try:
                 # Pass the verification sub-config from the main config
                 verification_details = verify_barrier_certificate(candidate_b_str, system_info, eval_cfg.verification)
@@ -388,8 +500,8 @@ def evaluate_pipeline(cfg: OmegaConf):
         # Store detailed results
         results_data.append({
             "system_id": system_id,
-            "generation_successful": generation_successful,
-            "parsing_successful": parsing_successful,
+            "generation_successful": generation_attempt_successful,
+            "parsing_successful": parsing_of_llm_output_successful,
             "parsed_certificate": candidate_b_str,
             "final_verdict": verification_details.get('final_verdict', 'Error'),
             "verification_reason": verification_details.get('reason', 'N/A'),
@@ -407,7 +519,7 @@ def evaluate_pipeline(cfg: OmegaConf):
             "sos_init_passed": verification_details.get('sos_init_passed'),
             "sos_unsafe_passed": verification_details.get('sos_unsafe_passed'),
             "duration_seconds": duration,
-            "llm_full_output": llm_output,
+            "llm_full_output": llm_output_for_csv,
         })
 
         logging.info(f"System {i+1} processed in {duration:.2f} seconds.")
