@@ -15,6 +15,7 @@ from peft import PeftModel # To load LoRA adapter
 from sentence_transformers import SentenceTransformer
 import warnings
 import sys # Import sys
+import re
 
 # Add project root to Python path
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -67,16 +68,31 @@ def load_knowledge_base(kb_dir, index_filename, metadata_filename):
         index = faiss.read_index(index_path)
         py_logging.info(f"Loading metadata from {metadata_path} (JSONL)...")
         metadata_map = {}
-        with open(metadata_path, 'r', encoding='utf-8') as f:
-            for line in f:
-                 if line.strip():
-                     data = json.loads(line)
-                     chunk_id = data.get('chunk_id')
-                     if chunk_id is not None:
-                         metadata_map[chunk_id] = data # Store full object
-                     else:
-                         py_logging.warning(f"Skipping metadata line without 'chunk_id': {line.strip()}")
+        lines_read = 0
+        lines_processed_into_map = 0
+        lines_missing_chunk_id = 0
+        lines_json_decode_error = 0
 
+        with open(metadata_path, 'r', encoding='utf-8') as f:
+            for line_num, line in enumerate(f):
+                lines_read += 1
+                if line.strip():
+                    try:
+                        data = json.loads(line)
+                        chunk_id = data.get('chunk_id')
+                        if chunk_id is not None: # chunk_id = 0 is valid
+                            metadata_map[chunk_id] = data 
+                            lines_processed_into_map += 1
+                        else:
+                            lines_missing_chunk_id += 1
+                            if lines_missing_chunk_id <= 10: # Log first few occurrences
+                                py_logging.warning(f"Metadata line {line_num + 1} missing 'chunk_id': {line.strip()}")
+                    except json.JSONDecodeError as e_json:
+                        lines_json_decode_error += 1
+                        if lines_json_decode_error <= 10: # Log first few occurrences
+                            py_logging.warning(f"Error decoding metadata JSONL line {line_num + 1} in {metadata_path}: {e_json}. Line content: '{line.strip()}'")
+                 
+        py_logging.info(f"Metadata loading: Total lines read: {lines_read}, Lines processed into map: {lines_processed_into_map}, Lines missing chunk_id: {lines_missing_chunk_id}, Lines with JSON decode error: {lines_json_decode_error}.")
         py_logging.info(f"Knowledge base loaded: {index.ntotal} vectors, {len(metadata_map)} metadata entries.")
         if index.ntotal != len(metadata_map):
              py_logging.warning(f"Mismatch between index size ({index.ntotal}) and metadata size ({len(metadata_map)}).")
@@ -112,18 +128,24 @@ def load_finetuned_model(base_model_name, adapter_path, cfg):
         )
         py_logging.info("Base model loaded.")
 
-        py_logging.info(f"Loading adapter from: {adapter_path}...")
-        # Check if adapter exists before loading
-        if not os.path.isdir(adapter_path):
-            py_logging.error(f"Adapter directory not found at {adapter_path}. Ensure fine-tuning completed and path is correct.")
-            return None, None
-        model = PeftModel.from_pretrained(base_model, adapter_path)
-        py_logging.info("Adapter loaded.")
+        # Check if we should skip the adapter (for base model only comparison)
+        use_adapter = cfg.fine_tuning.get('use_adapter', True)
+        if not use_adapter:
+            py_logging.info("Skipping adapter loading - using base model only as configured.")
+            model = base_model
+        else:
+            py_logging.info(f"Loading adapter from: {adapter_path}...")
+            # Check if adapter exists before loading
+            if not os.path.isdir(adapter_path):
+                py_logging.error(f"Adapter directory not found at {adapter_path}. Ensure fine-tuning completed and path is correct.")
+                return None, None
+            model = PeftModel.from_pretrained(base_model, adapter_path)
+            py_logging.info("Adapter loaded.")
 
-        # Merge adapter
-        py_logging.info("Merging adapter into base model...")
-        model = model.merge_and_unload()
-        py_logging.info("Adapter merged.")
+            # Merge adapter
+            py_logging.info("Merging adapter into base model...")
+            model = model.merge_and_unload()
+            py_logging.info("Adapter merged.")
 
         py_logging.info(f"Loading tokenizer for {base_model_name}...")
         tokenizer = AutoTokenizer.from_pretrained(base_model_name, trust_remote_code=True)
@@ -192,7 +214,12 @@ def retrieve_context(query, embedding_model, index, metadata_map, k):
                 
             chunk_data = metadata_map.get(idx)
             if not chunk_data:
-                py_logging.warning(f"Metadata not found for retrieved index {idx}")
+                py_logging.warning(f"Metadata not found for retrieved FAISS index {idx} (type: {type(idx)}).")
+                py_logging.debug(f"FAISS ntotal: {index.ntotal}, metadata_map size: {len(metadata_map)}")
+                if metadata_map:
+                    py_logging.debug(f"Metadata map keys min/max: {min(metadata_map.keys()) if metadata_map else 'N/A'} / {max(metadata_map.keys()) if metadata_map else 'N/A'}")
+                # Potentially log a few keys from metadata_map to see their type if needed
+                # py_logging.debug(f"Sample metadata keys: {list(metadata_map.keys())[:5]}")
                 continue
                 
             # Extract metadata
@@ -234,12 +261,50 @@ def format_prompt_with_context(system_description, context):
     str
         Formatted prompt ready for the LLM
     """
-    # The instruction should match what was used during fine-tuning
-    instruction = ("Given the autonomous system described below and potentially relevant context "
-                   "from research papers, propose a suitable barrier certificate function B(x) "
-                   "and briefly outline the conditions it must satisfy.")
+    state_vars_match = re.search(r"State Variables:\s*\[?([\w\s,]+)\]?", system_description, re.IGNORECASE)
+    actual_state_vars_list = []
+    if state_vars_match:
+        extracted_vars = [v.strip() for v in state_vars_match.group(1).split(',') if v.strip()]
+        if extracted_vars:
+            actual_state_vars_list = extracted_vars
+    
+    if not actual_state_vars_list: # Fallback if regex fails or no vars found
+        # Try to infer from common names if not explicitly listed - less reliable
+        if 'x' in system_description.lower() and 'y' in system_description.lower() and 'z' in system_description.lower():
+            actual_state_vars_list = ['x', 'y', 'z']
+        elif 'x' in system_description.lower() and 'y' in system_description.lower():
+            actual_state_vars_list = ['x', 'y']
+        elif 'x' in system_description.lower():
+            actual_state_vars_list = ['x']
+        else:
+            actual_state_vars_list = ['x'] # Default to x if nothing else
 
-    # Format depends on whether context is available
+    state_vars_str_for_prompt = ", ".join(actual_state_vars_list)
+    example_b_func_vars = state_vars_str_for_prompt
+    example_b_expr_var = actual_state_vars_list[0] if actual_state_vars_list else "x"
+
+    instruction = (
+        f"You are an expert in control theory and dynamical systems. Your task is to propose a barrier certificate for the given autonomous system.\n"
+        f"The state variables for this system are: {state_vars_str_for_prompt}.\n\n"
+        f"Please follow these steps carefully:\n"
+        f"1. Analyze the system dynamics, initial set, unsafe set, and safe set (if provided) from the 'System Description' below.\n"
+        f"2. Consider any relevant context from the 'Relevant Context from Papers' (if provided) that might inspire a similar form or approach for the barrier certificate.\n"
+        f"3. Briefly explain your reasoning or the strategy you will use to propose a candidate barrier certificate function B({example_b_func_vars}). This reasoning should not contain the final certificate itself.\n"
+        f"4. After your reasoning, state the proposed barrier certificate function clearly and unambiguously using ONLY the specified state variables ({state_vars_str_for_prompt}). The function must be presented in the following exact format, on its own lines, without any surrounding text or explanations other than what is inside the B(...) notation:\n"
+        f"BARRIER_CERTIFICATE_START\n"
+        f"B({example_b_func_vars}) = <your_mathematical_expression_using_only_{state_vars_str_for_prompt}_and_constants>\n"
+        f"BARRIER_CERTIFICATE_END\n"
+        f"For example, if state variables are x, y, a valid entry would be:\n"
+        f"BARRIER_CERTIFICATE_START\n"
+        f"B(x, y) = x**2 + y**2 - 0.5\n"
+        f"BARRIER_CERTIFICATE_END\n"
+        f"Or, if state variables are theta, omega, a valid entry would be:\n"
+        f"BARRIER_CERTIFICATE_START\n"
+        f"B(theta, omega) = theta**2 + 0.5*omega**2 - 1\n"
+        f"BARRIER_CERTIFICATE_END\n"
+        f"5. After stating the certificate in the specified block, you may then briefly outline the standard conditions it must satisfy (e.g., conditions related to the initial set, unsafe set, and its Lie derivative)."
+    )
+
     if context:
         prompt = f"<s>[INST] {instruction}\n\nRelevant Context from Papers:\n{context}\n---\n\nSystem Description:\n{system_description} [/INST]"
     else:

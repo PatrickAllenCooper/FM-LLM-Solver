@@ -274,5 +274,93 @@
        "b": [0.0, 6.0]
     },
     "notes": "Simple chemical reaction system with bilinear terms. Tests the LLM's ability to handle chemical systems with non-negative state variables."
+  },
+  {
+    "id": "simple_linear_1d",
+    "description": "Simple 1D linear system with obvious barrier",
+    "state_variables": ["x"],
+    "dynamics": [
+      "-x"
+    ],
+    "initial_set_conditions": ["x <= -1.0"],
+    "unsafe_set_conditions": ["x >= 1.0"],
+    "safe_set_conditions": ["x < 1.0"],
+    "known_valid_certificate": "x",
+    "sampling_bounds": {
+       "x": [-2.0, 2.0]
+    },
+    "notes": "Extremely simple 1D system with an obvious linear barrier. High chance of success."
+  },
+  {
+    "id": "simple_quadratic_2d",
+    "description": "Very simple 2D system with quadratic barrier",
+    "state_variables": ["x", "y"],
+    "dynamics": [
+      "-x",
+      "-y"
+    ],
+    "initial_set_conditions": ["x**2 + y**2 <= 0.25"],
+    "unsafe_set_conditions": ["x**2 + y**2 >= 4.0"],
+    "safe_set_conditions": ["x**2 + y**2 < 4.0"],
+    "known_valid_certificate": "x**2 + y**2 - 0.25",
+    "sampling_bounds": {
+       "x": [-3.0, 3.0],
+       "y": [-3.0, 3.0]
+    },
+    "notes": "Simple uncoupled linear system with well-separated regions and obvious quadratic barrier."
+  },
+  {
+    "id": "half_plane_barrier",
+    "description": "Simple 2D system with a half-plane barrier",
+    "state_variables": ["x", "y"],
+    "dynamics": [
+      "-x",
+      "-0.5*y"
+    ],
+    "initial_set_conditions": ["x <= -1.0"],
+    "unsafe_set_conditions": ["x >= 1.0"],
+    "safe_set_conditions": ["x < 1.0"],
+    "known_valid_certificate": "x",
+    "sampling_bounds": {
+       "x": [-2.0, 2.0],
+       "y": [-2.0, 2.0]
+    },
+    "notes": "Simple system with a half-plane barrier. The y variable is irrelevant to safety."
+  },
+  {
+    "id": "linear_double_integrator",
+    "description": "Double integrator system (classic control example)",
+    "state_variables": ["x", "v"],
+    "dynamics": [
+      "v",
+      "-v"
+    ],
+    "initial_set_conditions": ["x <= -1.0", "v**2 <= 0.25"],
+    "unsafe_set_conditions": ["x >= 1.0"],
+    "safe_set_conditions": ["x < 1.0"],
+    "known_valid_certificate": "x + 0.5*v**2",
+    "sampling_bounds": {
+       "x": [-2.0, 2.0],
+       "v": [-2.0, 2.0]
+    },
+    "notes": "Classic double integrator with damping. Well-studied in control theory with known barrier certificates."
+  },
+  {
+    "id": "simple_parabolic_barrier",
+    "description": "2D system with parabolic barrier certificate",
+    "state_variables": ["x", "y"],
+    "dynamics": [
+      "-0.5*x",
+      "-y + 0.1*x"
+    ],
+    "initial_set_conditions": ["y >= x**2", "y <= x**2 + 0.1"],
+    "unsafe_set_conditions": ["y <= -0.5"],
+    "safe_set_conditions": ["y > -0.5"],
+    "known_valid_certificate": "y + 0.5",
+    "sampling_bounds": {
+       "x": [-2.0, 2.0],
+       "y": [-1.0, 3.0]
+    },
+    "notes": "System with a parabolic initial region and a simple barrier certificate."
   }
 ] 

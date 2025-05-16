@@ -29,6 +29,17 @@ This codebase has recently undergone significant refactoring and improvements to
    - More robust CSV processing for user IDs
    - Expanded benchmark system examples
 
+6. **Model Comparison Functionality**:
+   - New tools for comparing base model vs fine-tuned model performance
+   - Detailed logging system with comprehensive metrics and system-by-system analysis
+   - Visualization capabilities for comparative performance analysis
+   - Windows batch file for simplified execution
+
+7. **Expanded Benchmarks**:
+   - Added simple test cases with known barrier certificates
+   - Included a wider variety of dynamical system types
+   - Better organization of test cases by complexity
+
 These changes should make the codebase more accessible, easier to understand, and simpler to extend with new features.
 
 ---
@@ -54,6 +65,7 @@ These changes should make the codebase more accessible, easier to understand, an
     *   [7. Evaluate the Pipeline](#7-evaluate-the-pipeline)
     *   [First Battery of Experiments: Complete Instructions](#first-battery-of-experiments-complete-instructions)
 *   [Unified Experiment Runner](#unified-experiment-runner)
+*   [Model Comparison Tool](#model-comparison-tool)
 *   [Configuration](#configuration)
 *   [Verification Limitations](#verification-limitations)
 *   [Author / Context](#author--context)
@@ -121,12 +133,21 @@ The project is organized into modules based on functionality:
 │   │   └── paper_metadata_mathpix.jsonl
 │   ├── finetuning_results/     # Default location for model checkpoints/adapter
 │   │   └── final_adapter/
+│   ├── model_comparison/       # Model comparison reports and visualizations
+│   │   ├── model_comparison_report_*.csv
+│   │   ├── system_level_comparison.csv
+│   │   └── model_comparison_charts.png
+│   ├── logs/                   # Detailed log files
+│   │   └── comparison_*/       # Timestamped log directories
 │   └── evaluation_results.csv  # Default location for evaluation CSV
 |
-├── config.yaml                   # Central configuration file
+├── compare_models.py           # Script for comparing base and fine-tuned models
+├── run_model_comparison.bat    # Batch file for running model comparison on Windows
+├── run_experiments.py          # Unified experiment script
+├── config.yaml                 # Central configuration file
 ├── requirements.txt            # Python package dependencies
 ├── .gitignore
-└── README.md                     # This file
+└── README.md                   # This file
 ```
 
 ---
@@ -497,32 +518,87 @@ Control experiment parameters directly:
 ```bash
 # Change RAG context size
 python run_experiments.py --rag-k 5
-
-# Use a different benchmark file
-python run_experiments.py --benchmark-file data/custom_benchmarks.json
-
-# Save results to a specific file
-python run_experiments.py --results-file output/experiment1_results.csv
 ```
 
-### Experiment Tracking
+## Model Comparison Tool
 
-Track and save experiment configurations:
+The model comparison tool allows you to quantitatively evaluate the effectiveness of fine-tuning and RAG by comparing the base model against the fine-tuned model with RAG on the same benchmark problems.
+
+### Overview
+
+The `compare_models.py` script provides comprehensive comparison between:
+- The base model without fine-tuning or RAG
+- The fine-tuned model with RAG
+
+It evaluates both models on the same benchmark problems and generates detailed reports, visualizations, and extensive logs documenting their performance differences.
+
+### Running the Comparison
+
+The easiest way to run the comparison is using the provided batch file:
 
 ```bash
-# Name and describe your experiment for tracking
-python run_experiments.py --experiment-name "experiment1" --description "Testing RAG with k=5"
+run_model_comparison.bat
 ```
 
-This saves a copy of the configuration and metadata in the `experiments/experiment1/` directory.
+This will:
+1. Find your Python installation
+2. Create a timestamped logs directory
+3. Run both evaluations (base and fine-tuned models)
+4. Generate detailed comparison reports and visualizations
 
-### Help
+### Command-line Options
 
-For a full list of options:
+You can also run the tool directly with various options:
 
 ```bash
-python run_experiments.py --help
+# Run only the base model evaluation
+python compare_models.py --base-only
+
+# Run only the fine-tuned model evaluation
+python compare_models.py --ft-only
+
+# Generate report from existing results (skip evaluations)
+python compare_models.py --report-only
+
+# Specify custom log directory
+python compare_models.py --log-dir=output/custom_logs
 ```
+
+### Comparison Outputs
+
+The tool generates several outputs:
+
+1. **Summary CSV Report** (`output/model_comparison/model_comparison_report_TIMESTAMP.csv`):
+   - Side-by-side metrics for both models
+   - Improvement percentages for each metric
+   - Success rates for generation, parsing, and verification
+
+2. **System-level Comparison** (`output/model_comparison/system_level_comparison.csv`):
+   - Detailed comparison for each benchmark system
+   - Generated certificates from both models
+   - Verification verdicts and outcome classification
+
+3. **Visualization Charts** (`output/model_comparison/model_comparison_charts.png`):
+   - Bar charts comparing success rates across metrics
+   - System-level outcome distribution (improvements, no change, regressions)
+
+4. **Detailed Log Files** (`output/logs/comparison_TIMESTAMP/model_comparison_TIMESTAMP.log`):
+   - Complete runtime logs with DEBUG level detail
+   - Configuration details
+   - System-by-system comparison results
+   - Certificate expressions and verification verdicts
+   - Comprehensive performance statistics
+   
+### Interpreting Results
+
+The comparison focuses on several key metrics:
+
+- **Generation Success**: Percentage of systems where the model successfully generated output
+- **Parsing Success**: Percentage of outputs where a valid barrier certificate could be extracted
+- **Verification Success**: Percentage of certificates that passed verification (numerical or SOS)
+- **System-level Improvements**: Count of systems where the fine-tuned model performed better than the base model
+
+The detailed logs contain comprehensive information for further analysis and can be used to identify specific strengths and weaknesses of each approach.
 
 ---
 
