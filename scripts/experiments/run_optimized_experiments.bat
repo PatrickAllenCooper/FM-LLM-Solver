@@ -3,7 +3,7 @@
 :: This script runs the fine-tuning and evaluation pipeline with optimized settings
 
 echo === FM-LLM-Solver Optimized Experiment Runner ===
-echo This script will run experiments with settings optimized for 15B models on RTX 3080 (10GB VRAM)
+echo This script will run experiments with settings optimized for 14B models on RTX 3080 (10GB VRAM)
 
 :: Set working directory to project root
 cd ..\..

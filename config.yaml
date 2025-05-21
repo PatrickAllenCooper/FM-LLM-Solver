@@ -48,7 +48,7 @@ embeddings:
   batch_size: 16           # Reduced batch size for embedding generation
 
 fine_tuning:
-  base_model_name: "Qwen/Qwen2.5-15B-Instruct"
+  base_model_name: "Qwen/Qwen2.5-14B-Instruct"
   data_format: instruction
   use_adapter: true
   lora:
