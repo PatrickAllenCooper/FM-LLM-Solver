@@ -13,7 +13,7 @@ paths:
   pdf_input_dir: ${paths.data_dir}/fetched_papers
   user_ids_csv: ${paths.data_dir}/user_ids.csv
   eval_benchmark_file: ${paths.data_dir}/benchmark_systems.json
-  kb_output_dir: .
+  kb_output_dir: kb_data
   kb_vector_store_filename: paper_index_mathpix.faiss
   kb_metadata_filename: paper_metadata_mathpix.jsonl
   ft_manual_data_file: ${paths.data_dir}/ft_manual_data.jsonl

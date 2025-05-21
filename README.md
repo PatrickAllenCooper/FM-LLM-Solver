@@ -18,6 +18,7 @@ This codebase has recently undergone significant refactoring and improvements to
    - Standardized function structures with clear input/output documentation
    - Better separation of concerns between data loading, processing, and evaluation
    - Clearer step-by-step progression in main execution blocks
+   - **Reorganized project structure** with better file organization into directories
 
 4. **Configuration System**:
    - More detailed comments in configuration file
@@ -89,65 +90,100 @@ The project is organized into modules based on functionality:
 
 ```
 ./
-├── data_fetching/              # Scripts for downloading papers
+├── data_fetching/             # Scripts for downloading papers
 │   ├── __init__.py
 │   └── paper_fetcher.py
 |
-├── knowledge_base/             # Scripts & data for the RAG knowledge base
-│   ├── __init__.py
-│   ├── knowledge_base_builder.py
-│   └── test_knowledge_base.py
+├── docs/                      # Documentation files
+│   ├── EXPERIMENTS.md         # Experiment documentation
+│   └── OPTIMIZED_README.md    # Optimization guide for large models
 |
-├── fine_tuning/                # Scripts & data for fine-tuning the LLM
-│   ├── __init__.py
-│   ├── create_finetuning_data.py
-│   ├── finetune_llm.py
-│   ├── generate_synthetic_data.py # (Example)
-│   ├── extract_from_papers.py
-│   └── combine_datasets.py
-|
-├── inference/                  # Scripts for running inference
-│   ├── __init__.py
-│   └── generate_certificate.py
-|
-├── evaluation/                 # Scripts & data for pipeline evaluation
+├── evaluation/                # Scripts & data for pipeline evaluation
 │   ├── __init__.py
 │   ├── evaluate_pipeline.py
 │   └── verify_certificate.py
 |
-├── utils/                      # Utility functions
+├── fine_tuning/               # Scripts & data for fine-tuning the LLM
+│   ├── __init__.py
+│   ├── create_finetuning_data.py
+│   ├── finetune_llm.py
+│   ├── generate_synthetic_data.py
+│   ├── extract_from_papers.py
+│   └── combine_datasets.py
+|
+├── inference/                 # Scripts for running inference
+│   ├── __init__.py
+│   └── generate_certificate.py
+|
+├── kb_data/                   # Knowledge base data files
+│   ├── paper_index_mathpix.faiss
+│   └── paper_metadata_mathpix.jsonl
+|
+├── knowledge_base/            # Knowledge base code
+│   ├── knowledge_base_builder.py
+│   ├── alternative_pdf_processor.py
+│   ├── optimized_chunker.py
+│   ├── utils.py
+│   ├── README.md
+│   └── __init__.py
+|
+├── scripts/                   # Organized script files
+│   ├── comparison/            # Model comparison scripts
+│   │   ├── compare_model_sizes.py
+│   │   ├── compare_models.py
+│   │   ├── run_qwen15b_comparison.bat
+│   │   ├── run_model_comparison.bat
+│   │   └── analyze_comparison_results.py
+│   ├── experiments/           # Experiment execution scripts
+│   │   ├── run_experiments.py
+│   │   ├── run_parameterized_experiments.py
+│   │   ├── run_barrier_certificate_experiments.sh
+│   │   ├── analyze_experiment_results.py
+│   │   ├── run_optimized_experiments.bat
+│   │   ├── run_optimized_experiments.sh
+│   │   ├── run_inference.bat
+│   │   └── run_inference.sh
+│   ├── knowledge_base/        # Knowledge base scripts
+│   │   ├── test_minimal_pdf_processor.py
+│   │   ├── open_source_kb_requirements.txt
+│   │   └── various KB scripts
+│   ├── optimization/          # Optimization scripts
+│   │   ├── optimize_kb_build.py
+│   │   └── optimize_kb_build.bat
+│   └── setup/                 # Setup and installation scripts
+│       ├── install_deps.py
+│       ├── install_tqdm.py
+│       ├── setup_environment.py
+│       └── env.example
+|
+├── utils/                     # Utility functions
 │   ├── __init__.py
 │   └── config_loader.py
 |
-├── data/                       # Input data & fetched raw data
-│   ├── fetched_papers/         # Default location for downloaded PDFs
-│   ├── benchmark_systems.json  # Evaluation benchmarks
-│   ├── user_ids.csv            # Input for data_fetching
-│   ├── ft_manual_data.jsonl    # Example fine-tuning data file
+├── data/                      # Input data & fetched raw data
+│   ├── fetched_papers/        # Default location for downloaded PDFs
+│   ├── benchmark_systems.json # Evaluation benchmarks
+│   ├── user_ids.csv           # Input for data_fetching
+│   ├── ft_manual_data.jsonl   # Example fine-tuning data file
 │   ├── ft_extracted_data_verified.jsonl # Example
-│   └── ft_data_combined.jsonl  # Example combined data file
+│   └── ft_data_combined.jsonl # Example combined data file
 |
-├── output/                     # Generated outputs
-│   ├── knowledge_base/         # Default location for FAISS index & metadata
-│   │   ├── paper_index_mathpix.faiss
-│   │   └── paper_metadata_mathpix.jsonl
-│   ├── finetuning_results/     # Default location for model checkpoints/adapter
+├── output/                    # Generated outputs
+│   ├── knowledge_base/        # Alternative location for FAISS index & metadata
+│   ├── finetuning_results/    # Default location for model checkpoints/adapter
 │   │   └── final_adapter/
-│   ├── model_comparison/       # Model comparison reports and visualizations
+│   ├── model_comparison/      # Model comparison reports and visualizations
 │   │   ├── model_comparison_report_*.csv
 │   │   ├── system_level_comparison.csv
 │   │   └── model_comparison_charts.png
-│   ├── logs/                   # Detailed log files
-│   │   └── comparison_*/       # Timestamped log directories
-│   └── evaluation_results.csv  # Default location for evaluation CSV
+│   ├── logs/                  # Detailed log files
+│   │   └── comparison_*/      # Timestamped log directories
+│   └── evaluation_results.csv # Default location for evaluation CSV
 |
-├── compare_models.py           # Script for comparing base and fine-tuned models
-├── run_model_comparison.bat    # Batch file for running model comparison on Windows
-├── run_experiments.py          # Unified experiment script
-├── config.yaml                 # Central configuration file
-├── requirements.txt            # Python package dependencies
+├── config.yaml                # Central configuration file
+├── requirements.txt           # Python package dependencies
 ├── .gitignore
-└── README.md                   # This file
+└── README.md                  # This file
 ```
 
 ---
@@ -186,7 +222,7 @@ The project is organized into modules based on functionality:
 3.  **Setup Environment with CUDA Support:**
     ```bash
     # This script automatically sets up the environment with proper CUDA support
-    python setup_environment.py
+    python scripts/setup/setup_environment.py
     ```
     The setup script will:
     - Check for CUDA-compatible GPU
@@ -196,7 +232,7 @@ The project is organized into modules based on functionality:
 
     If you need to reinstall PyTorch with CUDA support later:
     ```bash
-    python setup_environment.py --force-reinstall
+    python scripts/setup/setup_environment.py --force-reinstall
     ```
 
 4.  **Alternative Manual Installation (NOT RECOMMENDED):**
@@ -232,7 +268,7 @@ Execute the steps in the following order from the project root directory (`FMLLM
     ```bash
     python knowledge_base/knowledge_base_builder.py
     ```
-*   Creates KB files in `output/knowledge_base/` (default).
+*   Creates KB files in `kb_data/` or `output/knowledge_base/` (depending on configuration).
 
 ### 3. Test Knowledge Base (Optional)
 
@@ -263,7 +299,7 @@ Place or generate fine-tuning data files (e.g., `.jsonl`) in the `data/` directo
     # Should output: CUDA available: True
     
     # If False, run the setup script
-    python setup_environment.py --force-reinstall
+    python scripts/setup/setup_environment.py --force-reinstall
     ```
 *   Run:
     ```bash
@@ -279,7 +315,7 @@ Place or generate fine-tuning data files (e.g., `.jsonl`) in the `data/` directo
     python inference/generate_certificate.py \
       "System Dynamics: dx/dt = -x**3 - y, dy/dt = x - y**3. Initial Set: x**2+y**2 <= 0.1. Unsafe Set: x >= 1.5"
     ```
-*   Uses adapter from `output/finetuning_results/` and KB from `output/knowledge_base/` (defaults).
+*   Uses adapter from `output/finetuning_results/` and KB from the configured location.
 
 ### 7. Evaluate the Pipeline
 
@@ -288,7 +324,7 @@ Place or generate fine-tuning data files (e.g., `.jsonl`) in the `data/` directo
     ```bash
     python evaluation/evaluate_pipeline.py
     ```
-*   Uses benchmark from `data/`, adapter/KB from `output/`, saves results to `output/evaluation_results.csv` (defaults).
+*   Uses benchmark from `data/`, adapter/KB from their respective locations, saves results to `output/evaluation_results.csv` (defaults).
 
 ---
 
@@ -334,7 +370,7 @@ This section provides detailed instructions for setting up and running the first
    - Build the knowledge base from the fetched papers:
      ```bash
      # Make sure output directory exists
-     mkdir -p output/knowledge_base
+     mkdir -p kb_data
      # Build the knowledge base
      python knowledge_base/knowledge_base_builder.py
      ```
@@ -438,7 +474,7 @@ A unified experiment runner script has been added to simplify the process of run
 
 ### Overview
 
-The `run_experiments.py` script provides a single command to execute the entire pipeline or specific parts of it. It handles:
+The `scripts/experiments/run_experiments.py` script provides a single command to execute the entire pipeline or specific parts of it. It handles:
 
 - Setting up directories
 - Loading environment variables from .env file or config
@@ -451,7 +487,7 @@ The `run_experiments.py` script provides a single command to execute the entire 
 To run the complete experiment pipeline:
 
 ```bash
-python run_experiments.py
+python scripts/experiments/run_experiments.py
 ```
 
 This will execute all steps in sequence using settings from `config.yaml`.
@@ -463,7 +499,7 @@ You can manage environment variables in three ways:
 1. **Using a .env file** (recommended):
    ```bash
    # Create a template .env file
-   python run_experiments.py --create-env-template
+   python scripts/experiments/run_experiments.py --create-env-template
    
    # Edit the file with your credentials
    nano .env
@@ -473,7 +509,7 @@ You can manage environment variables in three ways:
    - Add your credentials to the `env_vars` section in `config.yaml`
    - Run with the `--env-from-config` flag:
      ```bash
-     python run_experiments.py --env-from-config
+     python scripts/experiments/run_experiments.py --env-from-config
      ```
 
 3. **Using system environment variables** (traditional method):
@@ -489,26 +525,26 @@ You can run specific parts of the pipeline:
 
 ```bash
 # Run only data fetching
-python run_experiments.py --only-data-fetch
+python scripts/experiments/run_experiments.py --only-data-fetch
 
 # Run only knowledge base building
-python run_experiments.py --only-kb-build
+python scripts/experiments/run_experiments.py --only-kb-build
 
 # Run only fine-tuning
-python run_experiments.py --only-finetune
+python scripts/experiments/run_experiments.py --only-finetune
 
 # Run only evaluation
-python run_experiments.py --only-evaluate
+python scripts/experiments/run_experiments.py --only-evaluate
 
 # Run a single test example
-python run_experiments.py --test-example
+python scripts/experiments/run_experiments.py --test-example
 ```
 
 Or skip specific steps:
 
 ```bash
 # Skip data fetching and KB building (if already done)
-python run_experiments.py --skip-data-fetching --skip-kb-building
+python scripts/experiments/run_experiments.py --skip-data-fetching --skip-kb-building
 ```
 
 ### Experiment Variations
@@ -517,7 +553,7 @@ Control experiment parameters directly:
 
 ```bash
 # Change RAG context size
-python run_experiments.py --rag-k 5
+python scripts/experiments/run_experiments.py --rag-k 5
 ```
 
 ## Model Comparison Tool
@@ -526,7 +562,7 @@ The model comparison tool allows you to quantitatively evaluate the effectivenes
 
 ### Overview
 
-The `compare_models.py` script provides comprehensive comparison between:
+The `scripts/comparison/compare_models.py` script provides comprehensive comparison between:
 - The base model without fine-tuning or RAG
 - The fine-tuned model with RAG
 
@@ -552,16 +588,16 @@ You can also run the tool directly with various options:
 
 ```bash
 # Run only the base model evaluation
-python compare_models.py --base-only
+python scripts/comparison/compare_models.py --base-only
 
 # Run only the fine-tuned model evaluation
-python compare_models.py --ft-only
+python scripts/comparison/compare_models.py --ft-only
 
 # Generate report from existing results (skip evaluations)
-python compare_models.py --report-only
+python scripts/comparison/compare_models.py --report-only
 
 # Specify custom log directory
-python compare_models.py --log-dir=output/custom_logs
+python scripts/comparison/compare_models.py --log-dir=output/custom_logs
 ```
 
 ### Comparison Outputs
@@ -671,7 +707,7 @@ This error occurs when PyTorch was installed without CUDA support but the fine-t
 **Solution:**
 1. Run the setup script to reinstall PyTorch with CUDA support:
    ```bash
-   python setup_environment.py --force-reinstall
+   python scripts/setup/setup_environment.py --force-reinstall
    ```
 2. Verify the installation:
    ```bash
@@ -705,7 +741,7 @@ This typically means your CUDA toolkit version doesn't match the PyTorch build.
 **Solution:**
 1. Ensure all dependencies are installed:
    ```bash
-   python setup_environment.py
+   python scripts/setup/setup_environment.py
    ```
 2. If specific packages are still missing, install them manually:
    ```bash
@@ -723,7 +759,7 @@ This typically means your CUDA toolkit version doesn't match the PyTorch build.
    ```
 2. Try using the .env file approach:
    ```bash
-   python run_experiments.py --create-env-template
+   python scripts/experiments/run_experiments.py --create-env-template
    # Edit the .env file with your credentials
    ```
 
