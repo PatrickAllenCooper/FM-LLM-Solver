@@ -32,7 +32,11 @@ The `scripts/` directory has been organized into multiple subdirectories by purp
   - `run_parameterized_experiments.py`: Run experiments with different parameters
   - `run_barrier_certificate_experiments.sh`: Linux shell script for running barrier certificate experiments
   - `analyze_experiment_results.py`: Analyze and visualize experiment results
-  - Optimized scripts for running on different hardware (e.g., RTX 3080)
+  - `run_optimized_experiments.bat`: Windows batch file for running optimized 15B model experiments
+  - `run_optimized_experiments.sh`: Linux shell script for running optimized 15B model experiments
+  - `run_7b_model.bat`: Windows batch file for running experiments with 7B model
+  - `run_inference.bat`: Windows batch file for single inference test
+  - `run_inference.sh`: Linux shell script for single inference test
 
 - **scripts/knowledge_base/**: Knowledge base utilities
   - Various scripts for building and testing knowledge bases
@@ -90,6 +94,19 @@ python scripts/setup/setup_environment.py
 
 # Run fine-tuning directly
 python fine_tuning/finetune_llm.py
+```
+
+### Running Model Experiments
+
+To run experiments with different model sizes:
+
+```bash
+# For the 15B model (optimized for RTX 3080)
+.\scripts\experiments\run_optimized_experiments.bat  # Windows
+./scripts/experiments/run_optimized_experiments.sh   # Linux/Mac
+
+# For the 7B model
+.\scripts\experiments\run_7b_model.bat  # Windows
 ```
 
 All scripts have been updated to work with the new directory structure while maintaining backward compatibility with the previous structure. 
