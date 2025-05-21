@@ -42,7 +42,7 @@ copy config.yaml config.yaml.bak /Y
 echo Config backup created as config.yaml.bak
 
 :: Update the model in config
-powershell -Command "(Get-Content config.yaml) -replace 'base_model_name: Qwen/Qwen2.5-15B-Instruct', 'base_model_name: Qwen/Qwen2.5-7B-Instruct' | Set-Content config.yaml"
+powershell -Command "(Get-Content config.yaml) -replace 'base_model_name: \"Qwen/Qwen2.5-15B-Instruct\"', 'base_model_name: \"Qwen/Qwen2.5-7B-Instruct\"' | Set-Content config.yaml"
 echo Config updated to use 7B model
 
 echo.
