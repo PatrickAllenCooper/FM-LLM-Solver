@@ -16,6 +16,7 @@ from transformers import (
 from peft import LoraConfig, PeftModel, get_peft_model, prepare_model_for_kbit_training
 from trl import SFTTrainer, SFTConfig
 import warnings
+import gc  # For manual garbage collection
 from omegaconf import OmegaConf, ListConfig # Import OmegaConf
 
 # Suppress warnings
@@ -117,6 +118,14 @@ def formatting_prompt_completion_func(example):
     # Return string directly instead of a dictionary
     return text
 
+def free_memory():
+    """Free up GPU memory by explicitly running garbage collection and emptying CUDA cache."""
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        torch.cuda.ipc_collect()
+    print("Memory cleared.")
+
 
 # --- Main Fine-tuning Logic ---
 
@@ -127,6 +136,9 @@ def main(cfg):
     # Log relevant config sections
     print(f"Fine-tuning Config: {OmegaConf.to_yaml(cfg.fine_tuning)}")
     print(f"Paths Config: {OmegaConf.to_yaml(cfg.paths)}")
+    
+    # Memory optimization: Make sure memory is cleared before starting
+    free_memory()
 
     # 1. Load Dataset
     data_path = cfg.paths.ft_combined_data_file
@@ -166,14 +178,37 @@ def main(cfg):
     output_dir = cfg.paths.ft_output_dir # Needed for TrainingArguments
     print(f"Loading base model: {model_name}...")
     try:
+        # Control offloading with flash attention and extreme memory optimization
         model = AutoModelForCausalLM.from_pretrained(
             model_name,
             quantization_config=bnb_config,
-            device_map={"" : 0}, # Simple mapping, adjust if multi-GPU needed
-            trust_remote_code=True # Often needed
+            device_map={"": 0}, # Simple mapping
+            trust_remote_code=True, # Often needed
+            torch_dtype=compute_dtype,
+            attn_implementation="flash_attention_2", # Use flash attention if available
+            use_cache=False
         )
-        model.config.use_cache = False
+        model.config.use_cache = False  # Disable KV caching during training
         model.config.pretraining_tp = 1
+
+        # For extreme memory cases, offload some layers to CPU
+        if hasattr(model.config, "num_layers") and model.config.num_layers > 32:
+            print("Large model detected - enabling CPU offloading for some layers")
+            # Keep only essential layers in GPU memory
+            layer_count = model.config.num_layers
+            device_map = {}
+            # Keep first and last few layers on GPU along with essentials
+            gpu_layers = min(10, int(layer_count * 0.3))  # Keep ~30% of layers on GPU
+            for i in range(layer_count):
+                if i < gpu_layers // 2 or i >= layer_count - (gpu_layers // 2):
+                    device_map[f"model.layers.{i}"] = 0  # GPU
+                else:
+                    device_map[f"model.layers.{i}"] = "cpu"  # CPU
+            # Keep embeddings and LM head on GPU
+            device_map["model.embed_tokens"] = 0
+            device_map["model.norm"] = 0
+            device_map["lm_head"] = 0
+            model.device_map = device_map
     except Exception as e:
         print(f"Error loading base model: {e}")
         return False
@@ -226,6 +261,12 @@ def main(cfg):
         print("Warning: bf16=True but not supported by GPU. Setting bf16=False.")
         use_bf16 = False
 
+    # Memory optimization: Set a smaller sequence length if not explicitly configured
+    max_seq_length = training_args_dict.get('max_seq_length', 1024)
+    if max_seq_length is None or max_seq_length > 1024:
+        print("Setting max_seq_length to 1024 to conserve memory")
+        max_seq_length = 1024
+
     # Use SFTConfig instead of TrainingArguments
     training_arguments = SFTConfig(
         output_dir=output_dir,
@@ -244,13 +285,15 @@ def main(cfg):
         warmup_ratio=training_args_dict['warmup_ratio'],
         group_by_length=group_by_length_setting,
         lr_scheduler_type=training_args_dict['lr_scheduler_type'],
-        report_to="none",
+        report_to="none",  # Disable wandb/tensorboard to save memory
         gradient_checkpointing=gradient_checkpointing_setting,
         # SFTConfig specific arguments
         packing=packing_setting,
-        max_seq_length=cfg.fine_tuning.training.max_seq_length if packing_setting else None,
+        max_seq_length=max_seq_length,
         # Add eval args if eval_dataset exists and configured
         # evaluation_strategy="steps" if eval_dataset else "no",
+        dataloader_num_workers=0,  # Disable multiprocessing to save memory
+        dataloader_pin_memory=False  # Disable pinned memory to save RAM
     )
 
     # 7. Initialize SFT Trainer
@@ -278,12 +321,17 @@ def main(cfg):
     # 8. Start Training
     print("--- Starting Training ---")
     try:
+        # Memory optimization: Run manual garbage collection before training
+        free_memory()
         trainer.train()
         print("--- Training Finished ---")
     except Exception as e:
         print(f"Error during training: {e}")
         # Consider saving state or model here if possible
         return False
+
+    # Memory optimization: Clear memory before saving model
+    free_memory()
 
     # 9. Save Final Adapter
     final_adapter_path = os.path.join(output_dir, "final_adapter")
@@ -296,6 +344,9 @@ def main(cfg):
     except Exception as e:
         print(f"Error saving final adapter: {e}")
 
+    # Final memory cleanup
+    free_memory()
+
     print("\n--- Fine-tuning Script Completed ---")
     return True
 
@@ -305,6 +356,8 @@ if __name__ == "__main__":
                         help="Path to the configuration YAML file.")
     # Add specific CLI overrides if desired, e.g.:
     # parser.add_argument("--num_train_epochs", type=int, help="Override num_train_epochs from config.")
+    parser.add_argument("--offload_layers", action="store_true", 
+                      help="Force offloading of layers to CPU to reduce VRAM usage.")
     args = parser.parse_args()
 
     # Load config

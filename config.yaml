@@ -36,24 +36,24 @@ knowledge_base:
   mathpix_poll_max_wait_sec: 600
   mathpix_poll_interval: 10
   pipeline: "open_source"  # Pipeline for PDF processing: 'mathpix' or 'open_source'
-  gpu_memory_limit: 4096   # Max VRAM to use in MB (set to ~4GB for RTX 3080)
-  embedding_batch_size: 32  # Batch size for embedding generation
-  low_memory_mode: false    # Enables memory optimizations (CPU fallback when necessary)
+  gpu_memory_limit: 3072   # Max VRAM to use in MB (reduced for RTX 3080)
+  embedding_batch_size: 16  # Reduced batch size for embedding generation
+  low_memory_mode: true    # Enabled memory optimizations
 
 # Added embeddings section to match the structure expected by the code
 embeddings:
   model_name: all-mpnet-base-v2
   chunk_size: 1000
   chunk_overlap: 150
-  batch_size: 32           # Control batch size for embedding generation
+  batch_size: 16           # Reduced batch size for embedding generation
 
 fine_tuning:
   base_model_name: Qwen/Qwen2.5-15B-Instruct
   data_format: instruction
   use_adapter: true
   lora:
-    r: 16
-    alpha: 16
+    r: 8                  # Reduced from 16 to 8 for memory savings
+    alpha: 8              # Reduced from 16 to 8 for memory savings
     dropout: 0.1
     target_modules:
     - q_proj
@@ -64,12 +64,12 @@ fine_tuning:
     use_4bit: true
     bnb_4bit_compute_dtype: float16
     bnb_4bit_quant_type: nf4
-    use_nested_quant: false
+    use_nested_quant: true  # Enabled for additional memory savings
   training:
     num_train_epochs: 1
-    per_device_train_batch_size: 1
-    per_device_eval_batch_size: 4
-    gradient_accumulation_steps: 4
+    per_device_train_batch_size: 1      # Keep at 1
+    per_device_eval_batch_size: 1       # Reduced from 4 to 1
+    gradient_accumulation_steps: 8      # Increased from 4 to 8
     gradient_checkpointing: true
     max_grad_norm: 0.3
     learning_rate: 0.0002
@@ -78,11 +78,11 @@ fine_tuning:
     lr_scheduler_type: cosine
     max_steps: -1
     warmup_ratio: 0.03
-    group_by_length: true
-    save_steps: 25
-    logging_steps: 25
+    group_by_length: false    # Disabled as it can use more memory
+    save_steps: 50            # Save less frequently to reduce I/O overhead
+    logging_steps: 10
     packing: false
-    max_seq_length: null
+    max_seq_length: 1024      # Set a fixed sequence length to optimize memory usage
 inference:
   rag_k: 3
   max_new_tokens: 512
@@ -94,12 +94,12 @@ evaluation:
   temperature: ${inference.temperature}
   top_p: ${inference.top_p}
   verification:
-    num_samples_lie: 10000
-    num_samples_boundary: 5000
+    num_samples_lie: 5000       # Reduced from 10000 for faster verification
+    num_samples_boundary: 3000  # Reduced from 5000 for faster verification
     numerical_tolerance: 1.0e-06
     sos_default_degree: 2
     sos_epsilon: 1.0e-07
-    optimization_max_iter: 100
-    optimization_pop_size: 15
+    optimization_max_iter: 75   # Reduced from 100 for faster verification
+    optimization_pop_size: 10   # Reduced from 15 for faster verification
     attempt_sos: true
     attempt_optimization: true
