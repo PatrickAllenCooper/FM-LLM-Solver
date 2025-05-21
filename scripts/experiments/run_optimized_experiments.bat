@@ -5,6 +5,9 @@
 echo === FM-LLM-Solver Optimized Experiment Runner ===
 echo This script will run experiments with settings optimized for 15B models on RTX 3080 (10GB VRAM)
 
+:: Set working directory to project root
+cd ..\..
+
 :: Create necessary directories 
 mkdir output\knowledge_base 2>nul
 mkdir output\finetuning_results 2>nul

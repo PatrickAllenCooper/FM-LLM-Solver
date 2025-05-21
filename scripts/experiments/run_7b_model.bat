@@ -5,6 +5,9 @@
 echo === FM-LLM-Solver 7B Model Experiment Runner ===
 echo This script will run experiments with Qwen2.5-7B-Instruct model
 
+:: Set working directory to project root
+cd ..\..
+
 :: Create necessary directories 
 mkdir output\knowledge_base 2>nul
 mkdir output\finetuning_results 2>nul
