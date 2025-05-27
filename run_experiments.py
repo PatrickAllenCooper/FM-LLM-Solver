@@ -16,6 +16,7 @@ import subprocess
 from dotenv import load_dotenv
 from pathlib import Path
 from utils.config_loader import load_config, DEFAULT_CONFIG_PATH
+from knowledge_base.kb_utils import validate_kb_config, list_available_kbs, determine_kb_type_from_config
 from omegaconf import OmegaConf
 
 # Configure logging
@@ -49,6 +50,15 @@ def setup_experiment_env(cfg, args):
     args : argparse.Namespace
         Command-line arguments
     """
+    # Validate configuration
+    if not validate_kb_config(cfg):
+        logger.error("Invalid knowledge base configuration. Please check your config file.")
+        sys.exit(1)
+
+    # Determine barrier certificate type
+    kb_type = determine_kb_type_from_config(cfg)
+    logger.info(f"Experiment configured for {kb_type} barrier certificates")
+
     # Create necessary directories
     logger.info("Creating necessary directories...")
     os.makedirs(cfg.paths.data_dir, exist_ok=True)
@@ -56,6 +66,12 @@ def setup_experiment_env(cfg, args):
     os.makedirs(cfg.paths.output_dir, exist_ok=True)
     os.makedirs(cfg.paths.kb_output_dir, exist_ok=True)
     os.makedirs(cfg.paths.ft_output_dir, exist_ok=True)
+    
+    # Create type-specific directories if needed
+    if kb_type == "discrete":
+        os.makedirs(cfg.paths.kb_discrete_output_dir, exist_ok=True)
+    elif kb_type == "continuous":
+        os.makedirs(cfg.paths.kb_continuous_output_dir, exist_ok=True)
     
     # Check PyTorch CUDA support if fine-tuning is required
     if not args.skip_finetuning:
@@ -165,10 +181,11 @@ def build_knowledge_base(cfg, args):
         logger.info("Skipping knowledge base building step.")
         return True
         
-    # Check if knowledge base files already exist
-    kb_dir = cfg.paths.kb_output_dir
-    vector_store_path = Path(kb_dir) / Path(cfg.paths.kb_vector_store_filename)
-    metadata_path = Path(kb_dir) / Path(cfg.paths.kb_metadata_filename)
+    # Check if knowledge base files already exist based on barrier certificate type
+    from knowledge_base.kb_utils import get_active_kb_paths
+    kb_dir, vector_store_path, metadata_path = get_active_kb_paths(cfg)
+    vector_store_path = Path(vector_store_path)
+    metadata_path = Path(metadata_path)
     
     if vector_store_path.exists() and metadata_path.exists():
         logger.info(f"Knowledge base files found ({vector_store_path.name}, {metadata_path.name}). Skipping build.")

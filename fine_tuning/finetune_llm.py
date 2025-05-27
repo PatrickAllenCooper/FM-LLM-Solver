@@ -30,6 +30,7 @@ sys.path.insert(0, PROJECT_ROOT)
 
 # Now we can import from utils
 from utils.config_loader import load_config, DEFAULT_CONFIG_PATH
+from knowledge_base.kb_utils import get_ft_data_path_by_type, determine_kb_type_from_config
 
 # --- Configuration --- #
 
@@ -141,9 +142,25 @@ def main(cfg):
     free_memory()
 
     # 1. Load Dataset
-    data_path = cfg.paths.ft_combined_data_file
+    # Determine the appropriate data path based on barrier certificate type
+    kb_type = determine_kb_type_from_config(cfg)
+    data_path = get_ft_data_path_by_type(cfg, kb_type)
     data_format = cfg.fine_tuning.data_format
+    
+    print(f"Fine-tuning for barrier certificate type: {kb_type}")
     print(f"Loading dataset from {data_path} (Format: {data_format})...")
+    
+    # Check if the type-specific data file exists, fallback to combined if not
+    if not os.path.exists(data_path):
+        print(f"Type-specific data file not found: {data_path}")
+        fallback_path = cfg.paths.ft_combined_data_file
+        if os.path.exists(fallback_path):
+            print(f"Using fallback combined dataset: {fallback_path}")
+            data_path = fallback_path
+        else:
+            print(f"No fine-tuning data available. Please create data using create_finetuning_data.py")
+            return False
+    
     try:
         # Use data_files instead of data_path for Hugging Face datasets library
         dataset = load_dataset('json', data_files=data_path, split='train')

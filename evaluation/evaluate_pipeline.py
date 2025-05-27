@@ -27,6 +27,7 @@ import time
 import re
 import pandas as pd # For results summary
 from utils.config_loader import load_config, DEFAULT_CONFIG_PATH # Import config loader
+from knowledge_base.kb_utils import get_active_kb_paths, determine_kb_type_from_config, validate_kb_config
 from omegaconf import OmegaConf
 
 # Import necessary functions from other modules
@@ -268,6 +269,17 @@ def evaluate_pipeline(cfg: OmegaConf):
     """Main evaluation function, accepts OmegaConf object."""
     logging.info("--- Starting Evaluation Pipeline ---")
     
+    # Validate configuration
+    if not validate_kb_config(cfg):
+        logging.error("Invalid knowledge base configuration. Please check your config file.")
+        return
+    
+    # Determine barrier certificate type and paths
+    kb_type = determine_kb_type_from_config(cfg)
+    kb_output_dir, kb_vector_path, kb_metadata_path = get_active_kb_paths(cfg)
+    
+    logging.info(f"Evaluating {kb_type} barrier certificate pipeline")
+    
     # Configure logging level - adjust this based on your needs
     log_level = cfg.evaluation.get('log_level', 'INFO')
     if log_level == 'DEBUG':
@@ -281,7 +293,7 @@ def evaluate_pipeline(cfg: OmegaConf):
     
     logging.info(f"Evaluation Config:\n{OmegaConf.to_yaml(cfg.evaluation)}")
     logging.info(f"Using Model: {cfg.fine_tuning.base_model_name}")
-    logging.info(f"KB Path: {cfg.paths.kb_output_dir}")
+    logging.info(f"KB Path: {kb_output_dir}")
 
     # Get relevant config sections/values
     eval_cfg = cfg.evaluation
@@ -299,9 +311,10 @@ def evaluate_pipeline(cfg: OmegaConf):
     # Resolve paths
     benchmark_path = paths_cfg.eval_benchmark_file
     results_path = paths_cfg.eval_results_file
-    kb_dir = paths_cfg.kb_output_dir
-    vector_store_filename = paths_cfg.kb_vector_store_filename
-    metadata_filename = paths_cfg.kb_metadata_filename
+    # Use the determined KB paths
+    kb_dir = kb_output_dir
+    vector_store_filename = os.path.basename(kb_vector_path)
+    metadata_filename = os.path.basename(kb_metadata_path)
     adapter_path = os.path.join(paths_cfg.ft_output_dir, "final_adapter")
 
     # 1. Load Benchmark Systems
@@ -366,7 +379,7 @@ def evaluate_pipeline(cfg: OmegaConf):
         context = retrieve_context(system_input_text, embed_model, faiss_index, metadata, rag_k)
 
         # Prompt Formatting
-        prompt = format_prompt_with_context(system_input_text, context)
+        prompt = format_prompt_with_context(system_input_text, context, kb_type)
 
         # Generation and Parsing with Retries
         max_retries = eval_cfg.get('generation_max_retries', 10) # Increase default to 10 instead of 3

@@ -24,6 +24,7 @@ sys.path.insert(0, PROJECT_ROOT)
 
 # Now we can import the utils module
 from utils.config_loader import load_config, DEFAULT_CONFIG_PATH # Import config loader
+from knowledge_base.kb_utils import get_active_kb_paths, determine_kb_type_from_config, validate_kb_config
 from omegaconf import OmegaConf
 
 # --- Configuration ---
@@ -39,10 +40,24 @@ parser_init.add_argument("--config", type=str, default=DEFAULT_CONFIG_PATH, help
 args_init, _ = parser_init.parse_known_args()
 cfg = load_config(args_init.config)
 
-# Get config values (Paths and Models will be derived from loaded cfg)
-KB_DIR = cfg.paths.kb_output_dir
-VECTOR_STORE_FILENAME = cfg.paths.kb_vector_store_filename
-METADATA_FILENAME = cfg.paths.kb_metadata_filename
+# Validate configuration
+if not validate_kb_config(cfg):
+    py_logging.error("Invalid knowledge base configuration. Please check your config file.")
+    sys.exit(1)
+
+# Determine knowledge base type and get appropriate paths
+kb_type = determine_kb_type_from_config(cfg)
+kb_output_dir, kb_vector_path, kb_metadata_path = get_active_kb_paths(cfg)
+
+# Extract filenames from full paths for compatibility
+KB_DIR = kb_output_dir
+VECTOR_STORE_FILENAME = os.path.basename(kb_vector_path)
+METADATA_FILENAME = os.path.basename(kb_metadata_path)
+
+py_logging.info(f"Using {kb_type} barrier certificate knowledge base")
+py_logging.info(f"Knowledge base directory: {KB_DIR}")
+
+# Get config values (Models will be derived from loaded cfg)
 EMBEDDING_MODEL_NAME = cfg.knowledge_base.embedding_model_name
 BASE_MODEL_NAME = cfg.fine_tuning.base_model_name
 ADAPTER_PATH = os.path.join(cfg.paths.ft_output_dir, "final_adapter") # Construct adapter path
@@ -238,7 +253,7 @@ def retrieve_context(query, embedding_model, index, metadata_map, k):
         py_logging.debug("Exception details:", exc_info=True)
         return ""
 
-def format_prompt_with_context(system_description, context):
+def format_prompt_with_context(system_description, context, kb_type="unified"):
     """
     Formats the prompt for the LLM, including the retrieved context.
     
@@ -246,6 +261,7 @@ def format_prompt_with_context(system_description, context):
     1. An instruction to generate a barrier certificate
     2. Relevant context from research papers (if available)
     3. The system description provided by the user
+    4. Information about the barrier certificate type (discrete/continuous)
     
     The format follows the Llama 3 instruction style with <s>[INST] ... [/INST]
     
@@ -255,6 +271,8 @@ def format_prompt_with_context(system_description, context):
         Description of the autonomous system including dynamics, constraints, and sets
     context : str
         Retrieved context chunks from the knowledge base (can be empty)
+    kb_type : str
+        Type of barrier certificate knowledge base being used
     
     Returns
     -------
@@ -283,9 +301,27 @@ def format_prompt_with_context(system_description, context):
     example_b_func_vars = state_vars_str_for_prompt
     example_b_expr_var = actual_state_vars_list[0] if actual_state_vars_list else "x"
 
+    # Add barrier certificate type-specific guidance
+    type_guidance = ""
+    if kb_type == "discrete":
+        type_guidance = (
+            f"IMPORTANT: This system requires a DISCRETE barrier certificate. Focus on:\n"
+            f"- Approaches suitable for discrete-time systems or hybrid automata\n"
+            f"- Verification techniques for finite state spaces or symbolic methods\n"
+            f"- Discrete barrier functions that ensure safety across state transitions\n"
+        )
+    elif kb_type == "continuous":
+        type_guidance = (
+            f"IMPORTANT: This system requires a CONTINUOUS barrier certificate. Focus on:\n"
+            f"- Approaches suitable for continuous dynamical systems\n"
+            f"- Lie derivative conditions and differential constraints\n"
+            f"- Continuous barrier functions for flow-based safety verification\n"
+        )
+
     instruction = (
         f"You are an expert in control theory and dynamical systems. Your task is to propose a barrier certificate for the given autonomous system.\n"
         f"The state variables for this system are: {state_vars_str_for_prompt}.\n\n"
+        f"{type_guidance}"
         f"Please follow these steps carefully:\n"
         f"1. Analyze the system dynamics, initial set, unsafe set, and safe set (if provided) from the 'System Description' below.\n"
         f"2. Consider any relevant context from the 'Relevant Context from Papers' (if provided) that might inspire a similar form or approach for the barrier certificate.\n"
@@ -399,8 +435,8 @@ if __name__ == "__main__":
         print("No relevant context retrieved or knowledge base is empty.")
 
     # --- STEP 5: Generate Certificate ---
-    print("\n[5/5] Generating Barrier Certificate...")
-    prompt = format_prompt_with_context(args.system_description, context)
+    print(f"\n[5/5] Generating {kb_type.capitalize()} Barrier Certificate...")
+    prompt = format_prompt_with_context(args.system_description, context, kb_type)
     
     try:
         # Generate text
