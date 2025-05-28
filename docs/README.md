@@ -1,21 +1,5 @@
 # FMLLMSolver: Barrier Certificate Generation using LLMs
 
-## Repository Structure Update
-
-**🗂️ This repository has been recently reorganized for better maintainability and clarity.** The project structure has been improved to reduce clutter at the root level and organize files logically. See [`docs/REPOSITORY_STRUCTURE.md`](docs/REPOSITORY_STRUCTURE.md) for detailed information about the new organization and migration guide.
-
-**Key Changes:**
-- Scripts organized into subdirectories under `scripts/` 
-- Configuration files moved to `config/`
-- Tests moved to `tests/`
-- Documentation consolidated in `docs/`
-- Requirements files in `requirements/`
-- Logs in `logs/`
-
-**Backward Compatibility:** A copy of `config.yaml` is maintained at the root level for existing scripts.
-
----
-
 ## Recent Code Improvements
 
 This codebase has recently undergone significant refactoring and improvements to enhance usability, clarity, and maintainability:
@@ -102,123 +86,104 @@ The implemented pipeline includes modules for automated paper fetching, knowledg
 
 ## Project Structure
 
-The project is organized into logical directories based on functionality:
+The project is organized into modules based on functionality:
 
 ```
 ./
-├── config/                    # Configuration files
-│   ├── config.yaml           # Main configuration file
-│   ├── config.yaml.bak       # Backup configuration
-│   └── env.example           # Environment variables template
-│
-├── scripts/                  # All executable scripts organized by purpose
-│   ├── analysis/             # Analysis and comparison scripts  
-│   │   ├── analyze_comparison_results.py
-│   │   ├── analyze_experiment_results.py
-│   │   ├── compare_models.py
-│   │   └── compare_model_sizes.py
-│   ├── batch/                # Batch and shell scripts
-│   │   ├── *.bat             # Windows batch files
-│   │   └── *.sh              # Unix shell scripts  
-│   ├── build/                # Build and KB construction scripts
-│   │   ├── kb_builder.py
-│   │   ├── build_*.py
-│   │   ├── rebuild_*.py
-│   │   ├── optimize_*.py
-│   │   └── *debug*.py
-│   ├── run/                  # Main execution scripts
-│   │   ├── run_experiments.py
-│   │   ├── run_parameterized_experiments.py
-│   │   ├── run_mathpix_kb.py
-│   │   └── run_kb_build*.py
-│   └── setup/                # Setup and installation scripts
-│       ├── setup_environment.py
-│       ├── install_deps.py
-│       └── install_tqdm.py
-│
-├── tests/                    # Test files
-│   └── test_*.py
-│
-├── docs/                     # Documentation
-│   ├── README.md             # This file  
-│   ├── REPOSITORY_STRUCTURE.md # New structure documentation
-│   ├── EXPERIMENTS.md        # Experiment documentation
-│   ├── KB_BUILDER_README.md  # Knowledge base builder docs
-│   ├── OPTIMIZED_README.md   # Optimization guide for large models
-│   ├── AWQ_MODELS.md         # AWQ models documentation
-│   ├── MEMORY_OPTIMIZATION.md # Memory optimization guide
-│   ├── PROJECT_STRUCTURE.md  # Project structure overview
-│   └── DISCRETE_CONTINUOUS_BARRIER_CERTIFICATES.md
-│
-├── requirements/             # Requirements files
-│   ├── requirements.txt      # Main requirements
-│   └── open_source_kb_requirements.txt # Open source KB requirements
-│
-├── logs/                     # Log files
-│   └── experiment_run.log
-│
-├── data_fetching/            # Scripts for downloading papers
+├── data_fetching/             # Scripts for downloading papers
 │   ├── __init__.py
 │   └── paper_fetcher.py
-│
-├── evaluation/               # Scripts & data for pipeline evaluation
+|
+├── docs/                      # Documentation files
+│   ├── EXPERIMENTS.md         # Experiment documentation
+│   └── OPTIMIZED_README.md    # Optimization guide for large models
+|
+├── evaluation/                # Scripts & data for pipeline evaluation
 │   ├── __init__.py
 │   ├── evaluate_pipeline.py
 │   └── verify_certificate.py
-│
-├── fine_tuning/              # Scripts & data for fine-tuning the LLM
+|
+├── fine_tuning/               # Scripts & data for fine-tuning the LLM
 │   ├── __init__.py
 │   ├── create_finetuning_data.py
 │   ├── finetune_llm.py
 │   ├── generate_synthetic_data.py
 │   ├── extract_from_papers.py
 │   └── combine_datasets.py
-│
-├── inference/                # Scripts for running inference
+|
+├── inference/                 # Scripts for running inference
 │   ├── __init__.py
 │   └── generate_certificate.py
-│
-├── knowledge_base/           # Knowledge base code
+|
+├── kb_data/                   # Knowledge base data files
+│   ├── paper_index_mathpix.faiss
+│   └── paper_metadata_mathpix.jsonl
+|
+├── knowledge_base/            # Knowledge base code
 │   ├── knowledge_base_builder.py
 │   ├── alternative_pdf_processor.py
 │   ├── optimized_chunker.py
 │   ├── utils.py
 │   ├── README.md
 │   └── __init__.py
-│
-├── utils/                    # Utility functions
+|
+├── scripts/                   # Organized script files
+│   ├── comparison/            # Model comparison scripts
+│   │   ├── compare_model_sizes.py
+│   │   ├── compare_models.py
+│   │   ├── run_qwen15b_comparison.bat
+│   │   ├── run_model_comparison.bat
+│   │   └── analyze_comparison_results.py
+│   ├── experiments/           # Experiment execution scripts
+│   │   ├── run_experiments.py
+│   │   ├── run_parameterized_experiments.py
+│   │   ├── run_barrier_certificate_experiments.sh
+│   │   ├── analyze_experiment_results.py
+│   │   ├── run_optimized_experiments.bat
+│   │   ├── run_optimized_experiments.sh
+│   │   ├── run_inference.bat
+│   │   └── run_inference.sh
+│   ├── knowledge_base/        # Knowledge base scripts
+│   │   ├── test_minimal_pdf_processor.py
+│   │   ├── open_source_kb_requirements.txt
+│   │   └── various KB scripts
+│   ├── optimization/          # Optimization scripts
+│   │   ├── optimize_kb_build.py
+│   │   └── optimize_kb_build.bat
+│   └── setup/                 # Setup and installation scripts
+│       ├── install_deps.py
+│       ├── install_tqdm.py
+│       ├── setup_environment.py
+│       └── env.example
+|
+├── utils/                     # Utility functions
 │   ├── __init__.py
 │   └── config_loader.py
-│
-├── data/                     # Input data & fetched raw data
-│   ├── fetched_papers/       # Default location for downloaded PDFs
+|
+├── data/                      # Input data & fetched raw data
+│   ├── fetched_papers/        # Default location for downloaded PDFs
 │   ├── benchmark_systems.json # Evaluation benchmarks
-│   ├── user_ids.csv          # Input for data_fetching
-│   ├── ft_manual_data.jsonl  # Example fine-tuning data file
+│   ├── user_ids.csv           # Input for data_fetching
+│   ├── ft_manual_data.jsonl   # Example fine-tuning data file
 │   ├── ft_extracted_data_verified.jsonl # Example
 │   └── ft_data_combined.jsonl # Example combined data file
-│
-├── output/                   # Generated outputs
-│   ├── knowledge_base/       # Alternative location for FAISS index & metadata
-│   ├── finetuning_results/   # Default location for model checkpoints/adapter
+|
+├── output/                    # Generated outputs
+│   ├── knowledge_base/        # Alternative location for FAISS index & metadata
+│   ├── finetuning_results/    # Default location for model checkpoints/adapter
 │   │   └── final_adapter/
-│   ├── model_comparison/     # Model comparison reports and visualizations
+│   ├── model_comparison/      # Model comparison reports and visualizations
 │   │   ├── model_comparison_report_*.csv
 │   │   ├── system_level_comparison.csv
 │   │   └── model_comparison_charts.png
-│   ├── logs/                 # Detailed log files
-│   │   └── comparison_*/     # Timestamped log directories
+│   ├── logs/                  # Detailed log files
+│   │   └── comparison_*/      # Timestamped log directories
 │   └── evaluation_results.csv # Default location for evaluation CSV
-│
-├── kb_data/                  # Knowledge base data files
-│   ├── paper_index_mathpix.faiss
-│   └── paper_metadata_mathpix.jsonl
-│
-├── kb_data_discrete/         # Discrete barrier certificate KB
-├── config.yaml               # Config file (copy for compatibility)
+|
+├── config.yaml                # Central configuration file
+├── requirements.txt           # Python package dependencies
 ├── .gitignore
-├── LICENSE
-└── README.md                 # This file
+└── README.md                  # This file
 ```
 
 ---
