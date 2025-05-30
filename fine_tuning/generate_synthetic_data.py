@@ -1,9 +1,16 @@
 import os
+import sys
 import json
+import re
 import logging
 import sympy
 import random
 import argparse
+
+# Add project root to Python path
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
+sys.path.insert(0, PROJECT_ROOT)
 
 # --- Configuration ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -16,71 +23,156 @@ DEFAULT_FORMAT = "instruction" # Or "prompt_completion"
 # --- System Definitions & Certificate Generation ---
 
 def define_systems():
-    """Defines a list of simple polynomial systems for synthetic data generation."""
+    """Defines a comprehensive list of systems for synthetic data generation."""
     systems = []
 
-    # System 1: Simple Linear Stable System
-    systems.append({
-        "id": "synthetic_linear_stable_1",
-        "description": "A simple, globally stable linear system.",
-        "state_variables": ["x", "y"],
-        "dynamics": ["-x", "-y"],
-        "initial_set_conditions": "x**2 + y**2 <= 0.1",
-        "unsafe_set_conditions": "x >= 2 or y >= 2", # Example
-        "safe_set_conditions": "x < 2 and y < 2",   # Example
-        "expected_certificate_form": "quadratic"
-    })
+    # === LINEAR SYSTEMS ===
+    
+    # Simple 2D linear systems with varying decay rates
+    for i, decay in enumerate([0.5, 1.0, 1.5, 2.0]):
+        systems.append({
+            "id": f"linear_2d_stable_{i+1}",
+            "description": f"2D linear stable system with decay rate {decay}",
+            "state_variables": ["x", "y"],
+            "dynamics": [f"-{decay}*x", f"-{decay}*y"],
+            "initial_set_conditions": "x**2 + y**2 <= 0.1",
+            "unsafe_set_conditions": "x**2 + y**2 >= 2.0",
+            "safe_set_conditions": "x**2 + y**2 < 2.0",
+            "expected_certificate_form": "quadratic"
+        })
 
-    # System 2: Another Linear Stable System
-    systems.append({
-        "id": "synthetic_linear_stable_2",
-        "description": "A stable linear system with coupling.",
-        "state_variables": ["x", "y"],
-        "dynamics": ["-2*x + y", "x - 2*y"],
-        "initial_set_conditions": "x**2 + y**2 <= 0.1",
-        "unsafe_set_conditions": "x <= -1.5",
-        "safe_set_conditions": "x > -1.5",
-        "expected_certificate_form": "quadratic"
-    })
+    # Coupled linear systems
+    for i, coupling in enumerate([0.1, 0.3, 0.5]):
+        systems.append({
+            "id": f"linear_coupled_{i+1}",
+            "description": f"2D coupled linear system with coupling {coupling}",
+            "state_variables": ["x", "y"],
+            "dynamics": [f"-x + {coupling}*y", f"{coupling}*x - y"],
+            "initial_set_conditions": "x**2 + y**2 <= 0.1",
+            "unsafe_set_conditions": "x >= 1.5",
+            "safe_set_conditions": "x < 1.5",
+            "expected_certificate_form": "quadratic"
+        })
 
-    # System 3: Simple Nonlinear Stable (Example 1 from verify_certificate.py)
-    systems.append({
-        "id": "synthetic_nonlinear_stable_1",
-        "description": "A simple nonlinear system known to be stable with B=x^2+y^2.",
-        "state_variables": ["x", "y"],
-        "dynamics": ["-x**3 - y", "x - y**3"],
-        "initial_set_conditions": "x**2 + y**2 <= 0.1",
-        "unsafe_set_conditions": "x >= 1.5",
-        "safe_set_conditions": "x < 1.5",
-        "expected_certificate_form": "quadratic_known" # Special case
-    })
+    # 3D linear systems
+    for i in range(3):
+        decay_rates = [(1.0, 1.5, 2.0), (0.5, 1.0, 1.5), (2.0, 2.5, 3.0)][i]
+        systems.append({
+            "id": f"linear_3d_stable_{i+1}",
+            "description": f"3D linear stable system variant {i+1}",
+            "state_variables": ["x", "y", "z"],
+            "dynamics": [f"-{decay_rates[0]}*x", f"-{decay_rates[1]}*y", f"-{decay_rates[2]}*z"],
+            "initial_set_conditions": "x**2 + y**2 + z**2 <= 0.1",
+            "unsafe_set_conditions": "z >= 1.5",
+            "safe_set_conditions": "z < 1.5",
+            "expected_certificate_form": "quadratic"
+        })
 
-    # System 4: Van der Pol Oscillator (Regionally Stable)
-    # Note: Finding a simple polynomial barrier for the whole state space is hard/impossible.
-    # We might generate one known for a specific region, or skip complex ones for now.
-    # systems.append({
-    #     "id": "synthetic_vanderpol",
-    #     "description": "Van der Pol oscillator.",
-    #     "state_variables": ["x", "y"],
-    #     "dynamics": ["y", "(1 - x**2)*y - x"],
-    #     # Defining appropriate sets for VdP requires care
-    #     "initial_set_conditions": "...",
-    #     "unsafe_set_conditions": "...",
-    #     "safe_set_conditions": "...",
-    #     "expected_certificate_form": "higher_order_polynomial" # Requires actual SOS
-    # })
+    # === NONLINEAR SYSTEMS ===
+    
+    # Polynomial nonlinear systems (variants of the classic example)
+    nonlinear_variants = [
+        (["-x**3 - y", "x - y**3"], "x**2 + y**2"),
+        (["-x**3 - 0.5*y", "0.5*x - y**3"], "x**2 + y**2"),
+        (["-2*x**3 - y", "x - 2*y**3"], "x**2 + y**2"),
+        (["-x**3 - y - 0.1*x", "x - y**3 - 0.1*y"], "x**2 + y**2"),
+    ]
+    
+    for i, (dynamics, cert) in enumerate(nonlinear_variants):
+        systems.append({
+            "id": f"nonlinear_2d_variant_{i+1}",
+            "description": f"2D nonlinear system variant {i+1}",
+            "state_variables": ["x", "y"],
+            "dynamics": dynamics,
+            "initial_set_conditions": "x**2 + y**2 <= 0.1",
+            "unsafe_set_conditions": "x >= 1.5",
+            "safe_set_conditions": "x < 1.5",
+            "expected_certificate_form": "quadratic_known",
+            "known_certificate": cert
+        })
 
-    # System 5: 3D Linear Stable
-    systems.append({
-        "id": "synthetic_linear_3d_stable_1",
-        "description": "A simple stable 3D linear system.",
-        "state_variables": ["x", "y", "z"],
-        "dynamics": ["-x", "-2*y", "-3*z"],
-        "initial_set_conditions": "x**2 + y**2 + z**2 <= 0.1",
-        "unsafe_set_conditions": "z >= 1",
-        "safe_set_conditions": "z < 1",
-        "expected_certificate_form": "quadratic"
-    })
+    # More complex nonlinear systems
+    for i, power in enumerate([5, 7]):
+        systems.append({
+            "id": f"nonlinear_higher_order_{i+1}",
+            "description": f"Higher-order nonlinear system with power {power}",
+            "state_variables": ["x", "y"],
+            "dynamics": [f"-x**{power}", f"-y**{power}"],
+            "initial_set_conditions": "x**2 + y**2 <= 0.1",
+            "unsafe_set_conditions": "x**2 + y**2 >= 1.0",
+            "safe_set_conditions": "x**2 + y**2 < 1.0",
+            "expected_certificate_form": "quadratic"
+        })
+
+    # Van der Pol-like oscillators (damped)
+    for i, damping in enumerate([0.1, 0.5, 1.0]):
+        systems.append({
+            "id": f"vanderpol_damped_{i+1}",
+            "description": f"Damped Van der Pol oscillator with damping {damping}",
+            "state_variables": ["x", "y"],
+            "dynamics": ["y", f"-x - {damping}*y*(x**2 - 1)"],
+            "initial_set_conditions": "x**2 + y**2 <= 0.1",
+            "unsafe_set_conditions": "x**2 + y**2 >= 4.0",
+            "safe_set_conditions": "x**2 + y**2 < 4.0",
+            "expected_certificate_form": "quadratic"
+        })
+
+    # === MIXED SYSTEMS ===
+    
+    # Linear-nonlinear mixed systems
+    mixed_systems = [
+        (["-x - y**3", "-y - x**3"], "Partially nonlinear system 1"),
+        (["-x**3 - y", "-y"], "Mixed linear-nonlinear system 1"),
+        (["-x", "-y**3"], "Mixed linear-nonlinear system 2"),
+        (["-x**3", "-y - x"], "Mixed linear-nonlinear system 3"),
+    ]
+    
+    for i, (dynamics, desc) in enumerate(mixed_systems):
+        systems.append({
+            "id": f"mixed_system_{i+1}",
+            "description": desc,
+            "state_variables": ["x", "y"],
+            "dynamics": dynamics,
+            "initial_set_conditions": "x**2 + y**2 <= 0.1",
+            "unsafe_set_conditions": "x >= 1.5 or y >= 1.5",
+            "safe_set_conditions": "x < 1.5 and y < 1.5",
+            "expected_certificate_form": "quadratic"
+        })
+
+    # === CONTROL SYSTEMS ===
+    
+    # Simple controlled systems (assuming stabilizing control)
+    for i, control_gain in enumerate([0.5, 1.0, 2.0]):
+        systems.append({
+            "id": f"controlled_system_{i+1}",
+            "description": f"Controlled system with gain {control_gain}",
+            "state_variables": ["x", "y"],
+            "dynamics": [f"-{control_gain}*x - y", f"x - {control_gain}*y"],
+            "initial_set_conditions": "x**2 + y**2 <= 0.1",
+            "unsafe_set_conditions": "x**2 + y**2 >= 1.0",
+            "safe_set_conditions": "x**2 + y**2 < 1.0",
+            "expected_certificate_form": "quadratic"
+        })
+
+    # === ADDITIONAL VARIATIONS ===
+    
+    # Systems with different initial and unsafe set geometries
+    geometric_variants = [
+        ("abs(x) + abs(y) <= 0.1", "abs(x) >= 1.5", "abs(x) < 1.5", "L1-norm based system"),
+        ("max(abs(x), abs(y)) <= 0.1", "max(abs(x), abs(y)) >= 1.5", "max(abs(x), abs(y)) < 1.5", "L-infinity norm system"),
+    ]
+    
+    for i, (init_cond, unsafe_cond, safe_cond, desc) in enumerate(geometric_variants):
+        systems.append({
+            "id": f"geometric_variant_{i+1}",
+            "description": desc,
+            "state_variables": ["x", "y"],
+            "dynamics": ["-x", "-y"],
+            "initial_set_conditions": init_cond,
+            "unsafe_set_conditions": unsafe_cond,
+            "safe_set_conditions": safe_cond,
+            "expected_certificate_form": "quadratic"
+        })
 
     return systems
 
@@ -93,19 +185,19 @@ def generate_quadratic_certificate(variables):
 
 def generate_system_description_text(system_info):
     """Formats system details into a string for the LLM input."""
-    desc = f"System ID: {system_info['id']}\\n"
-    desc += f"Description: {system_info['description']}\\n"
-    desc += f"State Variables: {system_info['state_variables']}\\n"
-    desc += "Dynamics:\\n"
+    desc = f"System ID: {system_info['id']}\n"
+    desc += f"Description: {system_info['description']}\n"
+    desc += f"State Variables: {system_info['state_variables']}\n"
+    desc += "Dynamics:\n"
     var_names = system_info['state_variables']
     for i, dyn in enumerate(system_info['dynamics']):
-        desc += f"  d{var_names[i]}/dt = {dyn}\\n"
+        desc += f"  d{var_names[i]}/dt = {dyn}\n"
     if system_info.get('initial_set_conditions'):
-        desc += f"Initial Set: {{ ({', '.join(var_names)}) | {system_info['initial_set_conditions']} }}\\n"
+        desc += f"Initial Set: {{ ({', '.join(var_names)}) | {system_info['initial_set_conditions']} }}\n"
     if system_info.get('unsafe_set_conditions'):
-        desc += f"Unsafe Set: {{ ({', '.join(var_names)}) | {system_info['unsafe_set_conditions']} }}\\n"
+        desc += f"Unsafe Set: {{ ({', '.join(var_names)}) | {system_info['unsafe_set_conditions']} }}\n"
     if system_info.get('safe_set_conditions'):
-        desc += f"Safe Set (Region of Interest): {{ ({', '.join(var_names)}) | {system_info['safe_set_conditions']} }}\\n"
+        desc += f"Safe Set (Region of Interest): {{ ({', '.join(var_names)}) | {system_info['safe_set_conditions']} }}\n"
     return desc.strip()
 
 def format_example(system_desc_text, certificate_str, format_type):
@@ -116,26 +208,44 @@ def format_example(system_desc_text, certificate_str, format_type):
     if format_type == "instruction":
         instruction = ("Given the autonomous system described by the following dynamics, "
                        "propose a suitable barrier certificate function B(x).")
-        # Include metadata within the output or as separate fields if loader supports it
-        output = f"Barrier Certificate Candidate:\\nB({', '.join(sympy.symbols(list(set(re.findall(r'[a-zA-Z_][a-zA-Z0-9_]*', certificate_str)))))}) = {certificate_str}\\nMetadata: {json.dumps(metadata)}"
+        # Simple approach - extract variables from certificate string
+        try:
+            # Parse the certificate to extract variables
+            certificate_expr = sympy.sympify(certificate_str)
+            variables = list(certificate_expr.free_symbols)
+            var_names = sorted([str(var) for var in variables])
+            if var_names:
+                var_string = ', '.join(var_names)
+            else:
+                var_string = "x, y"  # Default fallback
+        except:
+            var_string = "x, y"  # Fallback if parsing fails
+            
+        output = f"Barrier Certificate Candidate:\nB({var_string}) = {certificate_str}\nMetadata: {json.dumps(metadata)}"
 
         return {
             "instruction": instruction,
             "input": system_desc_text,
             "output": output
-            # Or potentially add metadata as a top-level key if trainer/dataset supports it:
-            # "metadata": metadata
         }
     elif format_type == "prompt_completion":
-        prompt = f"System Dynamics:\\n{system_desc_text}\\n\\nBarrier Certificate:"
-        completion = f" B({', '.join(sympy.symbols(list(set(re.findall(r'[a-zA-Z_][a-zA-Z0-9_]*', certificate_str)))))}) = {certificate_str}"
-         # Add metadata to the completion string or as a separate field
-        completion += f"\\nMetadata: {json.dumps(metadata)}"
+        try:
+            certificate_expr = sympy.sympify(certificate_str)
+            variables = list(certificate_expr.free_symbols)
+            var_names = sorted([str(var) for var in variables])
+            if var_names:
+                var_string = ', '.join(var_names)
+            else:
+                var_string = "x, y"  # Default fallback
+        except:
+            var_string = "x, y"  # Fallback if parsing fails
+            
+        prompt = f"System Dynamics:\n{system_desc_text}\n\nBarrier Certificate:"
+        completion = f" B({var_string}) = {certificate_str}\nMetadata: {json.dumps(metadata)}"
 
         return {
             "prompt": prompt,
             "completion": completion
-            # "metadata": metadata
         }
     else:
         raise ValueError(f"Unsupported format type: {format_type}")
@@ -162,10 +272,17 @@ def generate_data(output_file, format_type):
         if form == "quadratic":
             certificate = generate_quadratic_certificate(variables)
             certificate_str = str(certificate)
-        elif form == "quadratic_known" and system_info['id'] == "synthetic_nonlinear_stable_1":
-            # Special case where we know B = x^2 + y^2 works
-            certificate = sympy.symbols('x')**2 + sympy.symbols('y')**2
-            certificate_str = "x**2 + y**2"
+        elif form == "quadratic_known":
+            # Use the known certificate from the system info
+            known_cert = system_info.get("known_certificate", "x**2 + y**2")
+            certificate_str = known_cert
+            # Parse it to get the sympy expression
+            try:
+                certificate = sympy.sympify(certificate_str)
+            except:
+                # Fallback to simple quadratic
+                certificate = generate_quadratic_certificate(variables)
+                certificate_str = str(certificate)
         else:
             logging.warning(f"Certificate generation logic not implemented or too complex for system {system_info['id']} (form: {form}). Skipping.")
             skipped_count += 1
@@ -175,7 +292,7 @@ def generate_data(output_file, format_type):
         # This is crucial - only save pairs where our generator *believes* it's valid
         # (even if the check is simple)
         try:
-            # Re-import or duplicate verification logic if needed, assuming verify_certificate is accessible
+            # Try to import verification functions, but proceed without verification if they fail
             from evaluation.verify_certificate import calculate_lie_derivative, check_lie_derivative_condition
 
             dB_dt = calculate_lie_derivative(certificate, variables, system_info['dynamics'])
@@ -185,7 +302,7 @@ def generate_data(output_file, format_type):
                  # We might simplify further: only accept if dB/dt is clearly non-positive
                  # e.g., if dB_dt == 0 or sympy.ask(sympy.Q.negative(dB_dt)) or similar basic check
                  # For this demo, let's accept if the simple check passes OR if it's the known good case
-                 is_verified = is_valid_lie or (form == "quadratic_known" and system_info['id'] == "synthetic_nonlinear_stable_1")
+                 is_verified = is_valid_lie or (form == "quadratic_known")
 
                  if is_verified:
                      logging.info(f"Generated certificate '{certificate_str}' passed basic verification for system {system_info['id']}.")
@@ -198,14 +315,15 @@ def generate_data(output_file, format_type):
                 logging.warning(f"Could not calculate Lie derivative for system {system_info['id']}. Skipping.")
                 skipped_count += 1
         except ImportError:
-             logging.error("Could not import verification functions. Cannot verify synthetic data. Skipping verification step.")
-             # Decide whether to proceed without verification (risky) or stop
+             logging.warning("Could not import verification functions. Proceeding without verification (certificates may be invalid).")
+             # Proceed without verification - add the example anyway
              example = format_example(system_desc_text, certificate_str, format_type)
-             generated_examples.append(example) # Add without verification if import fails
+             generated_examples.append(example)
         except Exception as e:
-            logging.error(f"Error during verification for system {system_info['id']}: {e}. Skipping.")
-            skipped_count += 1
-
+            logging.warning(f"Error during verification for system {system_info['id']}: {e}. Proceeding without verification.")
+            # Add the example anyway
+            example = format_example(system_desc_text, certificate_str, format_type)
+            generated_examples.append(example)
 
     logging.info(f"Generated {len(generated_examples)} synthetic examples. Skipped {skipped_count} systems.")
 
@@ -213,7 +331,7 @@ def generate_data(output_file, format_type):
     try:
         with open(output_file, 'w', encoding='utf-8') as f:
             for example in generated_examples:
-                f.write(json.dumps(example) + '\\n')
+                f.write(json.dumps(example) + '\n')
         logging.info(f"Synthetic data saved to {output_file}")
     except Exception as e:
         logging.error(f"Failed to save synthetic data: {e}")

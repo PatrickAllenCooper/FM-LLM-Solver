@@ -196,14 +196,30 @@ def main(cfg):
     print(f"Loading base model: {model_name}...")
     try:
         # Control offloading with flash attention and extreme memory optimization
+        # Try to detect if flash_attn is available
+        try:
+            import flash_attn
+            use_flash_attention = True
+            print("FlashAttention2 detected, will use flash_attention_2")
+        except ImportError:
+            use_flash_attention = False
+            print("FlashAttention2 not available, using standard attention")
+        
+        model_kwargs = {
+            "quantization_config": bnb_config,
+            "device_map": {"": 0}, # Simple mapping
+            "trust_remote_code": True, # Often needed
+            "torch_dtype": compute_dtype,
+            "use_cache": False
+        }
+        
+        # Only add flash attention if available
+        if use_flash_attention:
+            model_kwargs["attn_implementation"] = "flash_attention_2"
+        
         model = AutoModelForCausalLM.from_pretrained(
             model_name,
-            quantization_config=bnb_config,
-            device_map={"": 0}, # Simple mapping
-            trust_remote_code=True, # Often needed
-            torch_dtype=compute_dtype,
-            attn_implementation="flash_attention_2", # Use flash attention if available
-            use_cache=False
+            **model_kwargs
         )
         model.config.use_cache = False  # Disable KV caching during training
         model.config.pretraining_tp = 1

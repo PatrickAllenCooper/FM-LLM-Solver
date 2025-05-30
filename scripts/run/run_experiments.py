@@ -15,6 +15,12 @@ import json
 import subprocess
 from dotenv import load_dotenv
 from pathlib import Path
+
+# Add project root to Python path
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, "..", ".."))
+sys.path.insert(0, PROJECT_ROOT)
+
 from utils.config_loader import load_config, DEFAULT_CONFIG_PATH
 from knowledge_base.kb_utils import validate_kb_config, list_available_kbs, determine_kb_type_from_config
 from omegaconf import OmegaConf
@@ -89,8 +95,8 @@ def setup_experiment_env(cfg, args):
                         logger.warning("CUDA hardware detected but PyTorch was installed without CUDA support!")
                         if not args.skip_deps_check:
                             logger.info("Running environment setup script to fix PyTorch installation...")
-                            setup_cmd = [sys.executable, "setup_environment.py", "--force-reinstall"]
-                            subprocess.run(setup_cmd, check=True)
+                            setup_cmd = [sys.executable, os.path.join(PROJECT_ROOT, "scripts/setup/setup_environment.py"), "--force-reinstall"]
+                            subprocess.run(setup_cmd, check=True, cwd=PROJECT_ROOT)
                             
                             # Verify again
                             import importlib
@@ -107,8 +113,8 @@ def setup_experiment_env(cfg, args):
             logger.error("PyTorch not installed. Please run setup_environment.py first.")
             if not args.skip_deps_check:
                 logger.info("Running environment setup script...")
-                setup_cmd = [sys.executable, "setup_environment.py"]
-                subprocess.run(setup_cmd, check=True)
+                setup_cmd = [sys.executable, os.path.join(PROJECT_ROOT, "scripts/setup/setup_environment.py")]
+                subprocess.run(setup_cmd, check=True, cwd=PROJECT_ROOT)
     
     # Set environment variables from config
     if args.env_from_config:
@@ -148,12 +154,13 @@ def fetch_data(cfg, args):
         return False
         
     try:
-        cmd = [sys.executable, "data_fetching/paper_fetcher.py"]
+        cmd = [sys.executable, os.path.join(PROJECT_ROOT, "data_fetching/paper_fetcher.py")]
         config_path = args.config if args.config else DEFAULT_CONFIG_PATH
         cmd.extend(["--config", config_path])
             
         logger.info(f"Executing: {' '.join(cmd)}")
-        subprocess.run(cmd, check=True)
+        # Ensure we run from project root
+        subprocess.run(cmd, check=True, cwd=PROJECT_ROOT)
         logger.info("Data fetching completed successfully.")
         return True
     except subprocess.CalledProcessError as e:
@@ -201,7 +208,7 @@ def build_knowledge_base(cfg, args):
         return False
         
     try:
-        cmd = [sys.executable, "knowledge_base/knowledge_base_builder.py"]
+        cmd = [sys.executable, os.path.join(PROJECT_ROOT, "knowledge_base/knowledge_base_builder.py")]
         config_path = args.config if args.config else DEFAULT_CONFIG_PATH
         cmd.extend(["--config", config_path])
             
@@ -220,7 +227,8 @@ def build_knowledge_base(cfg, args):
             result = subprocess.run(
                 cmd, 
                 check=False,  # Don't raise exception on non-zero exit
-                env=dict(os.environ, PYTHONUNBUFFERED='1')  # Ensure unbuffered output
+                env=dict(os.environ, PYTHONUNBUFFERED='1'),  # Ensure unbuffered output
+                cwd=PROJECT_ROOT  # Run from project root
             )
             
             exit_code = result.returncode
@@ -232,7 +240,8 @@ def build_knowledge_base(cfg, args):
                 stderr=subprocess.STDOUT,
                 universal_newlines=True,
                 bufsize=1,  # Line buffered
-                env=dict(os.environ, PYTHONUNBUFFERED='1')  # Ensure unbuffered output
+                env=dict(os.environ, PYTHONUNBUFFERED='1'),  # Ensure unbuffered output
+                cwd=PROJECT_ROOT  # Run from project root
             ) as process:
                 # Read output in real-time and print it
                 for line in process.stdout:
@@ -276,12 +285,12 @@ def prepare_finetune_data(cfg, args):
     logger.info("Starting fine-tuning data preparation...")
     
     try:
-        cmd = [sys.executable, "fine_tuning/combine_datasets.py"]
+        cmd = [sys.executable, os.path.join(PROJECT_ROOT, "fine_tuning/combine_datasets.py")]
         config_path = args.config if args.config else DEFAULT_CONFIG_PATH
         cmd.extend(["--config", config_path])
             
         logger.info(f"Executing: {' '.join(cmd)}")
-        subprocess.run(cmd, check=True)
+        subprocess.run(cmd, check=True, cwd=PROJECT_ROOT)
         logger.info("Fine-tuning data preparation completed successfully.")
         return True
     except subprocess.CalledProcessError as e:
@@ -311,12 +320,12 @@ def finetune_model(cfg, args):
     logger.info("Starting model fine-tuning...")
     
     try:
-        cmd = [sys.executable, "fine_tuning/finetune_llm.py"]
+        cmd = [sys.executable, os.path.join(PROJECT_ROOT, "fine_tuning/finetune_llm.py")]
         config_path = args.config if args.config else DEFAULT_CONFIG_PATH
         cmd.extend(["--config", config_path])
             
         logger.info(f"Executing: {' '.join(cmd)}")
-        subprocess.run(cmd, check=True)
+        subprocess.run(cmd, check=True, cwd=PROJECT_ROOT)
         logger.info("Model fine-tuning completed successfully.")
         return True
     except subprocess.CalledProcessError as e:
@@ -342,7 +351,7 @@ def run_experiment(cfg, args):
     logger.info("Starting experiment evaluation...")
     
     try:
-        cmd = [sys.executable, "evaluation/evaluate_pipeline.py"]
+        cmd = [sys.executable, os.path.join(PROJECT_ROOT, "evaluation/evaluate_pipeline.py")]
         config_path = args.config if args.config else DEFAULT_CONFIG_PATH
         cmd.extend(["--config", config_path])
         
@@ -355,7 +364,7 @@ def run_experiment(cfg, args):
             cmd.extend(["--benchmark", args.benchmark_file])
             
         logger.info(f"Executing: {' '.join(cmd)}")
-        subprocess.run(cmd, check=True)
+        subprocess.run(cmd, check=True, cwd=PROJECT_ROOT)
         logger.info("Experiment evaluation completed successfully.")
         return True
     except subprocess.CalledProcessError as e:
@@ -371,7 +380,7 @@ def full_pipeline(cfg, args):
         logger.info("Running test example...")
         test_cmd = [
             sys.executable, 
-            "inference/generate_certificate.py",
+            os.path.join(PROJECT_ROOT, "inference/generate_certificate.py"),
             "System Dynamics: dx/dt = -x**3 - y, dy/dt = x - y**3. Initial Set: x**2+y**2 <= 0.1. Unsafe Set: x >= 1.5"
         ]
         
@@ -379,16 +388,8 @@ def full_pipeline(cfg, args):
         config_path = args.config if args.config else DEFAULT_CONFIG_PATH
         test_cmd.extend(["--config", config_path])
         
-        # Add --skip-kb-check option if requested
-        if args.skip_kb_check:
-            test_cmd.append("--skip-kb-check")
-            
-        # Add --skip-adapter option if requested
-        if args.skip_adapter:
-            test_cmd.append("--skip-adapter")
-        
         logger.info(f"Executing: {' '.join(test_cmd)}")
-        subprocess.run(test_cmd)
+        subprocess.run(test_cmd, cwd=PROJECT_ROOT)
         logger.info("Test example completed.")
         return
     
@@ -514,8 +515,6 @@ def main():
     parser.add_argument("--only-finetune", action="store_true", help="Only run model fine-tuning")
     parser.add_argument("--only-evaluate", action="store_true", help="Only run evaluation")
     parser.add_argument("--test-example", action="store_true", help="Only run a single test example")
-    parser.add_argument("--skip-kb-check", action="store_true", help="Skip knowledge base check when running test example")
-    parser.add_argument("--skip-adapter", action="store_true", help="Skip loading the adapter and use only the base model")
     
     # Experiment parameters
     parser.add_argument("--rag-k", type=int, help="Number of context chunks to retrieve")
