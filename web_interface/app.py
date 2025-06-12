@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, redirect, url_for, flash
+from flask import Flask, render_template, request, jsonify, redirect, url_for, flash, abort
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 import os
@@ -48,7 +48,7 @@ def index():
     """Main interface for querying models."""
     # Get available model configurations
     model_configs = certificate_generator.get_available_models()
-    recent_queries = QueryLog.query.order_by(QueryLog.timestamp.desc()).limit(10).all()
+    recent_queries = db.session.query(QueryLog).order_by(QueryLog.timestamp.desc()).limit(10).all()
     
     return render_template('index.html', 
                          model_configs=model_configs, 
@@ -121,7 +121,7 @@ def process_query_background(task_id, query_id, system_description, model_config
             start_time = datetime.utcnow()
             
             # Update query with start time
-            query = QueryLog.query.get(query_id)
+            query = db.session.get(QueryLog, query_id)
             if query:
                 query.processing_start = start_time
                 db.session.commit()
@@ -138,7 +138,7 @@ def process_query_background(task_id, query_id, system_description, model_config
             background_tasks[task_id]['progress'] = 50
             
             # Update query with generation result
-            query = QueryLog.query.get(query_id)
+            query = db.session.get(QueryLog, query_id)
             if query is None:
                 app.logger.error(f"Query {query_id} not found in database")
                 background_tasks[task_id]['status'] = 'failed'
@@ -198,7 +198,7 @@ def process_query_background(task_id, query_id, system_description, model_config
             
             try:
                 # Update query with error (with additional error handling)
-                query = QueryLog.query.get(query_id)
+                query = db.session.get(QueryLog, query_id)
                 if query:
                     query.status = 'failed'
                     query.error_message = str(e)
@@ -232,7 +232,7 @@ def get_task_status(task_id):
         response['error'] = task.get('error', 'Unknown error')
     elif task['status'] == 'completed':
         # Get query results
-        query = QueryLog.query.get(task['query_id'])
+        query = db.session.get(QueryLog, task['query_id'])
         if query:
             response['query'] = {
                 'id': query.id,
@@ -263,8 +263,10 @@ def cleanup_completed_task(task_id, delay_seconds=30):
 @app.route('/query/<int:query_id>')
 def view_query(query_id):
     """View detailed results for a specific query."""
-    query = QueryLog.query.get_or_404(query_id)
-    verification = VerificationResult.query.filter_by(query_id=query_id).first()
+    query = db.session.get(QueryLog, query_id)
+    if query is None:
+        abort(404)
+    verification = db.session.query(VerificationResult).filter_by(query_id=query_id).first()
     
     verification_details = None
     if verification and verification.verification_details:
@@ -282,7 +284,8 @@ def view_query(query_id):
 def query_history():
     """View query history with pagination."""
     page = request.args.get('page', 1, type=int)
-    queries = QueryLog.query.order_by(QueryLog.timestamp.desc()).paginate(
+    queries = db.paginate(
+        db.select(QueryLog).order_by(QueryLog.timestamp.desc()),
         page=page, per_page=20, error_out=False
     )
     
@@ -291,12 +294,12 @@ def query_history():
 @app.route('/api/stats')
 def get_stats():
     """Get application statistics."""
-    total_queries = QueryLog.query.count()
-    successful_queries = QueryLog.query.filter_by(status='completed').count()
-    failed_queries = QueryLog.query.filter_by(status='failed').count()
+    total_queries = db.session.query(QueryLog).count()
+    successful_queries = db.session.query(QueryLog).filter_by(status='completed').count()
+    failed_queries = db.session.query(QueryLog).filter_by(status='failed').count()
     
     # Verification statistics
-    verifications = VerificationResult.query.all()
+    verifications = db.session.query(VerificationResult).all()
     numerical_passed = sum(1 for v in verifications if v.numerical_check_passed)
     symbolic_passed = sum(1 for v in verifications if v.symbolic_check_passed)
     sos_passed = sum(1 for v in verifications if v.sos_check_passed)
