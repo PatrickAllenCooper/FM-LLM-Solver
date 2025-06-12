@@ -774,6 +774,300 @@ def optimization_based_falsification(B_func, dB_dt_func, sampling_bounds, variab
     return overall_violation_found, results
 
 
+# --- Discrete-Time Verification Functions ---
+
+def detect_system_type(dynamics_str_list):
+    """
+    Detect if the system is discrete-time or continuous-time based on dynamics format.
+    
+    Parameters
+    ----------
+    dynamics_str_list : list of str
+        List of dynamics equation strings
+        
+    Returns
+    -------
+    str
+        'discrete' if discrete-time system, 'continuous' if continuous-time system
+    """
+    discrete_patterns = [
+        r'[a-zA-Z_]\w*\s*\{\s*k\s*\+\s*1\s*\}\s*=',  # x{k+1} = 
+        r'[a-zA-Z_]\w*_\{\s*k\s*\+\s*1\s*\}\s*=',    # x_{k+1} = 
+        r'[a-zA-Z_]\w*\[\s*k\s*\+\s*1\s*\]\s*=',     # x[k+1] = 
+        r'[a-zA-Z_]\w*\(\s*k\s*\+\s*1\s*\)\s*=',     # x(k+1) = 
+    ]
+    
+    continuous_patterns = [
+        r'd[a-zA-Z_]\w*/dt\s*=',                       # dx/dt = 
+        r'[a-zA-Z_]\w*\'\s*=',                        # x' = 
+        r'[a-zA-Z_]\w*_dot\s*=',                      # x_dot = 
+    ]
+    
+    discrete_count = 0
+    continuous_count = 0
+    
+    for dyn_str in dynamics_str_list:
+        # Check for discrete-time patterns
+        for pattern in discrete_patterns:
+            if re.search(pattern, dyn_str, re.IGNORECASE):
+                discrete_count += 1
+                break
+        
+        # Check for continuous-time patterns  
+        for pattern in continuous_patterns:
+            if re.search(pattern, dyn_str, re.IGNORECASE):
+                continuous_count += 1
+                break
+    
+    if discrete_count > continuous_count:
+        return 'discrete'
+    elif continuous_count > discrete_count:
+        return 'continuous'
+    else:
+        # Default to continuous if ambiguous
+        logging.warning(f"Could not clearly detect system type from dynamics: {dynamics_str_list}. Defaulting to continuous.")
+        return 'continuous'
+
+def parse_discrete_dynamics(dynamics_str_list, variables_sympy):
+    """
+    Parse discrete-time dynamics of the form x_{k+1} = f(x_k, y_k).
+    
+    Parameters
+    ----------
+    dynamics_str_list : list of str
+        List of discrete-time dynamics strings
+    variables_sympy : list of sympy.Symbol
+        List of state variable symbols
+        
+    Returns
+    -------
+    list of sympy expressions
+        Parsed next-state functions [f1(x), f2(x), ...]
+    """
+    parsed_dynamics = []
+    var_names = [str(var) for var in variables_sympy]
+    
+    for dyn_str in dynamics_str_list:
+        try:
+            # Extract the right-hand side of the equation
+            # Handle various discrete-time formats
+            patterns = [
+                r'[a-zA-Z_]\w*\s*\{\s*k\s*\+\s*1\s*\}\s*=\s*(.+)',   # x{k+1} = ...
+                r'[a-zA-Z_]\w*_\{\s*k\s*\+\s*1\s*\}\s*=\s*(.+)',     # x_{k+1} = ...
+                r'[a-zA-Z_]\w*\[\s*k\s*\+\s*1\s*\]\s*=\s*(.+)',      # x[k+1] = ...
+                r'[a-zA-Z_]\w*\(\s*k\s*\+\s*1\s*\)\s*=\s*(.+)',      # x(k+1) = ...
+            ]
+            
+            rhs = None
+            for pattern in patterns:
+                match = re.search(pattern, dyn_str, re.IGNORECASE)
+                if match:
+                    rhs = match.group(1).strip()
+                    break
+            
+            if rhs is None:
+                raise ValueError(f"Could not parse discrete-time dynamics: {dyn_str}")
+            
+            # Clean up the right-hand side
+            # Replace k subscripts with current variable names
+            for var_name in var_names:
+                # Replace var_k, var{k}, var[k], var(k) with var
+                patterns_to_replace = [
+                    rf'{var_name}_k\b',
+                    rf'{var_name}_\{{k\}}',
+                    rf'{var_name}\[k\]',
+                    rf'{var_name}\(k\)',
+                    rf'{var_name}\{{k\}}',
+                ]
+                for pattern in patterns_to_replace:
+                    rhs = re.sub(pattern, var_name, rhs, flags=re.IGNORECASE)
+            
+            # Parse the expression
+            local_dict = {var.name: var for var in variables_sympy}
+            parsed_expr = sympy.parse_expr(rhs, local_dict=local_dict)
+            parsed_dynamics.append(parsed_expr)
+            
+        except Exception as e:
+            logging.error(f"Error parsing discrete dynamics '{dyn_str}': {e}")
+            raise ValueError(f"Failed to parse discrete dynamics: {dyn_str}")
+    
+    return parsed_dynamics
+
+def calculate_discrete_difference(B, variables_sympy, next_state_functions):
+    """
+    Calculate B(f(x)) - B(x) for discrete-time systems.
+    
+    Parameters
+    ----------
+    B : sympy expression
+        Barrier function B(x)
+    variables_sympy : list of sympy.Symbol
+        State variables [x, y, ...]
+    next_state_functions : list of sympy expressions
+        Next-state functions [f1(x), f2(x), ...]
+        
+    Returns
+    -------
+    sympy expression
+        B(f(x)) - B(x)
+    """
+    try:
+        if len(variables_sympy) != len(next_state_functions):
+            raise ValueError(f"Mismatch: {len(variables_sympy)} variables but {len(next_state_functions)} next-state functions")
+        
+        # Create substitution dictionary: x -> f1(x), y -> f2(x), etc.
+        substitution_dict = {}
+        for var, next_func in zip(variables_sympy, next_state_functions):
+            substitution_dict[var] = next_func
+        
+        # Calculate B(f(x))
+        B_next = B.subs(substitution_dict)
+        
+        # Calculate B(f(x)) - B(x)
+        discrete_difference = B_next - B
+        
+        return sympy.simplify(discrete_difference)
+        
+    except Exception as e:
+        logging.error(f"Error calculating discrete difference: {e}")
+        return None
+
+def check_discrete_difference_symbolic(delta_B, variables_sympy, safe_set_relationals):
+    """
+    Perform basic symbolic check if B(f(x)) - B(x) <= 0 within the safe set.
+    
+    Parameters
+    ----------
+    delta_B : sympy expression
+        B(f(x)) - B(x)
+    variables_sympy : list of sympy.Symbol
+        State variables
+    safe_set_relationals : list of sympy relationals
+        Safe set constraints
+        
+    Returns
+    -------
+    tuple (bool, str)
+        (passed, reason)
+    """
+    if delta_B is None:
+        return False, "Discrete difference calculation failed."
+    
+    if delta_B == 0:
+        return True, "Symbolic check passed (B(f(x)) - B(x) == 0)"
+    
+    # Check if delta_B is always non-positive
+    try:
+        # Simple cases
+        if delta_B.is_negative:
+            return True, "Symbolic check passed (B(f(x)) - B(x) < 0)"
+        
+        if delta_B.is_positive:
+            return False, "Symbolic check failed (B(f(x)) - B(x) > 0)"
+        
+        # Try to determine sign under safe set constraints
+        # This is a simplified check - more sophisticated analysis could be added
+        return None, "Symbolic check inconclusive (complex expression)"
+        
+    except Exception as e:
+        logging.warning(f"Error in symbolic discrete difference check: {e}")
+        return None, "Symbolic check inconclusive (error in analysis)"
+
+def numerical_check_discrete_difference(delta_B_func, sampling_bounds, variables_sympy, 
+                                      safe_set_relationals, n_samples, tolerance):
+    """
+    Numerically check if B(f(x)) - B(x) <= tolerance within the safe set using sampling.
+    
+    Parameters
+    ----------
+    delta_B_func : callable
+        Function that computes B(f(x)) - B(x)
+    sampling_bounds : dict
+        Sampling bounds for each variable
+    variables_sympy : list of sympy.Symbol
+        State variables
+    safe_set_relationals : list of sympy relationals
+        Safe set constraints
+    n_samples : int
+        Number of samples to test
+    tolerance : float
+        Numerical tolerance for the check
+        
+    Returns
+    -------
+    tuple (bool, dict)
+        (passed, details)
+    """
+    logging.info(f"Performing numerical check for discrete difference (<= {tolerance}) with {n_samples} samples...")
+    
+    if delta_B_func is None:
+        return False, {"reason": "Discrete difference function invalid (lambdify failed?)."}
+    
+    try:
+        # Generate random samples
+        samples = generate_samples(sampling_bounds, [var.name for var in variables_sympy], n_samples)
+        
+        violations = 0
+        checked_in_safe_set = 0
+        violation_points = []
+        
+        for point_dict in samples:
+            try:
+                # Check if point is in safe set
+                if not check_set_membership_numerical(point_dict, safe_set_relationals, variables_sympy):
+                    continue  # Skip points outside safe set
+                
+                checked_in_safe_set += 1
+                
+                # Evaluate B(f(x)) - B(x)
+                delta_val_sympy = delta_B_func(**point_dict)
+                
+                try:
+                    delta_val = float(delta_val_sympy)
+                except (TypeError, ValueError) as conversion_e:
+                    logging.warning(f"Could not convert discrete difference value '{delta_val_sympy}' to float at {point_dict}: {conversion_e}. Skipping sample.")
+                    continue
+                
+                # Check if B(f(x)) - B(x) > tolerance (violation)
+                if delta_val > tolerance:
+                    violations += 1
+                    violation_data = {'point': point_dict, 'delta_B_value': delta_val}
+                    violation_points.append(violation_data)
+                    logging.debug(f"Violation B(f(x)) - B(x) <= 0: value={delta_val:.4g} at {point_dict}")
+                    
+            except Exception as e:
+                logging.error(f"Error evaluating discrete difference at {point_dict}: {e}")
+                continue
+        
+        logging.info(f"Found {violations}/{checked_in_safe_set} discrete difference violations (B(f(x)) - B(x) > {tolerance})")
+        
+        if checked_in_safe_set == 0:
+            return False, {
+                'reason': "No valid samples found in safe set for discrete difference check.",
+                'samples_checked': checked_in_safe_set,
+                'violations_found': violations,
+                'violation_points': violation_points
+            }
+        
+        if violations > 0:
+            return False, {
+                'reason': f"Found {violations}/{checked_in_safe_set} violations (B(f(x)) - B(x) <= {tolerance}) in safe set samples.",
+                'samples_checked': checked_in_safe_set,
+                'violations_found': violations,
+                'violation_points': violation_points
+            }
+        else:
+            return True, {
+                'reason': f"Passed numerical check (B(f(x)) - B(x) <= {tolerance}) in {checked_in_safe_set} safe set samples.",
+                'samples_checked': checked_in_safe_set,
+                'violations_found': violations,
+                'violation_points': violation_points
+            }
+        
+    except Exception as e:
+        logging.error(f"Error during numerical discrete difference sampling: {e}")
+        return False, {"reason": f"Numerical check error: {e}"}
+
 # --- Main Verification Function (Integrates SOS and Optimization) ---
 
 def verify_barrier_certificate(candidate_B_str: str, system_info: dict, verification_cfg: DictConfig):
@@ -894,6 +1188,11 @@ def verify_barrier_certificate(candidate_B_str: str, system_info: dict, verifica
     
     variables_sympy = [sympy.symbols(var) for var in state_vars_str]
     system_params_sympy = {sympy.symbols(k): v for k, v in system_parameters.items()}
+    
+    # --- STEP 1.5: Detect System Type (Discrete vs Continuous) --- #
+    system_type = detect_system_type(dynamics_str)
+    results['system_type'] = system_type
+    logging.info(f"Detected system type: {system_type}")
 
     if not candidate_B_str: # Check if a candidate was actually provided (e.g. after LLM retries)
         results['reason'] = "No usable certificate string provided by LLM after retries."
@@ -965,31 +1264,69 @@ def verify_barrier_certificate(candidate_B_str: str, system_info: dict, verifica
     results['parsing_sets_successful'] = True
     logging.info("Parsed set conditions successfully.")
 
-    # Calculate Lie derivative (using the B that has parameters substituted)
-    # Dynamics strings might also contain parameters, so parse them with param substitution context or pre-substitute dynamics_str
-    # For simplicity, assume dynamics_str only use state_vars or that parse_expression within calculate_lie_derivative handles it if params are also in its local_dict.
-    # Let's refine calculate_lie_derivative to accept system_params_sympy.
-    
-    # Prepare dynamics with parameters substituted
-    parsed_dynamics_str = []
-    for dyn_eq_str in dynamics_str:
+    # --- STEP 2.5: Dynamics Processing (System-Type Dependent) --- #
+    if system_type == 'discrete':
+        # Parse discrete-time dynamics
         try:
-            # Create a combined dict for parsing dynamics: state vars + system params
-            # This allows dynamics to be defined like "-a*x - y" and 'a' will be a symbol
-            combined_symbols_for_dyn = {**{v.name: v for v in variables_sympy}, **system_params_sympy}
-            temp_dyn_expr = sympy.parse_expr(dyn_eq_str, local_dict=combined_symbols_for_dyn)
-            # Substitute numerical values of parameters into the parsed dynamic equation
-            parsed_dynamics_str.append(str(temp_dyn_expr.subs(system_params_sympy))) # Convert back to string for calculate_lie_derivative
-        except Exception as e_dyn_parse:
-            logging.error(f"Failed to parse or substitute params in dynamic equation '{dyn_eq_str}': {e_dyn_parse}")
-            results['reason'] = f"Error processing dynamics: {dyn_eq_str}"
+            # Prepare dynamics with parameters substituted (for discrete-time)
+            preprocessed_dynamics = []
+            for dyn_eq_str in dynamics_str:
+                # First, substitute known system parameters in the dynamics string if any
+                try:
+                    combined_symbols_for_dyn = {**{v.name: v for v in variables_sympy}, **system_params_sympy}
+                    temp_dyn_expr = sympy.parse_expr(dyn_eq_str.split('=')[1].strip() if '=' in dyn_eq_str else dyn_eq_str, 
+                                                   local_dict=combined_symbols_for_dyn)
+                    # Reconstruct the equation with parameter substitution
+                    if '=' in dyn_eq_str:
+                        lhs = dyn_eq_str.split('=')[0].strip()
+                        preprocessed_dynamics.append(f"{lhs} = {temp_dyn_expr.subs(system_params_sympy)}")
+                    else:
+                        preprocessed_dynamics.append(str(temp_dyn_expr.subs(system_params_sympy)))
+                except Exception:
+                    # If parameter substitution fails, use original
+                    preprocessed_dynamics.append(dyn_eq_str)
+            
+            next_state_functions = parse_discrete_dynamics(preprocessed_dynamics, variables_sympy)
+            delta_B = calculate_discrete_difference(B, variables_sympy, next_state_functions)
+            
+            results['discrete_difference_calculated'] = str(delta_B)
+            logging.info(f"Symbolic B(f(x)) - B(x) = {delta_B}")
+            
+            # Store parsed dynamics for further use
+            parsed_dynamics_expressions = next_state_functions
+            primary_condition = delta_B  # For discrete systems, this is B(f(x)) - B(x)
+            
+        except Exception as e:
+            logging.error(f"Error processing discrete-time dynamics: {e}")
+            results['reason'] = f"Error processing discrete dynamics: {e}"
             results['verification_time_seconds'] = time.time() - start_time
             return results
+    else:
+        # Parse continuous-time dynamics (existing logic)
+        # Prepare dynamics with parameters substituted
+        parsed_dynamics_str = []
+        for dyn_eq_str in dynamics_str:
+            try:
+                # Create a combined dict for parsing dynamics: state vars + system params
+                # This allows dynamics to be defined like "-a*x - y" and 'a' will be a symbol
+                combined_symbols_for_dyn = {**{v.name: v for v in variables_sympy}, **system_params_sympy}
+                temp_dyn_expr = sympy.parse_expr(dyn_eq_str, local_dict=combined_symbols_for_dyn)
+                # Substitute numerical values of parameters into the parsed dynamic equation
+                parsed_dynamics_str.append(str(temp_dyn_expr.subs(system_params_sympy))) # Convert back to string for calculate_lie_derivative
+            except Exception as e_dyn_parse:
+                logging.error(f"Failed to parse or substitute params in dynamic equation '{dyn_eq_str}': {e_dyn_parse}")
+                results['reason'] = f"Error processing dynamics: {dyn_eq_str}"
+                results['verification_time_seconds'] = time.time() - start_time
+                return results
 
-    dB_dt = calculate_lie_derivative(B, variables_sympy, parsed_dynamics_str) # calculate_lie_derivative needs strings for dynamics
-
-    results['lie_derivative_calculated'] = str(dB_dt)
-    logging.info(f"Symbolic dB/dt = {dB_dt}")
+        dB_dt = calculate_lie_derivative(B, variables_sympy, parsed_dynamics_str) # calculate_lie_derivative needs strings for dynamics
+        
+        results['lie_derivative_calculated'] = str(dB_dt)
+        logging.info(f"Symbolic dB/dt = {dB_dt}")
+        
+        # Store parsed dynamics for further use
+        parsed_dynamics_expressions = [parse_expression(d, variables_sympy) for d in parsed_dynamics_str]
+        primary_condition = dB_dt  # For continuous systems, this is dB/dt
 
     # Prepare numerical sampling bounds by substituting parameters
     numerical_sampling_bounds = {}
@@ -1016,12 +1353,11 @@ def verify_barrier_certificate(candidate_B_str: str, system_info: dict, verifica
         # Potentially set default wide bounds if appropriate, or let downstream functions handle missing bounds
 
     # --- STEP 2: Check if system is suitable for SOS verification --- #
-    dynamics_exprs = [parse_expression(d, variables_sympy) for d in parsed_dynamics_str]
     init_polys = relationals_to_polynomials(initial_set_relationals, variables_sympy)
     unsafe_polys = relationals_to_polynomials(unsafe_set_relationals, variables_sympy)
     safe_polys = relationals_to_polynomials(safe_set_relationals, variables_sympy)
 
-    is_poly = check_polynomial(B, dB_dt, *dynamics_exprs, variables=variables_sympy) and \
+    is_poly = check_polynomial(B, primary_condition, *parsed_dynamics_expressions, variables=variables_sympy) and \
               init_polys is not None and unsafe_polys is not None and safe_polys is not None
     results['is_polynomial_system'] = is_poly
     logging.info(f"System is polynomial and suitable for SOS: {is_poly}")
@@ -1034,7 +1370,7 @@ def verify_barrier_certificate(candidate_B_str: str, system_info: dict, verifica
             logging.info("Attempting SOS verification...")
             sos_passed, sos_reason, sos_details = verify_sos(
                  B.as_poly(*variables_sympy),
-                 dB_dt.as_poly(*variables_sympy),
+                 primary_condition.as_poly(*variables_sympy),  # Use primary_condition (dB/dt for continuous, delta_B for discrete)
                  init_polys,
                  unsafe_polys,
                  safe_polys,
@@ -1073,27 +1409,47 @@ def verify_barrier_certificate(candidate_B_str: str, system_info: dict, verifica
         results['sos_reason'] = "Not applicable (non-polynomial)"
 
     # --- STEP 4: Symbolic Checks (basic fallback) --- #
-    sym_lie_passed, sym_lie_reason = check_lie_derivative_symbolic(dB_dt, variables_sympy, safe_set_relationals)
-    results['symbolic_lie_check_passed'] = sym_lie_passed
+    if system_type == 'discrete':
+        # Use discrete-time symbolic checks
+        sym_condition_passed, sym_condition_reason = check_discrete_difference_symbolic(delta_B, variables_sympy, safe_set_relationals)
+        results['symbolic_discrete_check_passed'] = sym_condition_passed
+        results['symbolic_lie_check_passed'] = sym_condition_passed  # For compatibility
+    else:
+        # Use continuous-time symbolic checks (existing logic)
+        sym_condition_passed, sym_condition_reason = check_lie_derivative_symbolic(dB_dt, variables_sympy, safe_set_relationals)
+        results['symbolic_lie_check_passed'] = sym_condition_passed
+    
     sym_bound_passed, sym_bound_reason = check_boundary_symbolic(B, variables_sympy, initial_set_relationals, unsafe_set_relationals)
     results['symbolic_boundary_check_passed'] = sym_bound_passed
     
     # Update reason if SOS wasn't conclusive/skipped
     if results['final_verdict'] == "Verification Error":
-        symbolic_reason = f"Symbolic Lie: {sym_lie_reason} | Symbolic Boundary: {sym_bound_reason}"
+        condition_type = "Discrete Diff" if system_type == 'discrete' else "Lie"
+        symbolic_reason = f"Symbolic {condition_type}: {sym_condition_reason} | Symbolic Boundary: {sym_bound_reason}"
         results['reason'] = f"SOS: {results['sos_reason']} | {symbolic_reason}"
 
     # --- STEP 5: Numerical Checks (Sampling & Optimization) --- #
     # Create numerical functions from symbolic expressions
     B_func = lambdify_expression(B, variables_sympy)
-    dB_dt_func = lambdify_expression(dB_dt, variables_sympy)
+    primary_condition_func = lambdify_expression(primary_condition, variables_sympy)
 
-    if B_func and dB_dt_func and numerical_sampling_bounds:
-        # Perform numerical sampling checks
-        num_samp_lie_passed, num_samp_lie_details = numerical_check_lie_derivative(
-            dB_dt_func, numerical_sampling_bounds, variables_sympy, safe_set_relationals,
-            n_samples=num_samples_lie, tolerance=numerical_tolerance
-        )
+    if B_func and primary_condition_func and numerical_sampling_bounds:
+        # Perform numerical sampling checks (system-type dependent)
+        if system_type == 'discrete':
+            # Use discrete-time numerical checks
+            num_samp_condition_passed, num_samp_condition_details = numerical_check_discrete_difference(
+                primary_condition_func, numerical_sampling_bounds, variables_sympy, safe_set_relationals,
+                n_samples=num_samples_lie, tolerance=numerical_tolerance
+            )
+            results['numerical_sampling_discrete_passed'] = num_samp_condition_passed
+            results['numerical_sampling_lie_passed'] = num_samp_condition_passed  # For compatibility
+        else:
+            # Use continuous-time numerical checks (existing logic)
+            num_samp_condition_passed, num_samp_condition_details = numerical_check_lie_derivative(
+                primary_condition_func, numerical_sampling_bounds, variables_sympy, safe_set_relationals,
+                n_samples=num_samples_lie, tolerance=numerical_tolerance
+            )
+            results['numerical_sampling_lie_passed'] = num_samp_condition_passed
         num_samp_bound_result = numerical_check_boundary(
             B_func, numerical_sampling_bounds, variables_sympy, initial_set_relationals, unsafe_set_relationals,
             n_samples=num_samples_boundary, tolerance=numerical_tolerance
@@ -1102,29 +1458,36 @@ def verify_barrier_certificate(candidate_B_str: str, system_info: dict, verifica
         # Unpack boundary check results
         num_samp_bound_passed, num_samp_bound_details = num_samp_bound_result
         
-        results['numerical_sampling_lie_passed'] = num_samp_lie_passed
         results['numerical_sampling_boundary_passed'] = num_samp_bound_passed
         
         # Store detailed numerical sampling data for visualization
+        condition_type = "discrete" if system_type == 'discrete' else "lie"
         results['numerical_sampling_details'] = {
-            'lie_result': num_samp_lie_details if isinstance(num_samp_lie_details, dict) else {'reason': num_samp_lie_details},
+            f'{condition_type}_result': num_samp_condition_details if isinstance(num_samp_condition_details, dict) else {'reason': num_samp_condition_details},
             'boundary_result': num_samp_bound_details if isinstance(num_samp_bound_details, dict) else {'reason': num_samp_bound_details},
-            'lie_violation_points': num_samp_lie_details.get('violation_points', []) if isinstance(num_samp_lie_details, dict) else [],
+            f'{condition_type}_violation_points': num_samp_condition_details.get('violation_points', []) if isinstance(num_samp_condition_details, dict) else [],
             'init_violation_points': num_samp_bound_details.get('init_violation_points', []) if isinstance(num_samp_bound_details, dict) else [],
             'unsafe_violation_points': num_samp_bound_details.get('unsafe_violation_points', []) if isinstance(num_samp_bound_details, dict) else []
         }
         
-        if isinstance(num_samp_lie_details, dict) and isinstance(num_samp_bound_details, dict):
-            combined_reason = f"Lie: {num_samp_lie_details.get('reason', '')} | Boundary: {num_samp_bound_details.get('reason', '')}"
+        # For backward compatibility, also store as 'lie_result' and 'lie_violation_points'
+        if system_type == 'discrete':
+            results['numerical_sampling_details']['lie_result'] = results['numerical_sampling_details']['discrete_result']
+            results['numerical_sampling_details']['lie_violation_points'] = results['numerical_sampling_details']['discrete_violation_points']
+        
+        if isinstance(num_samp_condition_details, dict) and isinstance(num_samp_bound_details, dict):
+            condition_name = "Discrete Diff" if system_type == 'discrete' else "Lie"
+            combined_reason = f"{condition_name}: {num_samp_condition_details.get('reason', '')} | Boundary: {num_samp_bound_details.get('reason', '')}"
         else:
-            combined_reason = f"Lie: {num_samp_lie_details if isinstance(num_samp_lie_details, str) else ''} | Boundary: {num_samp_bound_details.get('reason', '') if isinstance(num_samp_bound_details, dict) else num_samp_bound_details}"
+            condition_name = "Discrete Diff" if system_type == 'discrete' else "Lie"
+            combined_reason = f"{condition_name}: {num_samp_condition_details if isinstance(num_samp_condition_details, str) else ''} | Boundary: {num_samp_bound_details.get('reason', '') if isinstance(num_samp_bound_details, dict) else num_samp_bound_details}"
         
         results['numerical_sampling_reason'] = combined_reason
 
         # Perform optimization-based falsification (if enabled)
         if attempt_optimization:
             opt_violation_found, opt_details = optimization_based_falsification(
-                B_func, dB_dt_func, numerical_sampling_bounds, variables_sympy,
+                B_func, primary_condition_func, numerical_sampling_bounds, variables_sympy,
                 initial_set_relationals, unsafe_set_relationals, safe_set_relationals,
                 max_iter=opt_max_iter, pop_size=opt_pop_size, tolerance=numerical_tolerance
             )
@@ -1139,7 +1502,7 @@ def verify_barrier_certificate(candidate_B_str: str, system_info: dict, verifica
                  results['reason'] += " | Optimization found counterexample!"
                  # Update numerical pass status to reflect optimization failure
                  if results['numerical_opt_lie_violation_found']: 
-                     num_samp_lie_passed = False
+                     num_samp_condition_passed = False
                  if results['numerical_opt_init_violation_found'] or results['numerical_opt_unsafe_violation_found']: 
                      num_samp_bound_passed = False
             else:
@@ -1148,7 +1511,7 @@ def verify_barrier_certificate(candidate_B_str: str, system_info: dict, verifica
              results['numerical_opt_reason'] = "Not Attempted"
 
         # Update overall numerical pass status based on combined checks
-        numerical_overall_passed = num_samp_lie_passed and num_samp_bound_passed
+        numerical_overall_passed = num_samp_condition_passed and num_samp_bound_passed
     else:
          results['reason'] += " | Numerical checks skipped (lambdify failed or no numerical_sampling_bounds)."
          numerical_overall_passed = None # Indicate checks not performed
@@ -1161,12 +1524,14 @@ def verify_barrier_certificate(candidate_B_str: str, system_info: dict, verifica
         elif numerical_overall_passed is False:
              results['final_verdict'] = "Failed Numerical Checks"
              results['reason'] = f"Numerical Checks Failed: {results['numerical_sampling_reason']}"
-        elif sym_lie_passed and sym_bound_passed: # Fallback to symbolic only if numerical checks couldn't run
+        elif sym_condition_passed and sym_bound_passed: # Fallback to symbolic only if numerical checks couldn't run
+             condition_name = "Discrete Diff" if system_type == 'discrete' else "Lie"
              results['final_verdict'] = "Passed Symbolic Checks (Basic)"
-             results['reason'] = f"Symbolic Checks Passed: Lie: {sym_lie_reason} | Boundary: {sym_bound_reason}"
+             results['reason'] = f"Symbolic Checks Passed: {condition_name}: {sym_condition_reason} | Boundary: {sym_bound_reason}"
         else:
+             condition_name = "Discrete Diff" if system_type == 'discrete' else "Lie"
              results['final_verdict'] = "Failed Symbolic Checks / Inconclusive / Error"
-             results['reason'] = f"Symbolic Checks Failed/Inconclusive: Lie: {sym_lie_reason} | Boundary: {sym_bound_reason}"
+             results['reason'] = f"Symbolic Checks Failed/Inconclusive: {condition_name}: {sym_condition_reason} | Boundary: {sym_bound_reason}"
 
     logging.info(f"Final Verdict: {results['final_verdict']}. Reason: {results['reason']}")
     results['verification_time_seconds'] = time.time() - start_time

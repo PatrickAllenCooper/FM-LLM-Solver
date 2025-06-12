@@ -27,25 +27,80 @@ class VerificationService:
         try:
             system_info = {}
             
-            # Extract system dynamics
+            # Extract system dynamics - handle both continuous and discrete-time
+            # First try to find explicit dynamics blocks
             dynamics_match = re.search(r'System Dynamics:\s*(.+?)(?=\n[A-Z]|\n$|$)', system_description, re.IGNORECASE | re.DOTALL)
+            dynamics_str = None
+            
             if dynamics_match:
                 dynamics_str = dynamics_match.group(1).strip()
+            else:
+                # Look for dynamics anywhere in the description
+                # Check for discrete-time patterns first
+                discrete_patterns = [
+                    r'([a-zA-Z_]\w*)\s*\{\s*k\s*\+\s*1\s*\}\s*=\s*([^,\n]+)',
+                    r'([a-zA-Z_]\w*)_\{\s*k\s*\+\s*1\s*\}\s*=\s*([^,\n]+)',
+                    r'([a-zA-Z_]\w*)\[\s*k\s*\+\s*1\s*\]\s*=\s*([^,\n]+)',
+                ]
+                
+                # Check for continuous-time patterns
+                continuous_patterns = [
+                    r'd([a-zA-Z_]\w*)/dt\s*=\s*([^,\n]+)',
+                    r'([a-zA-Z_]\w*)\'\s*=\s*([^,\n]+)',
+                    r'([a-zA-Z_]\w*)_dot\s*=\s*([^,\n]+)',
+                ]
+                
+                dynamics_found = []
+                variables_found = []
+                
+                # Try discrete patterns first
+                for pattern in discrete_patterns:
+                    matches = re.findall(pattern, system_description)
+                    if matches:
+                        for var, expr in matches:
+                            dynamics_found.append(f"{var}_{{k+1}} = {expr}")
+                            if var not in variables_found:
+                                variables_found.append(var)
+                
+                # If no discrete patterns found, try continuous
+                if not dynamics_found:
+                    for pattern in continuous_patterns:
+                        matches = re.findall(pattern, system_description)
+                        if matches:
+                            for var, expr in matches:
+                                dynamics_found.append(f"d{var}/dt = {expr}" if pattern.startswith('d') else f"{var}' = {expr}")
+                                if var not in variables_found:
+                                    variables_found.append(var)
+                
+                if dynamics_found:
+                    system_info['dynamics'] = dynamics_found
+                    system_info['variables'] = variables_found
+                    dynamics_str = '\n'.join(dynamics_found)
+            
+            if dynamics_str:
                 # Parse individual dynamics components
-                # Look for dx/dt = ..., dy/dt = ..., etc.
-                dynamics_patterns = re.findall(r'd([a-zA-Z_]\w*)/dt\s*=\s*([^,\n]+)', dynamics_str)
-                if dynamics_patterns:
-                    variables = [var for var, _ in dynamics_patterns]
-                    dynamics = [expr.strip() for _, expr in dynamics_patterns]
+                # Look for discrete-time patterns first
+                discrete_patterns = re.findall(r'([a-zA-Z_]\w*)(?:\s*\{\s*k\s*\+\s*1\s*\}|_\{\s*k\s*\+\s*1\s*\}|\[\s*k\s*\+\s*1\s*\])\s*=\s*([^,\n]+)', dynamics_str)
+                if discrete_patterns:
+                    variables = [var for var, _ in discrete_patterns]
+                    dynamics = [f"{var}_{{k+1}} = {expr.strip()}" for var, expr in discrete_patterns]
                     system_info['variables'] = variables
                     system_info['dynamics'] = dynamics
                 else:
-                    # Fallback: try to parse as comma-separated expressions
-                    dynamics_parts = [d.strip() for d in dynamics_str.split(',')]
-                    system_info['dynamics'] = dynamics_parts
-                    # Try to infer variables from the dynamics
-                    variables = self._infer_variables_from_dynamics(dynamics_parts)
-                    system_info['variables'] = variables
+                    # Look for continuous-time patterns: dx/dt = ..., dy/dt = ..., etc.
+                    continuous_patterns = re.findall(r'd([a-zA-Z_]\w*)/dt\s*=\s*([^,\n]+)', dynamics_str)
+                    if continuous_patterns:
+                        variables = [var for var, _ in continuous_patterns]
+                        dynamics = [expr.strip() for _, expr in continuous_patterns]
+                        system_info['variables'] = variables
+                        system_info['dynamics'] = dynamics
+                    else:
+                        # Fallback: try to parse as comma-separated expressions
+                        dynamics_parts = [d.strip() for d in dynamics_str.split(',')]
+                        system_info['dynamics'] = dynamics_parts
+                        # Try to infer variables from the dynamics
+                        variables = self._infer_variables_from_dynamics(dynamics_parts)
+                        system_info['variables'] = variables
             
             # Extract state variables if explicitly listed
             vars_match = re.search(r'State Variables:\s*\[?([^\]]+)\]?', system_description, re.IGNORECASE)
@@ -232,10 +287,11 @@ class VerificationService:
             # Prepare system info for verification
             verification_system_info = {
                 'variables': system_info.get('variables', ['x', 'y']),
+                'state_variables': system_info.get('variables', ['x', 'y']),  # Alternative naming
                 'dynamics': system_info.get('dynamics', []),
-                'initial_set': system_info.get('initial_set', []),
-                'unsafe_set': system_info.get('unsafe_set', []),
-                'safe_set': system_info.get('safe_set', []),
+                'initial_set_conditions': system_info.get('initial_set', []),
+                'unsafe_set_conditions': system_info.get('unsafe_set', []),
+                'safe_set_conditions': system_info.get('safe_set', []),
                 'sampling_bounds': sampling_bounds
             }
             
