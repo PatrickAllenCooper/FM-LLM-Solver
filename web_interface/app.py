@@ -265,6 +265,14 @@ def about():
     """About page with project information."""
     return render_template('about.html')
 
+@app.route('/favicon.ico')
+def favicon():
+    """Handle favicon requests."""
+    # Return a simple response to prevent 404 errors
+    # In production, you might want to serve an actual favicon file
+    from flask import Response
+    return Response(status=204)  # No Content
+
 @app.errorhandler(404)
 def not_found_error(error):
     return render_template('404.html'), 404

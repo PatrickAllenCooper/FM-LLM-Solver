@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}Page Not Found - FM-LLM Solver{% endblock %}
+
+{% block content %}
+<div class="mt-24">
+    <div class="card text-center">
+        <span class="material-icons" style="font-size: 96px; color: var(--md-sys-color-error); margin-bottom: 24px; display: block;">error_outline</span>
+        
+        <h1 style="font-size: var(--md-sys-typescale-headline-large-size); margin-bottom: 16px; color: var(--md-sys-color-error);">
+            404 - Page Not Found
+        </h1>
+        
+        <p style="font-size: var(--md-sys-typescale-body-large-size); margin-bottom: 32px; color: var(--md-sys-color-on-surface-variant);">
+            The page you're looking for doesn't exist or has been moved.
+        </p>
+        
+        <div style="display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;">
+            <a href="{{ url_for('index') }}" class="btn btn-primary">
+                <span class="material-icons">home</span>
+                Go Home
+            </a>
+            <a href="{{ url_for('query_history') }}" class="btn btn-secondary">
+                <span class="material-icons">history</span>
+                View History
+            </a>
+            <a href="{{ url_for('about') }}" class="btn btn-outline">
+                <span class="material-icons">info</span>
+                About
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %} 
