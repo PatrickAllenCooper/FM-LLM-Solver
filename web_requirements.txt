@@ -1,0 +1,16 @@
+# Web Interface Dependencies for FM-LLM Solver
+# Install with: pip install -r web_requirements.txt
+
+# Core Flask dependencies
+Flask>=2.3.0
+Flask-SQLAlchemy>=3.0.0
+
+# Database support
+SQLAlchemy>=1.4.0
+
+# Optional: Production deployment
+# gunicorn>=20.1.0
+# gevent>=22.0.0
+
+# Note: Other dependencies (torch, transformers, etc.) should be installed
+# according to the main project requirements as they are shared components. 

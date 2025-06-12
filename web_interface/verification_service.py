@@ -1,0 +1,350 @@
+import os
+import sys
+import re
+import json
+import logging
+import time
+from typing import Dict, List, Optional, Any
+
+# Add project root to path
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, PROJECT_ROOT)
+
+from evaluation.verify_certificate import verify_barrier_certificate
+from omegaconf import DictConfig
+
+logger = logging.getLogger(__name__)
+
+class VerificationService:
+    """Service for verifying barrier certificates."""
+    
+    def __init__(self, config):
+        """Initialize the verification service with configuration."""
+        self.config = config
+        
+    def parse_system_description(self, system_description: str) -> Dict[str, Any]:
+        """Parse system description into components needed for verification."""
+        try:
+            system_info = {}
+            
+            # Extract system dynamics
+            dynamics_match = re.search(r'System Dynamics:\s*(.+?)(?=\n[A-Z]|\n$|$)', system_description, re.IGNORECASE | re.DOTALL)
+            if dynamics_match:
+                dynamics_str = dynamics_match.group(1).strip()
+                # Parse individual dynamics components
+                # Look for dx/dt = ..., dy/dt = ..., etc.
+                dynamics_patterns = re.findall(r'd([a-zA-Z_]\w*)/dt\s*=\s*([^,\n]+)', dynamics_str)
+                if dynamics_patterns:
+                    variables = [var for var, _ in dynamics_patterns]
+                    dynamics = [expr.strip() for _, expr in dynamics_patterns]
+                    system_info['variables'] = variables
+                    system_info['dynamics'] = dynamics
+                else:
+                    # Fallback: try to parse as comma-separated expressions
+                    dynamics_parts = [d.strip() for d in dynamics_str.split(',')]
+                    system_info['dynamics'] = dynamics_parts
+                    # Try to infer variables from the dynamics
+                    variables = self._infer_variables_from_dynamics(dynamics_parts)
+                    system_info['variables'] = variables
+            
+            # Extract state variables if explicitly listed
+            vars_match = re.search(r'State Variables:\s*\[?([^\]]+)\]?', system_description, re.IGNORECASE)
+            if vars_match:
+                vars_str = vars_match.group(1).strip()
+                explicit_vars = [v.strip() for v in vars_str.split(',') if v.strip()]
+                if explicit_vars:
+                    system_info['variables'] = explicit_vars
+            
+            # Extract initial set
+            initial_match = re.search(r'Initial Set:\s*(.+?)(?=\n[A-Z]|\n$|$)', system_description, re.IGNORECASE)
+            if initial_match:
+                initial_str = initial_match.group(1).strip()
+                system_info['initial_set'] = self._parse_set_conditions(initial_str)
+            
+            # Extract unsafe set
+            unsafe_match = re.search(r'Unsafe Set:\s*(.+?)(?=\n[A-Z]|\n$|$)', system_description, re.IGNORECASE)
+            if unsafe_match:
+                unsafe_str = unsafe_match.group(1).strip()
+                system_info['unsafe_set'] = self._parse_set_conditions(unsafe_str)
+            
+            # Extract safe set
+            safe_match = re.search(r'Safe Set:\s*(.+?)(?=\n[A-Z]|\n$|$)', system_description, re.IGNORECASE)
+            if safe_match:
+                safe_str = safe_match.group(1).strip()
+                system_info['safe_set'] = self._parse_set_conditions(safe_str)
+            
+            # Default variables if not found
+            if 'variables' not in system_info or not system_info['variables']:
+                system_info['variables'] = ['x', 'y']  # Default assumption
+            
+            return system_info
+            
+        except Exception as e:
+            logger.error(f"Error parsing system description: {e}")
+            return {
+                'variables': ['x', 'y'],
+                'dynamics': [],
+                'initial_set': [],
+                'unsafe_set': [],
+                'safe_set': []
+            }
+    
+    def _infer_variables_from_dynamics(self, dynamics: List[str]) -> List[str]:
+        """Infer variable names from dynamics expressions."""
+        variables = set()
+        for expr in dynamics:
+            # Look for common variable patterns
+            var_matches = re.findall(r'\b([a-zA-Z_]\w*)\b', expr)
+            for var in var_matches:
+                # Filter out common functions and constants
+                if var not in ['sin', 'cos', 'tan', 'exp', 'log', 'sqrt', 'abs', 'pi', 'e'] and len(var) <= 3:
+                    variables.add(var)
+        
+        # Sort variables for consistency
+        return sorted(list(variables))
+    
+    def _parse_set_conditions(self, condition_str: str) -> List[str]:
+        """Parse set condition string into list of individual conditions."""
+        if not condition_str.strip():
+            return []
+        
+        # Handle logical operators
+        condition_str = condition_str.replace(' and ', ' & ').replace(' or ', ' | ')
+        
+        # Split on common separators while preserving logical structure
+        conditions = []
+        if ' & ' in condition_str or ' | ' in condition_str:
+            # Keep as single condition if it contains logical operators
+            conditions = [condition_str.strip()]
+        else:
+            # Split on commas for multiple separate conditions
+            conditions = [c.strip() for c in condition_str.split(',') if c.strip()]
+        
+        return conditions
+    
+    def create_sampling_bounds(self, system_info: Dict[str, Any], 
+                             default_range: float = 2.0) -> Dict[str, tuple]:
+        """Create sampling bounds for verification based on system information."""
+        bounds = {}
+        variables = system_info.get('variables', ['x', 'y'])
+        
+        # Default bounds
+        for var in variables:
+            bounds[var] = (-default_range, default_range)
+        
+        # Try to infer better bounds from initial and unsafe sets
+        try:
+            # Look for bounds in initial set conditions
+            for condition in system_info.get('initial_set', []):
+                self._update_bounds_from_condition(bounds, condition, variables)
+            
+            # Look for bounds in unsafe set conditions
+            for condition in system_info.get('unsafe_set', []):
+                self._update_bounds_from_condition(bounds, condition, variables)
+                
+        except Exception as e:
+            logger.warning(f"Failed to infer bounds from sets: {e}")
+        
+        return bounds
+    
+    def _update_bounds_from_condition(self, bounds: Dict[str, tuple], 
+                                    condition: str, variables: List[str]):
+        """Update bounds based on a set condition."""
+        # Look for simple bounds like x <= 1, x >= -1, etc.
+        for var in variables:
+            # Pattern for x <= value or x < value
+            upper_match = re.search(rf'\b{var}\s*<=?\s*([+-]?\d*\.?\d+)', condition)
+            if upper_match:
+                upper_val = float(upper_match.group(1))
+                current_min, current_max = bounds[var]
+                bounds[var] = (current_min, min(current_max, upper_val + 0.5))
+            
+            # Pattern for x >= value or x > value
+            lower_match = re.search(rf'\b{var}\s*>=?\s*([+-]?\d*\.?\d+)', condition)
+            if lower_match:
+                lower_val = float(lower_match.group(1))
+                current_min, current_max = bounds[var]
+                bounds[var] = (max(current_min, lower_val - 0.5), current_max)
+            
+            # Pattern for value <= x or value < x
+            lower_match2 = re.search(rf'([+-]?\d*\.?\d+)\s*<=?\s*\b{var}\b', condition)
+            if lower_match2:
+                lower_val = float(lower_match2.group(1))
+                current_min, current_max = bounds[var]
+                bounds[var] = (max(current_min, lower_val - 0.5), current_max)
+            
+            # Pattern for value >= x or value > x
+            upper_match2 = re.search(rf'([+-]?\d*\.?\d+)\s*>=?\s*\b{var}\b', condition)
+            if upper_match2:
+                upper_val = float(upper_match2.group(1))
+                current_min, current_max = bounds[var]
+                bounds[var] = (current_min, min(current_max, upper_val + 0.5))
+    
+    def verify_certificate(self, certificate_str: str, system_description: str) -> Dict[str, Any]:
+        """Verify a barrier certificate against a system description."""
+        try:
+            start_time = time.time()
+            
+            # Parse system description
+            system_info = self.parse_system_description(system_description)
+            
+            # Create sampling bounds
+            sampling_bounds = self.create_sampling_bounds(system_info)
+            
+            # Prepare system info for verification
+            verification_system_info = {
+                'variables': system_info.get('variables', ['x', 'y']),
+                'dynamics': system_info.get('dynamics', []),
+                'initial_set': system_info.get('initial_set', []),
+                'unsafe_set': system_info.get('unsafe_set', []),
+                'safe_set': system_info.get('safe_set', []),
+                'sampling_bounds': sampling_bounds
+            }
+            
+            # Get verification configuration
+            verification_cfg = DictConfig(self.config.evaluation.verification)
+            
+            # Perform verification
+            result = verify_barrier_certificate(
+                certificate_str, 
+                verification_system_info, 
+                verification_cfg
+            )
+            
+            verification_time = time.time() - start_time
+            
+            # Parse the verification result
+            if isinstance(result, dict):
+                verification_result = {
+                    'overall_success': result.get('overall_success', False),
+                    'numerical_passed': result.get('numerical_verification', {}).get('success', False),
+                    'symbolic_passed': result.get('symbolic_verification', {}).get('success', False),
+                    'sos_passed': result.get('sos_verification', {}).get('success', False),
+                    'verification_time': verification_time,
+                    'details': {
+                        'parsing': result.get('parsing', {}),
+                        'numerical': result.get('numerical_verification', {}),
+                        'symbolic': result.get('symbolic_verification', {}),
+                        'sos': result.get('sos_verification', {}),
+                        'system_info': verification_system_info,
+                        'certificate': certificate_str
+                    }
+                }
+            else:
+                # Handle legacy result format
+                verification_result = {
+                    'overall_success': False,
+                    'numerical_passed': False,
+                    'symbolic_passed': False,
+                    'sos_passed': False,
+                    'verification_time': verification_time,
+                    'details': {
+                        'error': 'Unexpected verification result format',
+                        'result': str(result),
+                        'system_info': verification_system_info,
+                        'certificate': certificate_str
+                    }
+                }
+            
+            return verification_result
+            
+        except Exception as e:
+            logger.error(f"Error in certificate verification: {str(e)}")
+            return {
+                'overall_success': False,
+                'numerical_passed': False,
+                'symbolic_passed': False,
+                'sos_passed': False,
+                'verification_time': None,
+                'details': {
+                    'error': str(e),
+                    'certificate': certificate_str,
+                    'system_description': system_description
+                }
+            }
+    
+    def get_verification_summary(self, verification_result: Dict[str, Any]) -> str:
+        """Get a human-readable summary of verification results."""
+        if verification_result['overall_success']:
+            return "✅ Certificate passed all verification checks"
+        
+        passed_checks = []
+        failed_checks = []
+        
+        if verification_result['numerical_passed']:
+            passed_checks.append("Numerical")
+        else:
+            failed_checks.append("Numerical")
+        
+        if verification_result['symbolic_passed']:
+            passed_checks.append("Symbolic")
+        else:
+            failed_checks.append("Symbolic")
+        
+        if verification_result['sos_passed']:
+            passed_checks.append("SOS")
+        else:
+            failed_checks.append("SOS")
+        
+        summary = ""
+        if passed_checks:
+            summary += f"✅ Passed: {', '.join(passed_checks)}"
+        if failed_checks:
+            if summary:
+                summary += " | "
+            summary += f"❌ Failed: {', '.join(failed_checks)}"
+        
+        return summary if summary else "❌ Verification failed"
+    
+    def get_detailed_feedback(self, verification_result: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Get detailed feedback for each verification check."""
+        feedback = []
+        details = verification_result.get('details', {})
+        
+        # Numerical verification feedback
+        numerical = details.get('numerical', {})
+        if numerical:
+            status = "✅ Passed" if verification_result['numerical_passed'] else "❌ Failed"
+            message = numerical.get('reason', 'No details available')
+            feedback.append({
+                'type': 'Numerical Verification',
+                'status': status,
+                'message': message,
+                'details': numerical
+            })
+        
+        # Symbolic verification feedback
+        symbolic = details.get('symbolic', {})
+        if symbolic:
+            status = "✅ Passed" if verification_result['symbolic_passed'] else "❌ Failed"
+            message = symbolic.get('reason', 'No details available')
+            feedback.append({
+                'type': 'Symbolic Verification',
+                'status': status,
+                'message': message,
+                'details': symbolic
+            })
+        
+        # SOS verification feedback
+        sos = details.get('sos', {})
+        if sos:
+            status = "✅ Passed" if verification_result['sos_passed'] else "❌ Failed"
+            message = sos.get('reason', 'No details available')
+            feedback.append({
+                'type': 'Sum-of-Squares (SOS) Verification',
+                'status': status,
+                'message': message,
+                'details': sos
+            })
+        
+        # Add parsing information if available
+        parsing = details.get('parsing', {})
+        if parsing and not parsing.get('success', True):
+            feedback.insert(0, {
+                'type': 'Certificate Parsing',
+                'status': "❌ Failed",
+                'message': parsing.get('error', 'Failed to parse certificate'),
+                'details': parsing
+            })
+        
+        return feedback 

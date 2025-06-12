@@ -1,0 +1,392 @@
+{% extends "base.html" %}
+
+{% block title %}FM-LLM Solver - Barrier Certificate Generation{% endblock %}
+
+{% block content %}
+<div class="grid grid-2 mt-24">
+    <!-- Query Form -->
+    <div class="card">
+        <h2 class="card-title">Generate Barrier Certificate</h2>
+        <form id="query-form">
+            <div class="form-field">
+                <label for="system-description" class="form-label">
+                    System Description *
+                </label>
+                <textarea 
+                    id="system-description" 
+                    name="system_description" 
+                    class="form-textarea" 
+                    placeholder="Enter your system description here...
+
+Example:
+System Dynamics: dx/dt = -x**3 - y, dy/dt = x - y**3
+Initial Set: x**2 + y**2 <= 0.1
+Unsafe Set: x >= 1.5" 
+                    required
+                ></textarea>
+                <small style="color: var(--md-sys-color-on-surface-variant); margin-top: 8px; display: block;">
+                    Describe your autonomous system including dynamics, initial set, unsafe set, and state variables.
+                </small>
+            </div>
+            
+            <div class="form-field">
+                <label for="model-config" class="form-label">Model Configuration</label>
+                <select id="model-config" name="model_config" class="form-select">
+                    {% for model in model_configs %}
+                    <option value="{{ model.key }}" 
+                        {% if loop.first %}selected{% endif %}
+                        data-type="{{ model.type }}"
+                        data-barrier-type="{{ model.barrier_type }}">
+                        {{ model.name }} - {{ model.description }}
+                    </option>
+                    {% endfor %}
+                </select>
+                <small style="color: var(--md-sys-color-on-surface-variant); margin-top: 8px; display: block;">
+                    Choose between base model or fine-tuned variants for barrier certificate generation.
+                </small>
+            </div>
+            
+            <div class="form-field">
+                <label for="rag-k" class="form-label">
+                    RAG Context Chunks (k)
+                </label>
+                <select id="rag-k" name="rag_k" class="form-select">
+                    <option value="0">Disabled (0)</option>
+                    <option value="1">1 chunk</option>
+                    <option value="2">2 chunks</option>
+                    <option value="3" selected>3 chunks</option>
+                    <option value="5">5 chunks</option>
+                    <option value="10">10 chunks</option>
+                </select>
+                <small style="color: var(--md-sys-color-on-surface-variant); margin-top: 8px; display: block;">
+                    Number of relevant research paper chunks to retrieve for context (RAG). Higher values provide more context but may slow generation.
+                </small>
+            </div>
+            
+            <button type="submit" class="btn btn-primary" id="submit-btn">
+                <span class="material-icons">psychology</span>
+                Generate Certificate
+            </button>
+        </form>
+    </div>
+    
+    <!-- Results Panel -->
+    <div class="card">
+        <h2 class="card-title">Results</h2>
+        <div id="results-content">
+            <div id="initial-state" class="text-center" style="color: var(--md-sys-color-on-surface-variant); padding: 48px 0;">
+                <span class="material-icons" style="font-size: 48px; margin-bottom: 16px; display: block;">functions</span>
+                <p>Enter a system description and click "Generate Certificate" to begin.</p>
+            </div>
+            
+            <!-- Processing State -->
+            <div id="processing-state" class="hidden">
+                <div class="text-center mb-24">
+                    <span class="material-icons" style="font-size: 48px; margin-bottom: 16px; display: block; animation: spin 1s linear infinite;">sync</span>
+                    <h3 id="processing-status">Processing your request...</h3>
+                    <p id="processing-detail" style="color: var(--md-sys-color-on-surface-variant);">Initializing...</p>
+                </div>
+                <div class="progress">
+                    <div class="progress-bar" id="progress-bar" style="width: 0%"></div>
+                </div>
+            </div>
+            
+            <!-- Results State -->
+            <div id="results-state" class="hidden">
+                <div id="generation-results">
+                    <h3>Generated Certificate</h3>
+                    <div id="certificate-display" class="card" style="background-color: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container); font-family: monospace; margin: 16px 0;">
+                        <!-- Certificate will be populated here -->
+                    </div>
+                    
+                    <h3>Verification Results</h3>
+                    <div id="verification-results">
+                        <!-- Verification results will be populated here -->
+                    </div>
+                    
+                    <div class="mt-16">
+                        <a href="#" id="view-details-link" class="btn btn-outline">
+                            <span class="material-icons">visibility</span>
+                            View Full Details
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Error State -->
+            <div id="error-state" class="hidden">
+                <div class="text-center">
+                    <span class="material-icons" style="font-size: 48px; margin-bottom: 16px; display: block; color: var(--md-sys-color-error);">error</span>
+                    <h3 style="color: var(--md-sys-color-error);">Generation Failed</h3>
+                    <p id="error-message" style="color: var(--md-sys-color-on-surface-variant);">
+                        <!-- Error message will be populated here -->
+                    </p>
+                    <button class="btn btn-outline mt-16" onclick="resetForm()">
+                        <span class="material-icons">refresh</span>
+                        Try Again
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Queries -->
+{% if recent_queries %}
+<div class="card mt-24">
+    <h2 class="card-title">Recent Queries</h2>
+    <div class="grid grid-3">
+        {% for query in recent_queries %}
+        <div class="card" style="margin: 8px 0;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                <span class="status-chip status-{{ 'success' if query.status == 'completed' else 'error' if query.status == 'failed' else 'processing' if query.status == 'processing' else 'pending' }}">
+                    {{ query.status.title() }}
+                </span>
+                <small style="color: var(--md-sys-color-on-surface-variant);">
+                    {{ query.timestamp.strftime('%m/%d %H:%M') }}
+                </small>
+            </div>
+            <p style="font-size: 14px; margin: 8px 0; color: var(--md-sys-color-on-surface-variant); line-height: 1.4;">
+                {{ query.system_description[:100] }}{% if query.system_description|length > 100 %}...{% endif %}
+            </p>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px;">
+                <small style="color: var(--md-sys-color-on-surface-variant);">
+                    {{ query.model_config }} | k={{ query.rag_k }}
+                </small>
+                <a href="{{ url_for('view_query', query_id=query.id) }}" class="btn btn-outline" style="font-size: 12px; padding: 4px 12px; min-height: 32px;">
+                    View
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <div class="text-center mt-16">
+        <a href="{{ url_for('query_history') }}" class="btn btn-secondary">
+            <span class="material-icons">history</span>
+            View All History
+        </a>
+    </div>
+</div>
+{% endif %}
+
+<style>
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.verification-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.verification-check:last-child {
+    border-bottom: none;
+}
+
+.verification-icon {
+    font-size: 20px;
+}
+
+.verification-icon.passed {
+    color: var(--md-sys-color-success);
+}
+
+.verification-icon.failed {
+    color: var(--md-sys-color-error);
+}
+</style>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let currentTaskId = null;
+let pollInterval = null;
+
+document.getElementById('query-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target);
+    const data = Object.fromEntries(formData);
+    
+    // Validate input
+    if (!data.system_description.trim()) {
+        showStatus('Please enter a system description', 'error');
+        return;
+    }
+    
+    // Show processing state
+    showProcessingState();
+    
+    try {
+        const response = await fetch('/query', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            currentTaskId = result.task_id;
+            startPolling();
+        } else {
+            showErrorState(result.error || 'Failed to submit query');
+        }
+    } catch (error) {
+        showErrorState('Network error: ' + error.message);
+    }
+});
+
+function showProcessingState() {
+    document.getElementById('initial-state').classList.add('hidden');
+    document.getElementById('results-state').classList.add('hidden');
+    document.getElementById('error-state').classList.add('hidden');
+    document.getElementById('processing-state').classList.remove('hidden');
+    
+    // Disable form
+    document.getElementById('submit-btn').disabled = true;
+    document.getElementById('submit-btn').innerHTML = '<span class="material-icons">hourglass_empty</span> Processing...';
+}
+
+function showResultsState(query) {
+    document.getElementById('processing-state').classList.add('hidden');
+    document.getElementById('error-state').classList.add('hidden');
+    document.getElementById('results-state').classList.remove('hidden');
+    
+    // Show certificate
+    const certificateDiv = document.getElementById('certificate-display');
+    if (query.generated_certificate) {
+        certificateDiv.innerHTML = `B(x, y) = ${query.generated_certificate}`;
+    } else {
+        certificateDiv.innerHTML = '<em>No certificate could be extracted from the model output</em>';
+        certificateDiv.style.backgroundColor = 'var(--md-sys-color-error-container)';
+        certificateDiv.style.color = 'var(--md-sys-color-on-error-container)';
+    }
+    
+    // Show verification results
+    const verificationDiv = document.getElementById('verification-results');
+    if (query.verification_summary) {
+        const verification = query.verification_summary;
+        verificationDiv.innerHTML = `
+            <div class="verification-check">
+                <span class="material-icons verification-icon ${verification.numerical ? 'passed' : 'failed'}">
+                    ${verification.numerical ? 'check_circle' : 'cancel'}
+                </span>
+                <span>Numerical Verification: ${verification.numerical ? 'Passed' : 'Failed'}</span>
+            </div>
+            <div class="verification-check">
+                <span class="material-icons verification-icon ${verification.symbolic ? 'passed' : 'failed'}">
+                    ${verification.symbolic ? 'check_circle' : 'cancel'}
+                </span>
+                <span>Symbolic Verification: ${verification.symbolic ? 'Passed' : 'Failed'}</span>
+            </div>
+            <div class="verification-check">
+                <span class="material-icons verification-icon ${verification.sos ? 'passed' : 'failed'}">
+                    ${verification.sos ? 'check_circle' : 'cancel'}
+                </span>
+                <span>SOS Verification: ${verification.sos ? 'Passed' : 'Failed'}</span>
+            </div>
+            <div class="verification-check">
+                <span class="material-icons verification-icon ${verification.overall ? 'passed' : 'failed'}">
+                    ${verification.overall ? 'verified' : 'dangerous'}
+                </span>
+                <strong>Overall: ${verification.overall ? 'Certificate Verified' : 'Verification Failed'}</strong>
+            </div>
+        `;
+    } else {
+        verificationDiv.innerHTML = '<em>Verification results not available</em>';
+    }
+    
+    // Set details link
+    document.getElementById('view-details-link').href = `/query/${query.id}`;
+    
+    // Re-enable form
+    resetForm();
+}
+
+function showErrorState(error) {
+    document.getElementById('processing-state').classList.add('hidden');
+    document.getElementById('results-state').classList.add('hidden');
+    document.getElementById('error-state').classList.remove('hidden');
+    
+    document.getElementById('error-message').textContent = error;
+    
+    // Re-enable form
+    resetForm();
+}
+
+function resetForm() {
+    document.getElementById('submit-btn').disabled = false;
+    document.getElementById('submit-btn').innerHTML = '<span class="material-icons">psychology</span> Generate Certificate';
+    
+    if (pollInterval) {
+        clearInterval(pollInterval);
+        pollInterval = null;
+    }
+    currentTaskId = null;
+}
+
+function startPolling() {
+    pollInterval = setInterval(async () => {
+        if (!currentTaskId) return;
+        
+        try {
+            const response = await fetch(`/task_status/${currentTaskId}`);
+            const status = await response.json();
+            
+            // Update progress
+            document.getElementById('progress-bar').style.width = `${status.progress}%`;
+            
+            // Update status text
+            const statusText = document.getElementById('processing-status');
+            const detailText = document.getElementById('processing-detail');
+            
+            switch (status.status) {
+                case 'processing':
+                    statusText.textContent = 'Generating barrier certificate...';
+                    detailText.textContent = 'Using LLM to generate certificate based on system description';
+                    break;
+                case 'generating':
+                    statusText.textContent = 'Generating barrier certificate...';
+                    detailText.textContent = 'Using LLM to generate certificate based on system description';
+                    break;
+                case 'verifying':
+                    statusText.textContent = 'Verifying certificate...';
+                    detailText.textContent = 'Running numerical, symbolic, and SOS verification checks';
+                    break;
+                case 'completed':
+                    clearInterval(pollInterval);
+                    showResultsState(status.query);
+                    showStatus('Certificate generation completed!', 'success');
+                    break;
+                case 'failed':
+                    clearInterval(pollInterval);
+                    showErrorState(status.error || 'Task failed');
+                    showStatus('Certificate generation failed', 'error');
+                    break;
+            }
+        } catch (error) {
+            console.error('Polling error:', error);
+        }
+    }, 1000); // Poll every second
+}
+
+// Auto-clear initial state
+document.addEventListener('DOMContentLoaded', function() {
+    // Set active nav link
+    const currentPath = window.location.pathname;
+    document.querySelectorAll('.nav-link').forEach(link => {
+        if (link.getAttribute('href') === currentPath) {
+            link.classList.add('active');
+        }
+    });
+});
+</script>
+{% endblock %} 

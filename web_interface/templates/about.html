@@ -1,0 +1,271 @@
+{% extends "base.html" %}
+
+{% block title %}About - FM-LLM Solver{% endblock %}
+
+{% block content %}
+<div class="mt-24">
+    <!-- Hero Section -->
+    <div class="card text-center">
+        <h1 style="font-size: var(--md-sys-typescale-display-large-size); margin-bottom: 16px; color: var(--md-sys-color-primary);">
+            FM-LLM Solver
+        </h1>
+        <h2 style="font-size: var(--md-sys-typescale-headline-medium-size); font-weight: 400; margin-bottom: 24px; color: var(--md-sys-color-on-surface-variant);">
+            Barrier Certificate Generation using Large Language Models
+        </h2>
+        <p style="font-size: var(--md-sys-typescale-body-large-size); max-width: 800px; margin: 0 auto; line-height: 1.6;">
+            An innovative approach to formal verification that leverages Large Language Models (LLMs), 
+            enhanced by Retrieval-Augmented Generation (RAG) and fine-tuning, to assist in the generation 
+            of barrier certificates for autonomous systems.
+        </p>
+    </div>
+    
+    <!-- Key Features -->
+    <div class="card">
+        <h2 class="card-title">Key Features</h2>
+        <div class="grid grid-2">
+            <div class="feature-card">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                    <span class="material-icons" style="font-size: 32px; color: var(--md-sys-color-primary);">psychology</span>
+                    <h3>LLM-Powered Generation</h3>
+                </div>
+                <p>Utilize state-of-the-art language models fine-tuned specifically for barrier certificate generation. Our system can process natural language descriptions of autonomous systems and propose mathematically valid barrier functions.</p>
+            </div>
+            
+            <div class="feature-card">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                    <span class="material-icons" style="font-size: 32px; color: var(--md-sys-color-primary);">library_books</span>
+                    <h3>Knowledge-Enhanced RAG</h3>
+                </div>
+                <p>Leverage a curated knowledge base built from relevant research literature. The RAG system retrieves contextually relevant information to guide the certificate generation process.</p>
+            </div>
+            
+            <div class="feature-card">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                    <span class="material-icons" style="font-size: 32px; color: var(--md-sys-color-primary);">verified</span>
+                    <h3>Comprehensive Verification</h3>
+                </div>
+                <p>Multi-layered verification including numerical sampling, symbolic analysis, and Sum-of-Squares (SOS) programming to validate generated certificates before deployment.</p>
+            </div>
+            
+            <div class="feature-card">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                    <span class="material-icons" style="font-size: 32px; color: var(--md-sys-color-primary);">tune</span>
+                    <h3>Specialized Models</h3>
+                </div>
+                <p>Support for both discrete and continuous barrier certificates with specialized fine-tuned models for each domain, ensuring optimal performance across different system types.</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- How It Works -->
+    <div class="card">
+        <h2 class="card-title">How It Works</h2>
+        <div class="workflow-steps">
+            <div class="workflow-step">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <h4>System Description</h4>
+                    <p>Provide a natural language description of your autonomous system including dynamics, initial conditions, unsafe regions, and constraints.</p>
+                </div>
+            </div>
+            
+            <div class="workflow-step">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <h4>Context Retrieval</h4>
+                    <p>The RAG system searches the knowledge base for relevant research papers and examples related to your system type and characteristics.</p>
+                </div>
+            </div>
+            
+            <div class="workflow-step">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                    <h4>Certificate Generation</h4>
+                    <p>The fine-tuned LLM processes your system description along with retrieved context to generate a candidate barrier certificate.</p>
+                </div>
+            </div>
+            
+            <div class="workflow-step">
+                <div class="step-number">4</div>
+                <div class="step-content">
+                    <h4>Verification</h4>
+                    <p>The generated certificate undergoes rigorous verification including numerical sampling, symbolic checks, and SOS analysis to ensure mathematical validity.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Technical Details -->
+    <div class="card">
+        <h2 class="card-title">Technical Details</h2>
+        <div class="grid grid-2">
+            <div>
+                <h4>Model Architecture</h4>
+                <ul style="color: var(--md-sys-color-on-surface-variant);">
+                    <li><strong>Base Model:</strong> Qwen2.5-14B-Instruct</li>
+                    <li><strong>Fine-tuning:</strong> QLoRA with 4-bit quantization</li>
+                    <li><strong>Embedding Model:</strong> all-mpnet-base-v2</li>
+                    <li><strong>Vector Store:</strong> FAISS for efficient similarity search</li>
+                </ul>
+                
+                <h4>Verification Methods</h4>
+                <ul style="color: var(--md-sys-color-on-surface-variant);">
+                    <li><strong>Numerical:</strong> Monte Carlo sampling verification</li>
+                    <li><strong>Symbolic:</strong> SymPy-based symbolic analysis</li>
+                    <li><strong>SOS:</strong> Sum-of-Squares programming with CVXPY</li>
+                    <li><strong>Optimization:</strong> Differential evolution for falsification</li>
+                </ul>
+            </div>
+            
+            <div>
+                <h4>Supported System Types</h4>
+                <ul style="color: var(--md-sys-color-on-surface-variant);">
+                    <li>Continuous dynamical systems</li>
+                    <li>Discrete-time systems</li>
+                    <li>Hybrid automata</li>
+                    <li>Polynomial and rational dynamics</li>
+                    <li>Nonlinear control systems</li>
+                </ul>
+                
+                <h4>Knowledge Base</h4>
+                <ul style="color: var(--md-sys-color-on-surface-variant);">
+                    <li>Curated research papers on barrier certificates</li>
+                    <li>Automatic classification of discrete vs. continuous approaches</li>
+                    <li>Semantic chunking and indexing</li>
+                    <li>Configurable retrieval parameters</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Research Context -->
+    <div class="card">
+        <h2 class="card-title">Research Context</h2>
+        <p style="margin-bottom: 16px;">
+            Formal verification provides essential safety and correctness guarantees for complex autonomous systems, 
+            with techniques like barrier certificates offering powerful tools for proving set invariance and reach-avoid properties. 
+            However, the synthesis of suitable barrier functions remains a significant bottleneck, often demanding considerable 
+            domain expertise or relying on computationally intensive methods.
+        </p>
+        <p style="margin-bottom: 16px;">
+            This project investigates the potential of Large Language Models (LLMs) to address the <em>candidate generation</em> 
+            challenge within the barrier certificate synthesis workflow. By leveraging domain knowledge extracted from research 
+            literature and fine-tuning on barrier certificate generation tasks, we aim to accelerate the overall verification 
+            process by providing high-quality, structured hypotheses for barrier functions.
+        </p>
+        <div class="card" style="background-color: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container); margin-top: 16px;">
+            <p style="margin: 0;">
+                <strong>Important Note:</strong> The goal is not to supplant rigorous verification but to accelerate 
+                the overall process by providing formally-inclined researchers with high-quality, structured hypotheses 
+                for barrier functions, thereby narrowing the search space for subsequent analysis.
+            </p>
+        </div>
+    </div>
+    
+    <!-- Usage Guidelines -->
+    <div class="card">
+        <h2 class="card-title">Usage Guidelines</h2>
+        <div class="grid grid-2">
+            <div>
+                <h4>Best Practices</h4>
+                <ul style="color: var(--md-sys-color-on-surface-variant);">
+                    <li>Provide clear, mathematical descriptions of system dynamics</li>
+                    <li>Specify initial and unsafe sets precisely</li>
+                    <li>Include state variable definitions</li>
+                    <li>Start with simpler systems to understand model behavior</li>
+                    <li>Use appropriate model configurations for your system type</li>
+                </ul>
+            </div>
+            
+            <div>
+                <h4>Limitations</h4>
+                <ul style="color: var(--md-sys-color-on-surface-variant);">
+                    <li>Generated certificates require formal verification</li>
+                    <li>Performance depends on system complexity</li>
+                    <li>Knowledge base coverage affects results</li>
+                    <li>High-dimensional systems may be challenging</li>
+                    <li>Verification is preliminary, not complete formal proof</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Getting Started -->
+    <div class="card text-center">
+        <h2 class="card-title">Ready to Get Started?</h2>
+        <p style="margin-bottom: 24px; color: var(--md-sys-color-on-surface-variant);">
+            Try generating barrier certificates for your autonomous systems using our LLM-powered interface.
+        </p>
+        <a href="{{ url_for('index') }}" class="btn btn-primary" style="font-size: var(--md-sys-typescale-label-large-size); padding: 16px 32px;">
+            <span class="material-icons">rocket_launch</span>
+            Start Generating Certificates
+        </a>
+    </div>
+</div>
+
+<style>
+.feature-card {
+    padding: 0;
+    margin-bottom: 24px;
+}
+
+.workflow-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.workflow-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 20px;
+}
+
+.step-number {
+    width: 40px;
+    height: 40px;
+    background-color: var(--md-sys-color-primary);
+    color: var(--md-sys-color-on-primary);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 500;
+    flex-shrink: 0;
+}
+
+.step-content h4 {
+    margin: 0 0 8px 0;
+    color: var(--md-sys-color-on-surface);
+}
+
+.step-content p {
+    margin: 0;
+    color: var(--md-sys-color-on-surface-variant);
+    line-height: 1.5;
+}
+
+@media (max-width: 768px) {
+    .workflow-step {
+        flex-direction: column;
+        gap: 12px;
+    }
+    
+    .step-number {
+        align-self: flex-start;
+    }
+}
+</style>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Set active nav link
+document.addEventListener('DOMContentLoaded', function() {
+    const aboutLink = document.querySelector('a[href="/about"]');
+    if (aboutLink) {
+        aboutLink.classList.add('active');
+    }
+});
+</script>
+{% endblock %} 

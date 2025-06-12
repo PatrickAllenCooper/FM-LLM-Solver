@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}FM-LLM Solver{% endblock %}</title>
+    
+    <!-- Material Design 3 CSS -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    
+    <!-- Custom Material 3 styles -->
+    <style>
+        :root {
+            /* Material 3 Color Tokens */
+            --md-sys-color-primary: #6750A4;
+            --md-sys-color-on-primary: #FFFFFF;
+            --md-sys-color-primary-container: #EADDFF;
+            --md-sys-color-on-primary-container: #21005D;
+            
+            --md-sys-color-secondary: #625B71;
+            --md-sys-color-on-secondary: #FFFFFF;
+            --md-sys-color-secondary-container: #E8DEF8;
+            --md-sys-color-on-secondary-container: #1D192B;
+            
+            --md-sys-color-surface: #FEF7FF;
+            --md-sys-color-on-surface: #1D1B20;
+            --md-sys-color-surface-variant: #E7E0EC;
+            --md-sys-color-on-surface-variant: #49454F;
+            
+            --md-sys-color-background: #FEF7FF;
+            --md-sys-color-on-background: #1D1B20;
+            
+            --md-sys-color-error: #BA1A1A;
+            --md-sys-color-on-error: #FFFFFF;
+            --md-sys-color-error-container: #FFDAD6;
+            --md-sys-color-on-error-container: #410002;
+            
+            --md-sys-color-success: #00876C;
+            --md-sys-color-on-success: #FFFFFF;
+            --md-sys-color-success-container: #4FD8B7;
+            --md-sys-color-on-success-container: #002018;
+            
+            --md-sys-color-outline: #79747E;
+            --md-sys-color-outline-variant: #CAC4D0;
+            
+            /* Typography */
+            --md-sys-typescale-display-large-font: 'Roboto', sans-serif;
+            --md-sys-typescale-display-large-size: 57px;
+            --md-sys-typescale-display-large-weight: 400;
+            
+            --md-sys-typescale-headline-large-font: 'Roboto', sans-serif;
+            --md-sys-typescale-headline-large-size: 32px;
+            --md-sys-typescale-headline-large-weight: 400;
+            
+            --md-sys-typescale-headline-medium-font: 'Roboto', sans-serif;
+            --md-sys-typescale-headline-medium-size: 28px;
+            --md-sys-typescale-headline-medium-weight: 400;
+            
+            --md-sys-typescale-title-large-font: 'Roboto', sans-serif;
+            --md-sys-typescale-title-large-size: 22px;
+            --md-sys-typescale-title-large-weight: 500;
+            
+            --md-sys-typescale-body-large-font: 'Roboto', sans-serif;
+            --md-sys-typescale-body-large-size: 16px;
+            --md-sys-typescale-body-large-weight: 400;
+            
+            --md-sys-typescale-body-medium-font: 'Roboto', sans-serif;
+            --md-sys-typescale-body-medium-size: 14px;
+            --md-sys-typescale-body-medium-weight: 400;
+            
+            --md-sys-typescale-label-large-font: 'Roboto', sans-serif;
+            --md-sys-typescale-label-large-size: 14px;
+            --md-sys-typescale-label-large-weight: 500;
+        }
+        
+        * {
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: var(--md-sys-typescale-body-large-font);
+            font-size: var(--md-sys-typescale-body-large-size);
+            font-weight: var(--md-sys-typescale-body-large-weight);
+            line-height: 1.5;
+            margin: 0;
+            padding: 0;
+            background-color: var(--md-sys-color-background);
+            color: var(--md-sys-color-on-background);
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 16px;
+        }
+        
+        /* App Bar */
+        .app-bar {
+            background-color: var(--md-sys-color-primary);
+            color: var(--md-sys-color-on-primary);
+            padding: 16px 0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+        }
+        
+        .app-bar-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .app-bar-title {
+            font-family: var(--md-sys-typescale-title-large-font);
+            font-size: var(--md-sys-typescale-title-large-size);
+            font-weight: var(--md-sys-typescale-title-large-weight);
+            margin: 0;
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 24px;
+        }
+        
+        .nav-link {
+            color: var(--md-sys-color-on-primary);
+            text-decoration: none;
+            font-weight: 500;
+            padding: 8px 16px;
+            border-radius: 20px;
+            transition: background-color 0.2s;
+        }
+        
+        .nav-link:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        
+        .nav-link.active {
+            background-color: var(--md-sys-color-primary-container);
+            color: var(--md-sys-color-on-primary-container);
+        }
+        
+        /* Cards */
+        .card {
+            background-color: var(--md-sys-color-surface);
+            border-radius: 12px;
+            padding: 24px;
+            margin: 16px 0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+            border: 1px solid var(--md-sys-color-outline-variant);
+        }
+        
+        .card-title {
+            font-family: var(--md-sys-typescale-headline-medium-font);
+            font-size: var(--md-sys-typescale-headline-medium-size);
+            font-weight: var(--md-sys-typescale-headline-medium-weight);
+            margin: 0 0 16px 0;
+            color: var(--md-sys-color-on-surface);
+        }
+        
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px 24px;
+            border: none;
+            border-radius: 20px;
+            font-family: var(--md-sys-typescale-label-large-font);
+            font-size: var(--md-sys-typescale-label-large-size);
+            font-weight: var(--md-sys-typescale-label-large-weight);
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            min-height: 40px;
+        }
+        
+        .btn-primary {
+            background-color: var(--md-sys-color-primary);
+            color: var(--md-sys-color-on-primary);
+        }
+        
+        .btn-primary:hover {
+            background-color: var(--md-sys-color-primary);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            transform: translateY(-1px);
+        }
+        
+        .btn-secondary {
+            background-color: var(--md-sys-color-secondary);
+            color: var(--md-sys-color-on-secondary);
+        }
+        
+        .btn-secondary:hover {
+            background-color: var(--md-sys-color-secondary);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            transform: translateY(-1px);
+        }
+        
+        .btn-outline {
+            background-color: transparent;
+            color: var(--md-sys-color-primary);
+            border: 1px solid var(--md-sys-color-outline);
+        }
+        
+        .btn-outline:hover {
+            background-color: var(--md-sys-color-primary-container);
+            color: var(--md-sys-color-on-primary-container);
+        }
+        
+        .btn:disabled {
+            background-color: var(--md-sys-color-outline);
+            color: var(--md-sys-color-on-surface-variant);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        /* Form Elements */
+        .form-field {
+            margin-bottom: 24px;
+        }
+        
+        .form-label {
+            display: block;
+            font-family: var(--md-sys-typescale-body-medium-font);
+            font-size: var(--md-sys-typescale-body-medium-size);
+            font-weight: 500;
+            color: var(--md-sys-color-on-surface);
+            margin-bottom: 8px;
+        }
+        
+        .form-input, .form-textarea, .form-select {
+            width: 100%;
+            padding: 16px;
+            border: 1px solid var(--md-sys-color-outline);
+            border-radius: 4px;
+            font-family: var(--md-sys-typescale-body-large-font);
+            font-size: var(--md-sys-typescale-body-large-size);
+            background-color: var(--md-sys-color-surface);
+            color: var(--md-sys-color-on-surface);
+            transition: border-color 0.2s;
+        }
+        
+        .form-input:focus, .form-textarea:focus, .form-select:focus {
+            outline: none;
+            border-color: var(--md-sys-color-primary);
+            border-width: 2px;
+        }
+        
+        .form-textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+        
+        /* Progress */
+        .progress {
+            width: 100%;
+            height: 4px;
+            background-color: var(--md-sys-color-surface-variant);
+            border-radius: 2px;
+            overflow: hidden;
+            margin: 16px 0;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background-color: var(--md-sys-color-primary);
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+        
+        /* Status indicators */
+        .status-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 12px;
+            border-radius: 16px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .status-success {
+            background-color: var(--md-sys-color-success-container);
+            color: var(--md-sys-color-on-success-container);
+        }
+        
+        .status-error {
+            background-color: var(--md-sys-color-error-container);
+            color: var(--md-sys-color-on-error-container);
+        }
+        
+        .status-processing {
+            background-color: var(--md-sys-color-secondary-container);
+            color: var(--md-sys-color-on-secondary-container);
+        }
+        
+        .status-pending {
+            background-color: var(--md-sys-color-surface-variant);
+            color: var(--md-sys-color-on-surface-variant);
+        }
+        
+        /* Grid */
+        .grid {
+            display: grid;
+            gap: 24px;
+        }
+        
+        .grid-2 {
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        }
+        
+        .grid-3 {
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        }
+        
+        /* Utilities */
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .mb-0 { margin-bottom: 0; }
+        .mb-16 { margin-bottom: 16px; }
+        .mb-24 { margin-bottom: 24px; }
+        .mt-16 { margin-top: 16px; }
+        .mt-24 { margin-top: 24px; }
+        
+        .hidden { display: none; }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                padding: 0 12px;
+            }
+            
+            .nav-links {
+                flex-direction: column;
+                gap: 8px;
+            }
+            
+            .app-bar-content {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 16px;
+            }
+            
+            .card {
+                padding: 16px;
+            }
+        }
+    </style>
+    
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <header class="app-bar">
+        <div class="container">
+            <div class="app-bar-content">
+                <h1 class="app-bar-title">FM-LLM Solver</h1>
+                <nav class="nav-links">
+                    <a href="{{ url_for('index') }}" class="nav-link">Home</a>
+                    <a href="{{ url_for('query_history') }}" class="nav-link">History</a>
+                    <a href="{{ url_for('about') }}" class="nav-link">About</a>
+                </nav>
+            </div>
+        </div>
+    </header>
+    
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+    
+    <!-- Material Icons for dynamic content -->
+    <script>
+        // Common JavaScript utilities
+        function showStatus(message, type = 'info') {
+            // Create or update status display
+            let statusDiv = document.getElementById('status-message');
+            if (!statusDiv) {
+                statusDiv = document.createElement('div');
+                statusDiv.id = 'status-message';
+                statusDiv.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    padding: 16px 24px;
+                    border-radius: 12px;
+                    font-weight: 500;
+                    z-index: 1000;
+                    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+                    max-width: 400px;
+                `;
+                document.body.appendChild(statusDiv);
+            }
+            
+            statusDiv.textContent = message;
+            statusDiv.className = `status-chip status-${type}`;
+            statusDiv.style.display = 'block';
+            
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                statusDiv.style.display = 'none';
+            }, 5000);
+        }
+        
+        function formatTime(seconds) {
+            if (seconds < 60) {
+                return `${seconds.toFixed(1)}s`;
+            } else if (seconds < 3600) {
+                return `${Math.floor(seconds / 60)}m ${(seconds % 60).toFixed(0)}s`;
+            } else {
+                return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
+            }
+        }
+        
+        function formatTimestamp(timestamp) {
+            return new Date(timestamp).toLocaleString();
+        }
+    </script>
+    
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html> 
