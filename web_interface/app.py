@@ -80,18 +80,20 @@ def submit_query():
         
         # Start background task for generation and verification
         task_id = str(uuid.uuid4())
+        
+        # Initialize task tracking BEFORE starting thread to avoid race condition
+        background_tasks[task_id] = {
+            'status': 'processing',
+            'query_id': query.id,
+            'progress': 0
+        }
+        
         task_thread = threading.Thread(
             target=process_query_background,
             args=(task_id, query.id, system_description, model_config, rag_k)
         )
         task_thread.daemon = True
         task_thread.start()
-        
-        background_tasks[task_id] = {
-            'status': 'processing',
-            'query_id': query.id,
-            'progress': 0
-        }
         
         return jsonify({
             'success': True,
@@ -106,84 +108,120 @@ def submit_query():
 
 def process_query_background(task_id, query_id, system_description, model_config, rag_k):
     """Background task to process query generation and verification."""
-    try:
-        # Update task progress
-        background_tasks[task_id]['progress'] = 10
-        background_tasks[task_id]['status'] = 'generating'
-        
-        # Generate certificate
-        generation_result = certificate_generator.generate_certificate(
-            system_description, model_config, rag_k
-        )
-        
-        background_tasks[task_id]['progress'] = 50
-        
-        # Update query with generation result
-        query = QueryLog.query.get(query_id)
-        query.llm_output = generation_result.get('llm_output', '')
-        query.generated_certificate = generation_result.get('certificate', '')
-        query.context_chunks = generation_result.get('context_chunks', 0)
-        
-        if not generation_result.get('success'):
-            query.status = 'failed'
-            query.error_message = generation_result.get('error', 'Generation failed')
+    # Ensure we have Flask application context for database operations
+    with app.app_context():
+        try:
+            # Check if task still exists (in case of cleanup)
+            if task_id not in background_tasks:
+                app.logger.warning(f"Task {task_id} not found in background_tasks, aborting")
+                return
+            
+            # Start timing
+            from datetime import datetime
+            start_time = datetime.utcnow()
+            
+            # Update query with start time
+            query = QueryLog.query.get(query_id)
+            if query:
+                query.processing_start = start_time
+                db.session.commit()
+            
+            # Update task progress
+            background_tasks[task_id]['progress'] = 10
+            background_tasks[task_id]['status'] = 'generating'
+            
+            # Generate certificate
+            generation_result = certificate_generator.generate_certificate(
+                system_description, model_config, rag_k
+            )
+            
+            background_tasks[task_id]['progress'] = 50
+            
+            # Update query with generation result
+            query = QueryLog.query.get(query_id)
+            if query is None:
+                app.logger.error(f"Query {query_id} not found in database")
+                background_tasks[task_id]['status'] = 'failed'
+                background_tasks[task_id]['error'] = 'Query not found in database'
+                return
+            
+            query.llm_output = generation_result.get('llm_output', '')
+            query.generated_certificate = generation_result.get('certificate', '')
+            query.context_chunks = generation_result.get('context_chunks', 0)
+            
+            if not generation_result.get('success'):
+                query.status = 'failed'
+                query.error_message = generation_result.get('error', 'Generation failed')
+                query.processing_end = datetime.utcnow()
+                db.session.commit()
+                background_tasks[task_id]['status'] = 'failed'
+                background_tasks[task_id]['error'] = query.error_message
+                return
+            
+            background_tasks[task_id]['status'] = 'verifying'
+            background_tasks[task_id]['progress'] = 70
+            
+            # Verify certificate if generated successfully
+            if query.generated_certificate:
+                verification_result = verification_service.verify_certificate(
+                    query.generated_certificate, system_description
+                )
+                
+                # Create verification result record
+                verification = VerificationResult(
+                    query_id=query_id,
+                    numerical_check_passed=verification_result.get('numerical_passed', False),
+                    symbolic_check_passed=verification_result.get('symbolic_passed', False),
+                    sos_check_passed=verification_result.get('sos_passed', False),
+                    verification_details=json.dumps(verification_result.get('details', {})),
+                    overall_success=verification_result.get('overall_success', False)
+                )
+                db.session.add(verification)
+                
+                query.verification_summary = json.dumps({
+                    'numerical': verification_result.get('numerical_passed', False),
+                    'symbolic': verification_result.get('symbolic_passed', False),
+                    'sos': verification_result.get('sos_passed', False),
+                    'overall': verification_result.get('overall_success', False)
+                })
+            
+            query.status = 'completed'
+            query.processing_end = datetime.utcnow()
             db.session.commit()
-            background_tasks[task_id]['status'] = 'failed'
-            background_tasks[task_id]['error'] = query.error_message
-            return
-        
-        background_tasks[task_id]['status'] = 'verifying'
-        background_tasks[task_id]['progress'] = 70
-        
-        # Verify certificate if generated successfully
-        if query.generated_certificate:
-            verification_result = verification_service.verify_certificate(
-                query.generated_certificate, system_description
-            )
             
-            # Create verification result record
-            verification = VerificationResult(
-                query_id=query_id,
-                numerical_check_passed=verification_result.get('numerical_passed', False),
-                symbolic_check_passed=verification_result.get('symbolic_passed', False),
-                sos_check_passed=verification_result.get('sos_passed', False),
-                verification_details=json.dumps(verification_result.get('details', {})),
-                overall_success=verification_result.get('overall_success', False)
-            )
-            db.session.add(verification)
+            background_tasks[task_id]['status'] = 'completed'
+            background_tasks[task_id]['progress'] = 100
             
-            query.verification_summary = json.dumps({
-                'numerical': verification_result.get('numerical_passed', False),
-                'symbolic': verification_result.get('symbolic_passed', False),
-                'sos': verification_result.get('sos_passed', False),
-                'overall': verification_result.get('overall_success', False)
-            })
-        
-        query.status = 'completed'
-        db.session.commit()
-        
-        background_tasks[task_id]['status'] = 'completed'
-        background_tasks[task_id]['progress'] = 100
-        
-    except Exception as e:
-        app.logger.error(f"Background task error: {str(e)}")
-        app.logger.error(traceback.format_exc())
-        
-        # Update query with error
-        query = QueryLog.query.get(query_id)
-        query.status = 'failed'
-        query.error_message = str(e)
-        db.session.commit()
-        
-        background_tasks[task_id]['status'] = 'failed'
-        background_tasks[task_id]['error'] = str(e)
+        except Exception as e:
+            app.logger.error(f"Background task error: {str(e)}")
+            app.logger.error(traceback.format_exc())
+            
+            try:
+                # Update query with error (with additional error handling)
+                query = QueryLog.query.get(query_id)
+                if query:
+                    query.status = 'failed'
+                    query.error_message = str(e)
+                    query.processing_end = datetime.utcnow()
+                    db.session.commit()
+                
+                # Update background task status
+                if task_id in background_tasks:
+                    background_tasks[task_id]['status'] = 'failed'
+                    background_tasks[task_id]['error'] = str(e)
+                    
+            except Exception as inner_e:
+                app.logger.error(f"Error updating failed task status: {str(inner_e)}")
 
 @app.route('/task_status/<task_id>')
 def get_task_status(task_id):
     """Get status of background task."""
     task = background_tasks.get(task_id)
     if not task:
-        return jsonify({'error': 'Task not found'}), 404
+        return jsonify({
+            'status': 'not_found',
+            'error': 'Task not found. It may have completed and been cleaned up.'
+        }), 404
     
     response = {
         'status': task['status'],
@@ -201,8 +239,26 @@ def get_task_status(task_id):
                 'generated_certificate': query.generated_certificate,
                 'verification_summary': json.loads(query.verification_summary) if query.verification_summary else None
             }
+        
+        # Clean up completed task after a delay to allow final status check
+        cleanup_completed_task(task_id)
     
     return jsonify(response)
+
+def cleanup_completed_task(task_id, delay_seconds=30):
+    """Clean up completed task after a delay."""
+    def cleanup():
+        import time
+        time.sleep(delay_seconds)
+        if task_id in background_tasks:
+            task_status = background_tasks[task_id].get('status')
+            if task_status in ['completed', 'failed']:
+                del background_tasks[task_id]
+                app.logger.info(f"Cleaned up background task: {task_id}")
+    
+    cleanup_thread = threading.Thread(target=cleanup)
+    cleanup_thread.daemon = True
+    cleanup_thread.start()
 
 @app.route('/query/<int:query_id>')
 def view_query(query_id):
