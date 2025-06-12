@@ -26,6 +26,9 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-i
 
 # Database configuration
 db_path = config.get('web_interface', {}).get('database_path', 'web_interface/instance/app.db')
+# Convert to absolute path to avoid SQLite issues
+if not os.path.isabs(db_path):
+    db_path = os.path.join(PROJECT_ROOT, db_path)
 os.makedirs(os.path.dirname(db_path), exist_ok=True)
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False

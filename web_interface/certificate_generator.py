@@ -29,9 +29,12 @@ class CertificateGenerator:
         self.embedding_model = None
         self.knowledge_bases = {}  # Cache for knowledge bases
         
-        # Validate configuration
-        if not validate_kb_config(config):
-            raise ValueError("Invalid knowledge base configuration")
+        # Validate configuration (non-blocking)
+        try:
+            if not validate_kb_config(config):
+                logger.warning("Knowledge base configuration validation failed. Some features may be limited.")
+        except Exception as e:
+            logger.warning(f"Could not validate knowledge base configuration: {e}. Some features may be limited.")
         
     def get_available_models(self) -> List[Dict[str, Any]]:
         """Get list of available model configurations."""
@@ -149,7 +152,9 @@ class CertificateGenerator:
                 
                 index, metadata = load_knowledge_base(kb_dir, vector_file, metadata_file)
                 if index is None or metadata is None:
-                    raise ValueError(f"Failed to load knowledge base for {barrier_type}")
+                    logger.warning(f"No knowledge base found for {barrier_type}. RAG will be disabled.")
+                    self.knowledge_bases[barrier_type] = None
+                    return None
                 
                 self.knowledge_bases[barrier_type] = {
                     'index': index,
@@ -158,8 +163,9 @@ class CertificateGenerator:
                 logger.info(f"Loaded {barrier_type} knowledge base with {index.ntotal} vectors")
                 
             except Exception as e:
-                logger.error(f"Failed to load {barrier_type} knowledge base: {e}")
-                raise
+                logger.warning(f"Failed to load {barrier_type} knowledge base: {e}. RAG will be disabled.")
+                self.knowledge_bases[barrier_type] = None
+                return None
         
         return self.knowledge_bases[barrier_type]
     
@@ -237,21 +243,26 @@ class CertificateGenerator:
             
             # Load required components
             model_info = self._load_model(model_key)
-            embedding_model = self._load_embedding_model()
             kb_info = self._load_knowledge_base(model_info['config']['barrier_type'])
             
-            # Retrieve context if RAG is enabled
+            # Retrieve context if RAG is enabled and knowledge base is available
             context = ""
             context_chunks = 0
-            if rag_k > 0:
-                context = retrieve_context(
-                    system_description,
-                    embedding_model,
-                    kb_info['index'],
-                    kb_info['metadata'],
-                    rag_k
-                )
-                context_chunks = context.count('--- Context Chunk') if context else 0
+            if rag_k > 0 and kb_info is not None:
+                try:
+                    embedding_model = self._load_embedding_model()
+                    context = retrieve_context(
+                        system_description,
+                        embedding_model,
+                        kb_info['index'],
+                        kb_info['metadata'],
+                        rag_k
+                    )
+                    context_chunks = context.count('--- Context Chunk') if context else 0
+                except Exception as e:
+                    logger.warning(f"RAG retrieval failed: {e}. Continuing without context.")
+            elif rag_k > 0 and kb_info is None:
+                logger.info("RAG requested but no knowledge base available. Continuing without context.")
             
             # Format prompt
             prompt = format_prompt_with_context(
@@ -307,19 +318,20 @@ class CertificateGenerator:
                         'error': f"Adapter path not found: {model_config['adapter_path']}"
                     }
             
-            # Check if knowledge base exists for the barrier type
+            # Check if knowledge base exists for the barrier type (optional)
             barrier_type = model_config['barrier_type']
+            kb_available = False
             try:
-                self._load_knowledge_base(barrier_type)
+                kb_info = self._load_knowledge_base(barrier_type)
+                kb_available = kb_info is not None
             except Exception as e:
-                return {
-                    'available': False,
-                    'error': f"Knowledge base not available for {barrier_type}: {str(e)}"
-                }
+                logger.warning(f"Knowledge base check failed for {barrier_type}: {e}")
+                kb_available = False
             
             return {
                 'available': True,
-                'config': model_config
+                'config': model_config,
+                'knowledge_base_available': kb_available
             }
             
         except Exception as e:

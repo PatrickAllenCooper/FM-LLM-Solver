@@ -100,43 +100,60 @@ def check_dependencies():
 def check_project_setup(config):
     """Check if the project is properly set up."""
     issues = []
+    warnings = []
     
-    # Check if knowledge base exists
+    # Check if knowledge base exists (make this a warning, not a blocker)
     try:
         from knowledge_base.kb_utils import list_available_kbs
         available_kbs = list_available_kbs(config)
         if not any(available_kbs.values()):
-            issues.append("No knowledge base found. Run knowledge_base/knowledge_base_builder.py first.")
+            warnings.append("No knowledge base found. RAG functionality will be limited. Run knowledge_base/knowledge_base_builder.py to build one.")
     except Exception as e:
-        issues.append(f"Could not check knowledge base status: {e}")
+        warnings.append(f"Could not check knowledge base status: {e}. RAG functionality may be limited.")
     
     # Check if at least base model is available
     try:
         base_model = config.fine_tuning.base_model_name
-        # We can't easily check if the model is downloadable without trying to load it
-        # So we'll just warn if it's not a known model
         if not base_model:
             issues.append("No base model configured in fine_tuning.base_model_name")
     except Exception as e:
-        issues.append(f"Could not check model configuration: {e}")
+        warnings.append(f"Could not check model configuration: {e}")
     
-    # Check output directories
+    # Check and create output directories
     try:
         os.makedirs(config.paths.ft_output_dir, exist_ok=True)
-        os.makedirs('web_interface/instance', exist_ok=True)
+        
+        # Create database directory with proper permissions
+        db_path = config.get('web_interface', {}).get('database_path', 'web_interface/instance/app.db')
+        db_dir = os.path.dirname(db_path)
+        os.makedirs(db_dir, exist_ok=True)
+        
+        # Test write permissions
+        test_file = os.path.join(db_dir, 'test_write.tmp')
+        try:
+            with open(test_file, 'w') as f:
+                f.write('test')
+            os.remove(test_file)
+        except Exception as e:
+            issues.append(f"Cannot write to database directory {db_dir}: {e}")
+            
     except Exception as e:
         issues.append(f"Could not create required directories: {e}")
     
+    # Show warnings (non-blocking)
+    if warnings:
+        print("Notice: Setup recommendations:")
+        for warning in warnings:
+            print(f"  - {warning}")
+        print()
+    
+    # Show critical issues (blocking)
     if issues:
-        print("Warning: Project setup issues detected:")
+        print("Error: Critical setup issues detected:")
         for issue in issues:
             print(f"  - {issue}")
-        print("\nThe web interface may have limited functionality.")
-        print("Refer to the project README for complete setup instructions.")
-        
-        response = input("Continue anyway? (y/n): ")
-        if response.lower() != 'y':
-            return False
+        print("\nPlease fix these issues before starting the web interface.")
+        return False
     
     return True
 
