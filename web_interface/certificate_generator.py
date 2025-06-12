@@ -225,16 +225,66 @@ class CertificateGenerator:
             b_match = re.search(b_pattern, certificate_block, re.IGNORECASE)
             
             if b_match:
-                return b_match.group(1).strip()
+                expression = b_match.group(1).strip()
+                return self._clean_certificate_expression(expression)
         
         # Fallback: look for B(...) = ... pattern anywhere in the output
         fallback_pattern = r'B\s*\([^)]+\)\s*=\s*([^\n]+)'
         fallback_match = re.search(fallback_pattern, llm_output, re.IGNORECASE)
         
         if fallback_match:
-            return fallback_match.group(1).strip()
+            expression = fallback_match.group(1).strip()
+            return self._clean_certificate_expression(expression)
         
         return None
+    
+    def _clean_certificate_expression(self, expression: str) -> str:
+        """Clean LaTeX artifacts and other formatting issues from certificate expressions."""
+        if not expression:
+            return expression
+        
+        # Remove common LaTeX artifacts
+        cleaned = expression
+        
+        # Remove LaTeX brackets and delimiters
+        cleaned = re.sub(r'\\[\[\]()]', '', cleaned)  # Remove \[ \] \( \)
+        cleaned = re.sub(r'\\[\{\}]', '', cleaned)    # Remove \{ \}
+        
+        # Remove standalone LaTeX brackets at the end
+        cleaned = re.sub(r'\s*\\\]\s*$', '', cleaned)  # Remove trailing \]
+        cleaned = re.sub(r'\s*\\\[\s*$', '', cleaned)  # Remove trailing \[
+        cleaned = re.sub(r'\s*\\\)\s*$', '', cleaned)  # Remove trailing \)
+        cleaned = re.sub(r'\s*\\\(\s*$', '', cleaned)  # Remove trailing \(
+        
+        # Convert LaTeX math operators to standard notation
+        cleaned = cleaned.replace('\\cdot', '*')
+        cleaned = cleaned.replace('\\times', '*')
+        cleaned = cleaned.replace('\\div', '/')
+        cleaned = cleaned.replace('^', '**')           # Convert exponentiation
+        
+        # Remove LaTeX commands that might appear
+        cleaned = re.sub(r'\\[a-zA-Z]+\s*', '', cleaned)  # Remove LaTeX commands like \alpha, \beta
+        
+        # Remove excessive whitespace
+        cleaned = re.sub(r'\s+', ' ', cleaned)
+        cleaned = cleaned.strip()
+        
+        # Remove trailing punctuation that might cause parsing issues
+        cleaned = cleaned.rstrip('.,;:')
+        
+        # Remove trailing text descriptions (common LLM habit)
+        descriptive_patterns = [
+            r'\s+where\s+.*$',
+            r'\s+for\s+.*$',
+            r'\s+such\s+that\s+.*$',
+            r'\s+ensuring\s+.*$',
+            r'\s+guaranteeing\s+.*$'
+        ]
+        for pattern in descriptive_patterns:
+            cleaned = re.sub(pattern, '', cleaned, flags=re.IGNORECASE)
+        
+        logger.debug(f"Cleaned certificate expression: '{expression}' -> '{cleaned}'")
+        return cleaned
     
     def generate_certificate(self, system_description: str, model_key: str, rag_k: int = 3) -> Dict[str, Any]:
         """Generate a barrier certificate for the given system description."""

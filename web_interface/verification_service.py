@@ -180,10 +180,48 @@ class VerificationService:
                 current_min, current_max = bounds[var]
                 bounds[var] = (current_min, min(current_max, upper_val + 0.5))
     
+    def _clean_certificate_string(self, certificate_str: str) -> str:
+        """Clean LaTeX artifacts and formatting issues from certificate string."""
+        if not certificate_str:
+            return certificate_str
+        
+        cleaned = certificate_str.strip()
+        
+        # Remove common LaTeX artifacts
+        cleaned = re.sub(r'\\[\[\]()]', '', cleaned)  # Remove \[ \] \( \)
+        cleaned = re.sub(r'\\[\{\}]', '', cleaned)    # Remove \{ \}
+        
+        # Remove standalone LaTeX brackets at the end
+        cleaned = re.sub(r'\s*\\\]\s*$', '', cleaned)  # Remove trailing \]
+        cleaned = re.sub(r'\s*\\\[\s*$', '', cleaned)  # Remove trailing \[
+        cleaned = re.sub(r'\s*\\\)\s*$', '', cleaned)  # Remove trailing \)
+        cleaned = re.sub(r'\s*\\\(\s*$', '', cleaned)  # Remove trailing \(
+        
+        # Convert LaTeX math operators to standard notation
+        cleaned = cleaned.replace('\\cdot', '*')
+        cleaned = cleaned.replace('\\times', '*')
+        cleaned = cleaned.replace('\\div', '/')
+        cleaned = cleaned.replace('^', '**')
+        
+        # Remove LaTeX commands
+        cleaned = re.sub(r'\\[a-zA-Z]+\s*', '', cleaned)
+        
+        # Clean up whitespace and punctuation
+        cleaned = re.sub(r'\s+', ' ', cleaned)
+        cleaned = cleaned.strip().rstrip('.,;:')
+        
+        if cleaned != certificate_str:
+            logger.debug(f"Cleaned certificate for verification: '{certificate_str}' -> '{cleaned}'")
+        
+        return cleaned
+    
     def verify_certificate(self, certificate_str: str, system_description: str) -> Dict[str, Any]:
         """Verify a barrier certificate against a system description."""
         try:
             start_time = time.time()
+            
+            # Clean certificate string to remove LaTeX artifacts
+            certificate_str = self._clean_certificate_string(certificate_str)
             
             # Parse system description
             system_info = self.parse_system_description(system_description)
