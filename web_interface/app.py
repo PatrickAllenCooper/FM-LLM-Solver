@@ -36,6 +36,25 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # Initialize database
 db = init_db(app)
 
+# Add custom Jinja2 filters
+@app.template_filter('fromjson')
+def fromjson_filter(value):
+    """Parse JSON string in templates."""
+    if value is None:
+        return {}
+    try:
+        return json.loads(value)
+    except (json.JSONDecodeError, TypeError):
+        return {}
+
+@app.template_filter('tojson')
+def tojson_filter(value):
+    """Convert Python object to JSON string in templates."""
+    try:
+        return json.dumps(value)
+    except (TypeError, ValueError):
+        return '{}'
+
 # Initialize services
 certificate_generator = CertificateGenerator(config)
 verification_service = VerificationService(config)
