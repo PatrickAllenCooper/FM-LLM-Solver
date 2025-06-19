@@ -63,6 +63,47 @@ Unsafe Set: x >= 1.5"
                 </small>
             </div>
             
+            <!-- Verification Settings (collapsible) -->
+            <details style="margin-top: 16px;">
+                <summary style="cursor: pointer; font-weight: 600; margin-bottom: 8px;">Advanced Verification Settings</summary>
+                <div style="margin-top: 12px;">
+                    <div class="form-field">
+                        <label class="form-label" for="num_samples_lie">Samples for ΔB ≤ 0 (safe set)</label>
+                        <input type="number" id="num_samples_lie" name="num_samples_lie" class="form-input" value="10000" min="100" step="1000">
+                    </div>
+                    <div class="form-field">
+                        <label class="form-label" for="num_samples_boundary">Samples for boundary checks</label>
+                        <input type="number" id="num_samples_boundary" name="num_samples_boundary" class="form-input" value="5000" min="100" step="500">
+                    </div>
+                    <div class="form-field">
+                        <label class="form-label" for="numerical_tolerance">Numerical Tolerance</label>
+                        <input type="number" id="numerical_tolerance" name="numerical_tolerance" class="form-input" value="1e-6" step="1e-7">
+                    </div>
+
+                    <div class="form-field" style="display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" id="attempt_sos" name="attempt_sos" checked>
+                        <label for="attempt_sos">Attempt SOS Verification (polynomial systems only)</label>
+                    </div>
+
+                    <div class="form-field" style="display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" id="attempt_optimization" name="attempt_optimization">
+                        <label for="attempt_optimization">Run Optimisation-Based Falsification</label>
+                    </div>
+
+                    <!-- Optimisation parameters (shown only when checkbox checked) -->
+                    <div id="opt-params" style="margin-left: 16px; display: none;">
+                        <div class="form-field">
+                            <label class="form-label" for="optimization_max_iter">Optimisation Max Iterations</label>
+                            <input type="number" id="optimization_max_iter" name="optimization_max_iter" class="form-input" value="100" min="10" step="10">
+                        </div>
+                        <div class="form-field">
+                            <label class="form-label" for="optimization_pop_size">Optimisation Population Size</label>
+                            <input type="number" id="optimization_pop_size" name="optimization_pop_size" class="form-input" value="15" min="5" step="5">
+                        </div>
+                    </div>
+                </div>
+            </details>
+            
             <button type="submit" class="btn btn-primary" id="submit-btn">
                 <span class="material-icons">psychology</span>
                 Generate Certificate
@@ -212,6 +253,17 @@ document.getElementById('query-form').addEventListener('submit', async function(
     
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData);
+    
+    // Parse numeric overrides explicitly (FormData returns strings)
+    if (data.num_samples_lie) data.num_samples_lie = parseInt(data.num_samples_lie);
+    if (data.num_samples_boundary) data.num_samples_boundary = parseInt(data.num_samples_boundary);
+    if (data.numerical_tolerance) data.numerical_tolerance = parseFloat(data.numerical_tolerance);
+    if (data.optimization_max_iter) data.optimization_max_iter = parseInt(data.optimization_max_iter);
+    if (data.optimization_pop_size) data.optimization_pop_size = parseInt(data.optimization_pop_size);
+
+    // Ensure checkboxes are transmitted as booleans
+    data.attempt_sos = document.getElementById('attempt_sos').checked;
+    data.attempt_optimization = document.getElementById('attempt_optimization').checked;
     
     // Validate input
     if (!data.system_description.trim()) {
@@ -401,6 +453,11 @@ document.addEventListener('DOMContentLoaded', function() {
             link.classList.add('active');
         }
     });
+});
+
+// Show/hide optimisation parameters
+document.getElementById('attempt_optimization').addEventListener('change', function(e) {
+    document.getElementById('opt-params').style.display = e.target.checked ? 'block' : 'none';
 });
 </script>
 {% endblock %} 
