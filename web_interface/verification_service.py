@@ -270,7 +270,12 @@ class VerificationService:
         
         return cleaned
     
-    def verify_certificate(self, certificate_str: str, system_description: str) -> Dict[str, Any]:
+    def verify_certificate(
+        self,
+        certificate_str: str,
+        system_description: str,
+        param_overrides: Optional[dict] = None,
+    ) -> Dict[str, Any]:
         """Verify a barrier certificate against a system description."""
         try:
             start_time = time.time()
@@ -295,14 +300,23 @@ class VerificationService:
                 'sampling_bounds': sampling_bounds
             }
             
-            # Get verification configuration
-            verification_cfg = DictConfig(self.config.evaluation.verification)
+            # Get verification configuration and apply overrides (if any)
+            base_cfg = self.config.evaluation.verification
+            # Clone to avoid mutating global config
+            verification_cfg_dict = {k: v for k, v in base_cfg.items()}
+
+            if param_overrides:
+                for key, val in param_overrides.items():
+                    if key in verification_cfg_dict and val is not None:
+                        verification_cfg_dict[key] = val
+
+            verification_cfg = DictConfig(verification_cfg_dict)
             
             # Perform verification
             result = verify_barrier_certificate(
-                certificate_str, 
-                verification_system_info, 
-                verification_cfg
+                certificate_str,
+                verification_system_info,
+                verification_cfg,
             )
             
             verification_time = time.time() - start_time

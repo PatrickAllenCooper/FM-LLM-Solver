@@ -84,6 +84,17 @@ def submit_query():
         model_config = data.get('model_config', 'base')
         rag_k = int(data.get('rag_k', 3))
         
+        # Verification parameter overrides (optional)
+        verif_params = {
+            'num_samples_lie': data.get('num_samples_lie'),
+            'num_samples_boundary': data.get('num_samples_boundary'),
+            'numerical_tolerance': data.get('numerical_tolerance'),
+            'attempt_sos': data.get('attempt_sos'),
+            'attempt_optimization': data.get('attempt_optimization'),
+            'optimization_max_iter': data.get('optimization_max_iter'),
+            'optimization_pop_size': data.get('optimization_pop_size'),
+        }
+        
         if not system_description:
             return jsonify({'error': 'System description is required'}), 400
         
@@ -109,7 +120,7 @@ def submit_query():
         
         task_thread = threading.Thread(
             target=process_query_background,
-            args=(task_id, query.id, system_description, model_config, rag_k)
+            args=(task_id, query.id, system_description, model_config, rag_k, verif_params)
         )
         task_thread.daemon = True
         task_thread.start()
@@ -125,7 +136,7 @@ def submit_query():
         app.logger.error(f"Error submitting query: {str(e)}")
         return jsonify({'error': f'Failed to submit query: {str(e)}'}), 500
 
-def process_query_background(task_id, query_id, system_description, model_config, rag_k):
+def process_query_background(task_id, query_id, system_description, model_config, rag_k, verif_params):
     """Background task to process query generation and verification."""
     # Ensure we have Flask application context for database operations
     with app.app_context():
@@ -183,7 +194,9 @@ def process_query_background(task_id, query_id, system_description, model_config
             # Verify certificate if generated successfully
             if query.generated_certificate:
                 verification_result = verification_service.verify_certificate(
-                    query.generated_certificate, system_description
+                    query.generated_certificate,
+                    system_description,
+                    verif_params,
                 )
                 
                 # Create verification result record
