@@ -1390,8 +1390,9 @@ def verify_barrier_certificate(candidate_B_str: str, system_info: dict, verifica
             if sos_passed:
                 results['final_verdict'] = "Passed SOS Checks"
                 results['reason'] = sos_reason
-                results['verification_time_seconds'] = time.time() - start_time
-                return results
+                # Do not return early; continue to build full summary so
+                # that downstream components (e.g., web interface) always
+                # receive standardized verification sections.
             else:
                 # SOS failed or inconclusive, will proceed to numerical checks
                 results['reason'] = f"SOS Failed/Inconclusive: {sos_reason}"
@@ -1534,6 +1535,63 @@ def verify_barrier_certificate(candidate_B_str: str, system_info: dict, verifica
              results['reason'] = f"Symbolic Checks Failed/Inconclusive: {condition_name}: {sym_condition_reason} | Boundary: {sym_bound_reason}"
 
     logging.info(f"Final Verdict: {results['final_verdict']}. Reason: {results['reason']}")
+    # (time will be stored after summary block)
+
+    # --- STEP 7: Build Standardized Summary Blocks For Web Interface --- #
+    # 1. SOS summary
+    sos_summary = {
+        'attempted': results.get('sos_attempted', False),
+        'success': results.get('sos_passed', False),
+        'reason': results.get('sos_reason', 'Not Attempted'),
+        'details': {
+            'lie_passed': results.get('sos_lie_passed'),
+            'init_passed': results.get('sos_init_passed'),
+            'unsafe_passed': results.get('sos_unsafe_passed')
+        }
+    }
+
+    # 2. Symbolic summary
+    symbolic_summary = {
+        'success': bool(results.get('symbolic_lie_check_passed') and results.get('symbolic_boundary_check_passed')),
+        'reason': f"Lie: {sym_condition_reason} | Boundary: {sym_bound_reason}",
+        'details': {
+            'lie_passed': results.get('symbolic_lie_check_passed'),
+            'boundary_passed': results.get('symbolic_boundary_check_passed')
+        }
+    }
+
+    # 3. Numerical summary (include sampling and optimization)
+    numerical_success_flag = (numerical_overall_passed is True)
+    numerical_summary = {
+        'success': numerical_success_flag,
+        'reason': results.get('numerical_sampling_reason', 'Numerical checks not executed'),
+        'details': results.get('numerical_sampling_details', {})
+    }
+
+    # 4. Detect inconsistencies between SOS and numerical checks
+    conflict_detected = sos_summary['success'] and (numerical_summary['success'] is False)
+    if conflict_detected:
+        numerical_summary['reason'] += ' | WARNING: Numerical sampling failed while SOS succeeded.'
+
+    # 5. Store in results for external consumption
+    results['sos_verification'] = sos_summary
+    results['symbolic_verification'] = symbolic_summary
+    results['numerical_verification'] = numerical_summary
+    # Parsing summary aggregation
+    results['parsing'] = {
+        'candidate_parsed': results.get('parsing_B_successful'),
+        'sets_parsed': results.get('parsing_sets_successful'),
+        'is_polynomial_system': results.get('is_polynomial_system'),
+        'system_type': results.get('system_type')
+    }
+
+    results['overall_success'] = True if results['final_verdict'].startswith('Passed') else False
+
+    # If conflict, still treat overall_success according to SOS preference but flag it
+    if conflict_detected:
+        results['overall_success'] = False  # or keep True? choose conservative
+        results['conflict'] = 'sos_passed_numerical_failed'
+
     results['verification_time_seconds'] = time.time() - start_time
     return results
 
