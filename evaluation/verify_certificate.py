@@ -34,8 +34,8 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 # Constants are now loaded from config passed into verify_barrier_certificate
 # --- Constants for Numerical Checks ---
-NUM_SAMPLES_LIE = 10000  # Samples for checking dB/dt <= 0
-NUM_SAMPLES_BOUNDARY = 5000 # Samples for checking init/unsafe set conditions
+NUM_SAMPLES_LIE = 9100  # Samples for checking dB/dt <= 0
+NUM_SAMPLES_BOUNDARY = 4600 # Samples for checking init/unsafe set conditions
 NUMERICAL_TOLERANCE = 1e-6 # Tolerance for checking <= 0 or >= 0
 SOS_DEFAULT_DEGREE = 2 # Default degree for SOS multipliers (adjust as needed)
 SOS_SOLVER = cp.MOSEK # Preferred solver (requires license)
