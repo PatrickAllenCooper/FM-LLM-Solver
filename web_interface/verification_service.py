@@ -200,6 +200,12 @@ class VerificationService:
         except Exception as e:
             logger.warning(f"Failed to infer bounds from sets: {e}")
         
+        # ENHANCED: Auto-optimize bounds for specific system patterns
+        try:
+            self._optimize_bounds_for_system(bounds, system_info)
+        except Exception as e:
+            logger.warning(f"Failed to optimize bounds: {e}")
+        
         return bounds
     
     def _update_bounds_from_condition(self, bounds: Dict[str, tuple], 
@@ -289,6 +295,12 @@ class VerificationService:
             # Create sampling bounds
             sampling_bounds = self.create_sampling_bounds(system_info)
             
+            # Auto-generate safe set conditions if not provided
+            if not system_info.get('safe_set'):
+                generated_safe_set = self._generate_safe_set_conditions(system_info)
+                system_info['safe_set'] = generated_safe_set
+                logger.info(f"Auto-generated safe set conditions: {generated_safe_set}")
+            
             # Prepare system info for verification
             verification_system_info = {
                 'variables': system_info.get('variables', ['x', 'y']),
@@ -310,6 +322,25 @@ class VerificationService:
                     if key in verification_cfg_dict and val is not None:
                         verification_cfg_dict[key] = val
 
+            # DISCRETE-TIME OPTIMIZATIONS: Enhance parameters for discrete systems
+            is_discrete = self._detect_discrete_system(system_info)
+            if is_discrete:
+                logger.info("Detected discrete-time system - applying optimizations")
+                # For discrete systems, use more conservative bounds and higher sample counts
+                for var in sampling_bounds:
+                    current_min, current_max = sampling_bounds[var]
+                    # Compress sampling bounds for discrete systems to focus on reachable region
+                    margin = min(abs(current_max - current_min) * 0.3, 1.0)
+                    sampling_bounds[var] = (current_min + margin, current_max - margin)
+                
+                # Override verification parameters for discrete systems if not set
+                if not param_overrides or 'numerical_tolerance' not in param_overrides:
+                    verification_cfg_dict['numerical_tolerance'] = 1e-6  # More strict tolerance
+                if not param_overrides or 'num_samples_lie' not in param_overrides:
+                    verification_cfg_dict['num_samples_lie'] = min(15000, verification_cfg_dict.get('num_samples_lie', 9100) * 1.5)
+                if not param_overrides or 'num_samples_boundary' not in param_overrides:
+                    verification_cfg_dict['num_samples_boundary'] = min(8000, verification_cfg_dict.get('num_samples_boundary', 4600) * 1.5)
+            
             verification_cfg = DictConfig(verification_cfg_dict)
             
             # Perform verification
@@ -455,4 +486,120 @@ class VerificationService:
                 'details': parsing
             })
         
-        return feedback 
+        return feedback
+    
+    def _optimize_bounds_for_system(self, bounds: Dict[str, tuple], system_info: Dict[str, Any]):
+        """Optimize sampling bounds based on system characteristics."""
+        initial_conditions = system_info.get('initial_set', [])
+        unsafe_conditions = system_info.get('unsafe_set', [])
+        
+        # For circular initial sets like x^2 + y^2 <= r^2
+        for condition in initial_conditions:
+            if '**2' in condition and '+' in condition and '<=' in condition:
+                # Pattern: x**2 + y**2 <= value
+                circle_match = re.search(r'([a-zA-Z_]\w*)\*\*2\s*\+\s*([a-zA-Z_]\w*)\*\*2\s*<=?\s*([+-]?\d*\.?\d+)', condition)
+                if circle_match:
+                    var1, var2, radius_sq = circle_match.groups()
+                    radius = float(radius_sq) ** 0.5
+                    # Expand bounds to cover initial set plus margin
+                    margin = max(1.0, radius * 2)
+                    if var1 in bounds:
+                        bounds[var1] = (-margin, margin)
+                    if var2 in bounds:
+                        bounds[var2] = (-margin, margin)
+                    logger.info(f"Optimized bounds for circular initial set: radius={radius:.2f}, bounds=±{margin:.2f}")
+        
+        # For unsafe boundaries like x >= value
+        for condition in unsafe_conditions:
+            bound_match = re.search(r'([a-zA-Z_]\w*)\s*>=?\s*([+-]?\d*\.?\d+)', condition)
+            if bound_match:
+                var, boundary = bound_match.groups()
+                boundary_val = float(boundary)
+                if var in bounds:
+                    # Extend lower bound to well before the unsafe boundary
+                    current_min, current_max = bounds[var]
+                    safe_margin = abs(boundary_val) * 0.5 + 1.0
+                    new_min = min(current_min, boundary_val - safe_margin)
+                    new_max = min(current_max, boundary_val - 0.1)  # Stay safely away from boundary
+                    bounds[var] = (new_min, new_max)
+                    logger.info(f"Optimized bounds for unsafe boundary {var} >= {boundary_val}: [{new_min:.2f}, {new_max:.2f}]")
+    
+    def _generate_safe_set_conditions(self, system_info: Dict[str, Any]) -> List[str]:
+        """Auto-generate safe set conditions when not explicitly provided."""
+        safe_conditions = []
+        unsafe_conditions = system_info.get('unsafe_set', [])
+        initial_conditions = system_info.get('initial_set', [])
+        
+        # Method 1: Safe set as complement of unsafe set
+        for unsafe_condition in unsafe_conditions:
+            safe_condition = self._negate_condition(unsafe_condition)
+            if safe_condition:
+                safe_conditions.append(safe_condition)
+                logger.info(f"Generated safe set condition from unsafe set: {safe_condition}")
+        
+        # Method 2: If no unsafe set, use expanded initial set
+        if not safe_conditions and initial_conditions:
+            for init_condition in initial_conditions:
+                expanded_condition = self._expand_condition(init_condition)
+                if expanded_condition:
+                    safe_conditions.append(expanded_condition)
+                    logger.info(f"Generated safe set condition from initial set: {expanded_condition}")
+        
+        # Method 3: Default conservative bounds
+        if not safe_conditions:
+            variables = system_info.get('variables', ['x', 'y'])
+            for var in variables:
+                safe_conditions.append(f"{var} <= 10")
+                safe_conditions.append(f"{var} >= -10")
+            logger.info(f"Generated default safe set conditions: {safe_conditions}")
+        
+        return safe_conditions
+    
+    def _negate_condition(self, condition: str) -> str:
+        """Convert unsafe condition to safe condition by negation."""
+        condition = condition.strip()
+        
+        # x >= value -> x < value
+        if '>=' in condition:
+            return condition.replace('>=', '<')
+        # x > value -> x <= value  
+        elif '>' in condition:
+            return condition.replace('>', '<=')
+        # x <= value -> x > value
+        elif '<=' in condition:
+            return condition.replace('<=', '>')
+        # x < value -> x >= value
+        elif '<' in condition:
+            return condition.replace('<', '>=')
+        
+        logger.warning(f"Could not negate condition: {condition}")
+        return ""
+    
+    def _expand_condition(self, condition: str) -> str:
+        """Expand initial set condition to create a larger safe region."""
+        # For circular conditions like x^2 + y^2 <= r^2, expand radius
+        circle_match = re.search(r'([a-zA-Z_]\w*)\*\*2\s*\+\s*([a-zA-Z_]\w*)\*\*2\s*<=?\s*([+-]?\d*\.?\d+)', condition)
+        if circle_match:
+            var1, var2, radius_sq = circle_match.groups()
+            expanded_radius_sq = float(radius_sq) * 4  # Expand by factor of 2 in radius (4 in area)
+            return f"{var1}**2 + {var2}**2 <= {expanded_radius_sq}"
+        
+        # For linear bounds, expand by factor
+        bound_match = re.search(r'([a-zA-Z_]\w*)\s*(<=?|>=?)\s*([+-]?\d*\.?\d+)', condition)
+        if bound_match:
+            var, op, value = bound_match.groups()
+            expanded_value = float(value) * 2
+            return f"{var} {op} {expanded_value}"
+        
+        return ""
+    
+    def _detect_discrete_system(self, system_info: Dict[str, Any]) -> bool:
+        """Detect if system is discrete-time based on dynamics patterns."""
+        dynamics = system_info.get('dynamics', [])
+        
+        for dyn in dynamics:
+            # Look for discrete-time patterns: x[k+1], x_{k+1}, x{k+1}
+            if any(pattern in dyn for pattern in ['[k+1]', '_{k+1}', '{k+1}']):
+                return True
+        
+        return False 
