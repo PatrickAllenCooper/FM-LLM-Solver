@@ -301,21 +301,41 @@ def format_prompt_with_context(system_description, context, kb_type="unified"):
     example_b_func_vars = state_vars_str_for_prompt
     example_b_expr_var = actual_state_vars_list[0] if actual_state_vars_list else "x"
 
+    # Detect system type from dynamics notation
+    is_discrete_time = bool(re.search(r'\w+\[k\+1\]|\w+\[k \+ 1\]|\w+\(k\+1\)|\w+\(k \+ 1\)', system_description))
+    
     # Add barrier certificate type-specific guidance
     type_guidance = ""
-    if kb_type == "discrete":
+    discrete_conditions = ""
+    continuous_conditions = ""
+    
+    if is_discrete_time or kb_type == "discrete":
         type_guidance = (
-            f"IMPORTANT: This system requires a DISCRETE barrier certificate. Focus on:\n"
-            f"- Approaches suitable for discrete-time systems or hybrid automata\n"
-            f"- Verification techniques for finite state spaces or symbolic methods\n"
-            f"- Discrete barrier functions that ensure safety across state transitions\n"
+            f"IMPORTANT: This is a DISCRETE-TIME system (x[k+1] notation). For discrete-time barrier certificates:\n"
+            f"- Use the discrete barrier condition: B(x[k+1], y[k+1]) - B(x[k], y[k]) ≤ 0 (non-increasing)\n"  
+            f"- Focus on matrix analysis for linear systems (spectral radius < 1)\n"
+            f"- Consider level sets that separate initial and unsafe regions\n"
+            f"- Think about Lyapunov-like functions for stability analysis\n\n"
         )
-    elif kb_type == "continuous":
+        discrete_conditions = (
+            f"For discrete-time systems, the barrier certificate B({example_b_func_vars}) must satisfy:\n"
+            f"1. B(x[0], y[0]) ≤ 0 for all initial states (safe in initial set)\n"
+            f"2. B(x[k+1], y[k+1]) - B(x[k], y[k]) ≤ 0 for all k (non-increasing along trajectories)\n"
+            f"3. B(x, y) ≥ 0 in the unsafe region (positive outside safe region)\n"
+        )
+    elif kb_type == "continuous" or not is_discrete_time:
         type_guidance = (
-            f"IMPORTANT: This system requires a CONTINUOUS barrier certificate. Focus on:\n"
-            f"- Approaches suitable for continuous dynamical systems\n"
-            f"- Lie derivative conditions and differential constraints\n"
-            f"- Continuous barrier functions for flow-based safety verification\n"
+            f"IMPORTANT: This is a CONTINUOUS-TIME system (dx/dt notation). For continuous-time barrier certificates:\n"
+            f"- Use the Lie derivative condition: dB/dt ≤ 0 in the safe set\n"
+            f"- Consider energy-like functions and their time derivatives\n"
+            f"- Focus on polynomial forms for SOS (Sum-of-Squares) verification\n"
+            f"- Think about gradient and vector field alignment\n\n"
+        )
+        continuous_conditions = (
+            f"For continuous-time systems, the barrier certificate B({example_b_func_vars}) must satisfy:\n"
+            f"1. B(x, y) ≤ 0 for all initial states (safe in initial set)\n"
+            f"2. dB/dt = ∇B · f(x) ≤ 0 in the safe set (non-increasing along trajectories)\n"
+            f"3. B(x, y) ≥ 0 in the unsafe region (positive outside safe region)\n"
         )
 
     instruction = (
@@ -338,7 +358,8 @@ def format_prompt_with_context(system_description, context, kb_type="unified"):
         f"BARRIER_CERTIFICATE_START\n"
         f"B(theta, omega) = theta**2 + 0.5*omega**2 - 1\n"
         f"BARRIER_CERTIFICATE_END\n"
-        f"5. After stating the certificate in the specified block, you may then briefly outline the standard conditions it must satisfy (e.g., conditions related to the initial set, unsafe set, and its Lie derivative)."
+        f"5. After stating the certificate in the specified block, briefly outline the conditions it must satisfy:\n"
+        f"{discrete_conditions if (is_discrete_time or kb_type == 'discrete') else continuous_conditions}"
     )
 
     if context:
