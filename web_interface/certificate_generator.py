@@ -292,7 +292,17 @@ class CertificateGenerator:
             r'\s+for\s+.*$',
             r'\s+such\s+that\s+.*$',
             r'\s+ensuring\s+.*$',
-            r'\s+guaranteeing\s+.*$'
+            r'\s+guaranteeing\s+.*$',
+            r'\s+could\s+be\s+.*$',           # "could be appropriate", "could be suitable"
+            r'\s+would\s+be\s+.*$',          # "would be appropriate"
+            r'\s+seems\s+.*$',               # "seems appropriate"
+            r'\s+appears\s+.*$',             # "appears suitable"
+            r'\s+might\s+be\s+.*$',          # "might be appropriate"
+            r'\s+should\s+be\s+.*$',         # "should be suitable"
+            r'\s+is\s+appropriate\s*$',      # "is appropriate"
+            r'\s+is\s+suitable\s*$',         # "is suitable"
+            r'\s+works\s+well\s*$',          # "works well"
+            r'\s+can\s+be\s+used\s*$'        # "can be used"
         ]
         for pattern in descriptive_patterns:
             cleaned = re.sub(pattern, '', cleaned, flags=re.IGNORECASE)
