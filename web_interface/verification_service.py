@@ -301,6 +301,42 @@ class VerificationService:
                 system_info['safe_set'] = generated_safe_set
                 logger.info(f"Auto-generated safe set conditions: {generated_safe_set}")
             
+            # Get verification configuration first
+            base_cfg = self.config.evaluation.verification
+            verification_cfg_dict = {k: v for k, v in base_cfg.items()}
+
+            if param_overrides:
+                for key, val in param_overrides.items():
+                    if key in verification_cfg_dict and val is not None:
+                        verification_cfg_dict[key] = val
+
+            # DISCRETE-TIME OPTIMIZATIONS: Enhance parameters BEFORE creating verification_system_info
+            is_discrete = self._detect_discrete_system(system_info)
+            if is_discrete:
+                logger.info("Detected discrete-time system - applying optimizations")
+                logger.info(f"Original sampling bounds: {sampling_bounds}")
+                # For discrete systems, use more conservative bounds and higher sample counts
+                for var in sampling_bounds:
+                    current_min, current_max = sampling_bounds[var]
+                    # Compress sampling bounds for discrete systems to focus on reachable region
+                    margin = min(abs(current_max - current_min) * 0.3, 1.0)
+                    sampling_bounds[var] = (current_min + margin, current_max - margin)
+                
+                logger.info(f"Optimized sampling bounds for discrete system: {sampling_bounds}")
+                
+                # Override verification parameters for discrete systems if not set
+                if not param_overrides or 'numerical_tolerance' not in param_overrides:
+                    verification_cfg_dict['numerical_tolerance'] = 1e-6  # More strict tolerance
+                    logger.info(f"Set discrete numerical tolerance: 1e-6")
+                if not param_overrides or 'num_samples_lie' not in param_overrides:
+                    verification_cfg_dict['num_samples_lie'] = min(15000, verification_cfg_dict.get('num_samples_lie', 9100) * 1.5)
+                    logger.info(f"Set discrete lie samples: {verification_cfg_dict['num_samples_lie']}")
+                if not param_overrides or 'num_samples_boundary' not in param_overrides:
+                    verification_cfg_dict['num_samples_boundary'] = min(8000, verification_cfg_dict.get('num_samples_boundary', 4600) * 1.5)
+                    logger.info(f"Set discrete boundary samples: {verification_cfg_dict['num_samples_boundary']}")
+            else:
+                logger.info("System detected as continuous-time - using standard parameters")
+            
             # Prepare system info for verification
             verification_system_info = {
                 'variables': system_info.get('variables', ['x', 'y']),
@@ -311,35 +347,6 @@ class VerificationService:
                 'safe_set_conditions': system_info.get('safe_set', []),
                 'sampling_bounds': sampling_bounds
             }
-            
-            # Get verification configuration and apply overrides (if any)
-            base_cfg = self.config.evaluation.verification
-            # Clone to avoid mutating global config
-            verification_cfg_dict = {k: v for k, v in base_cfg.items()}
-
-            if param_overrides:
-                for key, val in param_overrides.items():
-                    if key in verification_cfg_dict and val is not None:
-                        verification_cfg_dict[key] = val
-
-            # DISCRETE-TIME OPTIMIZATIONS: Enhance parameters for discrete systems
-            is_discrete = self._detect_discrete_system(system_info)
-            if is_discrete:
-                logger.info("Detected discrete-time system - applying optimizations")
-                # For discrete systems, use more conservative bounds and higher sample counts
-                for var in sampling_bounds:
-                    current_min, current_max = sampling_bounds[var]
-                    # Compress sampling bounds for discrete systems to focus on reachable region
-                    margin = min(abs(current_max - current_min) * 0.3, 1.0)
-                    sampling_bounds[var] = (current_min + margin, current_max - margin)
-                
-                # Override verification parameters for discrete systems if not set
-                if not param_overrides or 'numerical_tolerance' not in param_overrides:
-                    verification_cfg_dict['numerical_tolerance'] = 1e-6  # More strict tolerance
-                if not param_overrides or 'num_samples_lie' not in param_overrides:
-                    verification_cfg_dict['num_samples_lie'] = min(15000, verification_cfg_dict.get('num_samples_lie', 9100) * 1.5)
-                if not param_overrides or 'num_samples_boundary' not in param_overrides:
-                    verification_cfg_dict['num_samples_boundary'] = min(8000, verification_cfg_dict.get('num_samples_boundary', 4600) * 1.5)
             
             verification_cfg = DictConfig(verification_cfg_dict)
             
