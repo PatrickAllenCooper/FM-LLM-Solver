@@ -226,7 +226,14 @@ class CertificateGenerator:
             
             if b_match:
                 expression = b_match.group(1).strip()
-                return self._clean_certificate_expression(expression)
+                cleaned_expr = self._clean_certificate_expression(expression)
+                
+                # Check if this is a template/placeholder expression
+                if self._is_template_expression(cleaned_expr):
+                    logger.warning(f"Detected template expression, rejecting: {cleaned_expr}")
+                    return None
+                
+                return cleaned_expr
         
         # Fallback: look for B(...) = ... pattern anywhere in the output
         fallback_pattern = r'B\s*\([^)]+\)\s*=\s*([^\n]+)'
@@ -234,7 +241,14 @@ class CertificateGenerator:
         
         if fallback_match:
             expression = fallback_match.group(1).strip()
-            return self._clean_certificate_expression(expression)
+            cleaned_expr = self._clean_certificate_expression(expression)
+            
+            # Check if this is a template/placeholder expression
+            if self._is_template_expression(cleaned_expr):
+                logger.warning(f"Detected template expression in fallback, rejecting: {cleaned_expr}")
+                return None
+            
+            return cleaned_expr
         
         return None
     
@@ -285,6 +299,56 @@ class CertificateGenerator:
         
         logger.debug(f"Cleaned certificate expression: '{expression}' -> '{cleaned}'")
         return cleaned
+    
+    def _is_template_expression(self, expression: str) -> bool:
+        """Check if the expression is a template/placeholder rather than a concrete barrier certificate."""
+        if not expression:
+            return True
+        
+        # Common template patterns that should be rejected
+        template_patterns = [
+            # Single letter variables: a, b, c, d, e, f, etc.
+            r'\b[a-z]\*',  # a*, b*, c*, etc.
+            r'\b[a-z]\s*\*',  # a *, b *, etc. 
+            r'\b[a-z]x',  # ax, bx, cx, etc.
+            r'\b[a-z]y',  # ay, by, cy, etc.
+            r'\b[a-z]\*\*',  # a**, b**, etc.
+            
+            # Common placeholder naming
+            r'\bc[0-9]',  # c1, c2, c3, etc.
+            r'\bcoeff',   # coeff, coefficient
+            r'\bparam',   # param, parameter
+            r'\balpha\b', r'\bbeta\b', r'\bgamma\b',  # Greek letters as placeholders
+            
+            # The exact problematic pattern
+            r'[a-z]\*\*2.*[a-z]y.*[a-z]\*\*2.*[a-z]\*.*[a-z]y.*[a-z]',  # ax**2 + bxy + cy**2 + dx + ey + f pattern
+            
+            # Standalone single letters that aren't state variables
+            r'^\s*[a-h]\s*$',  # Just 'a' or 'b' etc.
+            r'^\s*[a-h]\s*\+',  # Starting with single letter like 'a +'
+        ]
+        
+        # Check for any template patterns
+        for pattern in template_patterns:
+            if re.search(pattern, expression, re.IGNORECASE):
+                logger.debug(f"Template pattern detected: '{pattern}' in '{expression}'")
+                return True
+        
+        # Additional heuristic: if expression has more than 3 single-letter variables 
+        # (excluding x, y, z which are likely state variables), it's probably a template
+        single_letters = re.findall(r'\b[a-z]\b', expression.lower())
+        non_state_letters = [letter for letter in single_letters if letter not in ['x', 'y', 'z', 'k', 't']]
+        
+        if len(set(non_state_letters)) >= 3:  # 3 or more different single-letter non-state variables
+            logger.debug(f"Too many single-letter variables detected: {set(non_state_letters)} in '{expression}'")
+            return True
+        
+        # Check for the specific problematic pattern from the failed result
+        if 'ax**2' in expression.lower() and 'bxy' in expression.lower() and 'cy**2' in expression.lower():
+            logger.debug(f"Detected specific template pattern 'ax**2 + bxy + cy**2...' in '{expression}'")
+            return True
+        
+        return False
     
     def generate_certificate(self, system_description: str, model_key: str, rag_k: int = 3) -> Dict[str, Any]:
         """Generate a barrier certificate for the given system description."""
