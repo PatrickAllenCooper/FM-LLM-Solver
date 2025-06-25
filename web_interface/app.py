@@ -14,9 +14,10 @@ PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, PROJECT_ROOT)
 
 from utils.config_loader import load_config
-from web_interface.models import init_db, QueryLog, VerificationResult
+from web_interface.models import init_db, QueryLog, VerificationResult, Conversation, ConversationMessage
 from web_interface.certificate_generator import CertificateGenerator
 from web_interface.verification_service import VerificationService
+from web_interface.conversation_service import ConversationService
 
 app = Flask(__name__)
 
@@ -58,6 +59,7 @@ def tojson_filter(value):
 # Initialize services
 certificate_generator = CertificateGenerator(config)
 verification_service = VerificationService(config)
+conversation_service = ConversationService(config)
 
 # Store for background tasks
 background_tasks = {}
@@ -72,6 +74,286 @@ def index():
     return render_template('index.html', 
                          model_configs=model_configs, 
                          recent_queries=recent_queries)
+
+# ============ CONVERSATION ROUTES ============
+
+@app.route('/conversation/start', methods=['POST'])
+def start_conversation():
+    """Start a new conversation with the LLM."""
+    try:
+        data = request.get_json()
+        model_config = data.get('model_config', 'base')
+        rag_k = int(data.get('rag_k', 3))
+        
+        result = conversation_service.start_conversation(model_config, rag_k)
+        
+        if result['success']:
+            return jsonify({
+                'success': True,
+                'session_id': result['session_id'],
+                'conversation_id': result['conversation_id'],
+                'initial_message': result['initial_message']
+            })
+        else:
+            return jsonify({'error': result['error']}), 500
+            
+    except Exception as e:
+        app.logger.error(f"Error starting conversation: {str(e)}")
+        return jsonify({'error': f'Failed to start conversation: {str(e)}'}), 500
+
+@app.route('/conversation/<session_id>/message', methods=['POST'])
+def send_conversation_message(session_id):
+    """Send a message to the conversation."""
+    try:
+        data = request.get_json()
+        message = data.get('message', '').strip()
+        message_type = data.get('message_type', 'chat')
+        
+        if not message:
+            return jsonify({'error': 'Message is required'}), 400
+        
+        result = conversation_service.send_message(session_id, message, message_type)
+        
+        if result['success']:
+            return jsonify({
+                'success': True,
+                'user_message': result['user_message'],
+                'assistant_message': result['assistant_message']
+            })
+        else:
+            return jsonify({'error': result['error']}), 400
+            
+    except Exception as e:
+        app.logger.error(f"Error sending message: {str(e)}")
+        return jsonify({'error': f'Failed to send message: {str(e)}'}), 500
+
+@app.route('/conversation/<session_id>/history')
+def get_conversation_history(session_id):
+    """Get the conversation history."""
+    try:
+        result = conversation_service.get_conversation_history(session_id)
+        
+        if result['success']:
+            return jsonify({
+                'success': True,
+                'conversation': result['conversation'],
+                'messages': result['messages']
+            })
+        else:
+            return jsonify({'error': result['error']}), 404
+            
+    except Exception as e:
+        app.logger.error(f"Error getting conversation history: {str(e)}")
+        return jsonify({'error': f'Failed to get conversation history: {str(e)}'}), 500
+
+@app.route('/conversation/<session_id>/ready', methods=['POST'])
+def set_ready_to_generate(session_id):
+    """Set user's readiness to generate a certificate."""
+    try:
+        data = request.get_json()
+        ready = data.get('ready', False)
+        
+        result = conversation_service.set_ready_to_generate(session_id, ready)
+        
+        if result['success']:
+            return jsonify({
+                'success': True,
+                'ready_to_generate': result['ready_to_generate']
+            })
+        else:
+            return jsonify({'error': result['error']}), 400
+            
+    except Exception as e:
+        app.logger.error(f"Error setting ready status: {str(e)}")
+        return jsonify({'error': f'Failed to set ready status: {str(e)}'}), 500
+
+@app.route('/conversation/<session_id>/generate', methods=['POST'])
+def generate_from_conversation(session_id):
+    """Generate barrier certificate from conversation context."""
+    try:
+        # Get verification parameter overrides (optional)
+        data = request.get_json() or {}
+        verif_params = {
+            'num_samples_lie': data.get('num_samples_lie'),
+            'num_samples_boundary': data.get('num_samples_boundary'),
+            'numerical_tolerance': data.get('numerical_tolerance'),
+            'attempt_sos': data.get('attempt_sos'),
+            'attempt_optimization': data.get('attempt_optimization'),
+            'optimization_max_iter': data.get('optimization_max_iter'),
+            'optimization_pop_size': data.get('optimization_pop_size'),
+        }
+        
+        # Generate certificate from conversation
+        generation_result = conversation_service.generate_certificate_from_conversation(session_id)
+        
+        if not generation_result['success']:
+            return jsonify({'error': generation_result['error']}), 400
+        
+        certificate_result = generation_result['certificate_result']
+        
+        # If generation succeeded, create a query log entry
+        if certificate_result['success'] and certificate_result['certificate']:
+            # Get conversation details
+            conv_history = conversation_service.get_conversation_history(session_id)
+            if conv_history['success']:
+                conversation_data = conv_history['conversation']
+                
+                # Create query log entry linked to conversation
+                query = QueryLog(
+                    system_description=conversation_data['system_description'] or 'From conversation',
+                    model_config=conversation_data['model_config'],
+                    rag_k=conversation_data['rag_k'],
+                    conversation_id=conversation_data['id'],
+                    llm_output=certificate_result['llm_output'],
+                    generated_certificate=certificate_result['certificate'],
+                    context_chunks=certificate_result['context_chunks'],
+                    status='processing'
+                )
+                db.session.add(query)
+                db.session.commit()
+                
+                # Start background verification
+                task_id = str(uuid.uuid4())
+                background_tasks[task_id] = {
+                    'status': 'verifying',
+                    'query_id': query.id,
+                    'progress': 70
+                }
+                
+                task_thread = threading.Thread(
+                    target=verify_certificate_background,
+                    args=(task_id, query.id, certificate_result['certificate'], 
+                          conversation_data['system_description'], verif_params)
+                )
+                task_thread.daemon = True
+                task_thread.start()
+                
+                return jsonify({
+                    'success': True,
+                    'certificate': certificate_result['certificate'],
+                    'task_id': task_id,
+                    'query_id': query.id,
+                    'llm_output': certificate_result['llm_output']
+                })
+        
+        return jsonify({
+            'success': False,
+            'error': certificate_result.get('error', 'Failed to generate certificate')
+        }), 500
+        
+    except Exception as e:
+        app.logger.error(f"Error generating from conversation: {str(e)}")
+        return jsonify({'error': f'Failed to generate certificate: {str(e)}'}), 500
+
+def verify_certificate_background(task_id, query_id, certificate, system_description, verif_params):
+    """Background task for certificate verification."""
+    with app.app_context():
+        try:
+            # Update query with verification start
+            query = db.session.get(QueryLog, query_id)
+            if query:
+                query.processing_start = datetime.utcnow()
+                db.session.commit()
+            
+            # Run verification
+            verification_result = verification_service.verify_certificate(
+                certificate,
+                system_description,
+                verif_params,
+            )
+            
+            # Create verification result record
+            verification = VerificationResult(
+                query_id=query_id,
+                numerical_check_passed=verification_result.get('numerical_passed', False),
+                symbolic_check_passed=verification_result.get('symbolic_passed', False),
+                sos_check_passed=verification_result.get('sos_passed', False),
+                verification_details=json.dumps(verification_result.get('details', {})),
+                overall_success=verification_result.get('overall_success', False)
+            )
+            db.session.add(verification)
+            
+            # Update query
+            if query:
+                query.verification_summary = json.dumps({
+                    'numerical': verification_result.get('numerical_passed', False),
+                    'symbolic': verification_result.get('symbolic_passed', False),
+                    'sos': verification_result.get('sos_passed', False),
+                    'overall': verification_result.get('overall_success', False)
+                })
+                query.status = 'completed'
+                query.processing_end = datetime.utcnow()
+                query.user_decision = 'pending'
+            
+            db.session.commit()
+            
+            # Update background task
+            background_tasks[task_id]['status'] = 'completed'
+            background_tasks[task_id]['progress'] = 100
+            
+        except Exception as e:
+            app.logger.error(f"Background verification error: {str(e)}")
+            try:
+                query = db.session.get(QueryLog, query_id)
+                if query:
+                    query.status = 'failed'
+                    query.error_message = str(e)
+                    query.processing_end = datetime.utcnow()
+                    db.session.commit()
+                
+                if task_id in background_tasks:
+                    background_tasks[task_id]['status'] = 'failed'
+                    background_tasks[task_id]['error'] = str(e)
+                    
+            except Exception as inner_e:
+                app.logger.error(f"Error updating failed verification: {str(inner_e)}")
+
+@app.route('/conversation/<session_id>/accept_certificate/<int:query_id>', methods=['POST'])
+def accept_certificate(session_id, query_id):
+    """Accept a generated certificate."""
+    try:
+        query = db.session.get(QueryLog, query_id)
+        if not query:
+            return jsonify({'error': 'Query not found'}), 404
+        
+        query.user_decision = 'accepted'
+        query.decision_timestamp = datetime.utcnow()
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'decision': 'accepted'
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Error accepting certificate: {str(e)}")
+        return jsonify({'error': f'Failed to accept certificate: {str(e)}'}), 500
+
+@app.route('/conversation/<session_id>/reject_certificate/<int:query_id>', methods=['POST'])
+def reject_certificate(session_id, query_id):
+    """Reject a generated certificate and continue conversation."""
+    try:
+        query = db.session.get(QueryLog, query_id)
+        if not query:
+            return jsonify({'error': 'Query not found'}), 404
+        
+        query.user_decision = 'rejected'
+        query.decision_timestamp = datetime.utcnow()
+        db.session.commit()
+        
+        # Reset conversation ready status so user can continue discussing
+        conversation_service.set_ready_to_generate(session_id, False)
+        
+        return jsonify({
+            'success': True,
+            'decision': 'rejected'
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Error rejecting certificate: {str(e)}")
+        return jsonify({'error': f'Failed to reject certificate: {str(e)}'}), 500
+
+# ============ END CONVERSATION ROUTES ============
 
 @app.route('/query', methods=['POST'])
 def submit_query():

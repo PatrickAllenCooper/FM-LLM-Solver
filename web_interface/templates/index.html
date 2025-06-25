@@ -3,9 +3,28 @@
 {% block title %}FM-LLM Solver - Barrier Certificate Generation{% endblock %}
 
 {% block content %}
+<!-- Mode Selection -->
+<div class="card mt-24">
+    <h2 class="card-title">Choose Generation Mode</h2>
+    <div style="display: flex; gap: 16px; margin-bottom: 16px;">
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+            <input type="radio" name="generation-mode" value="direct" checked>
+            <span>Direct Generation</span>
+        </label>
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+            <input type="radio" name="generation-mode" value="conversation">
+            <span>Conversational Mode</span>
+        </label>
+    </div>
+    <p style="color: var(--md-sys-color-on-surface-variant); font-size: 14px;">
+        <strong>Direct:</strong> Provide complete system description and generate immediately<br>
+        <strong>Conversational:</strong> Discuss your system with the AI, refine the description, then generate
+    </p>
+</div>
+
 <div class="grid grid-2 mt-24">
-    <!-- Query Form -->
-    <div class="card">
+    <!-- Direct Generation Panel -->
+    <div class="card" id="direct-panel">
         <h2 class="card-title">Generate Barrier Certificate</h2>
         <form id="query-form">
             <div class="form-field">
@@ -111,6 +130,75 @@ Unsafe Set: x >= 1.5"
         </form>
     </div>
     
+    <!-- Conversation Panel -->
+    <div class="card hidden" id="conversation-panel">
+        <h2 class="card-title">Conversation with AI</h2>
+        
+        <!-- Conversation Setup -->
+        <div id="conversation-setup">
+            <div class="form-field">
+                <label for="conv-model-config" class="form-label">Model Configuration</label>
+                <select id="conv-model-config" name="model_config" class="form-select">
+                    {% for model in model_configs %}
+                    <option value="{{ model.key }}" 
+                        {% if loop.first %}selected{% endif %}
+                        data-type="{{ model.type }}"
+                        data-barrier-type="{{ model.barrier_type }}">
+                        {{ model.name }} - {{ model.description }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="form-field">
+                <label for="conv-rag-k" class="form-label">RAG Context Chunks</label>
+                <select id="conv-rag-k" name="rag_k" class="form-select">
+                    <option value="0">Disabled (0)</option>
+                    <option value="1">1 chunk</option>
+                    <option value="2">2 chunks</option>
+                    <option value="3" selected>3 chunks</option>
+                    <option value="5">5 chunks</option>
+                    <option value="10">10 chunks</option>
+                </select>
+            </div>
+            
+            <button id="start-conversation-btn" class="btn btn-primary">
+                <span class="material-icons">chat</span>
+                Start Conversation
+            </button>
+        </div>
+        
+        <!-- Active Conversation -->
+        <div id="conversation-active" class="hidden">
+            <!-- Ready to Generate Toggle -->
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px; padding: 12px; background-color: var(--md-sys-color-primary-container); border-radius: 8px;">
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                    <input type="checkbox" id="ready-to-generate" style="transform: scale(1.2);">
+                    <span style="font-weight: 600;">Ready to Generate Certificate</span>
+                </label>
+                <button id="generate-from-conversation-btn" class="btn btn-primary" disabled>
+                    <span class="material-icons">psychology</span>
+                    Generate
+                </button>
+            </div>
+            
+            <!-- Chat Interface -->
+            <div id="chat-container" style="height: 400px; overflow-y: auto; border: 1px solid var(--md-sys-color-outline); border-radius: 8px; padding: 16px; margin-bottom: 16px; background-color: var(--md-sys-color-surface-variant);">
+                <div id="chat-messages">
+                    <!-- Messages will be populated here -->
+                </div>
+            </div>
+            
+            <!-- Message Input -->
+            <div style="display: flex; gap: 8px;">
+                <input type="text" id="message-input" class="form-input" style="flex: 1;" placeholder="Type your message here..." autocomplete="off">
+                <button id="send-message-btn" class="btn btn-primary">
+                    <span class="material-icons">send</span>
+                </button>
+            </div>
+        </div>
+    </div>
+    
     <!-- Results Panel -->
     <div class="card">
         <h2 class="card-title">Results</h2>
@@ -143,6 +231,24 @@ Unsafe Set: x >= 1.5"
                     <h3>Verification Results</h3>
                     <div id="verification-results">
                         <!-- Verification results will be populated here -->
+                    </div>
+                    
+                    <!-- Conversation-specific certificate decision -->
+                    <div id="certificate-decision" class="hidden mt-16">
+                        <h3>Certificate Decision</h3>
+                        <p style="color: var(--md-sys-color-on-surface-variant); margin-bottom: 12px;">
+                            What would you like to do with this generated certificate?
+                        </p>
+                        <div style="display: flex; gap: 12px;">
+                            <button id="accept-certificate-btn" class="btn btn-primary">
+                                <span class="material-icons">check_circle</span>
+                                Accept Certificate
+                            </button>
+                            <button id="reject-certificate-btn" class="btn btn-outline">
+                                <span class="material-icons">cancel</span>
+                                Reject & Continue Discussion
+                            </button>
+                        </div>
                     </div>
                     
                     <div class="mt-16">
@@ -247,6 +353,9 @@ Unsafe Set: x >= 1.5"
 <script>
 let currentTaskId = null;
 let pollInterval = null;
+let currentSessionId = null;
+let currentQueryId = null;
+let currentGenerationMode = 'direct';
 
 document.getElementById('query-form').addEventListener('submit', async function(e) {
     e.preventDefault();
@@ -356,11 +465,20 @@ function showResultsState(query) {
         verificationDiv.innerHTML = '<em>Verification results not available</em>';
     }
     
+    // Show/hide certificate decision based on generation mode
+    if (currentGenerationMode === 'conversation' && currentSessionId) {
+        document.getElementById('certificate-decision').classList.remove('hidden');
+    } else {
+        document.getElementById('certificate-decision').classList.add('hidden');
+    }
+    
     // Set details link
     document.getElementById('view-details-link').href = `/query/${query.id}`;
     
-    // Re-enable form
-    resetForm();
+    // Re-enable form (for direct mode)
+    if (currentGenerationMode === 'direct') {
+        resetForm();
+    }
 }
 
 function showErrorState(error) {
@@ -383,6 +501,17 @@ function resetForm() {
         pollInterval = null;
     }
     currentTaskId = null;
+}
+
+function showStatus(message, type) {
+    // Simple status display - could be enhanced with a proper notification system
+    const statusColor = type === 'success' ? 'var(--md-sys-color-primary)' : 'var(--md-sys-color-error)';
+    console.log(`[${type.toUpperCase()}] ${message}`);
+    
+    // Could add a toast notification here
+    if (type === 'error') {
+        alert('Error: ' + message);
+    }
 }
 
 function startPolling() {
@@ -444,6 +573,244 @@ function startPolling() {
     }, 1000); // Poll every second
 }
 
+// ============ CONVERSATION FUNCTIONS ============
+
+function switchMode(mode) {
+    currentGenerationMode = mode;
+    if (mode === 'direct') {
+        document.getElementById('direct-panel').classList.remove('hidden');
+        document.getElementById('conversation-panel').classList.add('hidden');
+        document.getElementById('certificate-decision').classList.add('hidden');
+    } else {
+        document.getElementById('direct-panel').classList.add('hidden');
+        document.getElementById('conversation-panel').classList.remove('hidden');
+    }
+}
+
+async function startConversation() {
+    try {
+        const modelConfig = document.getElementById('conv-model-config').value;
+        const ragK = parseInt(document.getElementById('conv-rag-k').value);
+        
+        const response = await fetch('/conversation/start', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                model_config: modelConfig,
+                rag_k: ragK
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            currentSessionId = result.session_id;
+            
+            // Hide setup, show active conversation
+            document.getElementById('conversation-setup').classList.add('hidden');
+            document.getElementById('conversation-active').classList.remove('hidden');
+            
+            // Add initial message
+            addMessageToChat(result.initial_message);
+            
+            showStatus('Conversation started successfully!', 'success');
+        } else {
+            showStatus('Failed to start conversation: ' + result.error, 'error');
+        }
+    } catch (error) {
+        showStatus('Error starting conversation: ' + error.message, 'error');
+    }
+}
+
+async function sendMessage() {
+    const messageInput = document.getElementById('message-input');
+    const message = messageInput.value.trim();
+    
+    if (!message || !currentSessionId) return;
+    
+    messageInput.value = '';
+    document.getElementById('send-message-btn').disabled = true;
+    
+    // Add user message to chat
+    addMessageToChat({
+        role: 'user',
+        content: message,
+        timestamp: new Date().toISOString()
+    });
+    
+    try {
+        const response = await fetch(`/conversation/${currentSessionId}/message`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                message: message,
+                message_type: 'chat'
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            // Add assistant response
+            addMessageToChat(result.assistant_message);
+        } else {
+            showStatus('Failed to send message: ' + result.error, 'error');
+        }
+    } catch (error) {
+        showStatus('Error sending message: ' + error.message, 'error');
+    } finally {
+        document.getElementById('send-message-btn').disabled = false;
+    }
+}
+
+function addMessageToChat(message) {
+    const chatMessages = document.getElementById('chat-messages');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message message-${message.role}`;
+    
+    const timestamp = new Date(message.timestamp).toLocaleTimeString();
+    
+    messageDiv.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px;">
+            <strong style="color: ${message.role === 'user' ? 'var(--md-sys-color-primary)' : 'var(--md-sys-color-secondary)'};">
+                ${message.role === 'user' ? 'You' : 'AI Assistant'}
+            </strong>
+            <small style="color: var(--md-sys-color-on-surface-variant);">${timestamp}</small>
+        </div>
+        <div style="white-space: pre-wrap; line-height: 1.4;">${message.content}</div>
+    `;
+    
+    messageDiv.style.marginBottom = '16px';
+    messageDiv.style.padding = '12px';
+    messageDiv.style.borderRadius = '8px';
+    messageDiv.style.backgroundColor = message.role === 'user' 
+        ? 'var(--md-sys-color-primary-container)' 
+        : 'var(--md-sys-color-secondary-container)';
+    
+    chatMessages.appendChild(messageDiv);
+    
+    // Scroll to bottom
+    const chatContainer = document.getElementById('chat-container');
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+}
+
+async function setReadyToGenerate(ready) {
+    if (!currentSessionId) return;
+    
+    try {
+        const response = await fetch(`/conversation/${currentSessionId}/ready`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ ready: ready })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            document.getElementById('generate-from-conversation-btn').disabled = !ready;
+        } else {
+            showStatus('Failed to update ready status: ' + result.error, 'error');
+        }
+    } catch (error) {
+        showStatus('Error updating ready status: ' + error.message, 'error');
+    }
+}
+
+async function generateFromConversation() {
+    if (!currentSessionId) return;
+    
+    try {
+        // Show processing state
+        showProcessingState();
+        
+        const response = await fetch(`/conversation/${currentSessionId}/generate`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                // Could include verification parameters here
+                attempt_sos: true,
+                attempt_optimization: false
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            currentTaskId = result.task_id;
+            currentQueryId = result.query_id;
+            startPolling();
+        } else {
+            showErrorState(result.error || 'Failed to generate certificate from conversation');
+        }
+    } catch (error) {
+        showErrorState('Error generating certificate: ' + error.message);
+    }
+}
+
+async function acceptCertificate() {
+    if (!currentSessionId || !currentQueryId) return;
+    
+    try {
+        const response = await fetch(`/conversation/${currentSessionId}/accept_certificate/${currentQueryId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showStatus('Certificate accepted successfully!', 'success');
+            document.getElementById('certificate-decision').classList.add('hidden');
+        } else {
+            showStatus('Failed to accept certificate: ' + result.error, 'error');
+        }
+    } catch (error) {
+        showStatus('Error accepting certificate: ' + error.message, 'error');
+    }
+}
+
+async function rejectCertificate() {
+    if (!currentSessionId || !currentQueryId) return;
+    
+    try {
+        const response = await fetch(`/conversation/${currentSessionId}/reject_certificate/${currentQueryId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showStatus('Certificate rejected. You can continue the conversation.', 'success');
+            document.getElementById('certificate-decision').classList.add('hidden');
+            document.getElementById('ready-to-generate').checked = false;
+            document.getElementById('generate-from-conversation-btn').disabled = true;
+            
+            // Clear results and return to conversation
+            document.getElementById('results-state').classList.add('hidden');
+            document.getElementById('initial-state').classList.remove('hidden');
+        } else {
+            showStatus('Failed to reject certificate: ' + result.error, 'error');
+        }
+    } catch (error) {
+        showStatus('Error rejecting certificate: ' + error.message, 'error');
+    }
+}
+
+// ============ END CONVERSATION FUNCTIONS ============
+
 // Auto-clear initial state
 document.addEventListener('DOMContentLoaded', function() {
     // Set active nav link
@@ -453,6 +820,34 @@ document.addEventListener('DOMContentLoaded', function() {
             link.classList.add('active');
         }
     });
+    
+    // Mode selection event listeners
+    document.querySelectorAll('input[name="generation-mode"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            switchMode(this.value);
+        });
+    });
+    
+    // Conversation event listeners
+    document.getElementById('start-conversation-btn').addEventListener('click', startConversation);
+    document.getElementById('send-message-btn').addEventListener('click', sendMessage);
+    document.getElementById('message-input').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            sendMessage();
+        }
+    });
+    
+    // Ready to generate checkbox
+    document.getElementById('ready-to-generate').addEventListener('change', function() {
+        setReadyToGenerate(this.checked);
+    });
+    
+    // Generation from conversation
+    document.getElementById('generate-from-conversation-btn').addEventListener('click', generateFromConversation);
+    
+    // Certificate decision buttons
+    document.getElementById('accept-certificate-btn').addEventListener('click', acceptCertificate);
+    document.getElementById('reject-certificate-btn').addEventListener('click', rejectCertificate);
 });
 
 // Show/hide optimisation parameters

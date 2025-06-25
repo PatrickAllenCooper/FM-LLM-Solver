@@ -1,5 +1,6 @@
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
+import json
 
 db = SQLAlchemy()
 
@@ -7,6 +8,75 @@ def init_db(app):
     """Initialize database with Flask app."""
     db.init_app(app)
     return db
+
+class Conversation(db.Model):
+    """Model for tracking ongoing conversations with the LLM."""
+    __tablename__ = 'conversation'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.String(100), unique=True, nullable=False)  # For frontend tracking
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    
+    # Conversation settings
+    model_config = db.Column(db.String(100), nullable=False)
+    rag_k = db.Column(db.Integer, default=3)
+    
+    # Current state
+    status = db.Column(db.String(20), default='active')  # active, generating, completed, archived
+    system_description = db.Column(db.Text)  # Latest understood system description
+    ready_to_generate = db.Column(db.Boolean, default=False)  # User's readiness indicator
+    
+    # Relationship to messages and queries
+    messages = db.relationship('ConversationMessage', backref='conversation', lazy=True, cascade='all, delete-orphan', order_by='ConversationMessage.timestamp')
+    query_logs = db.relationship('QueryLog', backref='conversation', lazy=True)
+    
+    def __repr__(self):
+        return f'<Conversation {self.id}: {self.status}>'
+    
+    @property
+    def message_count(self):
+        """Get the number of messages in this conversation."""
+        return len(self.messages)
+    
+    @property
+    def last_message_time(self):
+        """Get the timestamp of the last message."""
+        if self.messages:
+            return max(msg.timestamp for msg in self.messages)
+        return self.created_at
+
+class ConversationMessage(db.Model):
+    """Model for individual messages in a conversation."""
+    __tablename__ = 'conversation_message'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    conversation_id = db.Column(db.Integer, db.ForeignKey('conversation.id'), nullable=False)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    
+    # Message content
+    role = db.Column(db.String(20), nullable=False)  # 'user' or 'assistant'
+    content = db.Column(db.Text, nullable=False)
+    
+    # Metadata
+    message_type = db.Column(db.String(30), default='chat')  # 'chat', 'system_clarification', 'generation_request'
+    processing_time_seconds = db.Column(db.Float)  # For assistant messages
+    context_chunks_used = db.Column(db.Integer, default=0)  # For RAG context
+    
+    def __repr__(self):
+        return f'<ConversationMessage {self.id}: {self.role}>'
+    
+    def to_dict(self):
+        """Convert message to dictionary for JSON serialization."""
+        return {
+            'id': self.id,
+            'role': self.role,
+            'content': self.content,
+            'timestamp': self.timestamp.isoformat(),
+            'message_type': self.message_type,
+            'processing_time_seconds': self.processing_time_seconds,
+            'context_chunks_used': self.context_chunks_used
+        }
 
 class QueryLog(db.Model):
     """Model for storing user queries and their results."""
@@ -17,6 +87,9 @@ class QueryLog(db.Model):
     system_description = db.Column(db.Text, nullable=False)
     model_config = db.Column(db.String(100), nullable=False)
     rag_k = db.Column(db.Integer, default=3)
+    
+    # Optional conversation link
+    conversation_id = db.Column(db.Integer, db.ForeignKey('conversation.id'), nullable=True)
     
     # Generation results
     llm_output = db.Column(db.Text)
@@ -33,6 +106,10 @@ class QueryLog(db.Model):
     # Processing time
     processing_start = db.Column(db.DateTime)
     processing_end = db.Column(db.DateTime)
+    
+    # User decision on generated certificate
+    user_decision = db.Column(db.String(20))  # 'accepted', 'rejected', 'pending'
+    decision_timestamp = db.Column(db.DateTime)
     
     # Relationship to verification results
     verification_results = db.relationship('VerificationResult', backref='query', lazy=True, cascade='all, delete-orphan')
