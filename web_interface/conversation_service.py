@@ -3,6 +3,7 @@ import sys
 import uuid
 import json
 import logging
+import re
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 
@@ -118,11 +119,16 @@ class ConversationService:
             )
             db.session.add(assistant_msg)
             
-            # Update conversation timestamp and extract system description if possible
+            # Update conversation timestamp and extract system description and domain bounds if possible
             conversation.updated_at = datetime.utcnow()
             extracted_description = self._extract_system_description_from_conversation(conversation)
             if extracted_description:
                 conversation.system_description = extracted_description
+            
+            # Extract domain bounds from conversation
+            extracted_bounds = self._extract_domain_bounds_from_conversation(conversation)
+            if extracted_bounds:
+                conversation.set_domain_bounds_dict(extracted_bounds)
             
             db.session.commit()
             
@@ -229,10 +235,12 @@ class ConversationService:
             db.session.commit()
             
             # Use the certificate generator to create the certificate
+            domain_bounds = conversation.get_domain_bounds_dict()
             result = self.certificate_generator.generate_certificate(
                 conversation.system_description,
                 conversation.model_config,
-                conversation.rag_k
+                conversation.rag_k,
+                domain_bounds
             )
             
             # Update conversation status
@@ -442,4 +450,56 @@ class ConversationService:
             
             return '\n'.join(description_parts)
         
-        return None 
+        return None
+    
+    def _extract_domain_bounds_from_conversation(self, conversation: Conversation) -> Optional[dict]:
+        """Extract domain bounds from conversation messages."""
+        # Look through conversation for domain bounds specifications
+        bounds_dict = {}
+        
+        for msg in conversation.messages:
+            if msg.role in ['user', 'assistant']:
+                content = msg.content.lower()
+                
+                # Look for domain bounds patterns
+                # Pattern: "domain: x ∈ [-2, 2], y ∈ [-1, 1]"
+                domain_pattern = r'domain[:\s]*([a-zA-Z_]\w*)\s*[∈∈]\s*\[\s*([+-]?\d*\.?\d+)\s*,\s*([+-]?\d*\.?\d+)\s*\]'
+                domain_matches = re.findall(domain_pattern, content, re.IGNORECASE)
+                
+                for var, min_val, max_val in domain_matches:
+                    try:
+                        bounds_dict[var] = [float(min_val), float(max_val)]
+                    except ValueError:
+                        continue
+                
+                # Pattern: "x in [-2, 2]", "y in [-1, 1]"
+                in_pattern = r'([a-zA-Z_]\w*)\s+in\s*\[\s*([+-]?\d*\.?\d+)\s*,\s*([+-]?\d*\.?\d+)\s*\]'
+                in_matches = re.findall(in_pattern, content, re.IGNORECASE)
+                
+                for var, min_val, max_val in in_matches:
+                    try:
+                        bounds_dict[var] = [float(min_val), float(max_val)]
+                    except ValueError:
+                        continue
+                
+                # Pattern: "bounds: x [-2, 2], y [-1, 1]"
+                bounds_pattern = r'bounds[:\s]*([a-zA-Z_]\w*)\s*\[\s*([+-]?\d*\.?\d+)\s*,\s*([+-]?\d*\.?\d+)\s*\]'
+                bounds_matches = re.findall(bounds_pattern, content, re.IGNORECASE)
+                
+                for var, min_val, max_val in bounds_matches:
+                    try:
+                        bounds_dict[var] = [float(min_val), float(max_val)]
+                    except ValueError:
+                        continue
+                
+                # Pattern: "valid for x between -2 and 2"
+                between_pattern = r'([a-zA-Z_]\w*)\s+between\s+([+-]?\d*\.?\d+)\s+and\s+([+-]?\d*\.?\d+)'
+                between_matches = re.findall(between_pattern, content, re.IGNORECASE)
+                
+                for var, min_val, max_val in between_matches:
+                    try:
+                        bounds_dict[var] = [float(min_val), float(max_val)]
+                    except ValueError:
+                        continue
+        
+        return bounds_dict if bounds_dict else None 

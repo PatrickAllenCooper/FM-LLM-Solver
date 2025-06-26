@@ -220,10 +220,16 @@ def generate_from_conversation(session_id):
                     'progress': 70
                 }
                 
+                # Get domain bounds from conversation
+                conv_obj = conversation_service.get_conversation(session_id)
+                conv_domain_bounds = None
+                if conv_obj:
+                    conv_domain_bounds = conv_obj.get_domain_bounds_dict()
+                
                 task_thread = threading.Thread(
                     target=verify_certificate_background,
                     args=(task_id, query.id, certificate_result['certificate'], 
-                          conversation_data['system_description'], verif_params)
+                          conversation_data['system_description'], verif_params, conv_domain_bounds)
                 )
                 task_thread.daemon = True
                 task_thread.start()
@@ -245,7 +251,7 @@ def generate_from_conversation(session_id):
         app.logger.error(f"Error generating from conversation: {str(e)}")
         return jsonify({'error': f'Failed to generate certificate: {str(e)}'}), 500
 
-def verify_certificate_background(task_id, query_id, certificate, system_description, verif_params):
+def verify_certificate_background(task_id, query_id, certificate, system_description, verif_params, domain_bounds=None):
     """Background task for certificate verification."""
     with app.app_context():
         try:
@@ -260,6 +266,7 @@ def verify_certificate_background(task_id, query_id, certificate, system_descrip
                 certificate,
                 system_description,
                 verif_params,
+                domain_bounds
             )
             
             # Create verification result record
@@ -365,6 +372,7 @@ def submit_query():
         system_description = data.get('system_description', '').strip()
         model_config = data.get('model_config', 'base')
         rag_k = int(data.get('rag_k', 3))
+        domain_bounds = data.get('domain_bounds')
         
         # Verification parameter overrides (optional)
         verif_params = {
@@ -387,6 +395,11 @@ def submit_query():
             rag_k=rag_k,
             status='processing'
         )
+        
+        # Store domain bounds if provided
+        if domain_bounds:
+            query.set_domain_bounds_dict(domain_bounds)
+        
         db.session.add(query)
         db.session.commit()
         
@@ -402,7 +415,7 @@ def submit_query():
         
         task_thread = threading.Thread(
             target=process_query_background,
-            args=(task_id, query.id, system_description, model_config, rag_k, verif_params)
+            args=(task_id, query.id, system_description, model_config, rag_k, verif_params, domain_bounds)
         )
         task_thread.daemon = True
         task_thread.start()
@@ -418,7 +431,7 @@ def submit_query():
         app.logger.error(f"Error submitting query: {str(e)}")
         return jsonify({'error': f'Failed to submit query: {str(e)}'}), 500
 
-def process_query_background(task_id, query_id, system_description, model_config, rag_k, verif_params):
+def process_query_background(task_id, query_id, system_description, model_config, rag_k, verif_params, domain_bounds=None):
     """Background task to process query generation and verification."""
     # Ensure we have Flask application context for database operations
     with app.app_context():
@@ -444,7 +457,7 @@ def process_query_background(task_id, query_id, system_description, model_config
             
             # Generate certificate
             generation_result = certificate_generator.generate_certificate(
-                system_description, model_config, rag_k
+                system_description, model_config, rag_k, domain_bounds
             )
             
             background_tasks[task_id]['progress'] = 50
@@ -479,6 +492,7 @@ def process_query_background(task_id, query_id, system_description, model_config
                     query.generated_certificate,
                     system_description,
                     verif_params,
+                    domain_bounds
                 )
                 
                 # Create verification result record

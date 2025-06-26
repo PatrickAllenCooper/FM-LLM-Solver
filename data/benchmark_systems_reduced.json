@@ -15,6 +15,11 @@
        "x": [-2.0, 2.0],
        "y": [-2.0, 2.0]
     },
+    "certificate_domain_bounds": {
+       "x": [-2.0, 2.0],
+       "y": [-2.0, 2.0]
+    },
+    "domain_bounds_description": "Certificate valid in bounded region where dynamics are well-behaved",
     "notes": "Classic example where a simple quadratic barrier works well."
   },
   {
@@ -33,6 +38,11 @@
        "x": [-1.5, 1.5],
        "y": [-1.5, 1.5]
     },
+    "certificate_domain_bounds": {
+       "x": [-1.2, 1.2],
+       "y": [-1.2, 1.2]
+    },
+    "domain_bounds_description": "Certificate valid globally but restricted domain for numerical stability",
     "notes": "Simple linear system with quadratic barrier."
   },
   {
@@ -51,6 +61,11 @@
        "x": [-3.0, 3.0],
        "y": [-3.0, 3.0]
     },
+    "certificate_domain_bounds": {
+       "x": [-2.5, 2.5],
+       "y": [-2.5, 2.5]
+    },
+    "domain_bounds_description": "Domain covers oscillatory behavior while maintaining numerical accuracy",
     "notes": "Coupled system with weak coupling term."
   }
 ] 

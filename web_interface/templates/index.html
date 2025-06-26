@@ -82,6 +82,31 @@ Unsafe Set: x >= 1.5"
                 </small>
             </div>
             
+            <!-- Domain Bounds Settings -->
+            <details style="margin-top: 16px;">
+                <summary style="cursor: pointer; font-weight: 600; margin-bottom: 8px;">Domain Bounds (Certificate Validity Region)</summary>
+                <div style="margin-top: 12px;">
+                    <p style="color: var(--md-sys-color-on-surface-variant); font-size: 14px; margin-bottom: 12px;">
+                        Specify the domain where the barrier certificate should be valid. Leave empty for no domain restrictions.
+                    </p>
+                    <div id="domain-bounds-container">
+                        <div class="domain-bound-row" style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+                            <input type="text" class="form-input domain-var" placeholder="Variable (e.g., x)" style="width: 80px;">
+                            <span>∈ [</span>
+                            <input type="number" class="form-input domain-min" placeholder="Min" style="width: 80px;" step="0.1">
+                            <span>,</span>
+                            <input type="number" class="form-input domain-max" placeholder="Max" style="width: 80px;" step="0.1">
+                            <span>]</span>
+                            <button type="button" class="btn btn-outline" onclick="removeDomainBound(this)" style="font-size: 12px; padding: 4px 8px;">Remove</button>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-outline" onclick="addDomainBound()" style="font-size: 14px; margin-top: 8px;">
+                        <span class="material-icons" style="font-size: 16px;">add</span>
+                        Add Domain Bound
+                    </button>
+                </div>
+            </details>
+            
             <!-- Verification Settings (collapsible) -->
             <details style="margin-top: 16px;">
                 <summary style="cursor: pointer; font-weight: 600; margin-bottom: 8px;">Advanced Verification Settings</summary>
@@ -373,6 +398,9 @@ document.getElementById('query-form').addEventListener('submit', async function(
     // Ensure checkboxes are transmitted as booleans
     data.attempt_sos = document.getElementById('attempt_sos').checked;
     data.attempt_optimization = document.getElementById('attempt_optimization').checked;
+    
+    // Collect domain bounds
+    data.domain_bounds = getDomainBounds();
     
     // Validate input
     if (!data.system_description.trim()) {
@@ -854,5 +882,77 @@ document.addEventListener('DOMContentLoaded', function() {
 document.getElementById('attempt_optimization').addEventListener('change', function(e) {
     document.getElementById('opt-params').style.display = e.target.checked ? 'block' : 'none';
 });
+
+// Domain bounds functions
+function addDomainBound() {
+    const container = document.getElementById('domain-bounds-container');
+    const row = document.createElement('div');
+    row.className = 'domain-bound-row';
+    row.style.cssText = 'display: flex; gap: 8px; align-items: center; margin-bottom: 8px;';
+    row.innerHTML = `
+        <input type="text" class="form-input domain-var" placeholder="Variable (e.g., x)" style="width: 80px;">
+        <span>∈ [</span>
+        <input type="number" class="form-input domain-min" placeholder="Min" style="width: 80px;" step="0.1">
+        <span>,</span>
+        <input type="number" class="form-input domain-max" placeholder="Max" style="width: 80px;" step="0.1">
+        <span>]</span>
+        <button type="button" class="btn btn-outline" onclick="removeDomainBound(this)" style="font-size: 12px; padding: 4px 8px;">Remove</button>
+    `;
+    container.appendChild(row);
+}
+
+function removeDomainBound(button) {
+    const container = document.getElementById('domain-bounds-container');
+    if (container.children.length > 1) {
+        button.parentElement.remove();
+    }
+}
+
+function getDomainBounds() {
+    const bounds = {};
+    const rows = document.querySelectorAll('.domain-bound-row');
+    
+    rows.forEach(row => {
+        const varInput = row.querySelector('.domain-var');
+        const minInput = row.querySelector('.domain-min');
+        const maxInput = row.querySelector('.domain-max');
+        
+        const variable = varInput.value.trim();
+        const min = parseFloat(minInput.value);
+        const max = parseFloat(maxInput.value);
+        
+        if (variable && !isNaN(min) && !isNaN(max)) {
+            bounds[variable] = [min, max];
+        }
+    });
+    
+    return Object.keys(bounds).length > 0 ? bounds : null;
+}
+
+function setDomainBounds(bounds) {
+    const container = document.getElementById('domain-bounds-container');
+    container.innerHTML = '';
+    
+    if (!bounds || Object.keys(bounds).length === 0) {
+        addDomainBound();
+        return;
+    }
+    
+    Object.entries(bounds).forEach(([variable, [min, max]]) => {
+        const row = document.createElement('div');
+        row.className = 'domain-bound-row';
+        row.style.cssText = 'display: flex; gap: 8px; align-items: center; margin-bottom: 8px;';
+        row.innerHTML = `
+            <input type="text" class="form-input domain-var" placeholder="Variable (e.g., x)" style="width: 80px;" value="${variable}">
+            <span>∈ [</span>
+            <input type="number" class="form-input domain-min" placeholder="Min" style="width: 80px;" step="0.1" value="${min}">
+            <span>,</span>
+            <input type="number" class="form-input domain-max" placeholder="Max" style="width: 80px;" step="0.1" value="${max}">
+            <span>]</span>
+            <button type="button" class="btn btn-outline" onclick="removeDomainBound(this)" style="font-size: 12px; padding: 4px 8px;">Remove</button>
+        `;
+        container.appendChild(row);
+    });
+}
 </script>
 {% endblock %} 

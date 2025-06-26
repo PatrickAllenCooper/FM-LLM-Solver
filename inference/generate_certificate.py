@@ -253,31 +253,15 @@ def retrieve_context(query, embedding_model, index, metadata_map, k):
         py_logging.debug("Exception details:", exc_info=True)
         return ""
 
-def format_prompt_with_context(system_description, context, kb_type="unified"):
+def format_prompt_with_context(system_description, context, kb_type="unified", domain_bounds=None):
     """
-    Formats the prompt for the LLM, including the retrieved context.
+    Format the LLM prompt with system description, RAG context, and domain bounds.
     
-    This function creates a prompt that combines:
-    1. An instruction to generate a barrier certificate
-    2. Relevant context from research papers (if available)
-    3. The system description provided by the user
-    4. Information about the barrier certificate type (discrete/continuous)
-    
-    The format follows the Llama 3 instruction style with <s>[INST] ... [/INST]
-    
-    Parameters
-    ----------
-    system_description : str
-        Description of the autonomous system including dynamics, constraints, and sets
-    context : str
-        Retrieved context chunks from the knowledge base (can be empty)
-    kb_type : str
-        Type of barrier certificate knowledge base being used
-    
-    Returns
-    -------
-    str
-        Formatted prompt ready for the LLM
+    Args:
+        system_description: String describing the dynamical system
+        context: RAG-retrieved context chunks (optional)
+        kb_type: Type of knowledge base ("discrete", "continuous", "unified")
+        domain_bounds: Dictionary of domain bounds like {"x": [-2, 2], "y": [-1, 1]} (optional)
     """
     state_vars_match = re.search(r"State Variables:\s*\[?([\w\s,]+)\]?", system_description, re.IGNORECASE)
     actual_state_vars_list = []
@@ -369,16 +353,32 @@ def format_prompt_with_context(system_description, context, kb_type="unified"):
             f"3. B(x, y) ≥ 0 in the unsafe region (positive outside safe region)\n"
         )
 
+    # Domain bounds guidance
+    domain_guidance = ""
+    if domain_bounds:
+        domain_desc = ", ".join([f"{var} ∈ [{bounds[0]}, {bounds[1]}]" for var, bounds in domain_bounds.items()])
+        domain_guidance = (
+            f"🎯 DOMAIN BOUNDS CONSTRAINT: This barrier certificate must be valid within the specified domain:\n"
+            f"   Domain: {domain_desc}\n"
+            f"   - The certificate MUST satisfy all barrier conditions within this domain\n"
+            f"   - Outside this domain, the certificate validity is not guaranteed\n"
+            f"   - Choose coefficients and functional form appropriate for this bounded region\n"
+            f"   - Consider domain boundaries when verifying barrier conditions\n\n"
+        )
+
     instruction = (
         f"You are an expert in control theory and dynamical systems. Your task is to propose a barrier certificate for the given autonomous system.\n"
         f"The state variables for this system are: {state_vars_str_for_prompt}.\n\n"
+        f"{domain_guidance}"
         f"{type_guidance}"
         f"Please follow these steps carefully:\n"
         f"1. Analyze the system dynamics, initial set, unsafe set, and safe set (if provided) from the 'System Description' below.\n"
         f"2. Consider any relevant context from the 'Relevant Context from Papers' (if provided) that might inspire a similar form or approach for the barrier certificate.\n"
-        f"3. Briefly explain your reasoning or the strategy you will use to propose a candidate barrier certificate function B({example_b_func_vars}). This reasoning should not contain the final certificate itself.\n"
+        f"3. {'Consider the domain bounds constraint when selecting the barrier function form and coefficients.' if domain_bounds else ''}\n"
+        f"4. Briefly explain your reasoning or the strategy you will use to propose a candidate barrier certificate function B({example_b_func_vars}). This reasoning should not contain the final certificate itself.\n"
         f"   ⚠️  For discrete-time systems: ANALYZE state variable ranges from initial set BEFORE assuming any non-negativity!\n"
-        f"4. After your reasoning, state the proposed barrier certificate function clearly and unambiguously using ONLY the specified state variables ({state_vars_str_for_prompt}). The function must be presented in the following exact format, on its own lines, without any surrounding text or explanations other than what is inside the B(...) notation:\n"
+        f"   {'🎯  Consider how the domain bounds affect your barrier function choice and verification.' if domain_bounds else ''}\n"
+        f"5. After your reasoning, state the proposed barrier certificate function clearly and unambiguously using ONLY the specified state variables ({state_vars_str_for_prompt}). The function must be presented in the following exact format, on its own lines, without any surrounding text or explanations other than what is inside the B(...) notation:\n"
         f"BARRIER_CERTIFICATE_START\n"
         f"B({example_b_func_vars}) = <your_mathematical_expression_using_only_{state_vars_str_for_prompt}_and_constants>\n"
         f"BARRIER_CERTIFICATE_END\n\n"
@@ -401,8 +401,9 @@ def format_prompt_with_context(system_description, context, kb_type="unified"):
         f"• Compensated barriers: B(x, y) = x + 0.5*y**2 - 1.5 (y² term compensates for negative x)\n"
         f"• Pure quadratic: B(x, y) = 2*x**2 + 3*y**2 - 1.0 (always non-negative quadratic terms)\n"
         f"⚠️  WARNING: Simple linear barriers like B(x,y) = x - 1.5 often FAIL for systems with negative state variables!\n\n"
-        f"5. After stating the certificate in the specified block, briefly outline the conditions it must satisfy:\n"
+        f"6. After stating the certificate in the specified block, briefly outline the conditions it must satisfy:\n"
         f"{discrete_conditions if (is_discrete_time or kb_type == 'discrete') else continuous_conditions}"
+        f"{'   🎯  Note: All conditions must be verified within the specified domain bounds.' if domain_bounds else ''}"
     )
 
     if context:

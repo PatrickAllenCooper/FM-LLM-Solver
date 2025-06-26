@@ -27,6 +27,10 @@ class Conversation(db.Model):
     system_description = db.Column(db.Text)  # Latest understood system description
     ready_to_generate = db.Column(db.Boolean, default=False)  # User's readiness indicator
     
+    # Domain bounds for certificate validity (extracted from conversation)
+    domain_bounds = db.Column(db.Text)  # JSON string: {"x": [-2, 2], "y": [-1, 1]}
+    domain_conditions = db.Column(db.Text)  # JSON string: ["x >= -2", "x <= 2", ...]
+    
     # Relationship to messages and queries
     messages = db.relationship('ConversationMessage', backref='conversation', lazy=True, cascade='all, delete-orphan', order_by='ConversationMessage.timestamp')
     query_logs = db.relationship('QueryLog', backref='conversation', lazy=True)
@@ -45,6 +49,22 @@ class Conversation(db.Model):
         if self.messages:
             return max(msg.timestamp for msg in self.messages)
         return self.created_at
+    
+    def get_domain_bounds_dict(self):
+        """Get domain bounds as a dictionary."""
+        if self.domain_bounds:
+            try:
+                return json.loads(self.domain_bounds)
+            except json.JSONDecodeError:
+                return {}
+        return {}
+    
+    def set_domain_bounds_dict(self, bounds_dict):
+        """Set domain bounds from a dictionary."""
+        if bounds_dict:
+            self.domain_bounds = json.dumps(bounds_dict)
+        else:
+            self.domain_bounds = None
 
 class ConversationMessage(db.Model):
     """Model for individual messages in a conversation."""
@@ -96,6 +116,10 @@ class QueryLog(db.Model):
     generated_certificate = db.Column(db.Text)
     context_chunks = db.Column(db.Integer, default=0)
     
+    # Domain bounds for barrier certificate validity
+    certificate_domain_bounds = db.Column(db.Text)  # JSON string: {"x": [-2, 2], "y": [-1, 1]}
+    domain_bounds_conditions = db.Column(db.Text)  # JSON string: ["x >= -2", "x <= 2", "y >= -1", "y <= 1"]
+    
     # Processing status
     status = db.Column(db.String(20), default='pending')  # pending, processing, completed, failed
     error_message = db.Column(db.Text)
@@ -123,6 +147,38 @@ class QueryLog(db.Model):
         if self.processing_start and self.processing_end:
             return (self.processing_end - self.processing_start).total_seconds()
         return None
+    
+    def get_domain_bounds_dict(self):
+        """Get domain bounds as a dictionary."""
+        if self.certificate_domain_bounds:
+            try:
+                return json.loads(self.certificate_domain_bounds)
+            except json.JSONDecodeError:
+                return {}
+        return {}
+    
+    def set_domain_bounds_dict(self, bounds_dict):
+        """Set domain bounds from a dictionary."""
+        if bounds_dict:
+            self.certificate_domain_bounds = json.dumps(bounds_dict)
+        else:
+            self.certificate_domain_bounds = None
+    
+    def get_domain_conditions(self):
+        """Get domain bounds conditions as a list."""
+        if self.domain_bounds_conditions:
+            try:
+                return json.loads(self.domain_bounds_conditions)
+            except json.JSONDecodeError:
+                return []
+        return []
+    
+    def set_domain_conditions(self, conditions_list):
+        """Set domain bounds conditions from a list."""
+        if conditions_list:
+            self.domain_bounds_conditions = json.dumps(conditions_list)
+        else:
+            self.domain_bounds_conditions = None
 
 class VerificationResult(db.Model):
     """Model for detailed verification results."""
@@ -136,6 +192,10 @@ class VerificationResult(db.Model):
     numerical_check_passed = db.Column(db.Boolean, default=False)
     symbolic_check_passed = db.Column(db.Boolean, default=False)
     sos_check_passed = db.Column(db.Boolean, default=False)
+    
+    # Domain bounds verification
+    domain_bounds_check_passed = db.Column(db.Boolean, default=True)  # True if no bounds specified
+    domain_bounds_violations = db.Column(db.Integer, default=0)  # Number of violations found
     
     # Overall verification result
     overall_success = db.Column(db.Boolean, default=False)
@@ -192,6 +252,10 @@ class SystemBenchmark(db.Model):
     safe_set = db.Column(db.Text)
     state_variables = db.Column(db.String(200))
     
+    # Domain bounds for barrier certificate validity
+    certificate_domain_bounds = db.Column(db.Text)  # JSON string: {"x": [-2, 2], "y": [-1, 1]}
+    domain_bounds_description = db.Column(db.Text)  # Human-readable description of domain
+    
     # Expected results (if known)
     expected_certificate = db.Column(db.Text)
     expected_verification = db.Column(db.Boolean)
@@ -223,4 +287,32 @@ class SystemBenchmark(db.Model):
         if self.safe_set:
             description += f"\nSafe Set: {self.safe_set}"
         
-        return description 
+        # Add domain bounds information
+        if self.certificate_domain_bounds:
+            try:
+                bounds_dict = json.loads(self.certificate_domain_bounds)
+                bounds_desc = ", ".join([f"{var} ∈ [{bounds[0]}, {bounds[1]}]" for var, bounds in bounds_dict.items()])
+                description += f"\nDomain Bounds: {bounds_desc}"
+            except json.JSONDecodeError:
+                pass
+        
+        if self.domain_bounds_description:
+            description += f"\nDomain Description: {self.domain_bounds_description}"
+        
+        return description
+    
+    def get_domain_bounds_dict(self):
+        """Get domain bounds as a dictionary."""
+        if self.certificate_domain_bounds:
+            try:
+                return json.loads(self.certificate_domain_bounds)
+            except json.JSONDecodeError:
+                return {}
+        return {}
+    
+    def set_domain_bounds_dict(self, bounds_dict):
+        """Set domain bounds from a dictionary."""
+        if bounds_dict:
+            self.certificate_domain_bounds = json.dumps(bounds_dict)
+        else:
+            self.certificate_domain_bounds = None 

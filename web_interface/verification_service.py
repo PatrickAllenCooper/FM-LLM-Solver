@@ -281,6 +281,7 @@ class VerificationService:
         certificate_str: str,
         system_description: str,
         param_overrides: Optional[dict] = None,
+        domain_bounds: Optional[dict] = None,
     ) -> Dict[str, Any]:
         """Verify a barrier certificate against a system description."""
         try:
@@ -345,7 +346,8 @@ class VerificationService:
                 'initial_set_conditions': system_info.get('initial_set', []),
                 'unsafe_set_conditions': system_info.get('unsafe_set', []),
                 'safe_set_conditions': system_info.get('safe_set', []),
-                'sampling_bounds': sampling_bounds
+                'sampling_bounds': sampling_bounds,
+                'certificate_domain_bounds': domain_bounds
             }
             
             verification_cfg = DictConfig(verification_cfg_dict)

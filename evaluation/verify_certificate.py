@@ -1068,6 +1068,145 @@ def numerical_check_discrete_difference(delta_B_func, sampling_bounds, variables
         logging.error(f"Error during numerical discrete difference sampling: {e}")
         return False, {"reason": f"Numerical check error: {e}"}
 
+
+def numerical_check_domain_bounds(B_func, primary_condition_func, domain_bounds, variables_sympy, 
+                                initial_set_relationals, unsafe_set_relationals, safe_set_relationals,
+                                n_samples, tolerance):
+    """
+    Verify that barrier certificate conditions hold within specified domain bounds.
+    
+    Parameters
+    ----------
+    B_func : callable
+        Lambdified barrier function B(x)
+    primary_condition_func : callable
+        Lambdified primary condition function (dB/dt for continuous, ΔB for discrete)
+    domain_bounds : dict
+        Dictionary mapping variable names to [min, max] bounds
+    variables_sympy : list
+        List of SymPy symbols for state variables
+    initial_set_relationals : list
+        Parsed initial set conditions
+    unsafe_set_relationals : list
+        Parsed unsafe set conditions
+    safe_set_relationals : list
+        Parsed safe set conditions
+    n_samples : int
+        Number of samples to check
+    tolerance : float
+        Numerical tolerance for checks
+    
+    Returns
+    -------
+    tuple
+        (passed, details) where passed is bool and details is dict with violation info
+    """
+    logging.info(f"Performing domain bounds verification with {n_samples} samples...")
+    
+    if not domain_bounds:
+        return True, {"reason": "No domain bounds specified", "violations": 0}
+    
+    try:
+        # Generate samples within domain bounds
+        domain_samples = generate_samples(domain_bounds, variables_sympy, n_samples)
+        
+        violations = {
+            'total': 0,
+            'initial_violations': 0,
+            'unsafe_violations': 0,
+            'condition_violations': 0,
+            'violation_points': []
+        }
+        
+        checked_in_initial = 0
+        checked_outside_unsafe = 0
+        checked_in_safe = 0
+        
+        for point_dict in domain_samples:
+            try:
+                # Evaluate barrier function at this point
+                b_val_sympy = B_func(**point_dict)
+                b_val = float(b_val_sympy)
+                
+                # Evaluate primary condition (dB/dt or ΔB)
+                condition_val_sympy = primary_condition_func(**point_dict)
+                condition_val = float(condition_val_sympy)
+                
+                # Check initial set condition: B(x) ≤ 0 in initial set
+                is_in_initial = check_set_membership_numerical(point_dict, initial_set_relationals, variables_sympy)
+                if is_in_initial:
+                    checked_in_initial += 1
+                    if b_val > tolerance:
+                        violations['initial_violations'] += 1
+                        violations['total'] += 1
+                        violations['violation_points'].append({
+                            'point': point_dict,
+                            'violation_type': 'initial_set',
+                            'B_value': b_val,
+                            'expected': '≤ 0'
+                        })
+                
+                # Check unsafe set condition: B(x) ≥ 0 outside unsafe set
+                is_in_unsafe = check_set_membership_numerical(point_dict, unsafe_set_relationals, variables_sympy)
+                if not is_in_unsafe:
+                    checked_outside_unsafe += 1
+                    if b_val < -tolerance:
+                        violations['unsafe_violations'] += 1
+                        violations['total'] += 1
+                        violations['violation_points'].append({
+                            'point': point_dict,
+                            'violation_type': 'unsafe_set',
+                            'B_value': b_val,
+                            'expected': '≥ 0'
+                        })
+                
+                # Check primary condition: dB/dt ≤ 0 or ΔB ≤ 0 in safe set
+                is_in_safe = check_set_membership_numerical(point_dict, safe_set_relationals, variables_sympy)
+                if is_in_safe:
+                    checked_in_safe += 1
+                    if condition_val > tolerance:
+                        violations['condition_violations'] += 1
+                        violations['total'] += 1
+                        violations['violation_points'].append({
+                            'point': point_dict,
+                            'violation_type': 'primary_condition',
+                            'condition_value': condition_val,
+                            'expected': '≤ 0'
+                        })
+                        
+            except Exception as e:
+                logging.warning(f"Error evaluating point {point_dict} in domain bounds check: {e}")
+                continue
+        
+        # Determine result
+        passed = violations['total'] == 0
+        
+        reason = (f"Domain bounds check: {violations['total']} violations found. "
+                f"Checked {checked_in_initial} initial points, {checked_outside_unsafe} non-unsafe points, "
+                f"{checked_in_safe} safe points within domain bounds.")
+        
+        details = {
+            'reason': reason,
+            'violations': violations['total'],
+            'initial_violations': violations['initial_violations'],
+            'unsafe_violations': violations['unsafe_violations'],
+            'condition_violations': violations['condition_violations'],
+            'violation_points': violations['violation_points'],
+            'samples_checked': {
+                'initial': checked_in_initial,
+                'outside_unsafe': checked_outside_unsafe,
+                'safe': checked_in_safe,
+                'total': len(domain_samples)
+            }
+        }
+        
+        return passed, details
+        
+    except Exception as e:
+        logging.error(f"Error during domain bounds verification: {e}")
+        return False, {"reason": f"Domain bounds check error: {e}", "violations": -1}
+
+
 # --- Main Verification Function (Integrates SOS and Optimization) ---
 
 def verify_barrier_certificate(candidate_B_str: str, system_info: dict, verification_cfg: DictConfig):
@@ -1078,6 +1217,7 @@ def verify_barrier_certificate(candidate_B_str: str, system_info: dict, verifica
     1. B(x) <= 0 for all x in the initial set
     2. B(x) >= 0 for all x outside the unsafe set
     3. dB/dt <= 0 for all x in the safe set
+    4. (Optional) All conditions hold within specified domain bounds
     
     Parameters
     ----------
@@ -1092,6 +1232,7 @@ def verify_barrier_certificate(candidate_B_str: str, system_info: dict, verifica
         - unsafe_set_conditions: List of expressions defining the unsafe set
         - safe_set_conditions: List of expressions defining the safe set
         - sampling_bounds: Dictionary mapping variable names to [min, max] bounds
+        - certificate_domain_bounds: (Optional) Dictionary mapping variable names to [min, max] domain bounds
     verification_cfg : DictConfig
         Configuration object with verification parameters:
         - num_samples_lie: Number of samples for checking Lie derivative
@@ -1121,6 +1262,8 @@ def verify_barrier_certificate(candidate_B_str: str, system_info: dict, verifica
         - numerical_opt_lie_violation_found: Whether optimization found Lie derivative violations
         - numerical_opt_init_violation_found: Whether optimization found initial set violations
         - numerical_opt_unsafe_violation_found: Whether optimization found unsafe set violations
+        - domain_bounds_check_passed: Whether domain bounds verification passed
+        - domain_bounds_violations: Number of domain bounds violations found
         - final_verdict: Overall verification result
         - reason: Explanation for the verdict
         - verification_time_seconds: Time taken for verification
@@ -1167,6 +1310,9 @@ def verify_barrier_certificate(candidate_B_str: str, system_info: dict, verifica
         "numerical_opt_init_violation_found": None,
         "numerical_opt_unsafe_violation_found": None,
         "numerical_opt_reason": "Not Attempted",
+        "domain_bounds_check_passed": True,  # True if no bounds specified
+        "domain_bounds_violations": 0,
+        "domain_bounds_reason": "No domain bounds specified",
         "final_verdict": "Verification Error",
         "reason": "Initialization",
         "verification_time_seconds": 0
@@ -1180,6 +1326,7 @@ def verify_barrier_certificate(candidate_B_str: str, system_info: dict, verifica
     safe_conditions_list = system_info.get('safe_set_conditions', [])
     sampling_bounds = system_info.get('sampling_bounds', None)
     system_parameters = system_info.get('parameters', {})
+    certificate_domain_bounds = system_info.get('certificate_domain_bounds', None)
 
     if not state_vars_str or not dynamics_str: 
         results['reason'] = "Incomplete system info (state_variables or dynamics missing)"
@@ -1513,6 +1660,60 @@ def verify_barrier_certificate(candidate_B_str: str, system_info: dict, verifica
 
         # Update overall numerical pass status based on combined checks
         numerical_overall_passed = num_samp_condition_passed and num_samp_bound_passed
+        
+        # --- STEP 5.5: Domain Bounds Verification (if specified) --- #
+        domain_bounds_passed = True
+        domain_bounds_details = {"reason": "No domain bounds specified", "violations": 0}
+        
+        if certificate_domain_bounds and B_func and primary_condition_func:
+            logging.info("Performing domain bounds verification...")
+            try:
+                # Prepare domain bounds with parameter substitution
+                processed_domain_bounds = {}
+                for var_name_str, bounds_list in certificate_domain_bounds.items():
+                    try:
+                        db_min = sympy.sympify(bounds_list[0]).subs(system_params_sympy).evalf()
+                        db_max = sympy.sympify(bounds_list[1]).subs(system_params_sympy).evalf()
+                        processed_domain_bounds[var_name_str] = [float(db_min), float(db_max)]
+                    except (AttributeError, TypeError, sympy.SympifyError) as e:
+                        logging.error(f"Could not process domain bound '{bounds_list}' for var '{var_name_str}': {e}")
+                        try:
+                            processed_domain_bounds[var_name_str] = [float(bounds_list[0]), float(bounds_list[1])]
+                        except Exception as e_fb:
+                            logging.error(f"Fallback to float for domain bounds for '{var_name_str}' also failed: {e_fb}")
+                            continue
+                
+                if processed_domain_bounds:
+                    domain_bounds_passed, domain_bounds_details = numerical_check_domain_bounds(
+                        B_func, primary_condition_func, processed_domain_bounds, variables_sympy,
+                        initial_set_relationals, unsafe_set_relationals, safe_set_relationals,
+                        n_samples=num_samples_boundary, tolerance=numerical_tolerance
+                    )
+                    
+                    results['domain_bounds_check_passed'] = domain_bounds_passed
+                    results['domain_bounds_violations'] = domain_bounds_details.get('violations', 0)
+                    results['domain_bounds_reason'] = domain_bounds_details.get('reason', 'Domain bounds check completed')
+                    
+                    if not domain_bounds_passed:
+                        results['reason'] += f" | Domain bounds violated: {domain_bounds_details.get('violations', 0)} violations"
+                        numerical_overall_passed = False  # Domain bounds failure overrides numerical success
+                    else:
+                        results['reason'] += " | Domain bounds verification passed"
+                        
+            except Exception as e:
+                logging.error(f"Error during domain bounds verification: {e}")
+                results['domain_bounds_check_passed'] = False
+                results['domain_bounds_violations'] = -1
+                results['domain_bounds_reason'] = f"Domain bounds check error: {e}"
+                results['reason'] += f" | Domain bounds check failed: {e}"
+        elif certificate_domain_bounds:
+            logging.warning("Domain bounds specified but functions not available for verification")
+            results['domain_bounds_reason'] = "Domain bounds specified but verification functions unavailable"
+        
+        # Update overall numerical pass status to include domain bounds
+        if certificate_domain_bounds:
+            numerical_overall_passed = numerical_overall_passed and domain_bounds_passed
+            
     else:
          results['reason'] += " | Numerical checks skipped (lambdify failed or no numerical_sampling_bounds)."
          numerical_overall_passed = None # Indicate checks not performed

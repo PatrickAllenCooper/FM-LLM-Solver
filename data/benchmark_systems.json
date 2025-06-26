@@ -15,6 +15,11 @@
        "x": [-2.0, 2.0],
        "y": [-2.0, 2.0]
     },
+    "certificate_domain_bounds": {
+       "x": [-2.0, 2.0],
+       "y": [-2.0, 2.0]
+    },
+    "domain_bounds_description": "Certificate is valid in the region x ∈ [-2, 2], y ∈ [-2, 2] which covers the relevant dynamics",
     "notes": "Classic example of a nonlinear system where a simple quadratic barrier works well. The Lie derivative is reliably negative in the safe set."
   },
   {
@@ -33,6 +38,11 @@
        "x": [-3.0, 3.0],
        "y": [-2.0, 1.5]
     },
+    "certificate_domain_bounds": {
+       "x": [-3.0, 3.0],
+       "y": [-2.0, 1.5]
+    },
+    "domain_bounds_description": "Domain restricted to avoid numerical issues and focus on safety-critical region",
     "notes": "System with more complex behavior. The simple quadratic form x^2 + y^2 does not work as a barrier certificate here."
   },
   {
@@ -51,6 +61,11 @@
        "x": [-2.0, 2.0],
        "y": [-2.0, 2.0]
     },
+    "certificate_domain_bounds": {
+       "x": [-1.5, 1.5],
+       "y": [-1.5, 1.5]
+    },
+    "domain_bounds_description": "Certificate valid in bounded region where linear approximation holds well",
     "notes": "Simple linear system with global stability. Good for testing basic certificate generation capability."
   },
   {

@@ -360,10 +360,12 @@ class CertificateGenerator:
         
         return False
     
-    def generate_certificate(self, system_description: str, model_key: str, rag_k: int = 3) -> Dict[str, Any]:
+    def generate_certificate(self, system_description: str, model_key: str, rag_k: int = 3, domain_bounds: dict = None) -> Dict[str, Any]:
         """Generate a barrier certificate for the given system description."""
         try:
             logger.info(f"Generating certificate with model: {model_key}, RAG k: {rag_k}")
+            if domain_bounds:
+                logger.info(f"Using domain bounds: {domain_bounds}")
             
             # Load required components
             model_info = self._load_model(model_key)
@@ -388,11 +390,12 @@ class CertificateGenerator:
             elif rag_k > 0 and kb_info is None:
                 logger.info("RAG requested but no knowledge base available. Continuing without context.")
             
-            # Format prompt
+            # Format prompt with domain bounds
             prompt = format_prompt_with_context(
                 system_description,
                 context,
-                model_info['config']['barrier_type']
+                model_info['config']['barrier_type'],
+                domain_bounds
             )
             
             # Generate certificate
@@ -416,7 +419,8 @@ class CertificateGenerator:
                 'certificate': certificate,
                 'context_chunks': context_chunks,
                 'model_config': model_info['config'],
-                'prompt_length': len(prompt)
+                'prompt_length': len(prompt),
+                'domain_bounds': domain_bounds
             }
             
         except Exception as e:
