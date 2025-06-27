@@ -80,6 +80,43 @@ def load_config(config_path=DEFAULT_CONFIG_PATH):
         traceback.print_exc()
         sys.exit(1)
 
+def save_config(cfg, config_path=DEFAULT_CONFIG_PATH):
+    """
+    Saves the configuration object back to a YAML file.
+    
+    Parameters
+    ----------
+    cfg : OmegaConf.DictConfig
+        The configuration object to save
+    config_path : str
+        Path to the configuration YAML file to save to
+        
+    Returns
+    -------
+    bool
+        True if saved successfully, False otherwise
+    """
+    try:
+        # Create a backup of the original config file
+        if os.path.exists(config_path):
+            backup_path = config_path + '.bak'
+            import shutil
+            shutil.copy2(config_path, backup_path)
+            print(f"Created backup at {backup_path}")
+        
+        # Save the configuration
+        with open(config_path, 'w') as f:
+            OmegaConf.save(cfg, f)
+        
+        print(f"Configuration saved to {config_path}")
+        return True
+        
+    except Exception as e:
+        print(f"Error saving configuration to {config_path}: {e}", file=sys.stderr)
+        import traceback
+        traceback.print_exc()
+        return False
+
 # Example usage (can be removed or kept for testing)
 if __name__ == '__main__':
     print(f"Project Root detected as: {PROJECT_ROOT}")

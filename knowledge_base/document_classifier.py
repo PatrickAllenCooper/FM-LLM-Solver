@@ -30,16 +30,22 @@ class BarrierCertificateClassifier:
         self.cfg = cfg
         self.discrete_keywords = cfg.knowledge_base.classification.discrete_keywords
         self.continuous_keywords = cfg.knowledge_base.classification.continuous_keywords
+        self.stochastic_keywords = cfg.knowledge_base.classification.get('stochastic_keywords', [])
         self.confidence_threshold = cfg.knowledge_base.classification.confidence_threshold
+        self.stochastic_confidence_threshold = cfg.knowledge_base.classification.stochastic_filter.get('stochastic_confidence_threshold', 0.4)
+        self.min_stochastic_keywords = cfg.knowledge_base.classification.stochastic_filter.get('min_stochastic_keywords', 2)
         
         # Compile regex patterns for better performance
         self.discrete_patterns = [re.compile(r'\b' + keyword + r'\b', re.IGNORECASE) 
                                  for keyword in self.discrete_keywords]
         self.continuous_patterns = [re.compile(r'\b' + keyword + r'\b', re.IGNORECASE) 
                                    for keyword in self.continuous_keywords]
+        self.stochastic_patterns = [re.compile(r'\b' + keyword + r'\b', re.IGNORECASE) 
+                                   for keyword in self.stochastic_keywords]
         
-        logging.info(f"Initialized classifier with {len(self.discrete_keywords)} discrete and "
-                    f"{len(self.continuous_keywords)} continuous keywords")
+        logging.info(f"Initialized classifier with {len(self.discrete_keywords)} discrete, "
+                    f"{len(self.continuous_keywords)} continuous, and "
+                    f"{len(self.stochastic_keywords)} stochastic keywords")
     
     def extract_text_features(self, text: str) -> Dict[str, int]:
         """
@@ -53,7 +59,7 @@ class BarrierCertificateClassifier:
         Returns
         -------
         Dict[str, int]
-            Dictionary containing discrete and continuous keyword counts
+            Dictionary containing discrete, continuous, and stochastic keyword counts
         """
         # Clean and normalize text
         text = text.lower()
@@ -76,11 +82,21 @@ class BarrierCertificateClassifier:
             continuous_count += len(matches)
             continuous_matches.extend(matches)
         
+        # Count stochastic keywords
+        stochastic_count = 0
+        stochastic_matches = []
+        for pattern in self.stochastic_patterns:
+            matches = pattern.findall(text)
+            stochastic_count += len(matches)
+            stochastic_matches.extend(matches)
+        
         return {
             'discrete_count': discrete_count,
             'continuous_count': continuous_count,
+            'stochastic_count': stochastic_count,
             'discrete_matches': discrete_matches,
             'continuous_matches': continuous_matches,
+            'stochastic_matches': stochastic_matches,
             'total_words': len(text.split())
         }
     
@@ -151,14 +167,21 @@ class BarrierCertificateClassifier:
             classification = "both"
             reason = f"low_confidence_{confidence:.2f}_from_{original_classification}"
         
+        # Add stochastic information to details
+        stochastic_count = features.get('stochastic_count', 0)
+        stochastic_freq = stochastic_count / max(total_words, 1)
+        
         details = {
             "discrete_count": discrete_count,
             "continuous_count": continuous_count,
+            "stochastic_count": stochastic_count,
             "discrete_freq": discrete_freq,
             "continuous_freq": continuous_freq,
+            "stochastic_freq": stochastic_freq,
             "total_words": total_words,
             "discrete_matches": features['discrete_matches'][:10],  # Limit for logging
             "continuous_matches": features['continuous_matches'][:10],
+            "stochastic_matches": features.get('stochastic_matches', [])[:10],
             "reason": reason if 'reason' in locals() else "standard_classification"
         }
         
@@ -167,6 +190,64 @@ class BarrierCertificateClassifier:
                     f"continuous: {continuous_count})")
         
         return classification, confidence, details
+    
+    def classify_stochastic_content(self, text: str, source_path: str = None) -> Tuple[bool, float, Dict]:
+        """
+        Classify a document to determine if it contains stochastic barrier certificate content.
+        
+        Parameters
+        ----------
+        text : str
+            Document text content
+        source_path : str, optional
+            Path to the source document for logging
+            
+        Returns
+        -------
+        Tuple[bool, float, Dict]
+            (is_stochastic, confidence, details) where is_stochastic indicates if document 
+            contains stochastic content, confidence is the classification confidence, and 
+            details contains keyword counts and matches
+        """
+        if not text or len(text.strip()) < 100:
+            logging.warning(f"Document too short for reliable stochastic classification: {source_path}")
+            return False, 0.0, {"reason": "insufficient_text"}
+        
+        features = self.extract_text_features(text)
+        
+        stochastic_count = features['stochastic_count']
+        total_words = features['total_words']
+        
+        # Calculate relative frequency of stochastic keywords
+        stochastic_freq = stochastic_count / max(total_words, 1)
+        
+        # Classification logic for stochastic content
+        if stochastic_count >= self.min_stochastic_keywords:
+            is_stochastic = True
+            # Higher confidence with more keywords, scaled by frequency
+            confidence = min(stochastic_freq * 50 + (stochastic_count / self.min_stochastic_keywords) * 0.5, 1.0)
+        else:
+            is_stochastic = False
+            confidence = 1.0 - (stochastic_count / max(self.min_stochastic_keywords, 1))
+        
+        # Apply confidence threshold
+        if confidence < self.stochastic_confidence_threshold:
+            confidence = max(confidence, 0.1)  # Minimum confidence
+        
+        details = {
+            "stochastic_count": stochastic_count,
+            "stochastic_freq": stochastic_freq,
+            "total_words": total_words,
+            "stochastic_matches": features['stochastic_matches'][:10],  # Limit for logging
+            "min_keywords_required": self.min_stochastic_keywords,
+            "confidence_threshold": self.stochastic_confidence_threshold
+        }
+        
+        logging.info(f"Stochastic classification for {source_path or 'document'}: "
+                    f"is_stochastic={is_stochastic} (confidence: {confidence:.3f}, "
+                    f"keywords: {stochastic_count}, required: {self.min_stochastic_keywords})")
+        
+        return is_stochastic, confidence, details
     
     def classify_chunks(self, chunks: List[str], source_path: str = None) -> Tuple[str, float, Dict]:
         """
@@ -255,6 +336,52 @@ class BarrierCertificateClassifier:
                     f"from {len(chunk_classifications)} chunks")
         
         return final_classification, final_confidence, aggregated_details
+    
+    def should_include_document(self, text: str, source_path: str = None) -> Tuple[bool, str, Dict]:
+        """
+        Determine if a document should be included based on stochastic filtering configuration.
+        
+        Parameters
+        ----------
+        text : str
+            Document text content
+        source_path : str, optional
+            Path to the source document for logging
+            
+        Returns
+        -------
+        Tuple[bool, str, Dict]
+            (should_include, reason, stochastic_details) where should_include indicates if 
+            document should be included, reason explains the decision, and stochastic_details 
+            contains classification details
+        """
+        # Check if stochastic filtering is enabled
+        filter_config = self.cfg.knowledge_base.classification.stochastic_filter
+        if not filter_config.get('enable', False):
+            return True, "Stochastic filtering disabled", {}
+        
+        # Classify stochastic content
+        is_stochastic, confidence, stochastic_details = self.classify_stochastic_content(text, source_path)
+        
+        filter_mode = filter_config.get('mode', 'exclude')
+        
+        if filter_mode == 'exclude':
+            # Exclude stochastic papers
+            should_include = not is_stochastic
+            reason = f"Excluded stochastic content (confidence: {confidence:.3f})" if is_stochastic else f"Included non-stochastic content (confidence: {confidence:.3f})"
+        elif filter_mode == 'include':
+            # Include only stochastic papers
+            should_include = is_stochastic
+            reason = f"Included stochastic content (confidence: {confidence:.3f})" if is_stochastic else f"Excluded non-stochastic content (confidence: {confidence:.3f})"
+        else:
+            logging.warning(f"Unknown stochastic filter mode: {filter_mode}. Defaulting to include all.")
+            should_include = True
+            reason = f"Unknown filter mode '{filter_mode}', included by default"
+        
+        logging.info(f"Stochastic filter decision for {source_path or 'document'}: "
+                    f"include={should_include}, reason='{reason}'")
+        
+        return should_include, reason, stochastic_details
     
     def get_output_paths(self, classification: str) -> Tuple[str, str, str]:
         """

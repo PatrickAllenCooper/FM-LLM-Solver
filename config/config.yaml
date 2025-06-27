@@ -59,7 +59,15 @@ knowledge_base:
     enable_auto_classification: true  # Automatically classify documents
     discrete_keywords: ["discrete", "hybrid automata", "symbolic", "finite state", "temporal logic", "LTL", "CTL", "model checking", "transition system", "discrete dynamics"]
     continuous_keywords: ["continuous", "differential equation", "control theory", "Lyapunov", "SOS", "polynomial", "semidefinite", "continuous dynamics", "flow", "vector field"]
+    # Stochastic barrier certificate keywords for filtering
+    stochastic_keywords: ["stochastic", "probabilistic", "random", "noise", "uncertainty", "martingale", "supermartingale", "submartingale", "brownian motion", "wiener process", "stochastic differential", "SDE", "markov", "random walk", "monte carlo", "probabilistic safety", "almost surely", "probability", "stochastic reachability", "stochastic control"]
     confidence_threshold: 0.6  # Minimum confidence for classification (0.0-1.0)
+    # Stochastic filtering configuration
+    stochastic_filter:
+      enable: false  # Whether to apply stochastic filtering
+      mode: "exclude"  # "include" to only include stochastic papers, "exclude" to exclude them
+      min_stochastic_keywords: 2  # Minimum number of stochastic keywords to classify as stochastic
+      stochastic_confidence_threshold: 0.4  # Threshold for stochastic classification
 
 # Added embeddings section to match the structure expected by the code
 embeddings:
@@ -74,6 +82,13 @@ fine_tuning:
   use_adapter: true
   # Barrier certificate type for fine-tuning (should match knowledge_base.barrier_certificate_type)
   barrier_certificate_type: "discrete"  # Options: "unified", "discrete", "continuous"
+  # Stochastic filtering for fine-tuning data
+  stochastic_filter:
+    enable: false  # Whether to apply stochastic filtering to training data
+    mode: "exclude"  # "include" to only include stochastic content, "exclude" to exclude it
+    apply_to_extracted_data: true  # Apply filter to LLM-extracted data
+    apply_to_manual_data: false  # Apply filter to manually created data
+    apply_to_synthetic_data: true  # Apply filter to synthetically generated data
   lora:
     r: 8                  # Reduced from 16 to 8 for memory savings
     alpha: 8              # Reduced from 16 to 8 for memory savings

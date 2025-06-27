@@ -497,11 +497,30 @@ def build_single_knowledge_base(cfg, kb_type, pdf_files, classifier=None):
                     # Classify the document
                     classification, confidence, details = classifier.classify_chunks(chunks, pdf_path)
                     
+                    # Apply stochastic filtering if enabled
+                    stochastic_include = True
+                    stochastic_reason = ""
+                    stochastic_details = {}
+                    
+                    if cfg.knowledge_base.classification.stochastic_filter.get('enable', False):
+                        stochastic_include, stochastic_reason, stochastic_details = classifier.should_include_document(
+                            ' '.join(chunks), pdf_path
+                        )
+                        details['stochastic_filter'] = {
+                            'include': stochastic_include,
+                            'reason': stochastic_reason,
+                            'details': stochastic_details
+                        }
+                    
                     # Determine if this PDF should be included in this KB
+                    type_include = True
                     if kb_type == "discrete":
-                        include_pdf = classification in ["discrete", "both"]
+                        type_include = classification in ["discrete", "both"]
                     elif kb_type == "continuous":
-                        include_pdf = classification in ["continuous", "both"]
+                        type_include = classification in ["continuous", "both"]
+                    
+                    # Final inclusion decision: must pass both type and stochastic filters
+                    include_pdf = type_include and stochastic_include
                     
                     # Store classification result
                     classification_results.append({
@@ -522,9 +541,16 @@ def build_single_knowledge_base(cfg, kb_type, pdf_files, classifier=None):
         
         if include_pdf:
             relevant_pdfs.append(pdf_path)
-            logging.info(f"Including {os.path.basename(pdf_path)} in {kb_type} KB (classification: {classification}, confidence: {confidence:.3f})")
+            filter_info = f" | stochastic: {stochastic_reason}" if cfg.knowledge_base.classification.stochastic_filter.get('enable', False) else ""
+            logging.info(f"Including {os.path.basename(pdf_path)} in {kb_type} KB (classification: {classification}, confidence: {confidence:.3f}{filter_info})")
         else:
-            logging.info(f"Excluding {os.path.basename(pdf_path)} from {kb_type} KB (classification: {classification})")
+            exclusion_reason = []
+            if not type_include:
+                exclusion_reason.append(f"type: {classification}")
+            if not stochastic_include:
+                exclusion_reason.append(f"stochastic: {stochastic_reason}")
+            reason_str = " | ".join(exclusion_reason) if exclusion_reason else f"classification: {classification}"
+            logging.info(f"Excluding {os.path.basename(pdf_path)} from {kb_type} KB ({reason_str})")
     
     # Save classification report
     if classification_results:

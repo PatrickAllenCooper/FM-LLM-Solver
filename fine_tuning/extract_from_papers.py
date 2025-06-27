@@ -173,12 +173,26 @@ if __name__ == "__main__":
 
     logging.info(f"Generating MMD-based prompts for {num_to_process} papers...")
 
+    # Initialize stochastic classifier if filtering is enabled
+    stochastic_classifier = None
+    if cfg.fine_tuning.stochastic_filter.get('enable', False) and cfg.fine_tuning.stochastic_filter.get('apply_to_extracted_data', True):
+        try:
+            from knowledge_base.document_classifier import BarrierCertificateClassifier
+            stochastic_classifier = BarrierCertificateClassifier(cfg)
+            logging.info("Stochastic classifier initialized for fine-tuning data filtering")
+        except Exception as e:
+            logging.error(f"Failed to initialize stochastic classifier: {e}")
+            logging.warning("Proceeding without stochastic filtering")
+
     all_prompts_content = f"""
 # LLM Extraction Prompts and Instructions (from Mathpix MMD)
 
 This file contains prompts designed to be used with a powerful Large Language Model
 (e.g., GPT-4, Claude 3 Opus) to extract (System Description, Barrier Certificate) pairs
 from Mathpix-generated Markdown (MMD) text containing LaTeX.
+
+**STOCHASTIC FILTERING:** {'Enabled' if stochastic_classifier else 'Disabled'}
+{f"**FILTER MODE:** {cfg.fine_tuning.stochastic_filter.get('mode', 'exclude').upper()}" if stochastic_classifier else ""}
 
 **CRITICAL INSTRUCTIONS:**
 
@@ -197,12 +211,25 @@ Failure to perform careful manual review will likely introduce errors into your 
 """
 
     processed_count = 0
+    filtered_count = 0
     for i in range(num_to_process):
         source_filename = paper_keys[i]
         paper_chunks = papers[source_filename]
 
         if not paper_chunks:
             continue
+
+        # Apply stochastic filtering if enabled
+        if stochastic_classifier:
+            paper_text = ' '.join([chunk['text'] for chunk in paper_chunks])
+            should_include, filter_reason, filter_details = stochastic_classifier.should_include_document(
+                paper_text, source_filename
+            )
+            
+            if not should_include:
+                logging.info(f"Filtering out {source_filename}: {filter_reason}")
+                filtered_count += 1
+                continue
 
         # Generate the prompt, get back associated chunk/page info for context
         prompt, chunk_ids, page_nums = generate_extraction_prompt(paper_chunks, source_filename)
@@ -220,11 +247,14 @@ Failure to perform careful manual review will likely introduce errors into your 
         # Use the path determined earlier
         with open(output_instructions_path, 'w', encoding='utf-8') as f:
             f.write(all_prompts_content)
-        logging.info(f"Generated {processed_count} prompts. Instructions and prompts saved to: {output_instructions_path}")
+        
+        filter_info = f" (filtered out {filtered_count} papers)" if stochastic_classifier else ""
+        logging.info(f"Generated {processed_count} prompts{filter_info}. Instructions and prompts saved to: {output_instructions_path}")
         logging.info(f"Please manually process this file with a powerful LLM and save the reviewed, verified results to a file like: {reviewed_output_path}")
     except Exception as e:
         logging.error(f"Failed to write prompts file: {e}")
 
-    print(f"\nGenerated prompts for {processed_count} papers.")
+    filter_summary = f" (filtered out {filtered_count} stochastic papers)" if stochastic_classifier else ""
+    print(f"\nGenerated prompts for {processed_count} papers{filter_summary}.")
     print(f"See '{args.output_instructions_file}' (in '{script_base_dir}') for prompts and instructions.")
     print(f"Remember to MANUALLY REVIEW the LLM output before saving to '{reviewed_output_path}'.") 

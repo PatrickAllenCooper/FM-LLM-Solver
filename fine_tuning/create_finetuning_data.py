@@ -116,6 +116,30 @@ if __name__ == "__main__":
     print("Barrier certificate can be multi-line. Type 'END_CERT' on a new line to finish certificate.")
     print("Type 'SAVE_EXIT' for either input to save current entry and exit.")
     print("Type 'EXIT_NOW' for either input to exit immediately without saving current entry.")
+    
+    # Check stochastic filtering configuration
+    stochastic_filter_enabled = cfg.fine_tuning.stochastic_filter.get('enable', False)
+    apply_to_manual = cfg.fine_tuning.stochastic_filter.get('apply_to_manual_data', False)
+    
+    if stochastic_filter_enabled and apply_to_manual:
+        filter_mode = cfg.fine_tuning.stochastic_filter.get('mode', 'exclude')
+        print(f"\nNOTE: Stochastic filtering is ENABLED for manual data (mode: {filter_mode})")
+        print("Each entry will be automatically checked for stochastic content and filtered accordingly.")
+    elif stochastic_filter_enabled and not apply_to_manual:
+        print(f"\nNOTE: Stochastic filtering is enabled but NOT applied to manual data.")
+    else:
+        print(f"\nNOTE: Stochastic filtering is DISABLED for manual data.")
+    
+    # Initialize stochastic classifier if needed for manual data
+    stochastic_classifier = None
+    if stochastic_filter_enabled and apply_to_manual:
+        try:
+            from knowledge_base.document_classifier import BarrierCertificateClassifier
+            stochastic_classifier = BarrierCertificateClassifier(cfg)
+            logging.info("Stochastic classifier initialized for manual data filtering")
+        except Exception as e:
+            logging.error(f"Failed to initialize stochastic classifier: {e}")
+            logging.warning("Manual data will not be filtered for stochastic content")
 
     entry_count = 0
     try:
@@ -172,16 +196,39 @@ if __name__ == "__main__":
                     print("Barrier certificate cannot be empty. Please try again or exit.")
                     continue
 
+                # Apply stochastic filtering if enabled for manual data
+                should_save = True
+                filter_reason = ""
+                
+                if stochastic_classifier:
+                    combined_text = f"{system_desc}\n{barrier_cert}"
+                    should_include, filter_reason, filter_details = stochastic_classifier.should_include_document(
+                        combined_text, f"manual_entry_{entry_count + 1}"
+                    )
+                    
+                    if not should_include:
+                        should_save = False
+                        print(f"Entry filtered out due to stochastic content: {filter_reason}")
+                        print("Entry not saved. Please try another entry or disable stochastic filtering.")
+                        continue
+
                 # Format the example based on selected format
                 if data_format == "instruction":
                     example = format_instruction_example(system_desc, barrier_cert)
                 else: # prompt_completion
                     example = format_prompt_completion_example(system_desc, barrier_cert)
 
+                # Add stochastic filtering metadata if classifier is active
+                if stochastic_classifier:
+                    example['metadata']['stochastic_filtered'] = True
+                    example['metadata']['stochastic_filter_reason'] = filter_reason
+
                 # Write as JSON Line
                 f.write(json.dumps(example) + '\n')
                 entry_count += 1
-                print(f"Entry {entry_count} saved.")
+                
+                filter_note = f" (passed stochastic filter)" if stochastic_classifier else ""
+                print(f"Entry {entry_count} saved{filter_note}.")
 
     except Exception as e:
         logging.error(f"An error occurred during data entry or saving: {e}")
