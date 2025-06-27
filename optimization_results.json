@@ -1,0 +1,206 @@
+{
+  "extraction": {
+    "total_tests": 8,
+    "successful_extractions": 8,
+    "success_rate": 1.0,
+    "detailed_results": {
+      "standard_quadratic": {
+        "extraction_successful": true,
+        "correctly_handled": true,
+        "extracted_certificate": "0.7*x**2 + 1.2*y**2 - 0.3",
+        "expected_type": "quadratic",
+        "should_extract": true
+      },
+      "cross_term_quadratic": {
+        "extraction_successful": true,
+        "correctly_handled": true,
+        "extracted_certificate": "0.5*x**2 + 0.8*y**2 + 0.3*x*y - 0.1",
+        "expected_type": "quadratic",
+        "should_extract": true
+      },
+      "polynomial_degree_4": {
+        "extraction_successful": true,
+        "correctly_handled": true,
+        "extracted_certificate": "0.2*x**4 + 0.3*y**4 + 0.1*x**2*y**2 - 0.05",
+        "expected_type": "polynomial",
+        "should_extract": true
+      },
+      "three_dimensional": {
+        "extraction_successful": true,
+        "correctly_handled": true,
+        "extracted_certificate": "0.4*x**2 + 0.6*y**2 + 0.5*z**2 + 0.1*x*z - 0.2",
+        "expected_type": "quadratic",
+        "should_extract": true
+      },
+      "rational_coefficients": {
+        "extraction_successful": true,
+        "correctly_handled": true,
+        "extracted_certificate": "(1/2)*x**2 + (3/4)*y**2 - 1/10",
+        "expected_type": "quadratic",
+        "should_extract": true
+      },
+      "complex_polynomial": {
+        "extraction_successful": true,
+        "correctly_handled": true,
+        "extracted_certificate": "0.1*x**6 + 0.2*y**6 + 0.15*x**2*y**4 + 0.12*x**4*y**2 - 0.05*x**2 - 0.03*y**2 + 0.01",
+        "expected_type": "polynomial",
+        "should_extract": true
+      },
+      "template_generic": {
+        "extraction_successful": false,
+        "correctly_handled": true,
+        "extracted_certificate": null,
+        "expected_type": "template",
+        "should_extract": false
+      },
+      "very_simple": {
+        "extraction_successful": true,
+        "correctly_handled": true,
+        "extracted_certificate": "x + y",
+        "expected_type": "linear",
+        "should_extract": true
+      }
+    }
+  },
+  "parsing": {
+    "total_tests": 4,
+    "successful_parsing": 4,
+    "success_rate": 1.0,
+    "detailed_results": {
+      "standard_continuous": {
+        "parsing_successful": true,
+        "variables_found": [
+          "x",
+          "y"
+        ],
+        "dynamics_count": 2,
+        "bounds_created": true,
+        "sampling_bounds": {
+          "x": [
+            -1.4142135623730951,
+            1.4142135623730951
+          ],
+          "y": [
+            -1.4142135623730951,
+            1.4142135623730951
+          ]
+        },
+        "variables_correct": true,
+        "dynamics_correct": true
+      },
+      "discrete_with_subscripts": {
+        "parsing_successful": true,
+        "variables_found": [
+          "x_",
+          "y_"
+        ],
+        "dynamics_count": 2,
+        "bounds_created": true,
+        "sampling_bounds": {
+          "x_": [
+            -2.0,
+            2.0
+          ],
+          "y_": [
+            -2.0,
+            2.0
+          ]
+        },
+        "variables_correct": true,
+        "dynamics_correct": true
+      },
+      "three_dimensional": {
+        "parsing_successful": true,
+        "variables_found": [
+          "x",
+          "y",
+          "z"
+        ],
+        "dynamics_count": 3,
+        "bounds_created": true,
+        "sampling_bounds": {
+          "x": [
+            -2.0,
+            2.0
+          ],
+          "y": [
+            -1.0,
+            1.0
+          ],
+          "z": [
+            -1.0,
+            1.0
+          ]
+        },
+        "variables_correct": true,
+        "dynamics_correct": true
+      },
+      "complex_constraints": {
+        "parsing_successful": true,
+        "variables_found": [
+          "x",
+          "y"
+        ],
+        "dynamics_count": 2,
+        "bounds_created": true,
+        "sampling_bounds": {
+          "x": [
+            -0.5,
+            -1.5
+          ],
+          "y": [
+            -2.0,
+            2.0
+          ]
+        },
+        "variables_correct": true,
+        "dynamics_correct": true
+      }
+    }
+  },
+  "verification": {
+    "total_tests": 3,
+    "successful_verifications": 1,
+    "success_rate": 0.3333333333333333,
+    "detailed_results": {
+      "simple_stable_system": {
+        "verification_completed": true,
+        "overall_success": false,
+        "verification_time": 1.8192658424377441,
+        "prediction_correct": false,
+        "expected_result": true,
+        "numerical_passed": false,
+        "symbolic_passed": false,
+        "sos_passed": false
+      },
+      "quadratic_with_coefficients": {
+        "verification_completed": true,
+        "overall_success": false,
+        "verification_time": 2.532036304473877,
+        "prediction_correct": false,
+        "expected_result": true,
+        "numerical_passed": false,
+        "symbolic_passed": false,
+        "sos_passed": false
+      },
+      "cross_term_certificate": {
+        "verification_completed": true,
+        "overall_success": false,
+        "verification_time": 2.2544689178466797,
+        "prediction_correct": true,
+        "expected_result": null,
+        "numerical_passed": false,
+        "symbolic_passed": false,
+        "sos_passed": false
+      }
+    }
+  },
+  "overall": {
+    "optimization_score": 0.7999999999999999,
+    "component_scores": {
+      "extraction": 1.0,
+      "parsing": 1.0,
+      "verification": 0.3333333333333333
+    }
+  }
+}

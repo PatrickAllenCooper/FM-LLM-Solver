@@ -1,0 +1,120 @@
+{
+  "total_tests": 5,
+  "successful_verifications": 0,
+  "success_rate": 0.0,
+  "detailed_results": {
+    "simple_decay_quadratic": {
+      "success": false,
+      "prediction_correct": false,
+      "verification_time": 1.035893440246582,
+      "expected_success": true,
+      "theory_notes": "Quadratic Lyapunov function for stable linear system",
+      "numerical_passed": false,
+      "symbolic_passed": false,
+      "sos_passed": true,
+      "certificate": "x**2 + y**2 - 0.26",
+      "failure_reason": "N/A"
+    },
+    "scaled_quadratic_decay": {
+      "success": false,
+      "prediction_correct": false,
+      "verification_time": 1.6905722618103027,
+      "expected_success": true,
+      "theory_notes": "Different decay rates, quadratic barrier",
+      "numerical_passed": false,
+      "symbolic_passed": false,
+      "sos_passed": true,
+      "certificate": "x**2 + y**2 - 0.51",
+      "failure_reason": "N/A"
+    },
+    "weighted_quadratic": {
+      "success": false,
+      "prediction_correct": false,
+      "verification_time": 3.264063596725464,
+      "expected_success": true,
+      "theory_notes": "Weighted quadratic matching elliptical initial set",
+      "numerical_passed": false,
+      "symbolic_passed": false,
+      "sos_passed": true,
+      "certificate": "4*x**2 + y**2 - 1.01",
+      "failure_reason": "N/A"
+    },
+    "discrete_contractive": {
+      "success": false,
+      "prediction_correct": false,
+      "verification_time": 0.8182458877563477,
+      "expected_success": true,
+      "theory_notes": "Contractive discrete system with quadratic barrier",
+      "numerical_passed": false,
+      "symbolic_passed": false,
+      "sos_passed": true,
+      "certificate": "x**2 + y**2 - 0.26",
+      "failure_reason": "N/A"
+    },
+    "linear_barrier_example": {
+      "success": false,
+      "prediction_correct": false,
+      "verification_time": 0.0042684078216552734,
+      "expected_success": true,
+      "theory_notes": "Linear barrier for reachability problem",
+      "numerical_passed": false,
+      "symbolic_passed": false,
+      "sos_passed": false,
+      "certificate": "x + 0.51",
+      "failure_reason": "N/A"
+    }
+  },
+  "optimization_results": {
+    "parameter_test_results": {
+      "high_precision": {
+        "success": false,
+        "verification_time": 1.6241672039031982,
+        "total_score": 0.5512749838829041,
+        "numerical_passed": false,
+        "symbolic_passed": false,
+        "sos_passed": true,
+        "params": {
+          "num_samples_lie": 500,
+          "num_samples_boundary": 200,
+          "tolerance": 1e-08,
+          "optimization_timeout": 30
+        }
+      },
+      "balanced_performance": {
+        "success": false,
+        "verification_time": 1.178255319595337,
+        "total_score": 0.5646523404121399,
+        "numerical_passed": false,
+        "symbolic_passed": false,
+        "sos_passed": true,
+        "params": {
+          "num_samples_lie": 300,
+          "num_samples_boundary": 150,
+          "tolerance": 1e-06,
+          "optimization_timeout": 20
+        }
+      },
+      "fast_screening": {
+        "success": false,
+        "verification_time": 0.9057142734527588,
+        "total_score": 0.5728285717964172,
+        "numerical_passed": false,
+        "symbolic_passed": false,
+        "sos_passed": true,
+        "params": {
+          "num_samples_lie": 100,
+          "num_samples_boundary": 50,
+          "tolerance": 1e-05,
+          "optimization_timeout": 10
+        }
+      }
+    },
+    "best_parameters": {
+      "num_samples_lie": 100,
+      "num_samples_boundary": 50,
+      "tolerance": 1e-05,
+      "optimization_timeout": 10
+    },
+    "best_score": 0.5728285717964172
+  }
+}

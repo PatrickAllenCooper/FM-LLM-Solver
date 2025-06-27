@@ -1,0 +1,79 @@
+{
+  "total_tests": 6,
+  "successful_verifications": 0,
+  "success_rate": 0.0,
+  "detailed_results": {
+    "radial_separation_barrier": {
+      "overall_success": false,
+      "theory_correct": false,
+      "verification_time": 0.7796146869659424,
+      "numerical_passed": false,
+      "symbolic_passed": false,
+      "sos_passed": true,
+      "certificate": "x**2 + y**2 - 2.0",
+      "theory_explanation": "B(x)=-1.75 on initial boundary, B(x)=2.0 on unsafe boundary",
+      "expected_success": true,
+      "verification_reason": "N/A"
+    },
+    "scaled_radial_barrier": {
+      "overall_success": false,
+      "theory_correct": false,
+      "verification_time": 1.5228049755096436,
+      "numerical_passed": false,
+      "symbolic_passed": false,
+      "sos_passed": true,
+      "certificate": "x**2 + y**2 - 1.25",
+      "theory_explanation": "B(x)=-0.75 on initial boundary, B(x)=0.75 on unsafe boundary",
+      "expected_success": true,
+      "verification_reason": "N/A"
+    },
+    "elliptical_separation": {
+      "overall_success": false,
+      "theory_correct": false,
+      "verification_time": 1.3408443927764893,
+      "numerical_passed": false,
+      "symbolic_passed": false,
+      "sos_passed": true,
+      "certificate": "x**2 + y**2 - 2.5",
+      "theory_explanation": "Separates elliptical initial set from circular unsafe set",
+      "expected_success": true,
+      "verification_reason": "N/A"
+    },
+    "linear_halfspace_barrier": {
+      "overall_success": false,
+      "theory_correct": false,
+      "verification_time": 0.003062725067138672,
+      "numerical_passed": false,
+      "symbolic_passed": false,
+      "sos_passed": false,
+      "certificate": "x",
+      "theory_explanation": "Linear barrier separating left halfspace from right halfspace",
+      "expected_success": true,
+      "verification_reason": "N/A"
+    },
+    "discrete_contractive_correct": {
+      "overall_success": false,
+      "theory_correct": false,
+      "verification_time": 0.7621164321899414,
+      "numerical_passed": false,
+      "symbolic_passed": false,
+      "sos_passed": true,
+      "certificate": "x**2 + y**2 - 0.625",
+      "theory_explanation": "Quadratic barrier for contractive discrete system",
+      "expected_success": true,
+      "verification_reason": "N/A"
+    },
+    "nonlinear_polynomial_barrier": {
+      "overall_success": false,
+      "theory_correct": false,
+      "verification_time": 1.1767597198486328,
+      "numerical_passed": false,
+      "symbolic_passed": false,
+      "sos_passed": false,
+      "certificate": "x**2 + y**2 - 0.55",
+      "theory_explanation": "Quadratic barrier for cubic dynamics",
+      "expected_success": true,
+      "verification_reason": "N/A"
+    }
+  }
+}
