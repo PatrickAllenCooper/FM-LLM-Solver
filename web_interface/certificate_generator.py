@@ -279,8 +279,11 @@ class CertificateGenerator:
         if not expression:
             return expression
         
+        # Remove trailing [CUT] or similar bracketed text
+        cleaned = re.sub(r'\s*\[.*?\]\s*$', '', expression).strip()
+        
         # Remove common LaTeX artifacts
-        cleaned = expression
+        # cleaned = expression
         
         # Remove LaTeX brackets and delimiters
         cleaned = re.sub(r'\\[\[\]()]', '', cleaned)  # Remove \[ \] \( \)
