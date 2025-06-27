@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}FM-LLM Solver{% endblock %}</title>
+    <title>{% block title %}FM-LLM Solver - CU Boulder{% endblock %}</title>
     
     <!-- Material Design 3 CSS -->
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
@@ -12,37 +12,37 @@
     <!-- Custom Material 3 styles -->
     <style>
         :root {
-            /* Material 3 Color Tokens */
-            --md-sys-color-primary: #6750A4;
-            --md-sys-color-on-primary: #FFFFFF;
-            --md-sys-color-primary-container: #EADDFF;
-            --md-sys-color-on-primary-container: #21005D;
+            /* CU Boulder Color Tokens - Gold and Black Theme */
+            --md-sys-color-primary: #CFB87C;  /* CU Gold */
+            --md-sys-color-on-primary: #000000;  /* Black on gold */
+            --md-sys-color-primary-container: #F5EFDC;  /* Light gold container */
+            --md-sys-color-on-primary-container: #2D2416;  /* Dark brown on light gold */
             
-            --md-sys-color-secondary: #625B71;
+            --md-sys-color-secondary: #5A5447;  /* Warm gray */
             --md-sys-color-on-secondary: #FFFFFF;
-            --md-sys-color-secondary-container: #E8DEF8;
-            --md-sys-color-on-secondary-container: #1D192B;
+            --md-sys-color-secondary-container: #E2DDD0;  /* Light warm gray */
+            --md-sys-color-on-secondary-container: #1A1713;  /* Very dark brown */
             
-            --md-sys-color-surface: #FEF7FF;
-            --md-sys-color-on-surface: #1D1B20;
-            --md-sys-color-surface-variant: #E7E0EC;
-            --md-sys-color-on-surface-variant: #49454F;
+            --md-sys-color-surface: #FFFEF7;  /* Warm white */
+            --md-sys-color-on-surface: #1C1B18;  /* Near black */
+            --md-sys-color-surface-variant: #EBE6D9;  /* Light beige */
+            --md-sys-color-on-surface-variant: #4B4739;  /* Dark brown */
             
-            --md-sys-color-background: #FEF7FF;
-            --md-sys-color-on-background: #1D1B20;
+            --md-sys-color-background: #FFFEF7;  /* Warm white background */
+            --md-sys-color-on-background: #1C1B18;  /* Near black text */
             
-            --md-sys-color-error: #BA1A1A;
+            --md-sys-color-error: #B3261E;  /* Red for errors */
             --md-sys-color-on-error: #FFFFFF;
-            --md-sys-color-error-container: #FFDAD6;
-            --md-sys-color-on-error-container: #410002;
+            --md-sys-color-error-container: #F9DEDC;
+            --md-sys-color-on-error-container: #410E0B;
             
-            --md-sys-color-success: #00876C;
+            --md-sys-color-success: #146C2E;  /* Green for success */
             --md-sys-color-on-success: #FFFFFF;
-            --md-sys-color-success-container: #4FD8B7;
-            --md-sys-color-on-success-container: #002018;
+            --md-sys-color-success-container: #A8F5BB;
+            --md-sys-color-on-success-container: #00210A;
             
-            --md-sys-color-outline: #79747E;
-            --md-sys-color-outline-variant: #CAC4D0;
+            --md-sys-color-outline: #7C7767;  /* Brown-gray outline */
+            --md-sys-color-outline-variant: #CDC8B9;  /* Light brown-gray */
             
             /* Typography */
             --md-sys-typescale-display-large-font: 'Roboto', sans-serif;
@@ -355,7 +355,7 @@
     <header class="app-bar">
         <div class="container">
             <div class="app-bar-content">
-                <h1 class="app-bar-title">FM-LLM Solver</h1>
+                <h1 class="app-bar-title">FM-LLM Solver <span style="font-weight: 300; font-size: 0.8em;">| CU Boulder</span></h1>
                 <nav class="nav-links">
                     <a href="{{ url_for('index') }}" class="nav-link">Home</a>
                     <a href="{{ url_for('query_history') }}" class="nav-link">History</a>
