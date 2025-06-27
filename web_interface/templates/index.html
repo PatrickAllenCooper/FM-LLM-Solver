@@ -40,7 +40,9 @@
 Example:
 System Dynamics: dx/dt = -x**3 - y, dy/dt = x - y**3
 Initial Set: x**2 + y**2 <= 0.1
-Unsafe Set: x >= 1.5" 
+Unsafe Set: x >= 1.5
+
+Note: Also specify Domain Bounds below (e.g., x ∈ [-2,2], y ∈ [-2,2])" 
                     required
                 ></textarea>
                 <small style="color: var(--md-sys-color-on-surface-variant); margin-top: 8px; display: block;">
@@ -83,19 +85,28 @@ Unsafe Set: x >= 1.5"
             </div>
             
             <!-- Domain Bounds Settings -->
-            <details style="margin-top: 16px;">
-                <summary style="cursor: pointer; font-weight: 600; margin-bottom: 8px;">Domain Bounds (Certificate Validity Region)</summary>
+            <details open style="margin-top: 16px;">
+                <summary style="cursor: pointer; font-weight: 600; margin-bottom: 8px;">Domain Bounds (Certificate Validity Region) *</summary>
                 <div style="margin-top: 12px;">
                     <p style="color: var(--md-sys-color-on-surface-variant); font-size: 14px; margin-bottom: 12px;">
-                        Specify the domain where the barrier certificate should be valid. Leave empty for no domain restrictions.
+                        Specify the domain where the barrier certificate should be valid. <strong>Required for optimal results.</strong> Define reasonable bounds for all state variables.
                     </p>
                     <div id="domain-bounds-container">
                         <div class="domain-bound-row" style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
-                            <input type="text" class="form-input domain-var" placeholder="Variable (e.g., x)" style="width: 80px;">
+                            <input type="text" class="form-input domain-var" placeholder="Variable (e.g., x)" value="x" style="width: 80px;">
                             <span>∈ [</span>
-                            <input type="number" class="form-input domain-min" placeholder="Min" style="width: 80px;" step="0.1">
+                            <input type="number" class="form-input domain-min" placeholder="Min" value="-3" style="width: 80px;" step="0.1">
                             <span>,</span>
-                            <input type="number" class="form-input domain-max" placeholder="Max" style="width: 80px;" step="0.1">
+                            <input type="number" class="form-input domain-max" placeholder="Max" value="3" style="width: 80px;" step="0.1">
+                            <span>]</span>
+                            <button type="button" class="btn btn-outline" onclick="removeDomainBound(this)" style="font-size: 12px; padding: 4px 8px;">Remove</button>
+                        </div>
+                        <div class="domain-bound-row" style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+                            <input type="text" class="form-input domain-var" placeholder="Variable (e.g., y)" value="y" style="width: 80px;">
+                            <span>∈ [</span>
+                            <input type="number" class="form-input domain-min" placeholder="Min" value="-3" style="width: 80px;" step="0.1">
+                            <span>,</span>
+                            <input type="number" class="form-input domain-max" placeholder="Max" value="3" style="width: 80px;" step="0.1">
                             <span>]</span>
                             <button type="button" class="btn btn-outline" onclick="removeDomainBound(this)" style="font-size: 12px; padding: 4px 8px;">Remove</button>
                         </div>
