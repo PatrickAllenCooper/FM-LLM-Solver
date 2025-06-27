@@ -266,6 +266,13 @@ class CertificateGenerator:
             expression = math_match.group(1).strip()
             cleaned_expr = self._clean_certificate_expression(expression)
             
+            # Check if this is actually a valid mathematical expression (not a system equation)
+            if ('k]' in cleaned_expr or 'k+1]' in cleaned_expr or 
+                'and' in cleaned_expr or ',' in cleaned_expr):
+                # This is likely a system equation, not a certificate
+                logger.debug(f"Rejected math pattern - appears to be system equation: {cleaned_expr}")
+                return None
+            
             # Only accept if it looks like a valid mathematical expression
             if self._contains_state_variables(cleaned_expr) and not self._has_placeholder_variables(cleaned_expr):
                 logger.info(f"Successfully extracted certificate (math pattern): {cleaned_expr}")
@@ -623,6 +630,7 @@ CRITICAL RULES:
 3. COMPLETE the mathematical expression - no "to be determined" values
 4. Your output MUST contain exactly one line starting with "B(x,y) ="
 5. The barrier certificate must be suitable for DISCRETE-TIME analysis
+6. Output ONLY the barrier certificate expression, nothing else
 
 {examples}
 
@@ -631,10 +639,11 @@ Now generate a discrete-time barrier certificate for:
 {system_description}{domain_text}{context_text}
 
 Remember: 
-- Use ONLY concrete numbers
+- Use ONLY concrete numbers (like 2.0, 5.0, not a, b, c)
 - State variables are x and y
 - This is for a DISCRETE-TIME system
-- Complete the expression fully
+- Output ONLY: B(x,y) = <expression>
+- Nothing else after the expression
 
 BARRIER_CERTIFICATE_START
 B(x,y) = [/INST]"""

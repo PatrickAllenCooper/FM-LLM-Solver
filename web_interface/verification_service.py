@@ -271,6 +271,11 @@ class VerificationService:
         cleaned = re.sub(r'\s+', ' ', cleaned)
         cleaned = cleaned.strip().rstrip('.,;:')
         
+        # IMPORTANT: Normalize variable names to match verification expectations
+        # Replace x with x_ and y with y_ (but not in expressions like exp)
+        cleaned = re.sub(r'\bx\b', 'x_', cleaned)
+        cleaned = re.sub(r'\by\b', 'y_', cleaned)
+        
         if cleaned != certificate_str:
             logger.debug(f"Cleaned certificate for verification: '{certificate_str}' -> '{cleaned}'")
         
@@ -295,6 +300,15 @@ class VerificationService:
             
             # Create sampling bounds
             sampling_bounds = self.create_sampling_bounds(system_info)
+            
+            # Ensure sampling bounds use underscored variables
+            sampling_bounds_with_underscore = {}
+            for var, bounds in sampling_bounds.items():
+                if not var.endswith('_'):
+                    sampling_bounds_with_underscore[var + '_'] = bounds
+                else:
+                    sampling_bounds_with_underscore[var] = bounds
+            sampling_bounds = sampling_bounds_with_underscore
             
             # Auto-generate safe set conditions if not provided
             if not system_info.get('safe_set'):
@@ -339,10 +353,34 @@ class VerificationService:
                 logger.info("System detected as continuous-time - using standard parameters")
             
             # Prepare system info for verification
+            # Ensure variables use underscores for consistency with certificate
+            variables_with_underscore = []
+            for var in system_info.get('variables', ['x', 'y']):
+                if not var.endswith('_'):
+                    variables_with_underscore.append(var + '_')
+                else:
+                    variables_with_underscore.append(var)
+            
+            # Update dynamics to use underscored variables consistently
+            dynamics_with_underscore = []
+            original_vars = ['x', 'y']  # Original variable names without underscores
+            
+            for dyn in system_info.get('dynamics', []):
+                updated_dyn = dyn
+                # First, fix any double underscores that might exist
+                updated_dyn = updated_dyn.replace('x__', 'x_').replace('y__', 'y_')
+                
+                # Then ensure right-hand side variables have underscores
+                for var in original_vars:
+                    # Replace x[k] with x_[k], but not x_ which is already underscored
+                    updated_dyn = re.sub(rf'\b{var}(?!_)\b', f'{var}_', updated_dyn)
+                    
+                dynamics_with_underscore.append(updated_dyn)
+            
             verification_system_info = {
-                'variables': system_info.get('variables', ['x', 'y']),
-                'state_variables': system_info.get('variables', ['x', 'y']),  # Alternative naming
-                'dynamics': system_info.get('dynamics', []),
+                'variables': variables_with_underscore,
+                'state_variables': variables_with_underscore,  # Alternative naming
+                'dynamics': dynamics_with_underscore,
                 'initial_set_conditions': system_info.get('initial_set', []),
                 'unsafe_set_conditions': system_info.get('unsafe_set', []),
                 'safe_set_conditions': system_info.get('safe_set', []),
