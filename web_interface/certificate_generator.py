@@ -188,7 +188,7 @@ class CertificateGenerator:
                 if model is None or tokenizer is None:
                     raise ValueError(f"Failed to load model: {model_key}")
                 
-                # Create pipeline
+                # Create optimized pipeline for barrier certificate generation
                 pipe = pipeline(
                     task="text-generation",
                     model=model,
@@ -196,7 +196,11 @@ class CertificateGenerator:
                     max_new_tokens=self.config.inference.max_new_tokens,
                     temperature=self.config.inference.temperature,
                     top_p=self.config.inference.top_p,
-                    do_sample=True if self.config.inference.temperature > 0 else False
+                    do_sample=self.config.inference.get('do_sample', True),
+                    repetition_penalty=self.config.inference.get('repetition_penalty', 1.1),
+                    # Add stop sequences to prevent incomplete generation
+                    pad_token_id=tokenizer.pad_token_id,
+                    eos_token_id=tokenizer.eos_token_id
                 )
                 
                 self.models[model_key] = {
@@ -212,44 +216,62 @@ class CertificateGenerator:
         return self.models[model_key]
     
     def extract_certificate_from_output(self, llm_output: str) -> Optional[str]:
-        """Extract barrier certificate from LLM output."""
-        # Look for the certificate between the markers
-        pattern = r'BARRIER_CERTIFICATE_START\s*\n?(.*?)\n?\s*BARRIER_CERTIFICATE_END'
+        """Extract barrier certificate from LLM output with enhanced placeholder detection."""
+        # Primary: Look for BARRIER_CERTIFICATE_START block
+        pattern = r'BARRIER_CERTIFICATE_START\s*\n?.*?B\s*\([^)]+\)\s*=\s*([^\n\r]+)'
         match = re.search(pattern, llm_output, re.DOTALL | re.IGNORECASE)
         
         if match:
-            certificate_block = match.group(1).strip()
+            expression = match.group(1).strip()
+            cleaned_expr = self._clean_certificate_expression(expression)
             
-            # Extract the mathematical expression from B(...) = ...
-            b_pattern = r'B\s*\([^)]+\)\s*=\s*(.+)'
-            b_match = re.search(b_pattern, certificate_block, re.IGNORECASE)
+            # Enhanced placeholder detection
+            if self._has_placeholder_variables(cleaned_expr):
+                logger.warning(f"REJECTED: Contains placeholder variables: {cleaned_expr}")
+                return None
+                
+            if self._is_template_expression(cleaned_expr):
+                logger.warning(f"REJECTED: Template expression: {cleaned_expr}")
+                return None
             
-            if b_match:
-                expression = b_match.group(1).strip()
-                cleaned_expr = self._clean_certificate_expression(expression)
-                
-                # Check if this is a template/placeholder expression
-                if self._is_template_expression(cleaned_expr):
-                    logger.warning(f"Detected template expression, rejecting: {cleaned_expr}")
-                    return None
-                
+            # Validate it contains actual variables
+            if self._contains_state_variables(cleaned_expr):
+                logger.info(f"Successfully extracted certificate: {cleaned_expr}")
                 return cleaned_expr
         
-        # Fallback: look for B(...) = ... pattern anywhere in the output
-        fallback_pattern = r'B\s*\([^)]+\)\s*=\s*([^\n]+)'
+        # Fallback: look for B(...) = ... pattern anywhere
+        fallback_pattern = r'B\s*\([^)]+\)\s*=\s*([^\n\r]+)'
         fallback_match = re.search(fallback_pattern, llm_output, re.IGNORECASE)
         
         if fallback_match:
             expression = fallback_match.group(1).strip()
             cleaned_expr = self._clean_certificate_expression(expression)
             
-            # Check if this is a template/placeholder expression
-            if self._is_template_expression(cleaned_expr):
-                logger.warning(f"Detected template expression in fallback, rejecting: {cleaned_expr}")
+            if self._has_placeholder_variables(cleaned_expr):
+                logger.warning(f"REJECTED (fallback): Contains placeholder variables: {cleaned_expr}")
                 return None
-            
-            return cleaned_expr
+                
+            if self._is_template_expression(cleaned_expr):
+                logger.warning(f"REJECTED (fallback): Template expression: {cleaned_expr}")
+                return None
+                
+            if self._contains_state_variables(cleaned_expr):
+                logger.info(f"Successfully extracted certificate (fallback): {cleaned_expr}")
+                return cleaned_expr
         
+        # Enhanced fallback: look for mathematical expressions after = sign
+        math_pattern = r'=\s*([x\d\.\*\+\-\s\*\*\(\)]+[^\n\r]*)'
+        math_match = re.search(math_pattern, llm_output)
+        if math_match:
+            expression = math_match.group(1).strip()
+            cleaned_expr = self._clean_certificate_expression(expression)
+            
+            # Only accept if it looks like a valid mathematical expression
+            if self._contains_state_variables(cleaned_expr) and not self._has_placeholder_variables(cleaned_expr):
+                logger.info(f"Successfully extracted certificate (math pattern): {cleaned_expr}")
+                return cleaned_expr
+        
+        logger.warning("Failed to extract valid certificate from LLM output")
         return None
     
     def _clean_certificate_expression(self, expression: str) -> str:
@@ -310,9 +332,52 @@ class CertificateGenerator:
         logger.debug(f"Cleaned certificate expression: '{expression}' -> '{cleaned}'")
         return cleaned
     
+    def _has_placeholder_variables(self, expression: str) -> bool:
+        """Check if expression contains placeholder variables (Greek letters, single letters, etc.)."""
+        if not expression:
+            return True
+        
+        # Greek letters and common placeholders
+        placeholders = [
+            'α', 'β', 'γ', 'δ', 'λ', 'μ', 'θ', 'ρ', 'σ', 'τ', 'φ', 'χ', 'ψ', 'ω',
+            '\\alpha', '\\beta', '\\gamma', '\\delta', '\\lambda', '\\mu', '\\theta',
+            '\\rho', '\\sigma', '\\tau', '\\phi', '\\chi', '\\psi', '\\omega'
+        ]
+        
+        # Check for Greek letters and LaTeX placeholders
+        for placeholder in placeholders:
+            if placeholder in expression:
+                return True
+        
+        # Check for single letter constants (excluding x, y, z which are state variables)
+        # Pattern: standalone letters a-h, j-w (excluding x, y, z, i for imaginary)
+        single_letter_pattern = r'\b[a-hjkl-w]\b'
+        if re.search(single_letter_pattern, expression, re.IGNORECASE):
+            return True
+        
+        # Check for uppercase constants like C, K, A, B
+        uppercase_constants = r'\b[A-HJ-W]\b'  # Exclude I (imaginary), X, Y, Z (state vars)
+        if re.search(uppercase_constants, expression):
+            return True
+        
+        return False
+    
+    def _contains_state_variables(self, expression: str) -> bool:
+        """Check if expression contains actual state variables (x, y, z)."""
+        if not expression:
+            return False
+        
+        # Look for state variables x, y, z
+        state_var_pattern = r'\b[xyz]\b'
+        return bool(re.search(state_var_pattern, expression, re.IGNORECASE))
+    
     def _is_template_expression(self, expression: str) -> bool:
         """Check if the expression is a template/placeholder rather than a concrete barrier certificate."""
         if not expression:
+            return True
+        
+        # If it already has placeholder variables, it's a template
+        if self._has_placeholder_variables(expression):
             return True
         
         # Common template patterns that should be rejected
@@ -322,21 +387,10 @@ class CertificateGenerator:
             r'\b[a-h]\*\*2',   # a**2, b**2, etc. (single letters as base)
             r'\b[a-h][xy]\b',  # ax, by, etc. (single letter followed by state variable)
             
-            # The exact problematic pattern with template variables
-            r'[a-h]\*\*2.*[a-h][xy].*[a-h]\*\*2.*[a-h]\*.*[a-h][xy].*[a-h]',  # ax**2 + bxy + cy**2 + dx + ey + f pattern
-            
-            # More specific template patterns
-            r'\bax\*\*2',      # ax**2
-            r'\bbxy\b',        # bxy
-            r'\bcy\*\*2',      # cy**2
-            r'\bdx\b',         # dx
-            r'\bey\b',         # ey
-            
             # Common placeholder naming
             r'\bc[0-9]',  # c1, c2, c3, etc.
             r'\bcoeff',   # coeff, coefficient
             r'\bparam',   # param, parameter
-            r'\balpha\b', r'\bbeta\b', r'\bgamma\b',  # Greek letters as placeholders
             
             # Standalone single letters that aren't state variables
             r'^\s*[a-h]\s*$',  # Just 'a' or 'b' etc.
@@ -355,11 +409,6 @@ class CertificateGenerator:
         
         if len(set(single_letters)) >= 3:  # 3 or more different single-letter template variables
             logger.debug(f"Too many template variables detected: {set(single_letters)} in '{expression}'")
-            return True
-        
-        # Check for the specific problematic pattern from the failed result
-        if 'ax**2' in expression.lower() and 'bxy' in expression.lower() and 'cy**2' in expression.lower():
-            logger.debug(f"Detected specific template pattern 'ax**2 + bxy + cy**2...' in '{expression}'")
             return True
         
         return False

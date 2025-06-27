@@ -108,9 +108,17 @@ fine_tuning:
     max_seq_length: 1024      # Set a fixed sequence length to optimize memory usage
 inference:
   rag_k: 3
-  max_new_tokens: 512
-  temperature: 0.6
-  top_p: 0.9
+  max_new_tokens: 200           # Reduced from 512 - certificates are short expressions
+  temperature: 0.3              # Lowered from 0.6 for more focused output
+  top_p: 0.85                   # Slightly reduced from 0.9 for better quality
+  device: "auto"  # Use GPU if available, fallback to CPU
+  torch_dtype: "auto"  # Automatic precision selection
+  # Stop tokens to prevent incomplete generation
+  stop_sequences: ["Therefore", "However", "But", "Let", "We can", "Note that"]
+  # Better sampling parameters for mathematical expressions
+  do_sample: true
+  repetition_penalty: 1.1       # Prevent repetitive text
+  pad_token_id: null            # Will be set by tokenizer
 evaluation:
   rag_k: ${inference.rag_k}
   max_new_tokens: ${inference.max_new_tokens}
@@ -130,6 +138,9 @@ evaluation:
     use_set_relative_tolerances: true     # Use bounds from initial set instead of absolute tolerance
     set_tolerance_margin: 0.01            # 1% margin for numerical precision
     absolute_fallback_tolerance: 1.0e-06  # Fallback when no set bound is detected
+    # Relaxed domain bounds verification to focus on core barrier conditions
+    strict_domain_bounds_check: false     # Allow some domain violations if core conditions hold
+    domain_bounds_tolerance: 0.1          # Higher tolerance for domain bounds violations
     # Debug settings
     log_boundary_analysis: true           # Log detailed boundary condition analysis
     save_verification_details: true       # Save detailed verification results

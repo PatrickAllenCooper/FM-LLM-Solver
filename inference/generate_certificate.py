@@ -255,7 +255,7 @@ def retrieve_context(query, embedding_model, index, metadata_map, k):
 
 def format_prompt_with_context(system_description, context, kb_type="unified", domain_bounds=None):
     """
-    Format the LLM prompt with system description, RAG context, and domain bounds.
+    OPTIMIZED FORMAT: Concise prompt that generates correct barrier certificates.
     
     Args:
         system_description: String describing the dynamical system
@@ -263,154 +263,78 @@ def format_prompt_with_context(system_description, context, kb_type="unified", d
         kb_type: Type of knowledge base ("discrete", "continuous", "unified")
         domain_bounds: Dictionary of domain bounds like {"x": [-2, 2], "y": [-1, 1]} (optional)
     """
-    state_vars_match = re.search(r"State Variables:\s*\[?([\w\s,]+)\]?", system_description, re.IGNORECASE)
-    actual_state_vars_list = []
-    if state_vars_match:
-        extracted_vars = [v.strip() for v in state_vars_match.group(1).split(',') if v.strip()]
-        if extracted_vars:
-            actual_state_vars_list = extracted_vars
+    # Infer state variables (simplified)
+    if 'x' in system_description.lower() and 'y' in system_description.lower() and 'z' in system_description.lower():
+        state_vars = ['x', 'y', 'z']
+    elif 'x' in system_description.lower() and 'y' in system_description.lower():
+        state_vars = ['x', 'y']
+    elif 'x' in system_description.lower():
+        state_vars = ['x']
+    else:
+        state_vars = ['x', 'y']  # Default
     
-    if not actual_state_vars_list: # Fallback if regex fails or no vars found
-        # Try to infer from common names if not explicitly listed - less reliable
-        if 'x' in system_description.lower() and 'y' in system_description.lower() and 'z' in system_description.lower():
-            actual_state_vars_list = ['x', 'y', 'z']
-        elif 'x' in system_description.lower() and 'y' in system_description.lower():
-            actual_state_vars_list = ['x', 'y']
-        elif 'x' in system_description.lower():
-            actual_state_vars_list = ['x']
-        else:
-            actual_state_vars_list = ['x'] # Default to x if nothing else
-
-    state_vars_str_for_prompt = ", ".join(actual_state_vars_list)
-    example_b_func_vars = state_vars_str_for_prompt
-    example_b_expr_var = actual_state_vars_list[0] if actual_state_vars_list else "x"
-
-    # Detect system type from dynamics notation
-    is_discrete_time = bool(re.search(r'\w+\[k\+1\]|\w+\[k \+ 1\]|\w+\(k\+1\)|\w+\(k \+ 1\)', system_description))
+    var_string = ", ".join(state_vars)
     
-    # Add barrier certificate type-specific guidance
-    type_guidance = ""
-    discrete_conditions = ""
-    continuous_conditions = ""
-    
-    if is_discrete_time or kb_type == "discrete":
-        type_guidance = (
-            f"IMPORTANT: This is a DISCRETE-TIME system (x[k+1] notation). For discrete-time barrier certificates:\n"
-            f"⚠️  CRITICAL MATHEMATICAL WARNING: State variables can be NEGATIVE! When checking ΔB ≤ 0:\n"
-            f"   - For expressions like ΔB = -0.1x[k] - 0.1y[k]², do NOT assume x[k] ≥ 0!\n"
-            f"   - If x[k] can be negative (from initial set), then -0.1x[k] can be POSITIVE\n"
-            f"   - ALWAYS check the FULL RANGE of state variables from the initial set\n"
-            f"   - Example: If initial set is x² + y² ≤ 0.25, then x ∈ [-0.5, 0.5] (includes negatives!)\n\n"
-            f"Mathematical Requirements for Discrete Barriers:\n"
-            f"- Use the discrete barrier condition: B(x[k+1], y[k+1]) - B(x[k], y[k]) ≤ 0 (non-increasing)\n"
-            f"- Analyze state variable ranges from initial/safe sets before concluding ΔB ≤ 0\n"
-            f"- Consider compensation terms for negative contributions\n"
-            f"- For linear barriers B(x,y) = x - c, verify ΔB across the ENTIRE reachable set\n\n"
-            f"Recommended Barrier Forms (with proper analysis):\n"
-            f"  • Quadratic level sets: B(x,y) = x² + y² - C (always ΔB analysis needed)\n"
-            f"  • Compensated linear: B(x,y) = x + αy² - C (α > 0 to handle negative x)\n"
-            f"  • Mixed barrier: B(x,y) = x² + βx + γy² - C (quadratic dominance)\n"
-            f"- Provide RIGOROUS mathematical verification of ΔB ≤ 0 over state ranges\n"
-            f"- Consider worst-case scenarios for negative state variables\n\n"
-        )
-        discrete_conditions = (
-            f"RIGOROUS VERIFICATION STEPS for discrete-time barrier B({example_b_func_vars}):\n\n"
-            f"Step 1: ANALYZE STATE VARIABLE RANGES from initial/safe sets\n"
-            f"   - Extract exact bounds: if x² + y² ≤ r², then x ∈ [-√r, √r], y ∈ [-√r, √r]\n"
-            f"   - Identify if variables can be negative (critical for ΔB analysis)\n\n"
-            f"Step 2: VERIFY INITIAL SET CONDITION\n"
-            f"   - Check: B(x[0], y[0]) ≤ 0 for ALL points in initial set\n"
-            f"   - Test extreme points and corners of initial set\n\n"
-            f"Step 3: COMPUTE AND VERIFY DISCRETE DIFFERENCE\n"
-            f"   - Calculate: ΔB = B(x[k+1], y[k+1]) - B(x[k], y[k]) using system dynamics\n"
-            f"   - Substitute dynamics into barrier function carefully\n"
-            f"   - Simplify algebraically to find ΔB expression\n\n"
-            f"Step 4: CRITICAL - VERIFY ΔB ≤ 0 OVER FULL STATE RANGE\n"
-            f"   - DO NOT assume variables are non-negative!\n"
-            f"   - Test ΔB at extreme values: minimum and maximum of each variable\n"
-            f"   - If ΔB has terms like -ax where x can be negative, check if -ax ≤ 0 always holds\n"
-            f"   - Counterexample search: find any point where ΔB > 0\n\n"
-            f"Step 5: VERIFY UNSAFE REGION SEPARATION\n"
-            f"   - Check: B(x, y) ≥ 0 for points in unsafe region\n"
-            f"   - Ensure barrier properly separates safe from unsafe\n\n"
-            f"Mathematical Example of Common Error:\n"
-            f"❌ WRONG: 'ΔB = -0.1x - 0.1y², since x ≥ 0 and y² ≥ 0, we have ΔB ≤ 0'\n"
-            f"✅ CORRECT: 'ΔB = -0.1x - 0.1y². From initial set x² + y² ≤ 0.25, x ∈ [-0.5,0.5].\n"
-            f"            When x = -0.3, ΔB = -0.1(-0.3) - 0.1y² = 0.03 - 0.1y² > 0 for small |y|. VIOLATION!'\n"
-        )
-    elif kb_type == "continuous" or not is_discrete_time:
-        type_guidance = (
-            f"IMPORTANT: This is a CONTINUOUS-TIME system (dx/dt notation). For continuous-time barrier certificates:\n"
-            f"- Use the Lie derivative condition: dB/dt ≤ 0 in the safe set\n"
-            f"- Consider energy-like functions and their time derivatives\n"
-            f"- Focus on polynomial forms for SOS (Sum-of-Squares) verification\n"
-            f"- Think about gradient and vector field alignment\n\n"
-        )
-        continuous_conditions = (
-            f"For continuous-time systems, the barrier certificate B({example_b_func_vars}) must satisfy:\n"
-            f"1. B(x, y) ≤ 0 for all initial states (safe in initial set)\n"
-            f"2. dB/dt = ∇B · f(x) ≤ 0 in the safe set (non-increasing along trajectories)\n"
-            f"3. B(x, y) ≥ 0 in the unsafe region (positive outside safe region)\n"
-        )
-
-    # Domain bounds guidance
-    domain_guidance = ""
+    # Domain bounds text
+    domain_text = ""
     if domain_bounds:
         domain_desc = ", ".join([f"{var} ∈ [{bounds[0]}, {bounds[1]}]" for var, bounds in domain_bounds.items()])
-        domain_guidance = (
-            f"🎯 DOMAIN BOUNDS CONSTRAINT: This barrier certificate must be valid within the specified domain:\n"
-            f"   Domain: {domain_desc}\n"
-            f"   - The certificate MUST satisfy all barrier conditions within this domain\n"
-            f"   - Outside this domain, the certificate validity is not guaranteed\n"
-            f"   - Choose coefficients and functional form appropriate for this bounded region\n"
-            f"   - Consider domain boundaries when verifying barrier conditions\n\n"
-        )
+        domain_text = f"Domain: {domain_desc}\n"
+    
+    # System type detection
+    is_discrete = bool(re.search(r'\w+\[k\+1\]|\w+\[k \+ 1\]|\w+\(k\+1\)|\w+\(k \+ 1\)', system_description))
+    
+    # Extract bounds from system description for better constant selection
+    initial_bound = None
+    unsafe_bound = None
+    
+    # Try to extract numerical bounds
+    initial_match = re.search(r'Initial Set:.*?<=\s*([\d\.]+)', system_description)
+    unsafe_match = re.search(r'Unsafe Set:.*?>=\s*([\d\.]+)', system_description)
+    
+    if initial_match:
+        initial_bound = float(initial_match.group(1))
+    if unsafe_match:
+        unsafe_bound = float(unsafe_match.group(1))
+    
+    # Generate guidance based on bounds
+    bounds_guidance = ""
+    if initial_bound is not None and unsafe_bound is not None:
+        # For quadratic barriers B = x² + y² - c, choose c between initial and unsafe bounds
+        suggested_c = (initial_bound + unsafe_bound) / 2
+        bounds_guidance = f"""
+MATHEMATICAL GUIDANCE for this system:
+- Initial set bound: {initial_bound}
+- Unsafe set bound: {unsafe_bound}  
+- For quadratic barriers B(x,y) = x² + y² - c, choose c between {initial_bound} and {unsafe_bound}
+- Suggested: c = {suggested_c:.1f} giving B(x,y) = x**2 + y**2 - {suggested_c:.1f}
+"""
 
-    instruction = (
-        f"You are an expert in control theory and dynamical systems. Your task is to propose a barrier certificate for the given autonomous system.\n"
-        f"The state variables for this system are: {state_vars_str_for_prompt}.\n\n"
-        f"{domain_guidance}"
-        f"{type_guidance}"
-        f"Please follow these steps carefully:\n"
-        f"1. Analyze the system dynamics, initial set, unsafe set, and safe set (if provided) from the 'System Description' below.\n"
-        f"2. Consider any relevant context from the 'Relevant Context from Papers' (if provided) that might inspire a similar form or approach for the barrier certificate.\n"
-        f"3. {'Consider the domain bounds constraint when selecting the barrier function form and coefficients.' if domain_bounds else ''}\n"
-        f"4. Briefly explain your reasoning or the strategy you will use to propose a candidate barrier certificate function B({example_b_func_vars}). This reasoning should not contain the final certificate itself.\n"
-        f"   ⚠️  For discrete-time systems: ANALYZE state variable ranges from initial set BEFORE assuming any non-negativity!\n"
-        f"   {'🎯  Consider how the domain bounds affect your barrier function choice and verification.' if domain_bounds else ''}\n"
-        f"5. After your reasoning, state the proposed barrier certificate function clearly and unambiguously using ONLY the specified state variables ({state_vars_str_for_prompt}). The function must be presented in the following exact format, on its own lines, without any surrounding text or explanations other than what is inside the B(...) notation:\n"
-        f"BARRIER_CERTIFICATE_START\n"
-        f"B({example_b_func_vars}) = <your_mathematical_expression_using_only_{state_vars_str_for_prompt}_and_constants>\n"
-        f"BARRIER_CERTIFICATE_END\n\n"
-        f"⚠️  CRITICAL REQUIREMENT: You MUST provide a CONCRETE mathematical expression with actual numerical coefficients. \n"
-        f"❌ DO NOT use placeholder variables like 'a', 'b', 'c', 'd', 'e', 'f' or generic templates.\n"
-        f"❌ DO NOT write: B(x, y) = ax**2 + bxy + cy**2 + dx + ey + f\n"
-        f"❌ DO NOT write: B(x, y) = c1*x**2 + c2*y**2 + c3\n\n"
-        f"✅ CORRECT examples with actual numbers:\n"
-        f"BARRIER_CERTIFICATE_START\n"
-        f"B(x, y) = x**2 + y**2 - 2.0\n"
-        f"BARRIER_CERTIFICATE_END\n\n"
-        f"BARRIER_CERTIFICATE_START\n"
-        f"B(x, y) = x - 1.5\n"
-        f"BARRIER_CERTIFICATE_END\n\n"
-        f"BARRIER_CERTIFICATE_START\n"
-        f"B(x, y) = 2*x**2 - 3*y + 1.5\n"
-        f"BARRIER_CERTIFICATE_END\n\n"
-        f"For discrete-time systems, properly analyzed examples:\n"
-        f"• Quadratic barriers: B(x, y) = x**2 + y**2 - 2.0 (handles negative x/y gracefully)\n"  
-        f"• Compensated barriers: B(x, y) = x + 0.5*y**2 - 1.5 (y² term compensates for negative x)\n"
-        f"• Pure quadratic: B(x, y) = 2*x**2 + 3*y**2 - 1.0 (always non-negative quadratic terms)\n"
-        f"⚠️  WARNING: Simple linear barriers like B(x,y) = x - 1.5 often FAIL for systems with negative state variables!\n\n"
-        f"6. After stating the certificate in the specified block, briefly outline the conditions it must satisfy:\n"
-        f"{discrete_conditions if (is_discrete_time or kb_type == 'discrete') else continuous_conditions}"
-        f"{'   🎯  Note: All conditions must be verified within the specified domain bounds.' if domain_bounds else ''}"
-    )
+    # Core instruction (concise)
+    instruction = f"""Generate a barrier certificate for:
 
+{system_description}
+{domain_text}
+CRITICAL REQUIREMENTS:
+- Use ONLY concrete numbers (1.0, -2.5, 3.14, etc.)
+- NO placeholder variables (no α, β, γ, C, a, b, c, etc.)
+- Complete the mathematical expression fully
+- Format: B({var_string}) = <expression>
+{bounds_guidance}
+Examples of CORRECT outputs:
+- B({var_string}) = x**2 + y**2 - 1.0
+- B({var_string}) = 2*x**2 + 0.5*y**2 - 3.0
+- B({var_string}) = x - 1.5
+
+BARRIER_CERTIFICATE_START
+B({var_string}) ="""
+
+    # Include context if available
     if context:
-        prompt = f"<s>[INST] {instruction}\n\nRelevant Context from Papers:\n{context}\n---\n\nSystem Description:\n{system_description} [/INST]"
+        prompt = f"<s>[INST] {instruction}\n\nRelevant research context:\n{context[:500]}...\n\n[/INST]"
     else:
-        prompt = f"<s>[INST] {instruction}\n\nSystem Description:\n{system_description} [/INST]"
-
+        prompt = f"<s>[INST] {instruction} [/INST]"
+    
     return prompt
 
 # --- Main Execution --- #
@@ -475,7 +399,7 @@ if __name__ == "__main__":
         sys.exit(1)
     print(f"Model and tokenizer loaded successfully.")
     
-    # Initialize generation pipeline
+    # Initialize optimized generation pipeline
     pipe = pipeline(
         task="text-generation",
         model=model,
@@ -483,7 +407,10 @@ if __name__ == "__main__":
         max_new_tokens=max_tokens_to_use,
         temperature=temp_to_use,
         top_p=TOP_P,
-        do_sample=True if temp_to_use > 0 else False
+        do_sample=True if temp_to_use > 0 else False,
+        repetition_penalty=1.1,  # Prevent repetitive output
+        pad_token_id=tokenizer.pad_token_id,
+        eos_token_id=tokenizer.eos_token_id
     )
 
     # --- STEP 4: Retrieve Context (RAG) ---
