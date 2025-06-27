@@ -263,26 +263,26 @@ def format_prompt_with_context(system_description, context, kb_type="unified", d
         kb_type: Type of knowledge base ("discrete", "continuous", "unified")
         domain_bounds: Dictionary of domain bounds like {"x": [-2, 2], "y": [-1, 1]} (optional)
     """
-    # Infer state variables (simplified)
-    if 'x' in system_description.lower() and 'y' in system_description.lower() and 'z' in system_description.lower():
-        state_vars = ['x', 'y', 'z']
-    elif 'x' in system_description.lower() and 'y' in system_description.lower():
-        state_vars = ['x', 'y']
-    elif 'x' in system_description.lower():
-        state_vars = ['x']
-    else:
-        state_vars = ['x', 'y']  # Default
-    
+    # State variables are always x, y as specified
+    state_vars = ['x', 'y']
     var_string = ", ".join(state_vars)
     
-    # Domain bounds text
-    domain_text = ""
+    # Domain bounds text - always specify domain
     if domain_bounds:
-        domain_desc = ", ".join([f"{var} ∈ [{bounds[0]}, {bounds[1]}]" for var, bounds in domain_bounds.items()])
-        domain_text = f"Domain: {domain_desc}\n"
-    
-    # System type detection
-    is_discrete = bool(re.search(r'\w+\[k\+1\]|\w+\[k \+ 1\]|\w+\(k\+1\)|\w+\(k \+ 1\)', system_description))
+        # Handle different formats
+        if isinstance(domain_bounds, dict):
+            parts = []
+            for var, bounds in domain_bounds.items():
+                if isinstance(bounds, dict) and 'min' in bounds and 'max' in bounds:
+                    parts.append(f"{var} ∈ [{bounds['min']}, {bounds['max']}]")
+                elif isinstance(bounds, (list, tuple)) and len(bounds) >= 2:
+                    parts.append(f"{var} ∈ [{bounds[0]}, {bounds[1]}]")
+            domain_text = f"Domain: {', '.join(parts)}\n" if parts else "Domain: x ∈ [-10, 10], y ∈ [-10, 10]\n"
+        else:
+            domain_text = "Domain: x ∈ [-10, 10], y ∈ [-10, 10]\n"
+    else:
+        # Default domain if not specified
+        domain_text = "Domain: x ∈ [-10, 10], y ∈ [-10, 10]\n"
     
     # Extract bounds from system description for better constant selection
     initial_bound = None
@@ -303,31 +303,35 @@ def format_prompt_with_context(system_description, context, kb_type="unified", d
         # For quadratic barriers B = x² + y² - c, choose c between initial and unsafe bounds
         suggested_c = (initial_bound + unsafe_bound) / 2
         bounds_guidance = f"""
-MATHEMATICAL GUIDANCE for this system:
+MATHEMATICAL GUIDANCE for this discrete-time system:
 - Initial set bound: {initial_bound}
 - Unsafe set bound: {unsafe_bound}  
 - For quadratic barriers B(x,y) = x² + y² - c, choose c between {initial_bound} and {unsafe_bound}
 - Suggested: c = {suggested_c:.1f} giving B(x,y) = x**2 + y**2 - {suggested_c:.1f}
 """
 
-    # Core instruction (concise)
-    instruction = f"""Generate a barrier certificate for:
+    # Core instruction for DISCRETE-TIME systems
+    instruction = f"""Generate a DISCRETE-TIME barrier certificate for:
 
 {system_description}
 {domain_text}
+SYSTEM TYPE: DISCRETE-TIME (uses k, k+1 notation)
+STATE VARIABLES: x, y
+
 CRITICAL REQUIREMENTS:
 - Use ONLY concrete numbers (1.0, -2.5, 3.14, etc.)
 - NO placeholder variables (no α, β, γ, C, a, b, c, etc.)
 - Complete the mathematical expression fully
-- Format: B({var_string}) = <expression>
+- Format: B(x,y) = <expression>
+- Must be suitable for DISCRETE-TIME analysis
 {bounds_guidance}
-Examples of CORRECT outputs:
-- B({var_string}) = x**2 + y**2 - 1.0
-- B({var_string}) = 2*x**2 + 0.5*y**2 - 3.0
-- B({var_string}) = x - 1.5
+Examples of CORRECT discrete-time barrier certificates:
+- B(x,y) = x**2 + y**2 - 1.0
+- B(x,y) = 2*x**2 + 0.5*y**2 - 3.0
+- B(x,y) = 5*x**2 - 2*x*y + 3*y**2
 
 BARRIER_CERTIFICATE_START
-B({var_string}) ="""
+B(x,y) ="""
 
     # Include context if available
     if context:

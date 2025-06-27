@@ -279,11 +279,37 @@ class CertificateGenerator:
         if not expression:
             return expression
         
-        # Remove trailing [CUT] or similar bracketed text
-        cleaned = re.sub(r'\s*\[.*?\]\s*$', '', expression).strip()
+        # FIRST: Remove any text after the mathematical expression
+        # Stop at common sentence starters or descriptive phrases
+        sentence_patterns = [
+            r'\s+is\s+.*$',                 # "is a valid...", "is appropriate..."
+            r'\s+which\s+.*$',               # "which ensures..."
+            r'\s+this\s+.*$',                # "this guarantees..."
+            r'\s+that\s+.*$',                # "that proves..."
+            r'\s+for\s+.*$',                 # "for the system..."
+            r'\s+where\s+.*$',               # "where x and y..."
+            r'\s+ensuring\s+.*$',            # "ensuring stability..."
+            r'\s+guaranteeing\s+.*$',        # "guaranteeing safety..."
+            r'\s+could\s+be\s+.*$',          # "could be appropriate"
+            r'\s+would\s+be\s+.*$',          # "would be appropriate"
+            r'\s+seems\s+.*$',               # "seems appropriate"
+            r'\s+appears\s+.*$',             # "appears suitable"
+            r'\s+might\s+be\s+.*$',          # "might be appropriate"
+            r'\s+should\s+be\s+.*$',         # "should be suitable"
+            r'\s+can\s+be\s+used\s*$',      # "can be used"
+            r'\s+satisfies\s+.*$',           # "satisfies the conditions"
+            r'\s+represents\s+.*$',          # "represents a barrier"
+            r'\[/?INST\].*$',               # Remove [INST] or [/INST] and everything after
+            r'\s+Great!.*$',                # "Great! That's correct..."
+            r'\s+[Tt]hat\'s\s+correct.*$',  # "That's correct..."
+        ]
         
-        # Remove common LaTeX artifacts
-        # cleaned = expression
+        cleaned = expression
+        for pattern in sentence_patterns:
+            cleaned = re.sub(pattern, '', cleaned, flags=re.IGNORECASE)
+        
+        # Remove trailing [CUT] or similar bracketed text
+        cleaned = re.sub(r'\s*\[.*?\]\s*$', '', cleaned).strip()
         
         # Remove LaTeX brackets and delimiters
         cleaned = re.sub(r'\\[\[\]()]', '', cleaned)  # Remove \[ \] \( \)
@@ -311,27 +337,6 @@ class CertificateGenerator:
         # Remove trailing punctuation that might cause parsing issues
         cleaned = cleaned.rstrip('.,;:')
         
-        # Remove trailing text descriptions (common LLM habit)
-        descriptive_patterns = [
-            r'\s+where\s+.*$',
-            r'\s+for\s+.*$',
-            r'\s+such\s+that\s+.*$',
-            r'\s+ensuring\s+.*$',
-            r'\s+guaranteeing\s+.*$',
-            r'\s+could\s+be\s+.*$',           # "could be appropriate", "could be suitable"
-            r'\s+would\s+be\s+.*$',          # "would be appropriate"
-            r'\s+seems\s+.*$',               # "seems appropriate"
-            r'\s+appears\s+.*$',             # "appears suitable"
-            r'\s+might\s+be\s+.*$',          # "might be appropriate"
-            r'\s+should\s+be\s+.*$',         # "should be suitable"
-            r'\s+is\s+appropriate\s*$',      # "is appropriate"
-            r'\s+is\s+suitable\s*$',         # "is suitable"
-            r'\s+works\s+well\s*$',          # "works well"
-            r'\s+can\s+be\s+used\s*$'        # "can be used"
-        ]
-        for pattern in descriptive_patterns:
-            cleaned = re.sub(pattern, '', cleaned, flags=re.IGNORECASE)
-        
         logger.debug(f"Cleaned certificate expression: '{expression}' -> '{cleaned}'")
         return cleaned
     
@@ -352,16 +357,30 @@ class CertificateGenerator:
             if placeholder in expression:
                 return True
         
-        # Check for single letter constants (excluding x, y, z which are state variables)
-        # Pattern: standalone letters a-h, j-w (excluding x, y, z, i for imaginary)
-        single_letter_pattern = r'\b[a-hjkl-w]\b'
-        if re.search(single_letter_pattern, expression, re.IGNORECASE):
-            return True
+        # More specific patterns for template variables
+        # Look for single letters that are multiplied by variables or used as coefficients
+        template_patterns = [
+            r'\b[a-h]\s*\*\s*x',      # a*x, b*x, etc.
+            r'\b[a-h]\s*\*\s*y',      # a*y, b*y, etc.
+            r'\b[a-h]\s*\*\s*z',      # a*z, b*z, etc.
+            r'\b[a-h]\s*x\b',         # ax, bx (without *)
+            r'\b[a-h]\s*y\b',         # ay, by (without *)
+            r'\b[a-h]\s*z\b',         # az, bz (without *)
+            r'\b[A-HJ-W]\s*x\b',      # Ax, Bx, etc.
+            r'\b[A-HJ-W]\s*y\b',      # Ay, By, etc.
+            r'\b[A-HJ-W]\s*z\b',      # Az, Bz, etc.
+            r'\b[a-zA-Z]\s*_\d+',     # a_1, b_2, etc.
+            r'\bc_\d+',               # c_1, c_2, etc.
+            r'coeff',                 # coefficient
+            r'param',                 # parameter
+        ]
         
-        # Check for uppercase constants like C, K, A, B
-        uppercase_constants = r'\b[A-HJ-W]\b'  # Exclude I (imaginary), X, Y, Z (state vars)
-        if re.search(uppercase_constants, expression):
-            return True
+        for pattern in template_patterns:
+            if re.search(pattern, expression, re.IGNORECASE):
+                return True
+        
+        # Don't reject expressions that are just numbers with x, y, z
+        # like "2.1*x**2 + 3.5*y**2 - 1.0"
         
         return False
     
@@ -454,44 +473,60 @@ class CertificateGenerator:
             for attempt in range(max_attempts):
                 logger.info(f"Generation attempt {attempt + 1}/{max_attempts}")
                 
-                # Use enhanced prompt if first attempt with standard prompt fails
-                if attempt == 0:
-                    # Standard prompt
-                    prompt = format_prompt_with_context(
-                        system_description,
-                        context,
-                        model_info['config']['barrier_type'],
-                        domain_bounds
-                    )
-                else:
-                    # Enhanced prompt with few-shot examples
-                    prompt = self._create_enhanced_prompt(
-                        system_description,
-                        context,
-                        model_info['config']['barrier_type'],
-                        domain_bounds
-                    )
-                
-                # Generate certificate
-                result = model_info['pipeline'](prompt)
-                generated_text = result[0]['generated_text']
-                
-                # Extract only the generated part after the prompt
-                prompt_end_marker = "[/INST]"
-                output_start_index = generated_text.find(prompt_end_marker)
-                if output_start_index != -1:
-                    llm_output = generated_text[output_start_index + len(prompt_end_marker):].strip()
-                else:
-                    llm_output = generated_text
-                
-                # Extract certificate
-                certificate = self.extract_certificate_from_output(llm_output)
-                
-                if certificate:
-                    logger.info(f"Successfully extracted certificate on attempt {attempt + 1}")
-                    break
-                else:
-                    logger.warning(f"Attempt {attempt + 1} failed to extract valid certificate")
+                try:
+                    # Use enhanced prompt if first attempt with standard prompt fails
+                    if attempt == 0:
+                        # Standard prompt
+                        prompt = format_prompt_with_context(
+                            system_description,
+                            context,
+                            model_info['config']['barrier_type'],
+                            domain_bounds
+                        )
+                    else:
+                        # Enhanced prompt with few-shot examples
+                        prompt = self._create_enhanced_prompt(
+                            system_description,
+                            context,
+                            model_info['config']['barrier_type'],
+                            domain_bounds
+                        )
+                    
+                    # Generate certificate
+                    result = model_info['pipeline'](prompt)
+                    
+                    # Handle the result properly - it returns a list of dicts
+                    if isinstance(result, list) and len(result) > 0 and isinstance(result[0], dict):
+                        generated_text = result[0].get('generated_text', '')
+                    else:
+                        logger.error(f"Unexpected pipeline result format: {type(result)}")
+                        if hasattr(result, '__iter__'):
+                            logger.error(f"Result content: {result}")
+                        continue
+                    
+                    # Extract only the generated part after the prompt
+                    prompt_end_marker = "[/INST]"
+                    output_start_index = generated_text.find(prompt_end_marker)
+                    if output_start_index != -1:
+                        llm_output = generated_text[output_start_index + len(prompt_end_marker):].strip()
+                    else:
+                        llm_output = generated_text
+                    
+                    # Extract certificate
+                    certificate = self.extract_certificate_from_output(llm_output)
+                    
+                    if certificate:
+                        logger.info(f"Successfully extracted certificate on attempt {attempt + 1}")
+                        break
+                    else:
+                        logger.warning(f"Attempt {attempt + 1} failed to extract valid certificate")
+                        
+                except Exception as e:
+                    logger.error(f"Error during generation attempt {attempt + 1}: {str(e)}")
+                    logger.error(f"Error type: {type(e).__name__}")
+                    import traceback
+                    logger.error(f"Traceback: {traceback.format_exc()}")
+                    continue
             
             return {
                 'success': True,
@@ -516,66 +551,93 @@ class CertificateGenerator:
     def _create_enhanced_prompt(self, system_description: str, context: str, barrier_type: str, domain_bounds: dict = None) -> str:
         """Create an enhanced prompt with few-shot examples for better generation."""
         
-        # Extract state variables
-        if 'x' in system_description.lower() and 'y' in system_description.lower() and 'z' in system_description.lower():
-            state_vars = ['x', 'y', 'z']
-        elif 'x' in system_description.lower() and 'y' in system_description.lower():
-            state_vars = ['x', 'y']
-        else:
-            state_vars = ['x', 'y']  # Default
-        
+        # State variables are always x, y as specified
+        state_vars = ['x', 'y']
         var_string = ", ".join(state_vars)
         
-        # Few-shot examples
+        # Few-shot examples for DISCRETE-TIME systems
         examples = """
 EXAMPLE 1:
-System: dx/dt = -x + y, dy/dt = -2x - 3y
+Discrete-time system: x[k+1] = 0.9*x[k] + 0.1*y[k], y[k+1] = -0.1*x[k] + 0.8*y[k]
+Domain: x ∈ [-5, 5], y ∈ [-5, 5]
 BARRIER_CERTIFICATE_START
-B(x,y) = 5.0*x**2 + 2.0*x*y + 3.0*y**2
+B(x,y) = 2.0*x**2 + 1.0*x*y + 3.0*y**2
 
 EXAMPLE 2:  
-System: dx/dt = -x**3 + y, dy/dt = -x - y
+Discrete-time system: x[k+1] = 0.95*x[k] - 0.2*y[k], y[k+1] = 0.1*x[k] + 0.85*y[k]
+Domain: x ∈ [-10, 10], y ∈ [-10, 10]
 BARRIER_CERTIFICATE_START
-B(x,y) = x**2 + y**2 - 1.0
+B(x,y) = x**2 + y**2 - 4.0
 
 EXAMPLE 3:
-System: dx/dt = -2*x + 0.5*y, dy/dt = x - 3*y  
+Discrete-time system: x[k+1] = 0.8*x[k] + 0.3*y[k], y[k+1] = -0.2*x[k] + 0.9*y[k]
+Domain: x ∈ [-3, 3], y ∈ [-3, 3]
 BARRIER_CERTIFICATE_START
-B(x,y) = 4.0*x**2 + 1.0*x*y + 2.0*y**2
+B(x,y) = 5.0*x**2 - 2.0*x*y + 4.0*y**2
 """
         
         # Domain bounds info
         domain_text = ""
         if domain_bounds:
-            domain_desc = ", ".join([f"{var} ∈ [{bounds['min']}, {bounds['max']}]" 
-                                    for var, bounds in domain_bounds.items()])
-            domain_text = f"\nDomain: {domain_desc}"
+            try:
+                # Handle different domain bounds formats
+                if isinstance(domain_bounds, dict):
+                    parts = []
+                    for var, bounds in domain_bounds.items():
+                        if isinstance(bounds, (list, tuple)) and len(bounds) >= 2:
+                            # Handle list/tuple format [min, max] - this is what frontend sends
+                            parts.append(f"{var} ∈ [{bounds[0]}, {bounds[1]}]")
+                        elif isinstance(bounds, dict) and 'min' in bounds and 'max' in bounds:
+                            # Handle dict format with 'min' and 'max' keys
+                            parts.append(f"{var} ∈ [{bounds['min']}, {bounds['max']}]")
+                    if parts:
+                        domain_text = f"\nDomain: {', '.join(parts)}"
+            except Exception as e:
+                logger.warning(f"Error formatting domain bounds: {e}")
+                logger.warning(f"Domain bounds structure: {domain_bounds}")
+                # Continue without domain bounds rather than failing
         
         # Context info
         context_text = ""
         if context:
             context_text = f"\n\nRelevant research context:\n{context[:500]}...\n"
         
-        prompt = f"""<s>[INST] You are an expert in control theory and barrier certificates.
+        # Ensure domain is always specified
+        if not domain_bounds or not domain_text:
+            # Default domain if not specified
+            domain_text = "\nDomain: x ∈ [-10, 10], y ∈ [-10, 10]"
+            logger.info("No domain bounds specified, using default: x,y ∈ [-10, 10]")
+        
+        prompt = f"""<s>[INST] You are an expert in discrete-time systems and barrier certificates.
 
-TASK: Generate a barrier certificate for the given dynamical system.
+TASK: Generate a DISCRETE-TIME barrier certificate for the given dynamical system.
+
+SYSTEM INFORMATION:
+- State variables: x, y (always use these two variables)
+- This is a DISCRETE-TIME system (uses k, k+1 notation)
+- Domain bounds are explicitly defined
 
 CRITICAL RULES:
 1. Use ONLY concrete numerical values (like 1.0, 2.5, -3.0)
 2. NEVER use placeholder variables (no a, b, c, α, β, etc.)
 3. COMPLETE the mathematical expression - no "to be determined" values
-4. Your output MUST contain exactly one line starting with "B({var_string}) ="
+4. Your output MUST contain exactly one line starting with "B(x,y) ="
+5. The barrier certificate must be suitable for DISCRETE-TIME analysis
 
 {examples}
 
-Now generate a barrier certificate for:
+Now generate a discrete-time barrier certificate for:
 
 {system_description}{domain_text}{context_text}
 
-Remember: Use ONLY concrete numbers. Complete the expression fully.
+Remember: 
+- Use ONLY concrete numbers
+- State variables are x and y
+- This is for a DISCRETE-TIME system
+- Complete the expression fully
 
 BARRIER_CERTIFICATE_START
-B({var_string}) = [/INST]"""
+B(x,y) = [/INST]"""
         
         return prompt
     
