@@ -126,6 +126,13 @@ evaluation:
     optimization_pop_size: 10   # Reduced from 15 for faster verification
     attempt_sos: true
     attempt_optimization: true
+    # CRITICAL FIX: Set-relative tolerance configuration
+    use_set_relative_tolerances: true     # Use bounds from initial set instead of absolute tolerance
+    set_tolerance_margin: 0.01            # 1% margin for numerical precision
+    absolute_fallback_tolerance: 1.0e-06  # Fallback when no set bound is detected
+    # Debug settings
+    log_boundary_analysis: true           # Log detailed boundary condition analysis
+    save_verification_details: true       # Save detailed verification results
 
 # Web interface configuration
 web_interface:

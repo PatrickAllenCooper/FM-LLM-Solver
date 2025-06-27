@@ -386,6 +386,43 @@ def numerical_check_lie_derivative(dB_dt_func, sampling_bounds, variables, safe_
             'violation_points': []
         }
 
+def extract_initial_set_bound(initial_set_relationals, variables_sympy):
+    """
+    Extract numerical upper bound from initial set conditions.
+    For conditions like x**2 + y**2 <= 0.25, returns 0.25.
+    """
+    if not initial_set_relationals:
+        return None
+    
+    try:
+        for relational in initial_set_relationals:
+            if hasattr(relational, 'rhs') and hasattr(relational, 'lhs'):
+                # Check if it's a <= or < relationship
+                if relational.rel_op in ['<=', '<']:
+                    # Try to evaluate the RHS as a constant
+                    try:
+                        bound_value = float(relational.rhs)
+                        logging.info(f"Extracted initial set bound: {bound_value} from condition {relational}")
+                        return bound_value
+                    except (TypeError, ValueError):
+                        continue
+            
+            # Handle string-based conditions as fallback
+            condition_str = str(relational)
+            if '<=' in condition_str:
+                parts = condition_str.split('<=')
+                if len(parts) == 2:
+                    try:
+                        bound_value = float(parts[1].strip())
+                        logging.info(f"Extracted initial set bound: {bound_value} from string condition {condition_str}")
+                        return bound_value
+                    except (ValueError, TypeError):
+                        continue
+    except Exception as e:
+        logging.warning(f"Error extracting initial set bound: {e}")
+    
+    return None
+
 def numerical_check_boundary(B_func, sampling_bounds, variables, initial_set_relationals, unsafe_set_relationals, n_samples, tolerance):
     """Numerically checks B(x) conditions on initial and unsafe set boundaries using sampling."""
     logging.info(f"Performing numerical check for boundary conditions with {n_samples} samples...")
@@ -404,6 +441,15 @@ def numerical_check_boundary(B_func, sampling_bounds, variables, initial_set_rel
     init_violation_points = []
     unsafe_violation_points = []
 
+    # CRITICAL FIX: Extract set-relative tolerance for initial set
+    initial_set_bound = extract_initial_set_bound(initial_set_relationals, variables)
+    if initial_set_bound is not None:
+        initial_tolerance = initial_set_bound * 1.01  # 1% margin for numerical precision
+        logging.info(f"Using set-relative tolerance for initial set: {initial_tolerance} (bound: {initial_set_bound})")
+    else:
+        initial_tolerance = tolerance  # Fallback to absolute tolerance
+        logging.warning(f"No initial set bound detected, using absolute tolerance: {tolerance}")
+
     for point_dict in samples:
         try:
             b_val_sympy = B_func(**point_dict)
@@ -413,16 +459,16 @@ def numerical_check_boundary(B_func, sampling_bounds, variables, initial_set_rel
                 logging.warning(f"Could not convert B(x) value '{b_val_sympy}' to float at {point_dict}: {conversion_e}. Skipping sample.")
                 continue # Skip this sample if conversion fails
 
-            # 1. Initial Set Check: B(x) <= tolerance inside X0
+            # 1. Initial Set Check: B(x) <= initial_tolerance inside X0
             is_in_init_set = check_set_membership_numerical(point_dict, initial_set_relationals, variables)
             if is_in_init_set:
                 checked_in_init += 1
-                if b_val > tolerance: # Use passed tolerance
+                if b_val > initial_tolerance: # Use set-relative tolerance
                     init_violations += 1
                     # Store violation data
                     violation_data = {'point': point_dict, 'B_value': b_val}
                     init_violation_points.append(violation_data)
-                    logging.debug(f"Violation B <= 0 in Init Set: B={b_val:.4g} at {point_dict}")
+                    logging.debug(f"Violation B <= {initial_tolerance} in Init Set: B={b_val:.4g} at {point_dict}")
 
             # 2. Unsafe Set Check: B(x) >= -tolerance outside Xu
             is_in_unsafe_set = check_set_membership_numerical(point_dict, unsafe_set_relationals, variables)
@@ -440,7 +486,7 @@ def numerical_check_boundary(B_func, sampling_bounds, variables, initial_set_rel
 
     # Log summary information instead of individual violations
     if init_violations > 0:
-        logging.info(f"Found {init_violations}/{checked_in_init} initial set violations (B > {tolerance})")
+        logging.info(f"Found {init_violations}/{checked_in_init} initial set violations (B > {initial_tolerance})")
     if unsafe_violations > 0:
         logging.info(f"Found {unsafe_violations}/{checked_outside_unsafe} unsafe set violations (B < {-tolerance})")
             
@@ -450,7 +496,7 @@ def numerical_check_boundary(B_func, sampling_bounds, variables, initial_set_rel
         if checked_in_init > 0:
             if init_violations > 0:
                 boundary_ok = False
-                reason.append(f"Failed Initial Set ({init_violations}/{checked_in_init} violates B <= {tolerance}).")
+                reason.append(f"Failed Initial Set ({init_violations}/{checked_in_init} violates B <= {initial_tolerance}).")
             else:
                 reason.append(f"Passed Initial Set ({checked_in_init} samples).")
         else:
@@ -601,10 +647,34 @@ def verify_sos(B_poly, dB_dt_poly, initial_polys, unsafe_polys, safe_polys, vari
         results["lie_passed"] = prob_lie.status in [cp.OPTIMAL, cp.OPTIMAL_INACCURATE]
         results["lie_reason"] = f"SOS Solver Status: {prob_lie.status}"
 
-        # --- 2. Initial Set Check (-B is SOS on Initial Set {h_j >= 0}) --- #
+        # --- 2. Initial Set Check (bound - B is SOS on Initial Set {h_j >= 0}) --- #
         logging.info("Checking Initial Set condition via SOS...")
-        target_coeffs_init = sympy_poly_to_coeffs(-B_poly, equality_basis, variables)
-        if target_coeffs_init is None: raise ValueError("Failed getting coeffs for -B")
+        
+        # CRITICAL FIX: Extract initial set bound for correct SOS formulation
+        # Find bound from initial_polys (e.g., if initial set is x²+y² ≤ 0.25, bound = 0.25)
+        initial_bound_value = None
+        try:
+            for poly in initial_polys:
+                # For polynomials like x²+y²-0.25, we want the constant term with opposite sign
+                const_term = poly.as_coefficients_dict().get(sympy.S.One, 0)
+                if const_term != 0:
+                    initial_bound_value = -float(const_term)  # e.g., if poly = x²+y²-0.25, bound = 0.25
+                    logging.info(f"Extracted SOS initial bound: {initial_bound_value} from polynomial {poly}")
+                    break
+        except Exception as e:
+            logging.warning(f"Could not extract initial bound from polynomials: {e}")
+        
+        if initial_bound_value is not None and initial_bound_value > 0:
+            # Correct formulation: (bound - B) is SOS on initial set
+            target_expr = initial_bound_value - B_poly
+            target_coeffs_init = sympy_poly_to_coeffs(target_expr, equality_basis, variables)
+            logging.info(f"Using correct SOS formulation: ({initial_bound_value} - B) is SOS on initial set")
+        else:
+            # Fallback to original formulation if bound extraction fails
+            target_coeffs_init = sympy_poly_to_coeffs(-B_poly, equality_basis, variables)
+            logging.warning("Using fallback SOS formulation: -B is SOS on initial set")
+        
+        if target_coeffs_init is None: raise ValueError("Failed getting coeffs for initial set SOS constraint")
         constraints_init, _ = add_sos_constraints_poly(target_coeffs_init, initial_polys, variables, degree, equality_basis)
         if constraints_init is None: raise ValueError("Failed formulating Init SOS constraints.")
         prob_init = cp.Problem(cp.Minimize(0), constraints_init)
@@ -728,6 +798,10 @@ def optimization_based_falsification(B_func, dB_dt_func, sampling_bounds, variab
 
         # 2. Check Initial Set
         if B_func and initial_set_relationals is not None:
+            # CRITICAL FIX: Use set-relative tolerance for optimization-based falsification
+            initial_set_bound = extract_initial_set_bound(initial_set_relationals, variables)
+            optimization_init_tolerance = initial_set_bound * 1.01 if initial_set_bound is not None else tolerance
+            
             opt_result_init = differential_evolution(
                 objective_maximize_b_in_init, bounds,
                 args=(B_func, variables, initial_set_relationals),
@@ -738,9 +812,9 @@ def optimization_based_falsification(B_func, dB_dt_func, sampling_bounds, variab
                  max_b_init = -opt_result_init.fun
                  results["init_max_val"] = max_b_init
                  results["init_point"] = {v.name: val for v, val in zip(variables, opt_result_init.x)}
-                 if max_b_init > tolerance: # Use config tolerance
+                 if max_b_init > optimization_init_tolerance: # Use set-relative tolerance
                      results["init_violation_found"] = True
-                     logging.warning(f"Optimization found Initial Set violation: max(B)={max_b_init:.4g} > {tolerance} at {results['init_point']}")
+                     logging.warning(f"Optimization found Initial Set violation: max(B)={max_b_init:.4g} > {optimization_init_tolerance} at {results['init_point']}")
                  else:
                      results["init_violation_found"] = False
             else:

@@ -1,0 +1,190 @@
+{
+  "execution_time": 12.588060855865479,
+  "summary": {
+    "verification_consistency": {
+      "average_consistency": 0.75,
+      "tests_run": 4,
+      "high_consistency_count": 3
+    },
+    "llm_prompting": {
+      "average_qwen_optimizations": 4.0,
+      "prompt_analyses_run": 2,
+      "domain_bounds_integration": 2
+    },
+    "parsing_accuracy": {
+      "average_confidence": 1.0,
+      "tests_run": 6,
+      "high_confidence_count": 6
+    },
+    "cross_component_consistency": {
+      "consistent_components": 5,
+      "total_components": 5,
+      "consistency_rate": 1.0
+    }
+  },
+  "detailed_analysis": {
+    "verification_consistency": [
+      {
+        "certificate": "x**2 + y**2",
+        "system": "simple_stable_linear",
+        "sos_result": false,
+        "numerical_result": false,
+        "symbolic_result": false,
+        "overall_result": false,
+        "consistency_score": 1.0,
+        "discrepancies": [
+          "Overall (False) vs Expected (True)"
+        ],
+        "verification_time": 2.6785290241241455,
+        "theoretical_expectation": true
+      },
+      {
+        "certificate": "2*x**2 + y**2",
+        "system": "elliptical_barrier_scaled",
+        "sos_result": false,
+        "numerical_result": false,
+        "symbolic_result": false,
+        "overall_result": false,
+        "consistency_score": 1.0,
+        "discrepancies": [
+          "Overall (False) vs Expected (True)"
+        ],
+        "verification_time": 2.735506772994995,
+        "theoretical_expectation": true
+      },
+      {
+        "certificate": "x**4 + y**4",
+        "system": "polynomial_barrier_nonlinear",
+        "sos_result": false,
+        "numerical_result": true,
+        "symbolic_result": false,
+        "overall_result": true,
+        "consistency_score": 0.0,
+        "discrepancies": [
+          "SOS (False) vs Numerical (True)"
+        ],
+        "verification_time": 2.146343946456909,
+        "theoretical_expectation": true
+      },
+      {
+        "certificate": "x + y",
+        "system": "known_failing_certificate",
+        "sos_result": null,
+        "numerical_result": false,
+        "symbolic_result": false,
+        "overall_result": false,
+        "consistency_score": 1.0,
+        "discrepancies": [],
+        "verification_time": 0.0051250457763671875,
+        "theoretical_expectation": false
+      }
+    ],
+    "llm_prompt_analysis": [
+      {
+        "model_type": "Qwen/Qwen2.5-7B-Instruct",
+        "prompt_length": 3906,
+        "context_chunks": 0,
+        "template_used": "Instruction template with context",
+        "domain_bounds_included": true,
+        "system_complexity": "simple",
+        "expected_output_format": "BARRIER_CERTIFICATE_START/END markers",
+        "qwen_specific_optimizations": [
+          "Qwen instruction format",
+          "Clear task specification",
+          "Output format markers",
+          "Clear mathematical notation"
+        ]
+      },
+      {
+        "model_type": "Qwen/Qwen2.5-7B-Instruct",
+        "prompt_length": 4001,
+        "context_chunks": 0,
+        "template_used": "Instruction template with context",
+        "domain_bounds_included": true,
+        "system_complexity": "complex",
+        "expected_output_format": "BARRIER_CERTIFICATE_START/END markers",
+        "qwen_specific_optimizations": [
+          "Qwen instruction format",
+          "Clear task specification",
+          "Output format markers",
+          "Clear mathematical notation"
+        ]
+      }
+    ],
+    "parsing_accuracy": [
+      {
+        "raw_output": "Based on the system dynamics, I propose the following barrier certificate:\n\nBARRIER_CERTIFICATE_STAR...",
+        "parsed_certificate": "0.5*x**2 + 0.8*y**2 - 0.1",
+        "parsing_successful": true,
+        "symbolic_representation": "0.5*x**2 + 0.8*y**2 - 0.1",
+        "syntax_errors": [],
+        "semantic_correctness": true,
+        "template_detected": false,
+        "confidence_score": 1.0
+      },
+      {
+        "raw_output": "BARRIER_CERTIFICATE_START\nB(x, y) = x^2 + y^2 \\]\nBARRIER_CERTIFICATE_END",
+        "parsed_certificate": "x**2 + y**2",
+        "parsing_successful": true,
+        "symbolic_representation": "x**2 + y**2",
+        "syntax_errors": [],
+        "semantic_correctness": true,
+        "template_detected": false,
+        "confidence_score": 1.0
+      },
+      {
+        "raw_output": "For this nonlinear system, I suggest:\n\nBARRIER_CERTIFICATE_START\nB(x, y) = 0.2*x**4 + 0.3*y**4 + 0.1...",
+        "parsed_certificate": "0.2*x**4 + 0.3*y**4 + 0.1*x**2*y**2 - 0.05",
+        "parsing_successful": true,
+        "symbolic_representation": "0.2*x**4 + 0.1*x**2*y**2 + 0.3*y**4 - 0.05",
+        "syntax_errors": [],
+        "semantic_correctness": true,
+        "template_detected": false,
+        "confidence_score": 1.0
+      },
+      {
+        "raw_output": "BARRIER_CERTIFICATE_START\nB(x, y) = (1/2)*x**2 + (3/4)*y**2 - 1/10\nBARRIER_CERTIFICATE_END",
+        "parsed_certificate": "(1/2)*x**2 + (3/4)*y**2 - 1/10",
+        "parsing_successful": true,
+        "symbolic_representation": "x**2/2 + 3*y**2/4 - 1/10",
+        "syntax_errors": [],
+        "semantic_correctness": true,
+        "template_detected": false,
+        "confidence_score": 1.0
+      },
+      {
+        "raw_output": "I think the barrier certificate could be something like x^2 + y^2 but I'm not sure about the exact f...",
+        "parsed_certificate": null,
+        "parsing_successful": false,
+        "symbolic_representation": null,
+        "syntax_errors": [],
+        "semantic_correctness": false,
+        "template_detected": false,
+        "confidence_score": 1.0
+      },
+      {
+        "raw_output": "BARRIER_CERTIFICATE_START\nB(x, y) = ax**2 + bxy + cy**2 + dx + ey + f\nBARRIER_CERTIFICATE_END",
+        "parsed_certificate": null,
+        "parsing_successful": false,
+        "symbolic_representation": null,
+        "syntax_errors": [],
+        "semantic_correctness": false,
+        "template_detected": false,
+        "confidence_score": 1.0
+      }
+    ],
+    "cross_component_consistency": {
+      "system_parsing": true,
+      "bounds_generation": true,
+      "certificate_cleaning": true,
+      "verification_determinism": true,
+      "certificate_extraction": true
+    }
+  },
+  "recommendations": [],
+  "overall_assessment": {
+    "score": 0.9166666666666666,
+    "assessment": "EXCELLENT",
+    "status": "\ud83c\udfc6"
+  }
+}
