@@ -317,21 +317,26 @@ class CertificateGenerator:
         
         # Common template patterns that should be rejected
         template_patterns = [
-            # Single letter variables: a, b, c, d, e, f, etc.
-            r'\b[a-z]\*',  # a*, b*, c*, etc.
-            r'\b[a-z]\s*\*',  # a *, b *, etc. 
-            r'\b[a-z]x',  # ax, bx, cx, etc.
-            r'\b[a-z]y',  # ay, by, cy, etc.
-            r'\b[a-z]\*\*',  # a**, b**, etc.
+            # Template variables (single letters as coefficients) - more precise matching
+            r'\b[a-h]\*[xy]',  # ax, bx, cy, etc. (single letters multiplying state variables)
+            r'\b[a-h]\*\*2',   # a**2, b**2, etc. (single letters as base)
+            r'\b[a-h][xy]\b',  # ax, by, etc. (single letter followed by state variable)
+            
+            # The exact problematic pattern with template variables
+            r'[a-h]\*\*2.*[a-h][xy].*[a-h]\*\*2.*[a-h]\*.*[a-h][xy].*[a-h]',  # ax**2 + bxy + cy**2 + dx + ey + f pattern
+            
+            # More specific template patterns
+            r'\bax\*\*2',      # ax**2
+            r'\bbxy\b',        # bxy
+            r'\bcy\*\*2',      # cy**2
+            r'\bdx\b',         # dx
+            r'\bey\b',         # ey
             
             # Common placeholder naming
             r'\bc[0-9]',  # c1, c2, c3, etc.
             r'\bcoeff',   # coeff, coefficient
             r'\bparam',   # param, parameter
             r'\balpha\b', r'\bbeta\b', r'\bgamma\b',  # Greek letters as placeholders
-            
-            # The exact problematic pattern
-            r'[a-z]\*\*2.*[a-z]y.*[a-z]\*\*2.*[a-z]\*.*[a-z]y.*[a-z]',  # ax**2 + bxy + cy**2 + dx + ey + f pattern
             
             # Standalone single letters that aren't state variables
             r'^\s*[a-h]\s*$',  # Just 'a' or 'b' etc.
@@ -346,11 +351,10 @@ class CertificateGenerator:
         
         # Additional heuristic: if expression has more than 3 single-letter variables 
         # (excluding x, y, z which are likely state variables), it's probably a template
-        single_letters = re.findall(r'\b[a-z]\b', expression.lower())
-        non_state_letters = [letter for letter in single_letters if letter not in ['x', 'y', 'z', 'k', 't']]
+        single_letters = re.findall(r'\b[a-h]\b', expression.lower())  # Only check a-h, not all letters
         
-        if len(set(non_state_letters)) >= 3:  # 3 or more different single-letter non-state variables
-            logger.debug(f"Too many single-letter variables detected: {set(non_state_letters)} in '{expression}'")
+        if len(set(single_letters)) >= 3:  # 3 or more different single-letter template variables
+            logger.debug(f"Too many template variables detected: {set(single_letters)} in '{expression}'")
             return True
         
         # Check for the specific problematic pattern from the failed result
