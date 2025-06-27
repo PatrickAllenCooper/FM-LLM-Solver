@@ -446,28 +446,52 @@ class CertificateGenerator:
             elif rag_k > 0 and kb_info is None:
                 logger.info("RAG requested but no knowledge base available. Continuing without context.")
             
-            # Format prompt with domain bounds
-            prompt = format_prompt_with_context(
-                system_description,
-                context,
-                model_info['config']['barrier_type'],
-                domain_bounds
-            )
+            # Try generation with multiple attempts if needed
+            max_attempts = 3
+            certificate = None
+            llm_output = ""
             
-            # Generate certificate
-            result = model_info['pipeline'](prompt)
-            generated_text = result[0]['generated_text']
-            
-            # Extract only the generated part after the prompt
-            prompt_end_marker = "[/INST]"
-            output_start_index = generated_text.find(prompt_end_marker)
-            if output_start_index != -1:
-                llm_output = generated_text[output_start_index + len(prompt_end_marker):].strip()
-            else:
-                llm_output = generated_text
-            
-            # Extract certificate
-            certificate = self.extract_certificate_from_output(llm_output)
+            for attempt in range(max_attempts):
+                logger.info(f"Generation attempt {attempt + 1}/{max_attempts}")
+                
+                # Use enhanced prompt if first attempt with standard prompt fails
+                if attempt == 0:
+                    # Standard prompt
+                    prompt = format_prompt_with_context(
+                        system_description,
+                        context,
+                        model_info['config']['barrier_type'],
+                        domain_bounds
+                    )
+                else:
+                    # Enhanced prompt with few-shot examples
+                    prompt = self._create_enhanced_prompt(
+                        system_description,
+                        context,
+                        model_info['config']['barrier_type'],
+                        domain_bounds
+                    )
+                
+                # Generate certificate
+                result = model_info['pipeline'](prompt)
+                generated_text = result[0]['generated_text']
+                
+                # Extract only the generated part after the prompt
+                prompt_end_marker = "[/INST]"
+                output_start_index = generated_text.find(prompt_end_marker)
+                if output_start_index != -1:
+                    llm_output = generated_text[output_start_index + len(prompt_end_marker):].strip()
+                else:
+                    llm_output = generated_text
+                
+                # Extract certificate
+                certificate = self.extract_certificate_from_output(llm_output)
+                
+                if certificate:
+                    logger.info(f"Successfully extracted certificate on attempt {attempt + 1}")
+                    break
+                else:
+                    logger.warning(f"Attempt {attempt + 1} failed to extract valid certificate")
             
             return {
                 'success': True,
@@ -488,6 +512,72 @@ class CertificateGenerator:
                 'certificate': None,
                 'context_chunks': 0
             }
+    
+    def _create_enhanced_prompt(self, system_description: str, context: str, barrier_type: str, domain_bounds: dict = None) -> str:
+        """Create an enhanced prompt with few-shot examples for better generation."""
+        
+        # Extract state variables
+        if 'x' in system_description.lower() and 'y' in system_description.lower() and 'z' in system_description.lower():
+            state_vars = ['x', 'y', 'z']
+        elif 'x' in system_description.lower() and 'y' in system_description.lower():
+            state_vars = ['x', 'y']
+        else:
+            state_vars = ['x', 'y']  # Default
+        
+        var_string = ", ".join(state_vars)
+        
+        # Few-shot examples
+        examples = """
+EXAMPLE 1:
+System: dx/dt = -x + y, dy/dt = -2x - 3y
+BARRIER_CERTIFICATE_START
+B(x,y) = 5.0*x**2 + 2.0*x*y + 3.0*y**2
+
+EXAMPLE 2:  
+System: dx/dt = -x**3 + y, dy/dt = -x - y
+BARRIER_CERTIFICATE_START
+B(x,y) = x**2 + y**2 - 1.0
+
+EXAMPLE 3:
+System: dx/dt = -2*x + 0.5*y, dy/dt = x - 3*y  
+BARRIER_CERTIFICATE_START
+B(x,y) = 4.0*x**2 + 1.0*x*y + 2.0*y**2
+"""
+        
+        # Domain bounds info
+        domain_text = ""
+        if domain_bounds:
+            domain_desc = ", ".join([f"{var} ∈ [{bounds['min']}, {bounds['max']}]" 
+                                    for var, bounds in domain_bounds.items()])
+            domain_text = f"\nDomain: {domain_desc}"
+        
+        # Context info
+        context_text = ""
+        if context:
+            context_text = f"\n\nRelevant research context:\n{context[:500]}...\n"
+        
+        prompt = f"""<s>[INST] You are an expert in control theory and barrier certificates.
+
+TASK: Generate a barrier certificate for the given dynamical system.
+
+CRITICAL RULES:
+1. Use ONLY concrete numerical values (like 1.0, 2.5, -3.0)
+2. NEVER use placeholder variables (no a, b, c, α, β, etc.)
+3. COMPLETE the mathematical expression - no "to be determined" values
+4. Your output MUST contain exactly one line starting with "B({var_string}) ="
+
+{examples}
+
+Now generate a barrier certificate for:
+
+{system_description}{domain_text}{context_text}
+
+Remember: Use ONLY concrete numbers. Complete the expression fully.
+
+BARRIER_CERTIFICATE_START
+B({var_string}) = [/INST]"""
+        
+        return prompt
     
     def test_model_availability(self, model_key: str) -> Dict[str, Any]:
         """Test if a model is available and can be loaded."""
