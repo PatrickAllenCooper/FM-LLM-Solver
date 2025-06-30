@@ -27,7 +27,8 @@ class CertificateGenerator:
     def __init__(self, config):
         """Initialize the certificate generator with configuration."""
         self.config = config
-        self.deployment_mode = config.deployment.mode
+        # Default to local mode if deployment section doesn't exist
+        self.deployment_mode = getattr(config, 'deployment', {}).get('mode', 'local') if hasattr(config, 'deployment') else 'local'
         self.inference_api_url = None
         
         # For local mode, import inference modules
@@ -53,10 +54,10 @@ class CertificateGenerator:
         
         # For hybrid/cloud mode, use inference API
         else:
-            self.inference_api_url = os.environ.get(
-                'INFERENCE_API_URL',
-                config.deployment.cloud.inference_api_url or 'http://inference:8000'
-            )
+            default_url = 'http://inference:8000'
+            if hasattr(config, 'deployment') and hasattr(config.deployment, 'cloud'):
+                default_url = config.deployment.cloud.get('inference_api_url', default_url)
+            self.inference_api_url = os.environ.get('INFERENCE_API_URL', default_url)
             logger.info(f"Using inference API at: {self.inference_api_url}")
         
         # Validate configuration (non-blocking)

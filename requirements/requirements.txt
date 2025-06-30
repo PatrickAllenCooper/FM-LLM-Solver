@@ -45,6 +45,7 @@ aioredis>=2.0.0 # Async Redis client for caching (optional)
 gunicorn>=21.0.0 # Production WSGI server
 flask>=3.0.0 # Web framework (if not already installed)
 flask-sqlalchemy>=3.0.0 # Database ORM for web interface
+flask-login>=0.6.0 # User session management
 
 # Optional PDF processing packages that are commented out as they require system dependencies
 # pdf2image>=1.16.0  # Convert PDF pages to images (requires poppler)

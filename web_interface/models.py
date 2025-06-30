@@ -1,6 +1,8 @@
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 import json
+from werkzeug.security import generate_password_hash, check_password_hash
+from flask_login import UserMixin
 
 db = SQLAlchemy()
 
@@ -8,6 +10,139 @@ def init_db(app):
     """Initialize database with Flask app."""
     db.init_app(app)
     return db
+
+class User(UserMixin, db.Model):
+    """Model for user authentication and management."""
+    __tablename__ = 'users'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
+    
+    # User status
+    is_active = db.Column(db.Boolean, default=True)
+    is_verified = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_login = db.Column(db.DateTime)
+    
+    # Rate limiting
+    daily_request_count = db.Column(db.Integer, default=0)
+    last_request_date = db.Column(db.Date)
+    daily_request_limit = db.Column(db.Integer, default=50)  # Customizable per user
+    
+    # API key for programmatic access (optional)
+    api_key = db.Column(db.String(64), unique=True)
+    api_key_created = db.Column(db.DateTime)
+    
+    # User role
+    role = db.Column(db.String(20), default='user')  # user, premium, admin
+    
+    # Relationships
+    queries = db.relationship('QueryLog', backref='user', lazy=True)
+    rate_limit_logs = db.relationship('RateLimitLog', backref='user', lazy=True, cascade='all, delete-orphan')
+    
+    def set_password(self, password):
+        """Set password hash."""
+        self.password_hash = generate_password_hash(password)
+    
+    def check_password(self, password):
+        """Check password against hash."""
+        return check_password_hash(self.password_hash, password)
+    
+    def check_rate_limit(self):
+        """Check if user has exceeded rate limit."""
+        today = datetime.utcnow().date()
+        if self.last_request_date != today:
+            # Reset counter for new day
+            self.daily_request_count = 0
+            self.last_request_date = today
+        
+        return self.daily_request_count < self.daily_request_limit
+    
+    def increment_request_count(self):
+        """Increment daily request count."""
+        today = datetime.utcnow().date()
+        if self.last_request_date != today:
+            self.daily_request_count = 1
+            self.last_request_date = today
+        else:
+            self.daily_request_count += 1
+    
+    def __repr__(self):
+        return f'<User {self.username}>'
+
+class RateLimitLog(db.Model):
+    """Model for tracking rate limit violations and patterns."""
+    __tablename__ = 'rate_limit_logs'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Request details
+    endpoint = db.Column(db.String(200))
+    method = db.Column(db.String(10))
+    ip_address = db.Column(db.String(45))
+    
+    # Rate limit status
+    was_blocked = db.Column(db.Boolean, default=False)
+    requests_today = db.Column(db.Integer)
+    limit_exceeded_by = db.Column(db.Integer, default=0)
+    
+    def __repr__(self):
+        return f'<RateLimitLog {self.user_id} at {self.timestamp}>'
+
+class IPBlacklist(db.Model):
+    """Model for tracking blocked IP addresses."""
+    __tablename__ = 'ip_blacklist'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    ip_address = db.Column(db.String(45), unique=True, nullable=False)
+    reason = db.Column(db.String(200))
+    blocked_at = db.Column(db.DateTime, default=datetime.utcnow)
+    blocked_until = db.Column(db.DateTime)  # None means permanent
+    is_active = db.Column(db.Boolean, default=True)
+    
+    # Tracking
+    request_count = db.Column(db.Integer, default=0)
+    last_request = db.Column(db.DateTime)
+    
+    def is_blocked(self):
+        """Check if IP is currently blocked."""
+        if not self.is_active:
+            return False
+        if self.blocked_until and datetime.utcnow() > self.blocked_until:
+            self.is_active = False
+            return False
+        return True
+    
+    def __repr__(self):
+        return f'<IPBlacklist {self.ip_address}>'
+
+class SecurityLog(db.Model):
+    """Model for security-related events logging."""
+    __tablename__ = 'security_logs'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    event_type = db.Column(db.String(50))  # login_failed, suspicious_activity, etc.
+    
+    # User info (if applicable)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    username = db.Column(db.String(80))
+    
+    # Request info
+    ip_address = db.Column(db.String(45))
+    user_agent = db.Column(db.Text)
+    endpoint = db.Column(db.String(200))
+    
+    # Event details
+    description = db.Column(db.Text)
+    severity = db.Column(db.String(20))  # low, medium, high, critical
+    
+    def __repr__(self):
+        return f'<SecurityLog {self.event_type} at {self.timestamp}>'
 
 class Conversation(db.Model):
     """Model for tracking ongoing conversations with the LLM."""
@@ -17,6 +152,9 @@ class Conversation(db.Model):
     session_id = db.Column(db.String(100), unique=True, nullable=False)  # For frontend tracking
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    
+    # User tracking
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     
     # Conversation settings
     model_config = db.Column(db.String(100), nullable=False)
@@ -104,6 +242,10 @@ class QueryLog(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    
+    # User tracking
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    
     system_description = db.Column(db.Text, nullable=False)
     model_config = db.Column(db.String(100), nullable=False)
     rag_k = db.Column(db.Integer, default=3)

@@ -361,6 +361,44 @@ Place or generate fine-tuning data files (e.g., `.jsonl`) in the `data/` directo
     ```
 *   Uses benchmark from `data/`, adapter/KB from their respective locations, saves results to `output/evaluation_results.csv` (defaults).
 
+### 8. Web Interface (Optional)
+
+The project includes a secure web interface for interactive barrier certificate generation.
+
+**Features:**
+- User authentication with login/registration
+- Rate limiting (50 requests/day per user)
+- Interactive conversation interface
+- API access with authentication
+- Security against common attacks (XSS, CSRF, SQL injection, DDoS)
+
+**Setup:**
+```bash
+# Initialize security (creates database and admin user)
+python scripts/init_security.py
+
+# Start the web interface
+python run_web_interface.py
+```
+
+**Access:**
+- Web interface: http://localhost:5000
+- Login required for certificate generation
+- Admin panel: http://localhost:5000/auth/admin/users (admin only)
+
+**API Usage:**
+```bash
+# Generate certificate via authenticated API
+curl -X POST http://localhost:5000/api/generate \
+  -H "X-API-Key: YOUR_API_KEY_HERE" \
+  -H "Content-Type: application/json" \
+  -d '{"system_description": "...", "model_config": "finetuned"}'
+```
+
+For detailed security documentation, see:
+- [`docs/SECURITY_IMPLEMENTATION.md`](docs/SECURITY_IMPLEMENTATION.md) - Security features overview
+- [`docs/SECURITY_USAGE_GUIDE.md`](docs/SECURITY_USAGE_GUIDE.md) - Complete usage guide
+
 ---
 
 ## First Battery of Experiments: Complete Instructions

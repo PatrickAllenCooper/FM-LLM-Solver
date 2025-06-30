@@ -1,5 +1,6 @@
-from flask import Flask, render_template, request, jsonify, redirect, url_for, flash, abort
+from flask import Flask, render_template, request, jsonify, redirect, url_for, flash, abort, g
 from flask_sqlalchemy import SQLAlchemy
+from flask_login import login_required, current_user
 from datetime import datetime
 import os
 import sys
@@ -18,6 +19,8 @@ from web_interface.models import init_db, QueryLog, VerificationResult, Conversa
 from web_interface.certificate_generator import CertificateGenerator
 from web_interface.verification_service import VerificationService
 from web_interface.conversation_service import ConversationService
+from web_interface.auth import init_auth, rate_limit, require_api_key, validate_input, generate_csrf_token
+from web_interface.auth_routes import auth_bp
 
 app = Flask(__name__)
 
@@ -36,6 +39,18 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Initialize database
 db = init_db(app)
+
+# Initialize authentication
+init_auth(app)
+
+# Register authentication blueprint
+app.register_blueprint(auth_bp)
+
+# Add custom Jinja2 filters
+@app.template_filter('csrf_token')
+def csrf_token_filter(s):
+    """Generate CSRF token for forms."""
+    return generate_csrf_token()
 
 # Add custom Jinja2 filters
 @app.template_filter('fromjson')
@@ -69,7 +84,15 @@ def index():
     """Main interface for querying models."""
     # Get available model configurations
     model_configs = certificate_generator.get_available_models()
-    recent_queries = db.session.query(QueryLog).order_by(QueryLog.timestamp.desc()).limit(10).all()
+    
+    # Get recent queries - filter by user if logged in
+    if current_user.is_authenticated:
+        recent_queries = db.session.query(QueryLog).filter_by(
+            user_id=current_user.id
+        ).order_by(QueryLog.timestamp.desc()).limit(10).all()
+    else:
+        # Show only public/demo queries or none
+        recent_queries = []
     
     return render_template('index.html', 
                          model_configs=model_configs, 
@@ -78,6 +101,8 @@ def index():
 # ============ CONVERSATION ROUTES ============
 
 @app.route('/conversation/start', methods=['POST'])
+@login_required
+@rate_limit(max_requests=50)
 def start_conversation():
     """Start a new conversation with the LLM."""
     try:
@@ -200,6 +225,7 @@ def generate_from_conversation(session_id):
                 
                 # Create query log entry linked to conversation
                 query = QueryLog(
+                    user_id=current_user.id if current_user.is_authenticated else None,
                     system_description=conversation_data['system_description'] or 'From conversation',
                     model_config=conversation_data['model_config'],
                     rag_k=conversation_data['rag_k'],
@@ -363,6 +389,8 @@ def reject_certificate(session_id, query_id):
 # ============ END CONVERSATION ROUTES ============
 
 @app.route('/query', methods=['POST'])
+@login_required
+@rate_limit(max_requests=50)
 def submit_query():
     """Handle query submission."""
     try:
@@ -390,6 +418,7 @@ def submit_query():
         
         # Create query log entry
         query = QueryLog(
+            user_id=current_user.id,  # Track user
             system_description=system_description,
             model_config=model_config,
             rag_k=rag_k,
@@ -618,6 +647,75 @@ def query_history():
     )
     
     return render_template('history.html', queries=queries)
+
+@app.route('/api/generate', methods=['POST'])
+@require_api_key
+def api_generate():
+    """API endpoint for certificate generation with API key authentication."""
+    try:
+        data = request.get_json()
+        
+        # Get API user from context
+        user = g.current_api_user
+        
+        # Validate input
+        system_description = data.get('system_description', '').strip()
+        model_config = data.get('model_config', 'base')
+        rag_k = int(data.get('rag_k', 3))
+        domain_bounds = data.get('domain_bounds')
+        
+        if not system_description:
+            return jsonify({'error': 'System description is required'}), 400
+        
+        # Create query log entry
+        query = QueryLog(
+            user_id=user.id,
+            system_description=system_description,
+            model_config=model_config,
+            rag_k=rag_k,
+            status='processing'
+        )
+        
+        if domain_bounds:
+            query.set_domain_bounds_dict(domain_bounds)
+        
+        db.session.add(query)
+        db.session.commit()
+        
+        # Generate certificate synchronously for API
+        generation_result = certificate_generator.generate_certificate(
+            system_description, model_config, rag_k, domain_bounds
+        )
+        
+        if generation_result.get('success'):
+            query.llm_output = generation_result.get('llm_output', '')
+            query.generated_certificate = generation_result.get('certificate', '')
+            query.context_chunks = generation_result.get('context_chunks', 0)
+            query.status = 'completed'
+            query.processing_end = datetime.utcnow()
+            db.session.commit()
+            
+            return jsonify({
+                'success': True,
+                'query_id': query.id,
+                'certificate': generation_result.get('certificate'),
+                'llm_output': generation_result.get('llm_output'),
+                'context_chunks': generation_result.get('context_chunks')
+            })
+        else:
+            query.status = 'failed'
+            query.error_message = generation_result.get('error', 'Generation failed')
+            query.processing_end = datetime.utcnow()
+            db.session.commit()
+            
+            return jsonify({
+                'success': False,
+                'error': generation_result.get('error', 'Generation failed')
+            }), 500
+            
+    except Exception as e:
+        app.logger.error(f"API generation error: {str(e)}")
+        return jsonify({'error': f'Failed to generate certificate: {str(e)}'}), 500
 
 @app.route('/api/stats')
 def get_stats():
