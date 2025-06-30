@@ -237,49 +237,25 @@ class ConversationMessage(db.Model):
         }
 
 class QueryLog(db.Model):
-    """Model for storing user queries and their results."""
-    __tablename__ = 'query_log'
+    """Track all queries and their results."""
+    __tablename__ = 'query_logs'
     
     id = db.Column(db.Integer, primary_key=True)
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    
-    # User tracking
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
-    
     system_description = db.Column(db.Text, nullable=False)
-    model_config = db.Column(db.String(100), nullable=False)
-    rag_k = db.Column(db.Integer, default=3)
-    
-    # Optional conversation link
-    conversation_id = db.Column(db.Integer, db.ForeignKey('conversation.id'), nullable=True)
-    
-    # Generation results
-    llm_output = db.Column(db.Text)
+    model_config = db.Column(db.JSON)
     generated_certificate = db.Column(db.Text)
-    context_chunks = db.Column(db.Integer, default=0)
-    
-    # Domain bounds for barrier certificate validity
-    certificate_domain_bounds = db.Column(db.Text)  # JSON string: {"x": [-2, 2], "y": [-1, 1]}
-    domain_bounds_conditions = db.Column(db.Text)  # JSON string: ["x >= -2", "x <= 2", "y >= -1", "y <= 1"]
-    
-    # Processing status
-    status = db.Column(db.String(20), default='pending')  # pending, processing, completed, failed
+    status = db.Column(db.String(50), default='pending')  # pending, completed, failed
     error_message = db.Column(db.Text)
+    processing_time = db.Column(db.Float)  # seconds
+    processing_start = db.Column(db.DateTime)  # Start time of processing
+    processing_end = db.Column(db.DateTime)    # End time of processing
+    conversation_id = db.Column(db.String(36))
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
     
-    # Verification summary (JSON string)
-    verification_summary = db.Column(db.Text)  # JSON string with summary results
-    
-    # Processing time
-    processing_start = db.Column(db.DateTime)
-    processing_end = db.Column(db.DateTime)
-    
-    # User decision on generated certificate
-    user_decision = db.Column(db.String(20))  # 'accepted', 'rejected', 'pending'
-    decision_timestamp = db.Column(db.DateTime)
-    
-    # Relationship to verification results
-    verification_results = db.relationship('VerificationResult', backref='query', lazy=True, cascade='all, delete-orphan')
-    
+    # Relationships
+    verification_result = db.relationship('VerificationResult', backref='query', uselist=False)
+
     def __repr__(self):
         return f'<QueryLog {self.id}: {self.status}>'
     

@@ -46,6 +46,10 @@ init_auth(app)
 # Register authentication blueprint
 app.register_blueprint(auth_bp)
 
+# Register monitoring blueprint
+from web_interface.monitoring_routes import monitoring_bp
+app.register_blueprint(monitoring_bp)
+
 # Add custom Jinja2 filters
 @app.template_filter('csrf_token')
 def csrf_token_filter(s):

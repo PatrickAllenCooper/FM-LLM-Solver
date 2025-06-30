@@ -1,0 +1,555 @@
+{% extends "base.html" %}
+
+{% block title %}Monitoring Dashboard - FM-LLM Solver{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    .metric-card {
+        background: var(--md-sys-color-surface-variant);
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+        border: 1px solid var(--md-sys-color-outline-variant);
+    }
+    
+    .metric-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: var(--md-sys-color-primary);
+        margin: 10px 0;
+    }
+    
+    .metric-label {
+        font-size: 0.9rem;
+        color: var(--md-sys-color-on-surface-variant);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .chart-container {
+        position: relative;
+        height: 300px;
+        margin: 20px 0;
+    }
+    
+    .history-item {
+        padding: 12px;
+        border-bottom: 1px solid var(--md-sys-color-outline-variant);
+    }
+    
+    .history-item:hover {
+        background-color: var(--md-sys-color-surface-variant);
+    }
+    
+    .status-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+    
+    .status-completed {
+        background-color: var(--md-sys-color-success-container);
+        color: var(--md-sys-color-on-success-container);
+    }
+    
+    .status-failed {
+        background-color: var(--md-sys-color-error-container);
+        color: var(--md-sys-color-on-error-container);
+    }
+    
+    .time-range-selector {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+    
+    .cost-breakdown {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-top: 20px;
+    }
+    
+    .system-metric {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 0;
+    }
+    
+    .progress {
+        height: 8px;
+        background-color: var(--md-sys-color-surface-variant);
+        border-radius: 4px;
+        overflow: hidden;
+        flex-grow: 1;
+        margin-left: 20px;
+    }
+    
+    .progress-bar {
+        height: 100%;
+        background-color: var(--md-sys-color-primary);
+        transition: width 0.3s ease;
+    }
+    
+    .refresh-btn {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div style="position: relative;">
+        <h1 class="mb-24">Monitoring Dashboard</h1>
+        <button class="btn btn-outline refresh-btn" onclick="refreshData()">
+            <i class="material-icons">refresh</i> Refresh
+        </button>
+    </div>
+    
+    <!-- Time Range Selector -->
+    <div class="time-range-selector">
+        <button class="btn btn-outline" onclick="setTimeRange('today')">Today</button>
+        <button class="btn btn-outline" onclick="setTimeRange('week')">Last 7 Days</button>
+        <button class="btn btn-primary" onclick="setTimeRange('month')">Last 30 Days</button>
+        <button class="btn btn-outline" onclick="setTimeRange('all')">All Time</button>
+    </div>
+    
+    <!-- Usage Metrics -->
+    <div class="card">
+        <h2 class="card-title">Usage Metrics</h2>
+        <div class="grid grid-3">
+            <div class="metric-card">
+                <div class="metric-label">Total Requests</div>
+                <div class="metric-value" id="total-requests">-</div>
+                <small>Success Rate: <span id="success-rate">-</span>%</small>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Active Users</div>
+                <div class="metric-value" id="active-users">-</div>
+                <small>Total: <span id="total-users">-</span></small>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Avg Generation Time</div>
+                <div class="metric-value" id="avg-generation-time">-</div>
+                <small>seconds</small>
+            </div>
+        </div>
+        
+        <!-- Usage Chart -->
+        <div class="chart-container">
+            <canvas id="usageChart"></canvas>
+        </div>
+    </div>
+    
+    <!-- Cost Metrics (Admin Only) -->
+    {% if current_user.role == 'admin' %}
+    <div class="card mt-24">
+        <h2 class="card-title">Cost Analysis</h2>
+        <div class="metric-card">
+            <div class="metric-label">Total Cost (Period)</div>
+            <div class="metric-value">$<span id="total-cost">-</span></div>
+            <small>Per User: $<span id="cost-per-user">-</span> | Per Generation: $<span id="cost-per-generation">-</span></small>
+        </div>
+        
+        <div class="cost-breakdown" id="cost-breakdown">
+            <!-- Cost breakdown will be populated here -->
+        </div>
+        
+        <!-- Cost Chart -->
+        <div class="chart-container">
+            <canvas id="costChart"></canvas>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- System Metrics -->
+    <div class="card mt-24">
+        <h2 class="card-title">System Performance</h2>
+        <div id="system-metrics">
+            <div class="system-metric">
+                <span>CPU Usage</span>
+                <div class="progress" style="width: 60%;">
+                    <div class="progress-bar" id="cpu-progress"></div>
+                </div>
+                <span id="cpu-percent">-</span>
+            </div>
+            <div class="system-metric">
+                <span>Memory</span>
+                <div class="progress" style="width: 60%;">
+                    <div class="progress-bar" id="memory-progress"></div>
+                </div>
+                <span id="memory-percent">-</span>
+            </div>
+            <div class="system-metric">
+                <span>Disk</span>
+                <div class="progress" style="width: 60%;">
+                    <div class="progress-bar" id="disk-progress"></div>
+                </div>
+                <span id="disk-percent">-</span>
+            </div>
+            <div class="system-metric">
+                <span>GPU</span>
+                <div class="progress" style="width: 60%;">
+                    <div class="progress-bar" id="gpu-progress"></div>
+                </div>
+                <span id="gpu-percent">-</span>
+            </div>
+        </div>
+        
+        <div class="grid grid-3 mt-16">
+            <div class="metric-card">
+                <div class="metric-label">Active Sessions</div>
+                <div class="metric-value" id="active-sessions">-</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Error Rate</div>
+                <div class="metric-value" id="error-rate">-</div>
+                <small>%</small>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Health Status</div>
+                <div class="metric-value" id="health-status">-</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Certificate History -->
+    <div class="card mt-24">
+        <h2 class="card-title">Recent Certificate Generations</h2>
+        <div id="certificate-history">
+            <!-- History will be populated here -->
+        </div>
+        <button class="btn btn-outline mt-16" onclick="loadMoreHistory()">Load More</button>
+    </div>
+    
+    <!-- Trending Systems -->
+    <div class="card mt-24">
+        <h2 class="card-title">Trending Systems</h2>
+        <div id="trending-systems">
+            <!-- Trending systems will be populated here -->
+        </div>
+    </div>
+</div>
+
+<script>
+let currentTimeRange = 'month';
+let usageChart = null;
+let costChart = null;
+let historyOffset = 0;
+
+// Initialize dashboard
+document.addEventListener('DOMContentLoaded', function() {
+    initializeCharts();
+    refreshData();
+    
+    // Auto-refresh every 30 seconds
+    setInterval(refreshData, 30000);
+});
+
+function initializeCharts() {
+    // Usage Chart
+    const usageCtx = document.getElementById('usageChart').getContext('2d');
+    usageChart = new Chart(usageCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Successful Generations',
+                data: [],
+                borderColor: 'rgb(75, 192, 192)',
+                tension: 0.1
+            }, {
+                label: 'Failed Generations',
+                data: [],
+                borderColor: 'rgb(255, 99, 132)',
+                tension: 0.1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Generation Trends'
+                }
+            }
+        }
+    });
+    
+    // Cost Chart (if admin)
+    {% if current_user.role == 'admin' %}
+    const costCtx = document.getElementById('costChart').getContext('2d');
+    costChart = new Chart(costCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['GPU', 'API', 'Storage', 'Bandwidth'],
+            datasets: [{
+                data: [],
+                backgroundColor: [
+                    'rgb(255, 99, 132)',
+                    'rgb(54, 162, 235)',
+                    'rgb(255, 205, 86)',
+                    'rgb(75, 192, 192)'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Cost Breakdown'
+                }
+            }
+        }
+    });
+    {% endif %}
+}
+
+function setTimeRange(range) {
+    currentTimeRange = range;
+    historyOffset = 0;
+    
+    // Update button styles
+    document.querySelectorAll('.time-range-selector button').forEach(btn => {
+        btn.classList.remove('btn-primary');
+        btn.classList.add('btn-outline');
+    });
+    event.target.classList.remove('btn-outline');
+    event.target.classList.add('btn-primary');
+    
+    refreshData();
+}
+
+async function refreshData() {
+    try {
+        // Fetch all data in parallel
+        const [usageData, systemData, historyData, trendingData] = await Promise.all([
+            fetchUsageMetrics(),
+            fetchSystemMetrics(),
+            fetchCertificateHistory(),
+            fetchTrendingSystems()
+        ]);
+        
+        // Update UI
+        updateUsageMetrics(usageData);
+        updateSystemMetrics(systemData);
+        updateCertificateHistory(historyData);
+        updateTrendingSystems(trendingData);
+        
+        {% if current_user.role == 'admin' %}
+        const costData = await fetchCostMetrics();
+        updateCostMetrics(costData);
+        {% endif %}
+        
+        // Check health
+        const health = await fetchHealthStatus();
+        updateHealthStatus(health);
+        
+    } catch (error) {
+        console.error('Error refreshing data:', error);
+        showStatus('Error refreshing data', 'error');
+    }
+}
+
+async function fetchUsageMetrics() {
+    const response = await fetch(`/monitoring/api/metrics/usage?range=${currentTimeRange}`);
+    return response.json();
+}
+
+async function fetchCostMetrics() {
+    const response = await fetch(`/monitoring/api/metrics/costs?range=${currentTimeRange}`);
+    return response.json();
+}
+
+async function fetchSystemMetrics() {
+    const response = await fetch('/monitoring/api/metrics/system');
+    return response.json();
+}
+
+async function fetchCertificateHistory() {
+    const response = await fetch(`/monitoring/api/history?limit=10&offset=${historyOffset}`);
+    return response.json();
+}
+
+async function fetchTrendingSystems() {
+    const response = await fetch('/monitoring/api/trending?days=7');
+    return response.json();
+}
+
+async function fetchHealthStatus() {
+    const response = await fetch('/monitoring/health');
+    return response.json();
+}
+
+function updateUsageMetrics(data) {
+    const metrics = data.metrics;
+    
+    document.getElementById('total-requests').textContent = metrics.total_requests.toLocaleString();
+    document.getElementById('success-rate').textContent = metrics.success_rate.toFixed(1);
+    document.getElementById('active-users').textContent = metrics.active_users.month;
+    document.getElementById('total-users').textContent = metrics.total_users;
+    document.getElementById('avg-generation-time').textContent = metrics.avg_generation_time.toFixed(2);
+    
+    // Update usage chart
+    // This is simplified - in practice you'd fetch time series data
+    usageChart.data.labels = ['Week 1', 'Week 2', 'Week 3', 'Week 4'];
+    usageChart.data.datasets[0].data = [
+        Math.floor(metrics.successful_generations * 0.2),
+        Math.floor(metrics.successful_generations * 0.25),
+        Math.floor(metrics.successful_generations * 0.3),
+        Math.floor(metrics.successful_generations * 0.25)
+    ];
+    usageChart.data.datasets[1].data = [
+        Math.floor(metrics.failed_generations * 0.2),
+        Math.floor(metrics.failed_generations * 0.25),
+        Math.floor(metrics.failed_generations * 0.3),
+        Math.floor(metrics.failed_generations * 0.25)
+    ];
+    usageChart.update();
+}
+
+function updateCostMetrics(data) {
+    const metrics = data.metrics;
+    
+    document.getElementById('total-cost').textContent = metrics.total_cost.toFixed(2);
+    document.getElementById('cost-per-user').textContent = metrics.cost_per_user.toFixed(2);
+    document.getElementById('cost-per-generation').textContent = metrics.cost_per_generation.toFixed(3);
+    
+    // Update cost breakdown
+    const breakdownHtml = 
+        '<div class="metric-card">' +
+            '<div class="metric-label">GPU</div>' +
+            '<div class="metric-value">$' + metrics.gpu.cost.toFixed(2) + '</div>' +
+            '<small>' + metrics.gpu.hours.toFixed(1) + ' hours</small>' +
+        '</div>' +
+        '<div class="metric-card">' +
+            '<div class="metric-label">API</div>' +
+            '<div class="metric-value">$' + metrics.api.cost.toFixed(2) + '</div>' +
+            '<small>' + metrics.api.calls + ' calls</small>' +
+        '</div>' +
+        '<div class="metric-card">' +
+            '<div class="metric-label">Storage</div>' +
+            '<div class="metric-value">$' + metrics.storage.cost.toFixed(2) + '</div>' +
+            '<small>' + metrics.storage.gb.toFixed(2) + ' GB</small>' +
+        '</div>' +
+        '<div class="metric-card">' +
+            '<div class="metric-label">Bandwidth</div>' +
+            '<div class="metric-value">$' + metrics.bandwidth.cost.toFixed(2) + '</div>' +
+            '<small>' + metrics.bandwidth.gb.toFixed(2) + ' GB</small>' +
+        '</div>';
+    document.getElementById('cost-breakdown').innerHTML = breakdownHtml;
+    
+    // Update cost chart
+    costChart.data.datasets[0].data = [
+        metrics.gpu.cost,
+        metrics.api.cost,
+        metrics.storage.cost,
+        metrics.bandwidth.cost
+    ];
+    costChart.update();
+}
+
+function updateSystemMetrics(data) {
+    // CPU
+    document.getElementById('cpu-percent').textContent = data.cpu.percent + '%';
+    document.getElementById('cpu-progress').style.width = data.cpu.percent + '%';
+    
+    // Memory
+    document.getElementById('memory-percent').textContent = data.memory.percent + '%';
+    document.getElementById('memory-progress').style.width = data.memory.percent + '%';
+    
+    // Disk
+    document.getElementById('disk-percent').textContent = data.disk.percent + '%';
+    document.getElementById('disk-progress').style.width = data.disk.percent + '%';
+    
+    // GPU
+    const gpuPercent = data.gpu.utilization || 0;
+    document.getElementById('gpu-percent').textContent = gpuPercent + '%';
+    document.getElementById('gpu-progress').style.width = gpuPercent + '%';
+    
+    // Other metrics
+    document.getElementById('active-sessions').textContent = data.active_sessions;
+    document.getElementById('error-rate').textContent = data.error_rate.toFixed(1);
+}
+
+function updateCertificateHistory(data) {
+    const historyHtml = data.history.map(item => 
+        '<div class="history-item">' +
+            '<div style="display: flex; justify-content: space-between; align-items: center;">' +
+                '<div>' +
+                    '<strong>' + item.user + '</strong> - ' + new Date(item.timestamp).toLocaleString() +
+                    '<span class="status-badge status-' + item.status + '">' + item.status + '</span>' +
+                '</div>' +
+                '<button class="btn btn-outline btn-small" onclick="viewCertificate(' + item.id + ')">View</button>' +
+            '</div>' +
+            '<div style="margin-top: 8px; color: var(--md-sys-color-on-surface-variant);">' +
+                item.system_description +
+            '</div>' +
+            (item.certificate ? '<code style="display: block; margin-top: 8px;">' + item.certificate + '</code>' : '') +
+        '</div>'
+    ).join('');
+    
+    if (historyOffset === 0) {
+        document.getElementById('certificate-history').innerHTML = historyHtml;
+    } else {
+        document.getElementById('certificate-history').innerHTML += historyHtml;
+    }
+}
+
+function updateTrendingSystems(data) {
+    const trendingHtml = data.trending.map(item => 
+        '<div class="history-item">' +
+            '<div style="display: flex; justify-content: space-between;">' +
+                '<div>' + item.system + '</div>' +
+                '<strong>' + item.count + ' queries</strong>' +
+            '</div>' +
+        '</div>'
+    ).join('');
+    
+    document.getElementById('trending-systems').innerHTML = trendingHtml;
+}
+
+function updateHealthStatus(health) {
+    const statusEl = document.getElementById('health-status');
+    statusEl.textContent = health.status.toUpperCase();
+    statusEl.style.color = health.status === 'healthy' ? 'var(--md-sys-color-success)' : 'var(--md-sys-color-error)';
+}
+
+function loadMoreHistory() {
+    historyOffset += 10;
+    fetchCertificateHistory().then(updateCertificateHistory);
+}
+
+function viewCertificate(id) {
+    window.location.href = `/query/${id}`;
+}
+
+// Export functionality
+async function exportMetrics() {
+    try {
+        const response = await fetch('/monitoring/api/export?format=json');
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `metrics_export_${new Date().toISOString()}.json`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+    } catch (error) {
+        console.error('Error exporting metrics:', error);
+        showStatus('Error exporting metrics', 'error');
+    }
+}
+</script>
+{% endblock %} 

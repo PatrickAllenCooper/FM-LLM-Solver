@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+
+{% block title %}My Dashboard - FM-LLM Solver{% endblock %}
+
+{% block extra_head %}
+<style>
+    .metric-card {
+        background: var(--md-sys-color-surface-variant);
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+        border: 1px solid var(--md-sys-color-outline-variant);
+    }
+    
+    .metric-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: var(--md-sys-color-primary);
+        margin: 10px 0;
+    }
+    
+    .metric-label {
+        font-size: 0.9rem;
+        color: var(--md-sys-color-on-surface-variant);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .stat-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 12px 0;
+        border-bottom: 1px solid var(--md-sys-color-outline-variant);
+    }
+    
+    .stat-label {
+        color: var(--md-sys-color-on-surface-variant);
+    }
+    
+    .stat-value {
+        font-weight: 600;
+        color: var(--md-sys-color-on-surface);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1 class="mb-24">My Dashboard</h1>
+    
+    <!-- User Stats -->
+    <div class="card">
+        <h2 class="card-title">Your Usage Statistics</h2>
+        
+        <div class="grid grid-3">
+            <div class="metric-card">
+                <div class="metric-label">Total Queries</div>
+                <div class="metric-value">{{ user_stats.statistics.total_queries }}</div>
+                <small>Success Rate: {{ "%.1f"|format(user_stats.statistics.success_rate) }}%</small>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Queries Today</div>
+                <div class="metric-value">{{ user_stats.statistics.queries_today }}</div>
+                <small>Remaining: {{ user_stats.statistics.queries_remaining_today }}</small>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Avg Time</div>
+                <div class="metric-value">{{ "%.1f"|format(user_stats.statistics.avg_processing_time) }}</div>
+                <small>seconds</small>
+            </div>
+        </div>
+        
+        <!-- Account Details -->
+        <div class="mt-24">
+            <h3>Account Details</h3>
+            <div class="stat-item">
+                <span class="stat-label">Username</span>
+                <span class="stat-value">{{ user_stats.user.username }}</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Email</span>
+                <span class="stat-value">{{ user_stats.user.email }}</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Account Type</span>
+                <span class="stat-value">{{ user_stats.user.role|title }}</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Daily Limit</span>
+                <span class="stat-value">{{ user_stats.user.daily_limit }} requests</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Member Since</span>
+                <span class="stat-value">{{ user_stats.user.created_at|date("Y-m-d") }}</span>
+            </div>
+            {% if user_stats.user.last_login %}
+            <div class="stat-item">
+                <span class="stat-label">Last Login</span>
+                <span class="stat-value">{{ user_stats.user.last_login|date("Y-m-d H:i") }}</span>
+            </div>
+            {% endif %}
+        </div>
+        
+        {% if user_stats.statistics.model_usage %}
+        <!-- Model Usage Breakdown -->
+        <div class="mt-24">
+            <h3>Model Usage</h3>
+            {% for model, count in user_stats.statistics.model_usage.items() %}
+            <div class="stat-item">
+                <span class="stat-label">{{ model }}</span>
+                <span class="stat-value">{{ count }} queries</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        
+        {% if user_stats.statistics.rate_limit_violations > 0 %}
+        <div class="alert alert-warning mt-24">
+            <i class="material-icons">warning</i>
+            You have hit the rate limit {{ user_stats.statistics.rate_limit_violations }} time(s). 
+            Consider upgrading your account for higher limits.
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- Quick Actions -->
+    <div class="card mt-24">
+        <h2 class="card-title">Quick Actions</h2>
+        <div class="grid grid-2">
+            <a href="/" class="btn btn-primary">
+                <i class="material-icons">add_circle</i>
+                Generate New Certificate
+            </a>
+            <a href="/history" class="btn btn-outline">
+                <i class="material-icons">history</i>
+                View History
+            </a>
+            <a href="/auth/profile" class="btn btn-outline">
+                <i class="material-icons">person</i>
+                Edit Profile
+            </a>
+            <a href="/about" class="btn btn-outline">
+                <i class="material-icons">help</i>
+                Documentation
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %} 

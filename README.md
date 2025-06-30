@@ -87,6 +87,8 @@ These changes should make the codebase more accessible, easier to understand, an
 *   [Verification Limitations](#verification-limitations)
 *   [Author / Context](#author--context)
 *   [Future Work / Enhancements](#future-work--enhancements)
+*   [Security Features](#security-features)
+*   [Monitoring and Analytics](#monitoring-and-analytics)
 
 ---
 
@@ -848,3 +850,28 @@ This typically means your CUDA toolkit version doesn't match the PyTorch build.
    ```
 2. Enable gradient checkpointing (already enabled by default)
 3. Use a smaller model or increase quantization (e.g., enable 4-bit) 
+
+## Security Features
+
+The system includes comprehensive security mechanisms:
+- User authentication with secure password requirements
+- Rate limiting (50 requests/day per user, configurable)
+- IP blacklisting and DDoS protection
+- Brute force protection
+- Security headers and CSRF protection
+- Admin dashboard for user management
+
+See [Security Usage Guide](docs/SECURITY_USAGE_GUIDE.md) for details.
+
+## Monitoring and Analytics
+
+The system includes a robust monitoring solution:
+- **Usage Tracking**: Monitor requests, success rates, and active users
+- **Cost Analysis**: Track GPU hours, API calls, storage, and bandwidth costs
+- **Performance Metrics**: Real-time CPU, memory, disk, and GPU utilization
+- **Certificate History**: Complete audit trail of all generations
+- **Trending Analysis**: Identify popular system types and usage patterns
+
+Access the monitoring dashboard at `/monitoring/dashboard` after logging in.
+
+See [Monitoring Guide](docs/MONITORING_GUIDE.md) for comprehensive documentation. 
