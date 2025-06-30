@@ -4,6 +4,8 @@ import re
 import json
 import logging
 from typing import Dict, List, Optional, Any
+import requests
+import time
 
 # Add project root to path
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -25,9 +27,37 @@ class CertificateGenerator:
     def __init__(self, config):
         """Initialize the certificate generator with configuration."""
         self.config = config
-        self.models = {}  # Cache for loaded models
-        self.embedding_model = None
-        self.knowledge_bases = {}  # Cache for knowledge bases
+        self.deployment_mode = config.deployment.mode
+        self.inference_api_url = None
+        
+        # For local mode, import inference modules
+        if self.deployment_mode == "local":
+            from inference.generate_certificate import (
+                load_knowledge_base, load_finetuned_model, retrieve_context, 
+                format_prompt_with_context
+            )
+            from sentence_transformers import SentenceTransformer
+            from transformers import pipeline
+            
+            # Store imported functions
+            self.load_knowledge_base = load_knowledge_base
+            self.load_finetuned_model = load_finetuned_model
+            self.retrieve_context = retrieve_context
+            self.format_prompt_with_context = format_prompt_with_context
+            self.SentenceTransformer = SentenceTransformer
+            self.pipeline = pipeline
+            
+            self.models = {}  # Cache for loaded models
+            self.embedding_model = None
+            self.knowledge_bases = {}  # Cache for knowledge bases
+        
+        # For hybrid/cloud mode, use inference API
+        else:
+            self.inference_api_url = os.environ.get(
+                'INFERENCE_API_URL',
+                config.deployment.cloud.inference_api_url or 'http://inference:8000'
+            )
+            logger.info(f"Using inference API at: {self.inference_api_url}")
         
         # Validate configuration (non-blocking)
         try:
@@ -38,6 +68,27 @@ class CertificateGenerator:
         
     def get_available_models(self) -> List[Dict[str, Any]]:
         """Get list of available model configurations."""
+        if self.deployment_mode != "local":
+            # Query inference API for available models
+            try:
+                response = requests.get(f"{self.inference_api_url}/models", timeout=10)
+                if response.status_code == 200:
+                    api_models = response.json().get('models', [])
+                    return [
+                        {
+                            'key': model['key'],
+                            'name': f"{model['key'].title()} Model",
+                            'description': f"Model configuration: {model['key']}",
+                            'type': 'finetuned' if model.get('use_adapter') else 'base',
+                            'barrier_type': self.config.knowledge_base.barrier_certificate_type
+                        }
+                        for model in api_models
+                    ]
+            except Exception as e:
+                logger.error(f"Failed to query inference API for models: {e}")
+                # Fall back to default models
+        
+        # Local mode or fallback
         models = []
         
         # Base model configuration
@@ -51,7 +102,7 @@ class CertificateGenerator:
         
         # Fine-tuned model configuration
         adapter_path = os.path.join(self.config.paths.ft_output_dir, "final_adapter")
-        if os.path.exists(adapter_path):
+        if os.path.exists(adapter_path) or self.deployment_mode != "local":
             models.append({
                 'key': 'finetuned',
                 'name': 'Fine-tuned Model',
@@ -64,7 +115,7 @@ class CertificateGenerator:
         if self.config.knowledge_base.barrier_certificate_type == 'unified':
             # Check for discrete-specific models
             discrete_adapter = os.path.join(self.config.paths.ft_output_dir, "discrete_adapter")
-            if os.path.exists(discrete_adapter):
+            if os.path.exists(discrete_adapter) or self.deployment_mode != "local":
                 models.append({
                     'key': 'discrete',
                     'name': 'Discrete Fine-tuned Model',
@@ -75,7 +126,7 @@ class CertificateGenerator:
             
             # Check for continuous-specific models
             continuous_adapter = os.path.join(self.config.paths.ft_output_dir, "continuous_adapter")
-            if os.path.exists(continuous_adapter):
+            if os.path.exists(continuous_adapter) or self.deployment_mode != "local":
                 models.append({
                     'key': 'continuous',
                     'name': 'Continuous Fine-tuned Model',
@@ -121,9 +172,12 @@ class CertificateGenerator:
     
     def _load_embedding_model(self):
         """Load the embedding model for RAG."""
+        if self.deployment_mode != "local":
+            raise RuntimeError("_load_embedding_model should only be called in local mode")
+        
         if self.embedding_model is None:
             try:
-                self.embedding_model = SentenceTransformer(
+                self.embedding_model = self.SentenceTransformer(
                     self.config.knowledge_base.embedding_model_name
                 )
                 logger.info(f"Loaded embedding model: {self.config.knowledge_base.embedding_model_name}")
@@ -134,6 +188,9 @@ class CertificateGenerator:
     
     def _load_knowledge_base(self, barrier_type: str):
         """Load knowledge base for the specified barrier certificate type."""
+        if self.deployment_mode != "local":
+            raise RuntimeError("_load_knowledge_base should only be called in local mode")
+        
         if barrier_type not in self.knowledge_bases:
             try:
                 # Get KB paths based on barrier type
@@ -150,7 +207,7 @@ class CertificateGenerator:
                     vector_file = self.config.paths.kb_vector_store_filename
                     metadata_file = self.config.paths.kb_metadata_filename
                 
-                index, metadata = load_knowledge_base(kb_dir, vector_file, metadata_file)
+                index, metadata = self.load_knowledge_base(kb_dir, vector_file, metadata_file)
                 if index is None or metadata is None:
                     logger.warning(f"No knowledge base found for {barrier_type}. RAG will be disabled.")
                     self.knowledge_bases[barrier_type] = None
@@ -171,6 +228,9 @@ class CertificateGenerator:
     
     def _load_model(self, model_key: str):
         """Load and cache a model configuration."""
+        if self.deployment_mode != "local":
+            raise RuntimeError("_load_model should only be called in local mode")
+        
         if model_key not in self.models:
             try:
                 model_config = self._get_model_config(model_key)
@@ -179,7 +239,7 @@ class CertificateGenerator:
                 temp_config = self.config.copy()
                 temp_config.fine_tuning.use_adapter = model_config['use_adapter']
                 
-                model, tokenizer = load_finetuned_model(
+                model, tokenizer = self.load_finetuned_model(
                     model_config['base_model_name'],
                     model_config['adapter_path'],
                     temp_config
@@ -189,7 +249,7 @@ class CertificateGenerator:
                     raise ValueError(f"Failed to load model: {model_key}")
                 
                 # Create optimized pipeline for barrier certificate generation
-                pipe = pipeline(
+                pipe = self.pipeline(
                     task="text-generation",
                     model=model,
                     tokenizer=tokenizer,
@@ -444,8 +504,81 @@ class CertificateGenerator:
     
     def generate_certificate(self, system_description: str, model_key: str, rag_k: int = 3, domain_bounds: dict = None) -> Dict[str, Any]:
         """Generate a barrier certificate for the given system description."""
+        if self.deployment_mode == "local":
+            return self._generate_local(system_description, model_key, rag_k, domain_bounds)
+        else:
+            return self._generate_remote(system_description, model_key, rag_k, domain_bounds)
+    
+    def _generate_remote(self, system_description: str, model_key: str, rag_k: int, domain_bounds: dict = None) -> Dict[str, Any]:
+        """Generate certificate using remote inference API."""
         try:
-            logger.info(f"Generating certificate with model: {model_key}, RAG k: {rag_k}")
+            logger.info(f"Generating certificate via API with model: {model_key}, RAG k: {rag_k}")
+            
+            # Prepare request
+            request_data = {
+                "system_description": system_description,
+                "model_config": model_key,
+                "rag_k": rag_k,
+                "domain_bounds": domain_bounds,
+                "request_id": f"web-{int(time.time())}"
+            }
+            
+            # Call inference API
+            response = requests.post(
+                f"{self.inference_api_url}/generate",
+                json=request_data,
+                timeout=self.config.deployment.services.inference.timeout
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                return {
+                    'success': result.get('success', False),
+                    'certificate': result.get('certificate'),
+                    'llm_output': result.get('llm_output', ''),
+                    'context_chunks': result.get('context_chunks', 0),
+                    'error': result.get('error'),
+                    'cached': result.get('cached', False),
+                    'processing_time': result.get('processing_time', 0)
+                }
+            else:
+                error_msg = f"Inference API error: {response.status_code}"
+                if response.text:
+                    try:
+                        error_data = response.json()
+                        error_msg = error_data.get('detail', error_msg)
+                    except:
+                        error_msg = response.text[:200]
+                
+                logger.error(error_msg)
+                return {
+                    'success': False,
+                    'error': error_msg
+                }
+                
+        except requests.Timeout:
+            logger.error("Inference API timeout")
+            return {
+                'success': False,
+                'error': 'Inference API timeout. Please try again.'
+            }
+        except requests.ConnectionError:
+            logger.error("Cannot connect to inference API")
+            return {
+                'success': False,
+                'error': 'Cannot connect to inference service. Please check if the service is running.'
+            }
+        except Exception as e:
+            logger.error(f"Remote generation error: {str(e)}")
+            return {
+                'success': False,
+                'error': f'Failed to generate certificate: {str(e)}'
+            }
+    
+    def _generate_local(self, system_description: str, model_key: str, rag_k: int, domain_bounds: dict = None) -> Dict[str, Any]:
+        """Generate certificate using local models (original implementation)."""
+        try:
+            logger.info(f"Generating certificate locally with model: {model_key}, RAG k: {rag_k}")
             if domain_bounds:
                 logger.info(f"Using domain bounds: {domain_bounds}")
             
@@ -459,7 +592,7 @@ class CertificateGenerator:
             if rag_k > 0 and kb_info is not None:
                 try:
                     embedding_model = self._load_embedding_model()
-                    context = retrieve_context(
+                    context = self.retrieve_context(
                         system_description,
                         embedding_model,
                         kb_info['index'],
@@ -484,7 +617,7 @@ class CertificateGenerator:
                     # Use enhanced prompt if first attempt with standard prompt fails
                     if attempt == 0:
                         # Standard prompt
-                        prompt = format_prompt_with_context(
+                        prompt = self.format_prompt_with_context(
                             system_description,
                             context,
                             model_info['config']['barrier_type'],

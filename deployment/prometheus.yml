@@ -1,0 +1,34 @@
+# Prometheus configuration for FM-LLM Solver monitoring
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # Web interface metrics
+  - job_name: 'web-interface'
+    static_configs:
+      - targets: ['web:5000']
+        labels:
+          service: 'web'
+          
+  # Inference API metrics
+  - job_name: 'inference-api'
+    static_configs:
+      - targets: ['inference:8000']
+        labels:
+          service: 'inference'
+          
+  # Redis metrics (if enabled)
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']
+        labels:
+          service: 'cache'
+          
+  # Docker metrics
+  - job_name: 'docker'
+    static_configs:
+      - targets: ['docker.for.mac.localhost:9323']
+        labels:
+          service: 'docker' 

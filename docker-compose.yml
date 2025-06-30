@@ -1,0 +1,147 @@
+version: '3.8'
+
+services:
+  # Web interface service
+  web:
+    build:
+      context: .
+      target: web
+    image: fm-llm-solver:web
+    container_name: fm-llm-web
+    ports:
+      - "${WEB_PORT:-5000}:5000"
+    environment:
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production}
+      - DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-local}
+      - INFERENCE_API_URL=${INFERENCE_API_URL:-http://inference:8000}
+      - DATABASE_URL=${DATABASE_URL:-sqlite:////app/web_interface/instance/app.db}
+      - MATHPIX_APP_ID=${MATHPIX_APP_ID}
+      - MATHPIX_APP_KEY=${MATHPIX_APP_KEY}
+      - UNPAYWALL_EMAIL=${UNPAYWALL_EMAIL}
+    volumes:
+      - ./config:/app/config:ro
+      - ./kb_data:/app/kb_data:ro
+      - ./web_interface/instance:/app/web_interface/instance
+      - ./logs:/app/logs
+    depends_on:
+      - inference
+    restart: unless-stopped
+    networks:
+      - fm-llm-network
+
+  # Inference API service (for hybrid mode)
+  inference:
+    build:
+      context: .
+      target: inference
+    image: fm-llm-solver:inference
+    container_name: fm-llm-inference
+    ports:
+      - "${INFERENCE_PORT:-8000}:8000"
+    environment:
+      - CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0}
+      - PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:512
+      - MODEL_CACHE_DIR=/app/model_cache
+    volumes:
+      - ./config:/app/config:ro
+      - ./kb_data:/app/kb_data:ro
+      - ./output/finetuning_results:/app/output/finetuning_results:ro
+      - model_cache:/app/model_cache
+      - ./logs:/app/logs
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    networks:
+      - fm-llm-network
+
+  # Redis cache service (optional, for production)
+  redis:
+    image: redis:7-alpine
+    container_name: fm-llm-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    networks:
+      - fm-llm-network
+    profiles:
+      - production
+
+  # PostgreSQL database (optional, for production)
+  postgres:
+    image: postgres:15-alpine
+    container_name: fm-llm-postgres
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-fmllm}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changeme}
+      - POSTGRES_DB=${POSTGRES_DB:-fmllm}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - fm-llm-network
+    profiles:
+      - production
+
+  # Prometheus monitoring (optional)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: fm-llm-prometheus
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - ./deployment/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    restart: unless-stopped
+    networks:
+      - fm-llm-network
+    profiles:
+      - monitoring
+
+  # Grafana dashboards (optional)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: fm-llm-grafana
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./deployment/grafana:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    networks:
+      - fm-llm-network
+    profiles:
+      - monitoring
+
+volumes:
+  model_cache:
+    driver: local
+  redis_data:
+    driver: local
+  postgres_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+networks:
+  fm-llm-network:
+    driver: bridge 

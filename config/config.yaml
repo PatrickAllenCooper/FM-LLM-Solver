@@ -141,3 +141,70 @@ evaluation:
     optimization_pop_size: 10   # Reduced from 15 for faster verification
     attempt_sos: true
     attempt_optimization: true
+
+# Deployment configuration for hybrid architecture
+deployment:
+  mode: "local"  # Options: "local", "hybrid", "cloud"
+  
+  # Local deployment settings (default)
+  local:
+    host: "127.0.0.1"
+    port: 5000
+    debug: true
+    
+  # Hybrid deployment settings
+  hybrid:
+    web_host: "0.0.0.0"
+    web_port: 5000
+    inference_host: "0.0.0.0"
+    inference_port: 8000
+    
+  # Cloud service endpoints
+  cloud:
+    inference_api_url: "${INFERENCE_API_URL:}"
+    storage_bucket: "${STORAGE_BUCKET:}"
+    model_cache_dir: "/tmp/models"
+    
+  # Service configuration
+  services:
+    inference:
+      enabled: true
+      type: "local"  # Options: "local", "modal", "runpod", "vastai"
+      timeout: 300  # seconds
+      max_retries: 3
+      
+    storage:
+      type: "local"  # Options: "local", "s3", "r2", "b2"
+      cache_models: true
+      
+    database:
+      type: "sqlite"  # Options: "sqlite", "postgresql"
+      url: "${DATABASE_URL:}"
+      
+  # Performance settings
+  performance:
+    enable_caching: true
+    cache_ttl: 3600  # seconds
+    batch_size: 5
+    queue_enabled: false
+    
+  # Monitoring
+  monitoring:
+    enabled: false
+    prometheus_port: 9090
+    health_check_interval: 30
+    
+# Web interface configuration (updated)
+web_interface:
+  host: "${deployment.local.host}"
+  port: ${deployment.local.port}
+  debug: ${deployment.local.debug}
+  database_path: "web_interface/instance/app.db"
+  secret_key_env: "SECRET_KEY"
+  cors_origins: ["http://localhost:3000", "http://127.0.0.1:3000"]
+  
+  # API rate limiting
+  rate_limiting:
+    enabled: false
+    requests_per_minute: 60
+    requests_per_hour: 1000
