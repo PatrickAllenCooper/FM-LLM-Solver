@@ -1,121 +1,223 @@
 # FM-LLM Solver
 
-A research project that uses Large Language Models (LLMs) to generate barrier certificates for autonomous systems, combining Retrieval-Augmented Generation (RAG) with fine-tuning techniques.
+<p align="center">
+  <img src="docs/assets/logo.png" alt="FM-LLM Solver Logo" width="200">
+</p>
 
-## Overview
+<p align="center">
+  <a href="https://github.com/yourusername/FM-LLM-Solver/actions"><img src="https://github.com/yourusername/FM-LLM-Solver/workflows/CI/badge.svg" alt="CI Status"></a>
+  <a href="https://codecov.io/gh/yourusername/FM-LLM-Solver"><img src="https://codecov.io/gh/yourusername/FM-LLM-Solver/branch/main/graph/badge.svg" alt="Coverage"></a>
+  <a href="https://pypi.org/project/fm-llm-solver/"><img src="https://img.shields.io/pypi/v/fm-llm-solver.svg" alt="PyPI"></a>
+  <a href="https://fm-llm-solver.readthedocs.io/"><img src="https://readthedocs.org/projects/fm-llm-solver/badge/?version=latest" alt="Documentation"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
+</p>
 
-FM-LLM Solver accelerates formal verification by using LLMs to propose barrier certificate candidates for dynamical systems. Instead of replacing rigorous verification, it helps researchers by generating high-quality hypotheses that can be formally verified using established methods.
+**FM-LLM Solver** is a cutting-edge system for generating and verifying barrier certificates for dynamical systems using Large Language Models (LLMs) enhanced with Retrieval-Augmented Generation (RAG) and fine-tuning capabilities.
 
-## Key Features
+## 🌟 Features
 
-- **RAG-Enhanced Generation**: Leverages a knowledge base built from research papers
-- **Fine-Tuned Models**: Specialized LLMs trained on barrier certificate examples
-- **Verification Pipeline**: Symbolic and numerical validation of generated certificates
-- **Web Interface**: Secure, rate-limited web app with authentication
-- **Cost-Effective Deployment**: Hybrid architecture for 80-95% cost savings
-- **Comprehensive Monitoring**: Usage tracking, cost analysis, and performance metrics
+- **LLM-Powered Generation**: Generate barrier certificates using state-of-the-art language models
+- **Multi-System Support**: Handle continuous, discrete, and stochastic dynamical systems
+- **RAG Integration**: Leverage academic papers and examples for improved generation
+- **Comprehensive Verification**: Multiple verification methods (numerical, symbolic, SOS)
+- **Web Interface**: User-friendly interface for system input and visualization
+- **API Access**: RESTful API for programmatic access
+- **Extensible Architecture**: Modular design for easy extension and customization
 
-## Quick Start
-
-### Prerequisites
-
-- Python 3.10+
-- CUDA-compatible GPU (for fine-tuning)
-- API credentials for Mathpix and Unpaywall
+## 🚀 Quick Start
 
 ### Installation
 
 ```bash
-# Clone repository
-git clone https://github.com/PatrickAllenCooper/FM-LLM-Solver.git
+# Install from PyPI (coming soon)
+pip install fm-llm-solver
+
+# Install from source
+git clone https://github.com/yourusername/FM-LLM-Solver.git
 cd FM-LLM-Solver
-
-# Set up environment
-conda create -n fmllm python=3.10
-conda activate fmllm
-
-# Install with CUDA support
-python scripts/setup/setup_environment.py
+pip install -e ".[all]"
 ```
 
 ### Basic Usage
 
-1. **Generate a barrier certificate:**
-```bash
-python inference/generate_certificate.py \
-  "System: dx/dt = -x^3 - y, dy/dt = x - y^3. Initial: x^2+y^2 <= 0.1. Unsafe: x >= 1.5"
+```python
+from fm_llm_solver import CertificateGenerator, SystemDescription
+
+# Define your dynamical system
+system = SystemDescription(
+    dynamics={"x": "-x + y", "y": "x - y"},
+    initial_set="x**2 + y**2 <= 0.5",
+    unsafe_set="x**2 + y**2 >= 2.0"
+)
+
+# Generate a barrier certificate
+generator = CertificateGenerator.from_config()
+result = generator.generate(system)
+
+if result.success:
+    print(f"Certificate: {result.certificate}")
+    print(f"Confidence: {result.confidence:.2%}")
+else:
+    print(f"Generation failed: {result.error}")
 ```
 
-2. **Run web interface:**
-```bash
-python scripts/init_security.py  # First time only
-python run_web_interface.py
-```
-Access at http://localhost:5000
+### Running the Web Interface
 
-3. **Evaluate on benchmarks:**
 ```bash
-python evaluation/evaluate_pipeline.py
+# Start the web interface
+fm-llm-solver web
+
+# Or with custom configuration
+fm-llm-solver web --config config/production.yaml --host 0.0.0.0 --port 8080
 ```
 
-## Documentation
+### Running the API Server
 
-### Core Guides
-- [Installation Guide](docs/INSTALLATION.md) - Detailed setup instructions
-- [User Guide](docs/USER_GUIDE.md) - Complete usage documentation
-- [API Reference](docs/API_REFERENCE.md) - REST and Python APIs
-- [Development Guide](docs/DEVELOPMENT.md) - Contributing guidelines
+```bash
+# Start the inference API
+fm-llm-solver api
 
-### Feature Documentation
-- [Security](docs/SECURITY.md) - Authentication and protection features
-- [Monitoring](docs/MONITORING.md) - Usage and cost tracking
-- [Optimization](docs/OPTIMIZATION.md) - Performance tuning for limited hardware
-- [Verification](docs/VERIFICATION.md) - Certificate validation methods
-- [Features Overview](docs/FEATURES.md) - Complete feature list
+# Run both web interface and API
+fm-llm-solver both
+```
 
-### Additional Resources
-- [Mathematical Primer](docs/MATHEMATICAL_PRIMER.md) - Theory and foundations of barrier certificates
-- [Experiments](docs/EXPERIMENTS.md) - Benchmark configurations
-- [Hybrid Deployment](HYBRID_DEPLOYMENT.md) - Cloud deployment guide
-
-## Project Structure
+## 📁 Project Structure
 
 ```
 FM-LLM-Solver/
-├── inference/          # Certificate generation
-├── evaluation/         # Verification and benchmarking
-├── fine_tuning/        # Model training
-├── knowledge_base/     # RAG implementation
-├── web_interface/      # Flask application
-├── scripts/            # Utility scripts
-├── config/             # Configuration files
-└── docs/               # Documentation
+├── fm_llm_solver/          # Main package
+│   ├── core/               # Core components (config, logging, types)
+│   ├── services/           # Business logic services
+│   ├── web/                # Flask web interface
+│   ├── api/                # FastAPI inference API
+│   └── utils/              # Utility functions
+├── tests/                  # Test suite
+│   ├── unit/               # Unit tests
+│   ├── integration/        # Integration tests
+│   └── benchmarks/         # Performance benchmarks
+├── config/                 # Configuration files
+├── docs/                   # Documentation
+├── scripts/                # Utility scripts
+└── data/                   # Data files
 ```
 
-## Configuration
+## 🔧 Configuration
 
-Edit `config/config.yaml` to customize:
-- Model selection (base or fine-tuned)
-- RAG parameters
-- Deployment mode (local/hybrid/cloud)
-- Security settings
+Create a `config/config.yaml` file:
 
-## Citation
+```yaml
+model:
+  provider: qwen
+  name: Qwen/Qwen2.5-14B-Instruct
+  temperature: 0.7
+  device: cuda
 
-If you use this work in your research, please cite:
-```bibtex
-@software{fmllmsolver2024,
-  title = {FM-LLM Solver: Barrier Certificate Generation using Large Language Models},
-  author = {Cooper, Patrick Allen},
-  year = {2024},
-  institution = {University of Colorado Boulder}
-}
+rag:
+  enabled: true
+  k_retrieved: 3
+  chunk_size: 1000
+
+verification:
+  methods: [numerical, symbolic]
+  numerical:
+    num_samples: 1000
+    
+security:
+  rate_limit:
+    requests_per_day: 50
 ```
 
-## License
+## 🧪 Testing
 
-This project is licensed under the MIT License - see [LICENSE](LICENSE) for details.
+```bash
+# Run all tests
+fm-llm-solver test
 
-## Acknowledgments
+# Run with coverage
+fm-llm-solver test --coverage
 
-Developed at the University of Colorado Boulder with support from the Autonomous Systems research group. 
+# Run specific tests
+fm-llm-solver test tests/unit/test_generator.py
+```
+
+## 📚 Documentation
+
+- [Installation Guide](docs/INSTALLATION.md)
+- [User Guide](docs/USER_GUIDE.md)
+- [API Reference](docs/API_REFERENCE.md)
+- [Mathematical Primer](docs/MATHEMATICAL_PRIMER.md)
+- [Development Guide](docs/DEVELOPMENT.md)
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+
+```bash
+# Set up development environment
+pip install -e ".[dev]"
+pre-commit install
+
+# Run code quality checks
+black fm_llm_solver tests
+isort fm_llm_solver tests
+flake8 fm_llm_solver tests
+mypy fm_llm_solver
+```
+
+## 🏗️ Architecture
+
+FM-LLM Solver follows a modular architecture:
+
+- **Core Layer**: Configuration, logging, exceptions, and type definitions
+- **Service Layer**: Certificate generation, verification, knowledge base management
+- **Interface Layer**: Web UI and REST API
+- **Infrastructure Layer**: Caching, monitoring, and deployment utilities
+
+## 🚀 Deployment
+
+### Docker
+
+```bash
+# Build and run with Docker
+docker build -t fm-llm-solver .
+docker run -p 5000:5000 -p 8000:8000 fm-llm-solver
+```
+
+### Cloud Deployment
+
+See [Deployment Guide](docs/DEPLOYMENT.md) for cloud deployment options (AWS, GCP, Azure).
+
+## 📊 Performance
+
+- Certificate generation: ~2-5 seconds per system
+- Verification: <1 second for numerical, 2-10 seconds for symbolic
+- Supports batch processing for multiple systems
+- GPU acceleration available for LLM inference
+
+## 🔒 Security
+
+- Authentication and authorization for web interface
+- Rate limiting to prevent abuse
+- API key management for programmatic access
+- Secure session handling
+- Input validation and sanitization
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- Thanks to the Qwen team for the excellent language models
+- Inspired by research in formal methods and neural certificate generation
+- Built with support from the University of Colorado
+
+## 📞 Contact
+
+- **Author**: Patrick Allen Cooper
+- **Email**: patrick.cooper@colorado.edu
+- **Website**: [fm-llm-solver.ai](https://fm-llm-solver.ai)
+
+---
+
+<p align="center">Made with ❤️ by researchers, for researchers</p> 
