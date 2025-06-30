@@ -74,6 +74,7 @@ python evaluation/evaluate_pipeline.py
 - [Features Overview](docs/FEATURES.md) - Complete feature list
 
 ### Additional Resources
+- [Mathematical Primer](docs/MATHEMATICAL_PRIMER.md) - Theory and foundations of barrier certificates
 - [Experiments](docs/EXPERIMENTS.md) - Benchmark configurations
 - [Hybrid Deployment](HYBRID_DEPLOYMENT.md) - Cloud deployment guide
 
