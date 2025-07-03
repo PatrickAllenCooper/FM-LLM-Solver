@@ -54,16 +54,164 @@ class BaseModelProvider(ModelProvider):
 
 
 class QwenProvider(BaseModelProvider):
-    """Provider for Qwen models."""
+    """Provider for Qwen models using transformers."""
     
     def __init__(self):
         super().__init__()
+        self.tokenizer = None
+        self.model = None
+        self.device = None
         self.logger.info("Initialized Qwen provider")
         
     def load_model(self, config: ModelConfig) -> None:
         """Load Qwen model."""
-        super().load_model(config)
-        self.logger.info(f"Loaded Qwen model: {config.name}")
+        try:
+            import torch
+            from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
+            
+            self.config = config
+            
+            # Determine device
+            if torch.cuda.is_available() and config.device == "cuda":
+                self.device = "cuda"
+                self.logger.info(f"Using CUDA device: {torch.cuda.get_device_name()}")
+            else:
+                self.device = "cpu"
+                self.logger.warning("CUDA not available, using CPU")
+            
+            # Set up quantization if requested
+            quantization_config = None
+            if hasattr(config, 'quantization') and config.quantization:
+                if config.quantization == "4bit":
+                    quantization_config = BitsAndBytesConfig(
+                        load_in_4bit=True,
+                        bnb_4bit_compute_dtype=torch.float16,
+                        bnb_4bit_use_double_quant=True,
+                        bnb_4bit_quant_type="nf4"
+                    )
+                    self.logger.info("Using 4-bit quantization")
+                elif config.quantization == "8bit":
+                    quantization_config = BitsAndBytesConfig(load_in_8bit=True)
+                    self.logger.info("Using 8-bit quantization")
+            
+            # Load tokenizer
+            self.logger.info(f"Loading tokenizer: {config.name}")
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                config.name,
+                trust_remote_code=True,
+                use_fast=True
+            )
+            
+            # Set pad token if not present
+            if self.tokenizer.pad_token is None:
+                self.tokenizer.pad_token = self.tokenizer.eos_token
+            
+            # Load model
+            self.logger.info(f"Loading model: {config.name}")
+            model_kwargs = {
+                "trust_remote_code": True,
+                "torch_dtype": torch.float16 if self.device == "cuda" else torch.float32,
+            }
+            
+            if quantization_config:
+                model_kwargs["quantization_config"] = quantization_config
+            else:
+                model_kwargs["device_map"] = "auto" if self.device == "cuda" else None
+            
+            self.model = AutoModelForCausalLM.from_pretrained(
+                config.name,
+                **model_kwargs
+            )
+            
+            # Move to device if not using device_map
+            if not quantization_config and model_kwargs.get("device_map") is None:
+                self.model = self.model.to(self.device)
+            
+            self.model.eval()
+            self.logger.info(f"Model loaded successfully on {self.device}")
+            
+        except ImportError as e:
+            raise ModelError(f"Required dependencies not installed: {e}")
+        except Exception as e:
+            self.logger.error(f"Failed to load Qwen model: {e}")
+            raise ModelError(f"Failed to load model: {e}")
+    
+    def generate_text(
+        self,
+        prompt: str,
+        max_tokens: int = 100,
+        temperature: float = 0.7,
+        top_p: float = 0.9,
+        **kwargs
+    ) -> str:
+        """Generate text using the loaded Qwen model."""
+        if not self.model or not self.tokenizer:
+            raise ModelError("Model not loaded")
+        
+        try:
+            import torch
+            
+            # Tokenize input
+            inputs = self.tokenizer(
+                prompt,
+                return_tensors="pt",
+                truncation=True,
+                max_length=self.config.max_length - max_tokens
+            )
+            
+            # Move to device
+            inputs = {k: v.to(self.device) for k, v in inputs.items()}
+            
+            # Generate
+            with torch.no_grad():
+                outputs = self.model.generate(
+                    **inputs,
+                    max_new_tokens=max_tokens,
+                    temperature=temperature,
+                    top_p=top_p,
+                    do_sample=temperature > 0,
+                    pad_token_id=self.tokenizer.pad_token_id,
+                    eos_token_id=self.tokenizer.eos_token_id,
+                    **kwargs
+                )
+            
+            # Decode response (excluding input)
+            input_length = inputs['input_ids'].shape[1]
+            generated_tokens = outputs[0][input_length:]
+            response = self.tokenizer.decode(generated_tokens, skip_special_tokens=True)
+            
+            return response.strip()
+            
+        except Exception as e:
+            self.logger.error(f"Generation failed: {e}")
+            raise ModelError(f"Text generation failed: {e}")
+    
+    def get_embedding(self, text: str) -> list:
+        """Get text embedding from the model."""
+        # Qwen is primarily a generative model, so embeddings would need special handling
+        # For now, return a placeholder
+        self.logger.warning("Embedding generation not implemented for Qwen")
+        return [0.0] * 768  # Placeholder embedding
+    
+    def unload_model(self) -> None:
+        """Unload the current model."""
+        if self.model:
+            del self.model
+            self.model = None
+        if self.tokenizer:
+            del self.tokenizer
+            self.tokenizer = None
+            
+        # Clear CUDA cache if available
+        try:
+            import torch
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                self.logger.info("Cleared CUDA cache")
+        except:
+            pass
+            
+        self.logger.info("Model unloaded")
 
 
 class OpenAIProvider(BaseModelProvider):

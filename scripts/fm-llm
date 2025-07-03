@@ -1,0 +1,39 @@
+#!/usr/bin/env python3
+"""
+FM-LLM Solver - Unified Command Line Interface
+
+This script replaces all the scattered scripts throughout the repository
+with a single, well-organized CLI tool.
+
+Usage:
+    fm-llm --help                    # Show all commands
+    fm-llm status                    # Show system status
+    fm-llm setup                     # Set up environment
+    fm-llm kb build                  # Build knowledge base
+    fm-llm train finetune            # Fine-tune model
+    fm-llm web run                   # Start web interface
+    fm-llm generate "system desc"    # Generate certificate
+"""
+
+import sys
+import os
+from pathlib import Path
+
+# Add project root to Python path
+PROJECT_ROOT = Path(__file__).parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+
+try:
+    from fm_llm_solver.cli import cli
+    
+    if __name__ == '__main__':
+        cli()
+        
+except ImportError as e:
+    print(f"Error: Failed to import FM-LLM Solver CLI: {e}")
+    print("Please ensure the package is properly installed:")
+    print("  pip install -e .")
+    sys.exit(1)
+except Exception as e:
+    print(f"Error: {e}")
+    sys.exit(1) 

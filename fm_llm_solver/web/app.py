@@ -206,19 +206,19 @@ def init_services(app: Flask, config: Config) -> None:
 
 def register_routes(app: Flask) -> None:
     """Register application routes."""
-    from fm_llm_solver.web.routes import (
-        main_bp,
-        api_bp,
-        auth_bp,
-        monitoring_bp
-    )
-    
-    app.register_blueprint(main_bp)
-    app.register_blueprint(api_bp, url_prefix='/api/v1')
-    app.register_blueprint(auth_bp, url_prefix='/auth')
-    app.register_blueprint(monitoring_bp, url_prefix='/monitoring')
-    
-    get_logger(__name__).info("Routes registered")
+    try:
+        from fm_llm_solver.web.routes import main_bp
+        app.register_blueprint(main_bp)
+        get_logger(__name__).info("Main routes registered")
+        
+        # TODO: Register other blueprints as they are implemented
+        # from fm_llm_solver.web.routes import api_bp, auth_bp, monitoring_bp
+        # app.register_blueprint(api_bp, url_prefix='/api/v1')
+        # app.register_blueprint(auth_bp, url_prefix='/auth')
+        # app.register_blueprint(monitoring_bp, url_prefix='/monitoring')
+        
+    except ImportError as e:
+        get_logger(__name__).warning(f"Some route blueprints not available yet: {e}")
 
 
 def setup_middleware(app: Flask) -> None:
