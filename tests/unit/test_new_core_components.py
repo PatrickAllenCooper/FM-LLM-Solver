@@ -1,0 +1,89 @@
+"""
+Comprehensive unit tests for new core components of FM-LLM-Solver.
+"""
+
+import os
+import pytest
+import tempfile
+from unittest.mock import Mock, patch
+from pathlib import Path
+
+# Import the components we're testing
+from fm_llm_solver.core.config_manager import ConfigurationManager
+from fm_llm_solver.core.database_manager import DatabaseManager
+from fm_llm_solver.core.logging_manager import LoggingManager
+from fm_llm_solver.core.error_handler import ErrorHandler
+from fm_llm_solver.core.cache_manager import CacheManager
+from fm_llm_solver.core.monitoring import MonitoringManager
+
+
+class TestConfigurationManager:
+    """Test suite for ConfigurationManager."""
+    
+    def test_init_with_valid_config(self):
+        """Test initialization with valid configuration."""
+        sample_config = {
+            "environment": "testing",
+            "database": {
+                "primary": {
+                    "host": "localhost",
+                    "port": 5432,
+                    "database": "test_db",
+                    "username": "test_user",
+                    "password": "${secret:DB_PASSWORD}"
+                }
+            }
+        }
+        
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config_file = Path(temp_dir) / "config.yaml"
+            
+            import yaml
+            with open(config_file, 'w') as f:
+                yaml.dump(sample_config, f)
+            
+            with patch.dict(os.environ, {"DB_PASSWORD": "secret_password"}):
+                config_manager = ConfigurationManager(config_file)
+                assert config_manager.environment == "testing"
+                assert config_manager.get("database.primary.host") == "localhost"
+
+
+class TestDatabaseManager:
+    """Test suite for DatabaseManager."""
+    
+    def test_init_with_valid_config(self):
+        """Test initialization with valid configuration."""
+        mock_config = Mock()
+        mock_config.get.return_value = {
+            "primary": {
+                "host": "localhost",
+                "port": 5432,
+                "database": "test_db",
+                "username": "test_user",
+                "password": "test_password"
+            }
+        }
+        
+        db_manager = DatabaseManager(mock_config)
+        assert db_manager.config_manager == mock_config
+
+
+class TestCacheManager:
+    """Test suite for CacheManager."""
+    
+    def test_init_with_valid_config(self):
+        """Test initialization with valid configuration."""
+        mock_config = Mock()
+        mock_config.get.return_value = {
+            "backend": "memory",
+            "max_size": 1000,
+            "default_ttl": 300,
+            "key_prefix": "test_"
+        }
+        
+        cache_manager = CacheManager(mock_config)
+        assert cache_manager.config_manager == mock_config
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

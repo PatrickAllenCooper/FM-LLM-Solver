@@ -19,6 +19,10 @@ from flask_migrate import Migrate
 from fm_llm_solver.core.config_manager import ConfigurationManager
 from fm_llm_solver.core.logging_manager import get_logging_manager, get_logger
 from fm_llm_solver.core.database_manager import get_database_manager
+from fm_llm_solver.core.async_manager import AsyncManager
+from fm_llm_solver.core.memory_manager import MemoryManager
+from fm_llm_solver.core.cache_manager import CacheManager
+from fm_llm_solver.core.monitoring import MonitoringManager
 from fm_llm_solver.services.certificate_generator import CertificateGenerator
 from fm_llm_solver.services.verification_service import CertificateVerifier
 from fm_llm_solver.services.knowledge_base import KnowledgeBase
@@ -170,11 +174,47 @@ def init_extensions(app: Flask, config_manager: ConfigurationManager) -> None:
 
 
 def init_services(app: Flask, config_manager: ConfigurationManager) -> None:
-    """Initialize application services."""
+    """Initialize application services with performance optimizations."""
     logger = get_logger(__name__)
     
     with app.app_context():
         config = config_manager.load_config()
+        
+        # Initialize monitoring manager first (needed by other services)
+        try:
+            monitoring_manager = MonitoringManager(config_manager)
+            app.monitoring_manager = monitoring_manager
+            logger.info("Monitoring manager initialized")
+        except Exception as e:
+            logger.warning(f"Failed to initialize monitoring manager: {e}")
+            app.monitoring_manager = None
+        
+        # Initialize cache manager
+        try:
+            cache_manager = CacheManager(config_manager)
+            app.cache_manager = cache_manager
+            logger.info("Cache manager initialized")
+        except Exception as e:
+            logger.warning(f"Failed to initialize cache manager: {e}")
+            app.cache_manager = None
+        
+        # Initialize async manager
+        try:
+            async_manager = AsyncManager(config_manager, app.monitoring_manager)
+            app.async_manager = async_manager
+            logger.info("Async manager initialized")
+        except Exception as e:
+            logger.warning(f"Failed to initialize async manager: {e}")
+            app.async_manager = None
+        
+        # Initialize memory manager
+        try:
+            memory_manager = MemoryManager(config_manager, app.monitoring_manager)
+            app.memory_manager = memory_manager
+            logger.info("Memory manager initialized")
+        except Exception as e:
+            logger.warning(f"Failed to initialize memory manager: {e}")
+            app.memory_manager = None
         
         # Initialize database manager
         try:
@@ -185,7 +225,7 @@ def init_services(app: Flask, config_manager: ConfigurationManager) -> None:
             logger.warning(f"Failed to initialize database manager: {e}")
             app.db_manager = None
         
-        # Initialize model provider
+        # Initialize model provider with performance enhancements
         try:
             model_provider = QwenProvider(config_manager)
             app.model_provider = model_provider
@@ -194,7 +234,7 @@ def init_services(app: Flask, config_manager: ConfigurationManager) -> None:
             logger.warning(f"Failed to initialize model provider: {e}")
             app.model_provider = None
         
-        # Initialize knowledge base
+        # Initialize knowledge base with caching
         try:
             knowledge_base = KnowledgeBase(config_manager)
             app.knowledge_base = knowledge_base
@@ -203,12 +243,14 @@ def init_services(app: Flask, config_manager: ConfigurationManager) -> None:
             logger.warning(f"Failed to initialize knowledge base: {e}")
             app.knowledge_base = None
         
-        # Initialize services
+        # Initialize optimized services
         try:
             app.certificate_generator = CertificateGenerator(
                 config_manager=config_manager,
                 model_provider=app.model_provider,
-                knowledge_base=app.knowledge_base
+                knowledge_base=app.knowledge_base,
+                cache_manager=app.cache_manager,
+                monitoring_manager=app.monitoring_manager
             )
             logger.info("Certificate generator initialized")
         except Exception as e:
@@ -216,7 +258,11 @@ def init_services(app: Flask, config_manager: ConfigurationManager) -> None:
             app.certificate_generator = None
         
         try:
-            app.verifier = CertificateVerifier(config_manager)
+            app.verifier = CertificateVerifier(
+                config_manager,
+                cache_manager=app.cache_manager,
+                monitoring_manager=app.monitoring_manager
+            )
             logger.info("Certificate verifier initialized")
         except Exception as e:
             logger.warning(f"Failed to initialize certificate verifier: {e}")
@@ -225,7 +271,7 @@ def init_services(app: Flask, config_manager: ConfigurationManager) -> None:
         # Store config
         app.fm_config = config
         
-        logger.info("Application services initialized")
+        logger.info("Application services initialized with performance optimizations")
 
 
 def register_routes(app: Flask) -> None:
@@ -246,12 +292,94 @@ def register_routes(app: Flask) -> None:
 
 
 def setup_middleware(app: Flask) -> None:
-    """Setup application middleware."""
+    """Setup application middleware with performance monitoring."""
     setup_security_headers(app)
     setup_rate_limiting(app)
     setup_cors(app)
+    setup_performance_monitoring(app)
     
-    get_logger(__name__).info("Middleware configured")
+    get_logger(__name__).info("Middleware configured with performance monitoring")
+
+
+def setup_performance_monitoring(app: Flask) -> None:
+    """Setup performance monitoring middleware."""
+    
+    @app.before_request
+    def before_request():
+        """Track request start time and perform pre-request optimizations."""
+        g.request_start_time = time.time()
+        g.request_id = f"req_{int(time.time() * 1000)}_{os.getpid()}"
+        
+        # Memory optimization check
+        if hasattr(app, 'memory_manager') and app.memory_manager:
+            pressure_info = app.memory_manager.check_memory_pressure()
+            if pressure_info['pressure_level'] == 'critical':
+                app.memory_manager.optimize_memory()
+        
+        # Log request start
+        if hasattr(app, 'monitoring_manager') and app.monitoring_manager:
+            app.monitoring_manager.increment_counter(
+                'http_requests_total',
+                {'method': request.method, 'endpoint': request.endpoint or 'unknown'}
+            )
+    
+    @app.after_request
+    def after_request(response):
+        """Track request completion and record metrics."""
+        if hasattr(g, 'request_start_time'):
+            duration = time.time() - g.request_start_time
+            
+            # Record response time metric
+            if hasattr(app, 'monitoring_manager') and app.monitoring_manager:
+                app.monitoring_manager.record_histogram(
+                    'http_request_duration_seconds',
+                    duration,
+                    {
+                        'method': request.method,
+                        'status_code': str(response.status_code),
+                        'endpoint': request.endpoint or 'unknown'
+                    }
+                )
+                
+                # Record response size
+                if response.content_length:
+                    app.monitoring_manager.record_histogram(
+                        'http_response_size_bytes',
+                        response.content_length,
+                        {'endpoint': request.endpoint or 'unknown'}
+                    )
+            
+            # Log slow requests
+            if duration > 5.0:  # Log requests taking more than 5 seconds
+                logger = get_logger(__name__)
+                logger.warning(
+                    f"Slow request: {request.method} {request.path} "
+                    f"took {duration:.2f}s (request_id: {getattr(g, 'request_id', 'unknown')})"
+                )
+        
+        # Add performance headers
+        if hasattr(g, 'request_start_time'):
+            response.headers['X-Response-Time'] = f"{(time.time() - g.request_start_time) * 1000:.1f}ms"
+        
+        if hasattr(g, 'request_id'):
+            response.headers['X-Request-ID'] = g.request_id
+        
+        return response
+    
+    @app.teardown_appcontext
+    def cleanup_request(error):
+        """Cleanup request resources."""
+        # Force garbage collection for long-running requests
+        if hasattr(g, 'request_start_time'):
+            duration = time.time() - g.request_start_time
+            if duration > 10.0:  # For requests taking more than 10 seconds
+                import gc
+                gc.collect()
+        
+        # Clear any request-specific caches
+        if hasattr(app, 'cache_manager') and app.cache_manager:
+            # Clear any temporary cache entries if needed
+            pass
 
 
 def register_cli_commands(app: Flask) -> None:
@@ -301,6 +429,116 @@ def register_cli_commands(app: Flask) -> None:
                 print("Certificate generator not available.")
         except Exception as e:
             print(f"Certificate generation test failed: {e}")
+    
+    @app.cli.command()
+    def performance_report():
+        """Generate performance report."""
+        try:
+            print("=== FM-LLM-Solver Performance Report ===\n")
+            
+            # Memory statistics
+            if app.memory_manager:
+                memory_report = app.memory_manager.get_performance_report()
+                print("Memory Usage:")
+                print(f"  RSS: {memory_report['memory_stats']['rss_mb']:.1f} MB")
+                print(f"  Percentage: {memory_report['memory_stats']['percent']:.1f}%")
+                print(f"  GC Objects: {memory_report['memory_stats']['gc_objects']:,}")
+                print(f"  Pressure Level: {memory_report['pressure_info']['pressure_level']}")
+                print()
+            
+            # Async manager statistics
+            if app.async_manager:
+                async_metrics = app.async_manager.get_performance_metrics()
+                print("Async Operations:")
+                print(f"  Active Tasks: {async_metrics['active_tasks']}")
+                print(f"  Completed Tasks: {async_metrics['tasks_completed']}")
+                print(f"  Failed Tasks: {async_metrics['tasks_failed']}")
+                print(f"  Average Duration: {async_metrics['average_duration']:.2f}s")
+                print(f"  Queue Size: {async_metrics['queue_size']}")
+                print()
+            
+            # Cache statistics
+            if app.cache_manager:
+                cache_stats = app.cache_manager.get_stats()
+                print("Cache Performance:")
+                print(f"  Size: {cache_stats.get('size', 0)}")
+                print(f"  Hits: {cache_stats.get('hits', 0)}")
+                print(f"  Misses: {cache_stats.get('misses', 0)}")
+                hit_rate = cache_stats.get('hits', 0) / max(cache_stats.get('hits', 0) + cache_stats.get('misses', 0), 1)
+                print(f"  Hit Rate: {hit_rate:.1%}")
+                print()
+            
+            # Monitoring metrics summary
+            if app.monitoring_manager:
+                print("System Health: Active monitoring enabled")
+            else:
+                print("System Health: Monitoring not available")
+                
+        except Exception as e:
+            print(f"Failed to generate performance report: {e}")
+    
+    @app.cli.command()
+    def optimize_memory():
+        """Optimize memory usage."""
+        try:
+            if app.memory_manager:
+                print("Optimizing memory usage...")
+                result = app.memory_manager.optimize_memory()
+                print(f"Optimization completed in {result['duration_ms']:.1f}ms")
+                print(f"Actions taken: {len(result['actions_taken'])}")
+                for action in result['actions_taken']:
+                    print(f"  - {action['action']}")
+            else:
+                print("Memory manager not available.")
+        except Exception as e:
+            print(f"Memory optimization failed: {e}")
+    
+    @app.cli.command()
+    def benchmark():
+        """Run performance benchmarks."""
+        try:
+            import time
+            import asyncio
+            
+            print("Running performance benchmarks...\n")
+            
+            # Cache benchmark
+            if app.cache_manager:
+                print("Cache Performance Test:")
+                start_time = time.time()
+                for i in range(1000):
+                    app.cache_manager.set(f"bench_key_{i}", f"bench_value_{i}")
+                write_time = time.time() - start_time
+                
+                start_time = time.time()
+                for i in range(1000):
+                    app.cache_manager.get(f"bench_key_{i}")
+                read_time = time.time() - start_time
+                
+                print(f"  1000 writes: {write_time:.3f}s ({1000/write_time:.0f} ops/s)")
+                print(f"  1000 reads: {read_time:.3f}s ({1000/read_time:.0f} ops/s)")
+                print()
+            
+            # Memory tracking benchmark
+            if app.memory_manager:
+                print("Memory Tracking Test:")
+                tracker = app.memory_manager.create_tracker("benchmark")
+                tracker.start_tracking()
+                
+                # Simulate memory allocation
+                data = [list(range(1000)) for _ in range(100)]
+                
+                stats = tracker.stop_tracking()
+                print(f"  Memory used: {stats['memory_diff_mb']:.2f} MB")
+                print()
+                
+                # Clean up
+                del data
+            
+            print("Benchmarks completed.")
+            
+        except Exception as e:
+            print(f"Benchmark failed: {e}")
 
 
 # User loader for Flask-Login

@@ -271,3 +271,50 @@ web_interface:
   secret_key_env: "SECRET_KEY"  # Environment variable name for secret key
   # CORS settings for API access
   cors_origins: ["http://localhost:3000", "http://127.0.0.1:3000"]  # Add frontend origins if needed
+
+# Performance optimization configuration
+performance:
+  # Async operations
+  async:
+    max_thread_workers: 8
+    max_process_workers: 4
+    default_timeout: 30.0
+    queue_size: 1000
+    enable_connection_pooling: true
+  
+  # Memory management
+  memory:
+    gc_threshold_mb: 100
+    monitoring_interval: 60
+    enable_object_pools: true
+    max_pool_size: 100
+    warning_threshold_mb: 1000
+    critical_threshold_mb: 2000
+    enable_monitoring: true
+  
+  # Request optimization
+  requests:
+    max_concurrent: 20
+    request_timeout: 30.0
+    keep_alive_timeout: 5.0
+    max_content_length: 16777216  # 16MB
+    enable_compression: true
+  
+  # Database optimization
+  database_performance:
+    connection_pool_size: 20
+    max_overflow: 30
+    pool_timeout: 30
+    pool_recycle: 3600
+    echo_queries: false
+    enable_query_cache: true
+    query_cache_size: 1000
+  
+  # Cache optimization
+  cache_performance:
+    enable_write_through: true
+    enable_read_through: true
+    background_refresh: true
+    prefetch_enabled: true
+    compression_enabled: true
+    eviction_policy: "lru"

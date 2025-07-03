@@ -1,0 +1,269 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fm-llm-solver-web
+  namespace: fm-llm-solver
+  labels:
+    app: fm-llm-solver
+    component: web
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: fm-llm-solver
+      component: web
+  template:
+    metadata:
+      labels:
+        app: fm-llm-solver
+        component: web
+    spec:
+      serviceAccountName: fm-llm-solver
+      initContainers:
+      - name: wait-for-postgres
+        image: busybox:1.35
+        command:
+        - sh
+        - -c
+        - |
+          until nc -z postgres-service 5432; do
+            echo "Waiting for PostgreSQL..."
+            sleep 2
+          done
+          echo "PostgreSQL is ready!"
+      - name: wait-for-redis
+        image: busybox:1.35
+        command:
+        - sh
+        - -c
+        - |
+          until nc -z redis-service 6379; do
+            echo "Waiting for Redis..."
+            sleep 2
+          done
+          echo "Redis is ready!"
+      containers:
+      - name: web
+        image: fm-llm-solver:web
+        ports:
+        - containerPort: 5000
+          name: http
+        env:
+        # Environment configuration
+        - name: FM_LLM_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: fm-llm-solver-config
+              key: FM_LLM_ENV
+        # Database configuration
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: fm-llm-solver-secrets
+              key: DB_PASSWORD
+        # Application secrets
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: fm-llm-solver-secrets
+              key: SECRET_KEY
+        - name: ENCRYPTION_KEY
+          valueFrom:
+            secretKeyRef:
+              name: fm-llm-solver-secrets
+              key: ENCRYPTION_KEY
+        # Redis configuration
+        - name: REDIS_URL
+          valueFrom:
+            configMapKeyRef:
+              name: fm-llm-solver-config
+              key: REDIS_URL
+        # External API keys
+        - name: MATHPIX_APP_ID
+          valueFrom:
+            secretKeyRef:
+              name: fm-llm-solver-secrets
+              key: MATHPIX_APP_ID
+        - name: MATHPIX_APP_KEY
+          valueFrom:
+            secretKeyRef:
+              name: fm-llm-solver-secrets
+              key: MATHPIX_APP_KEY
+        - name: UNPAYWALL_EMAIL
+          valueFrom:
+            secretKeyRef:
+              name: fm-llm-solver-secrets
+              key: UNPAYWALL_EMAIL
+        # Performance settings
+        - name: GUNICORN_WORKERS
+          valueFrom:
+            configMapKeyRef:
+              name: fm-llm-solver-config
+              key: GUNICORN_WORKERS
+        - name: GUNICORN_TIMEOUT
+          valueFrom:
+            configMapKeyRef:
+              name: fm-llm-solver-config
+              key: GUNICORN_TIMEOUT
+        volumeMounts:
+        - name: config-volume
+          mountPath: /app/config
+          readOnly: true
+        - name: logs-volume
+          mountPath: /app/logs
+        - name: data-volume
+          mountPath: /app/data
+        - name: kb-volume
+          mountPath: /app/kb_data
+        - name: output-volume
+          mountPath: /app/output
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+            scheme: HTTP
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 5000
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 10
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: false  # Set to true if logs are handled externally
+      volumes:
+      - name: config-volume
+        configMap:
+          name: fm-llm-solver-app-config
+      - name: logs-volume
+        persistentVolumeClaim:
+          claimName: logs-pvc
+      - name: data-volume
+        persistentVolumeClaim:
+          claimName: data-pvc
+      - name: kb-volume
+        persistentVolumeClaim:
+          claimName: kb-pvc
+      - name: output-volume
+        persistentVolumeClaim:
+          claimName: output-pvc
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fm-llm-solver-web-service
+  namespace: fm-llm-solver
+  labels:
+    app: fm-llm-solver
+    component: web
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 5000
+    protocol: TCP
+    name: http
+  selector:
+    app: fm-llm-solver
+    component: web
+---
+# Persistent Volume Claims for application data
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: logs-pvc
+  namespace: fm-llm-solver
+  labels:
+    app: fm-llm-solver
+    component: storage
+spec:
+  accessModes:
+    - ReadWriteMany  # Multiple pods need to write logs
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: efs  # Use EFS or similar for shared storage
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: data-pvc
+  namespace: fm-llm-solver
+  labels:
+    app: fm-llm-solver
+    component: storage
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 50Gi
+  storageClassName: efs
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: kb-pvc
+  namespace: fm-llm-solver
+  labels:
+    app: fm-llm-solver
+    component: storage
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 100Gi
+  storageClassName: efs
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: output-pvc
+  namespace: fm-llm-solver
+  labels:
+    app: fm-llm-solver
+    component: storage
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: efs 
