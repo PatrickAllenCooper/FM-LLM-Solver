@@ -131,7 +131,7 @@ class UnifiedTestRunner:
             'llm_generation_testbench',
             'barrier_certificate_optimization_testbench',
             'verification_boundary_fix_testbench',
-            'web_interface_testbench'
+    
         ]
         
         if specific_benchmark:

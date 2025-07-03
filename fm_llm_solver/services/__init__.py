@@ -17,7 +17,7 @@ from fm_llm_solver.services.model_provider import (
     OpenAIProvider
 )
 from fm_llm_solver.services.parser import SystemParser
-from fm_llm_solver.services.cache import CacheService
+
 from fm_llm_solver.services.monitor import MonitoringService
 
 __all__ = [
@@ -28,6 +28,6 @@ __all__ = [
     "QwenProvider",
     "OpenAIProvider",
     "SystemParser",
-    "CacheService",
+
     "MonitoringService"
 ] 

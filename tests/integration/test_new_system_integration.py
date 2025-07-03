@@ -33,70 +33,14 @@ class TestSystemIntegration:
     """Test suite for system integration."""
     
     @pytest.fixture
-    def full_config(self):
-        """Complete configuration for integration testing."""
-        return {
-            "environment": "testing",
-            "database": {
-                "primary": {
-                    "host": "localhost",
-                    "port": 5432,
-                    "database": "test_db",
-                    "username": "test_user",
-                    "password": "test_password",
-                    "pool_size": 5,
-                    "max_overflow": 10
-                }
-            },
-            "cache": {
-                "backend": "memory",
-                "max_size": 1000,
-                "default_ttl": 300,
-                "key_prefix": "test_"
-            },
-            "logging": {
-                "log_directory": "/tmp/test_logs",
-                "root_level": "INFO",
-                "loggers": {
-                    "api": {
-                        "level": "DEBUG",
-                        "handlers": ["console"],
-                        "json_format": True
-                    }
-                }
-            },
-            "monitoring": {
-                "enabled": True,
-                "metrics": {
-                    "prometheus_enabled": True,
-                    "custom_metrics_retention_hours": 24
-                },
-                "health_checks": {
-                    "enabled": True,
-                    "default_interval": 30
-                }
-            },
-            "error_handling": {
-                "max_retries": 3,
-                "retry_delay": 1.0,
-                "exponential_backoff": True
-            },
-            "web_interface": {
-                "host": "127.0.0.1",
-                "port": 5000,
-                "debug": True
-            }
-        }
-    
-    @pytest.fixture
-    def config_manager(self, full_config):
-        """Configuration manager for integration tests."""
+    def config_manager(self, test_config):
+        """Configuration manager for integration tests using shared test config."""
         with tempfile.TemporaryDirectory() as temp_dir:
             config_file = Path(temp_dir) / "config.yaml"
             
             import yaml
             with open(config_file, 'w') as f:
-                yaml.dump(full_config, f)
+                yaml.dump(test_config, f)
             
             yield ConfigurationManager(config_file)
     
