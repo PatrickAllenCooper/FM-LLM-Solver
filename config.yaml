@@ -209,6 +209,17 @@ logging:
       json_format: true
       propagate: false
 
+# Cache configuration
+cache:
+  backend: "memory"  # Options: "memory", "redis", "hybrid"
+  max_size: 1000
+  default_ttl: 3600  # 1 hour in seconds
+  redis_url: null  # Set to Redis URL if using Redis backend
+  redis_db: 0
+  redis_max_connections: 20
+  key_prefix: "fm_llm:"
+  namespace: "default"
+
 # Web interface configuration
 web_interface:
   host: "127.0.0.1"
