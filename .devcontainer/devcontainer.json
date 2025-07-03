@@ -1,0 +1,112 @@
+{
+    "name": "FM-LLM-Solver Development",
+    "dockerComposeFile": "docker-compose.yml",
+    "service": "development",
+    "workspaceFolder": "/workspace",
+    "shutdownAction": "stopCompose",
+    "features": {
+        "ghcr.io/devcontainers/features/git:1": {},
+        "ghcr.io/devcontainers/features/github-cli:1": {},
+        "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+        "ghcr.io/devcontainers/features/kubectl-helm-minikube:1": {}
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-python.flake8",
+                "ms-python.black-formatter",
+                "ms-python.mypy-type-checker",
+                "ms-python.pytest",
+                "ms-vscode.vscode-json",
+                "redhat.vscode-yaml",
+                "ms-vscode.vscode-docker",
+                "ms-kubernetes-tools.vscode-kubernetes-tools",
+                "eamodio.gitlens",
+                "github.copilot",
+                "github.copilot-chat",
+                "ms-toolsai.jupyter",
+                "ms-toolsai.vscode-jupyter-cell-tags",
+                "ms-toolsai.vscode-jupyter-slideshow",
+                "streetsidesoftware.code-spell-checker",
+                "ms-vscode.test-adapter-converter",
+                "littlefoxteam.vscode-python-test-adapter",
+                "donjayamanne.python-environment-manager"
+            ],
+            "settings": {
+                "python.defaultInterpreterPath": "/usr/local/bin/python",
+                "python.linting.enabled": true,
+                "python.linting.flake8Enabled": true,
+                "python.linting.mypyEnabled": true,
+                "python.formatting.provider": "black",
+                "python.testing.pytestEnabled": true,
+                "python.testing.unittestEnabled": false,
+                "python.testing.pytestArgs": [
+                    "tests/"
+                ],
+                "files.exclude": {
+                    "**/__pycache__": true,
+                    "**/*.pyc": true,
+                    ".pytest_cache": true,
+                    ".mypy_cache": true,
+                    "*.egg-info": true
+                },
+                "editor.formatOnSave": true,
+                "editor.codeActionsOnSave": {
+                    "source.organizeImports": true
+                },
+                "terminal.integrated.defaultProfile.linux": "bash",
+                "git.autofetch": true,
+                "git.enableSmartCommit": true
+            }
+        }
+    },
+    "remoteEnv": {
+        "FM_LLM_ENV": "development",
+        "PYTHONPATH": "/workspace",
+        "SECRET_KEY": "dev-secret-key",
+        "DB_PASSWORD": "dev-password"
+    },
+    "postCreateCommand": "bash .devcontainer/setup.sh",
+    "postStartCommand": "echo 'Welcome to FM-LLM-Solver development environment!' && flask --app fm_llm_solver.web.app init-db",
+    "mounts": [
+        "source=${localWorkspaceFolder}/.git,target=/workspace/.git,type=bind",
+        "source=fm-llm-solver-data,target=/workspace/data,type=volume",
+        "source=fm-llm-solver-models,target=/workspace/models,type=volume",
+        "source=fm-llm-solver-cache,target=/workspace/.cache,type=volume"
+    ],
+    "forwardPorts": [
+        5000,
+        8000,
+        9090,
+        8888,
+        5432,
+        6379
+    ],
+    "portsAttributes": {
+        "5000": {
+            "label": "Web Interface",
+            "onAutoForward": "notify"
+        },
+        "8000": {
+            "label": "API Server",
+            "onAutoForward": "silent"
+        },
+        "9090": {
+            "label": "Prometheus",
+            "onAutoForward": "silent"
+        },
+        "8888": {
+            "label": "Jupyter",
+            "onAutoForward": "notify"
+        },
+        "5432": {
+            "label": "PostgreSQL",
+            "onAutoForward": "silent"
+        },
+        "6379": {
+            "label": "Redis",
+            "onAutoForward": "silent"
+        }
+    }
+}
