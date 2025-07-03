@@ -220,6 +220,47 @@ cache:
   key_prefix: "fm_llm:"
   namespace: "default"
 
+# Monitoring configuration
+monitoring:
+  enabled: true
+  metrics:
+    prometheus_enabled: true
+    custom_metrics_retention_hours: 24
+    system_metrics_interval: 30  # seconds
+  health_checks:
+    enabled: true
+    default_interval: 30  # seconds
+    default_timeout: 10   # seconds
+    critical_failure_threshold: 3
+  alerting:
+    enabled: false  # Set to true to enable alerting
+    email_alerts: false
+    webhook_url: null  # Set webhook URL for alerts
+  performance:
+    slow_request_threshold: 5.0  # seconds
+    memory_usage_threshold: 90   # percent
+    cpu_usage_threshold: 90      # percent
+
+# Security configuration
+security:
+  rate_limit:
+    default: "100/day"
+    api_endpoints: "1000/hour"
+    auth_endpoints: "10/minute"
+  cors:
+    enabled: true
+    max_age: 86400  # 24 hours
+  headers:
+    force_https: true  # Only in production
+    content_security_policy: true
+    frame_options: "DENY"
+  encryption:
+    algorithm: "fernet"
+    key_rotation_days: 90
+  session:
+    timeout_minutes: 1440  # 24 hours
+    secure_cookies: true   # Only in production
+
 # Web interface configuration
 web_interface:
   host: "127.0.0.1"
