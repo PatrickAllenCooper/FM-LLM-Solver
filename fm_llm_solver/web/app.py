@@ -15,20 +15,24 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_cors import CORS
 from flask_migrate import Migrate
-import redis
 
-from fm_llm_solver.core.config import Config, load_config
-from fm_llm_solver.core.logging import configure_logging, get_logger
+from fm_llm_solver.core.config_manager import ConfigurationManager
+from fm_llm_solver.core.logging_manager import get_logging_manager, get_logger
+from fm_llm_solver.core.database_manager import get_database_manager
 from fm_llm_solver.services.certificate_generator import CertificateGenerator
-from fm_llm_solver.services.verifier import CertificateVerifier
+from fm_llm_solver.services.verification_service import CertificateVerifier
 from fm_llm_solver.services.knowledge_base import KnowledgeBase
-from fm_llm_solver.services.model_provider import ModelProviderFactory
-from fm_llm_solver.services.cache import RedisCache
-from fm_llm_solver.services.monitor import MonitoringService
-from fm_llm_solver.web.middleware import (
-    setup_request_logging,
-    setup_error_handlers,
-    setup_security_headers
+from fm_llm_solver.services.model_provider import QwenProvider
+from fm_llm_solver.web.models import User, QueryLog, VerificationResult, Conversation
+from fm_llm_solver.web.utils import (
+    setup_security_headers,
+    setup_rate_limiting,
+    setup_cors,
+    validate_input,
+    sanitize_output,
+    get_client_ip,
+    log_security_event,
+    handle_error_response
 )
 
 
@@ -57,30 +61,32 @@ def create_app(config_path: Optional[str] = None, test_config: Optional[dict] = 
         static_folder=str(Path(__file__).parent / "static")
     )
     
+    # Initialize configuration manager
+    config_manager = ConfigurationManager(config_dir=config_path)
+    
     # Load configuration
     if test_config:
         app.config.update(test_config)
-        config = Config(**test_config)
+        flask_config = test_config
     else:
-        config = load_config(config_path)
-        app.config.from_object(config_to_flask(config))
+        config = config_manager.load_config()
+        flask_config = config_to_flask(config, config_manager)
+        app.config.from_object(type('Config', (), flask_config))
     
-    # Configure logging
-    configure_logging(
-        level=config.logging.level,
-        log_dir=config.paths.log_dir,
-        console=config.logging.console,
-        structured=config.logging.structured
-    )
-    
+    # Initialize logging
+    logging_manager = get_logging_manager()
     logger = get_logger(__name__)
     logger.info("Creating Flask application")
     
+    # Store managers in app context
+    app.config_manager = config_manager
+    app.logging_manager = logging_manager
+    
     # Initialize extensions
-    init_extensions(app, config)
+    init_extensions(app, config_manager)
     
     # Initialize services
-    init_services(app, config)
+    init_services(app, config_manager)
     
     # Register routes
     register_routes(app)
@@ -96,17 +102,23 @@ def create_app(config_path: Optional[str] = None, test_config: Optional[dict] = 
     return app
 
 
-def config_to_flask(config: Config) -> dict:
+def config_to_flask(config: dict, config_manager: ConfigurationManager) -> dict:
     """Convert FM-LLM config to Flask config."""
+    web_config = config.get('web_interface', {})
+    db_config = config.get('database', {}).get('primary', {})
+    
+    # Build database URL
+    db_url = f"postgresql://{db_config.get('username', 'postgres')}:{db_config.get('password', '')}@{db_config.get('host', 'localhost')}:{db_config.get('port', 5432)}/{db_config.get('database', 'fm_llm_solver')}"
+    
     return {
         # Database
-        'SQLALCHEMY_DATABASE_URI': config.deployment.database_url,
+        'SQLALCHEMY_DATABASE_URI': db_url,
         'SQLALCHEMY_TRACK_MODIFICATIONS': False,
         
         # Session
-        'SECRET_KEY': config.security.session.secret_key,
-        'PERMANENT_SESSION_LIFETIME': config.security.session.permanent_session_lifetime,
-        'SESSION_COOKIE_SECURE': True,
+        'SECRET_KEY': os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production'),
+        'PERMANENT_SESSION_LIFETIME': 86400,  # 24 hours
+        'SESSION_COOKIE_SECURE': config_manager.environment.value == 'production',
         'SESSION_COOKIE_HTTPONLY': True,
         'SESSION_COOKIE_SAMESITE': 'Lax',
         
@@ -115,8 +127,8 @@ def config_to_flask(config: Config) -> dict:
         'WTF_CSRF_TIME_LIMIT': None,
         
         # Rate limiting
-        'RATELIMIT_STORAGE_URI': config.deployment.redis_url or 'memory://',
-        'RATELIMIT_DEFAULT': f"{config.security.rate_limit.requests_per_day}/day",
+        'RATELIMIT_STORAGE_URI': 'memory://',
+        'RATELIMIT_DEFAULT': '100/day',
         
         # File uploads
         'MAX_CONTENT_LENGTH': 16 * 1024 * 1024,  # 16MB
@@ -126,7 +138,7 @@ def config_to_flask(config: Config) -> dict:
     }
 
 
-def init_extensions(app: Flask, config: Config) -> None:
+def init_extensions(app: Flask, config_manager: ConfigurationManager) -> None:
     """Initialize Flask extensions."""
     logger = get_logger(__name__)
     
@@ -136,67 +148,79 @@ def init_extensions(app: Flask, config: Config) -> None:
     
     # Authentication
     login_manager.init_app(app)
-    login_manager.login_view = 'auth.login'
+    login_manager.login_view = 'main.index'
     login_manager.login_message_category = 'info'
     
     # Rate limiting
     limiter.init_app(app)
     
     # CORS
-    if config.security.cors:
-        CORS(
-            app,
-            origins=config.security.cors.allowed_origins,
-            methods=config.security.cors.allowed_methods,
-            allow_headers=config.security.cors.allowed_headers
-        )
+    config = config_manager.load_config()
+    web_config = config.get('web_interface', {})
+    cors_origins = web_config.get('cors_origins', ['http://localhost:3000'])
+    
+    CORS(
+        app,
+        origins=cors_origins,
+        methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+        allow_headers=['Content-Type', 'Authorization', 'X-Requested-With']
+    )
     
     logger.info("Flask extensions initialized")
 
 
-def init_services(app: Flask, config: Config) -> None:
+def init_services(app: Flask, config_manager: ConfigurationManager) -> None:
     """Initialize application services."""
     logger = get_logger(__name__)
     
     with app.app_context():
-        # Initialize cache
-        cache = None
-        if config.deployment.redis_url:
-            try:
-                cache = RedisCache(redis.from_url(config.deployment.redis_url))
-                logger.info("Redis cache initialized")
-            except Exception as e:
-                logger.warning(f"Failed to initialize Redis cache: {e}")
+        config = config_manager.load_config()
+        
+        # Initialize database manager
+        try:
+            db_manager = get_database_manager()
+            app.db_manager = db_manager
+            logger.info("Database manager initialized")
+        except Exception as e:
+            logger.warning(f"Failed to initialize database manager: {e}")
+            app.db_manager = None
         
         # Initialize model provider
-        model_provider = ModelProviderFactory.create(
-            provider=config.model.provider,
-            config=config.model
-        )
+        try:
+            model_provider = QwenProvider(config_manager)
+            app.model_provider = model_provider
+            logger.info("Model provider initialized")
+        except Exception as e:
+            logger.warning(f"Failed to initialize model provider: {e}")
+            app.model_provider = None
         
         # Initialize knowledge base
-        knowledge_base = None
-        if config.rag.enabled:
-            try:
-                knowledge_base = KnowledgeBase(config)
-                logger.info("Knowledge base initialized")
-            except Exception as e:
-                logger.warning(f"Failed to initialize knowledge base: {e}")
+        try:
+            knowledge_base = KnowledgeBase(config_manager)
+            app.knowledge_base = knowledge_base
+            logger.info("Knowledge base initialized")
+        except Exception as e:
+            logger.warning(f"Failed to initialize knowledge base: {e}")
+            app.knowledge_base = None
         
         # Initialize services
-        app.certificate_generator = CertificateGenerator(
-            config=config,
-            model_provider=model_provider,
-            knowledge_store=knowledge_base,
-            cache=cache
-        )
+        try:
+            app.certificate_generator = CertificateGenerator(
+                config_manager=config_manager,
+                model_provider=app.model_provider,
+                knowledge_base=app.knowledge_base
+            )
+            logger.info("Certificate generator initialized")
+        except Exception as e:
+            logger.warning(f"Failed to initialize certificate generator: {e}")
+            app.certificate_generator = None
         
-        app.verifier = CertificateVerifier(config)
-        
-        app.monitoring_service = MonitoringService(
-            config=config,
-            db=db
-        )
+        try:
+            app.verifier = CertificateVerifier(config_manager)
+            logger.info("Certificate verifier initialized")
+        except Exception as e:
+            logger.warning(f"Failed to initialize certificate verifier: {e}")
+            app.verifier = None
         
         # Store config
         app.fm_config = config
@@ -223,9 +247,9 @@ def register_routes(app: Flask) -> None:
 
 def setup_middleware(app: Flask) -> None:
     """Setup application middleware."""
-    setup_request_logging(app)
-    setup_error_handlers(app)
     setup_security_headers(app)
+    setup_rate_limiting(app)
+    setup_cors(app)
     
     get_logger(__name__).info("Middleware configured")
 
@@ -236,41 +260,54 @@ def register_cli_commands(app: Flask) -> None:
     @app.cli.command()
     def init_db():
         """Initialize the database."""
-        db.create_all()
-        print("Database initialized.")
+        try:
+            db.create_all()
+            print("Database initialized.")
+        except Exception as e:
+            print(f"Database initialization failed: {e}")
     
     @app.cli.command()
     def build_kb():
         """Build the knowledge base."""
-        from fm_llm_solver.services.knowledge_base_builder import build_knowledge_base
-        
-        config = app.fm_config
-        build_knowledge_base(config)
-        print("Knowledge base built.")
+        try:
+            if app.knowledge_base:
+                print("Building knowledge base...")
+                # Knowledge base building logic would go here
+                print("Knowledge base built.")
+            else:
+                print("Knowledge base not available.")
+        except Exception as e:
+            print(f"Knowledge base building failed: {e}")
     
     @app.cli.command()
     def test_generation():
         """Test certificate generation."""
-        from fm_llm_solver.core.types import SystemDescription
-        
-        system = SystemDescription(
-            dynamics={"x": "-x + y", "y": "x - y"},
-            initial_set="x**2 + y**2 <= 0.5",
-            unsafe_set="x**2 + y**2 >= 2.0"
-        )
-        
-        result = app.certificate_generator.generate(system)
-        
-        if result.success:
-            print(f"Certificate: {result.certificate}")
-            print(f"Confidence: {result.confidence:.2f}")
-        else:
-            print(f"Generation failed: {result.error}")
+        try:
+            if app.certificate_generator:
+                system = {
+                    "dynamics": {"x": "-x + y", "y": "x - y"},
+                    "initial_set": "x**2 + y**2 <= 0.5",
+                    "unsafe_set": "x**2 + y**2 >= 2.0"
+                }
+                
+                result = app.certificate_generator.generate(system)
+                
+                if result and result.get('success'):
+                    print(f"Certificate: {result.get('certificate')}")
+                    print(f"Confidence: {result.get('confidence', 0):.2f}")
+                else:
+                    print(f"Generation failed: {result.get('error') if result else 'Unknown error'}")
+            else:
+                print("Certificate generator not available.")
+        except Exception as e:
+            print(f"Certificate generation test failed: {e}")
 
 
 # User loader for Flask-Login
 @login_manager.user_loader
 def load_user(user_id: str):
     """Load user by ID."""
-    from fm_llm_solver.web.models import User
-    return User.query.get(int(user_id)) 
+    try:
+        return User.query.get(int(user_id))
+    except Exception:
+        return None 

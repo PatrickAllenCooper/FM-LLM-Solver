@@ -15,7 +15,7 @@ from enum import Enum
 from omegaconf import OmegaConf, DictConfig
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 
-from fm_llm_solver.core.logging import get_logger
+import logging
 from fm_llm_solver.core.exceptions import ConfigurationError
 
 
@@ -64,7 +64,7 @@ class ConfigurationManager:
             environment: Deployment environment
             secret_provider: Provider for secrets
         """
-        self.logger = get_logger(__name__)
+        self.logger = logging.getLogger(__name__)
         
         # Set up paths
         self.config_dir = Path(config_dir) if config_dir else Path("config")
@@ -411,3 +411,66 @@ class ConfigurationManager:
         self._config_cache = None
         self._secrets_cache.clear()
         self.logger.info("Configuration cache cleared") 
+    
+    def get_logging_config(self) -> Dict[str, Any]:
+        """Get logging configuration."""
+        default_logging = {
+            'log_directory': 'logs',
+            'root_level': 'INFO',
+            'loggers': {
+                'api': {
+                    'level': 'INFO',
+                    'handlers': ['console', 'rotating_file'],
+                    'json_format': True,
+                    'propagate': False
+                },
+                'model_operations': {
+                    'level': 'INFO',
+                    'handlers': ['console', 'rotating_file'],
+                    'json_format': True,
+                    'propagate': False
+                },
+                'security': {
+                    'level': 'WARNING',
+                    'handlers': ['console', 'rotating_file', 'syslog'],
+                    'json_format': True,
+                    'propagate': False
+                },
+                'performance': {
+                    'level': 'INFO',
+                    'handlers': ['rotating_file'],
+                    'json_format': True,
+                    'propagate': False
+                },
+                'database': {
+                    'level': 'INFO',
+                    'handlers': ['console', 'rotating_file'],
+                    'json_format': True,
+                    'propagate': False
+                },
+                'web': {
+                    'level': 'INFO',
+                    'handlers': ['console', 'rotating_file'],
+                    'json_format': True,
+                    'propagate': False
+                }
+            }
+        }
+        
+        # Try to get logging config from loaded configuration
+        try:
+            config = self.load_config(use_cache=True)
+            user_logging = config.get('logging', {})
+        except Exception:
+            # If config loading fails, use empty user config
+            user_logging = {}
+        
+        # Merge configurations
+        merged_config = default_logging.copy()
+        merged_config.update(user_logging)
+        
+        # Merge logger configs
+        if 'loggers' in user_logging:
+            merged_config['loggers'].update(user_logging['loggers'])
+        
+        return merged_config
