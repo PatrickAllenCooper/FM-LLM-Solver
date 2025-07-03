@@ -23,7 +23,7 @@ from fm_llm_solver.core.exceptions import (
 
 # Service exports
 from fm_llm_solver.services.certificate_generator import CertificateGenerator
-from fm_llm_solver.services.verifier import Verifier
+from fm_llm_solver.services.verifier import CertificateVerifier
 from fm_llm_solver.services.knowledge_base import KnowledgeBase
 
 __all__ = [
@@ -38,6 +38,6 @@ __all__ = [
     "VerificationError",
     "KnowledgeBaseError",
     "CertificateGenerator",
-    "Verifier",
+    "CertificateVerifier",
     "KnowledgeBase"
 ] 

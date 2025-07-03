@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Dict, Any, Optional, List, Union
 import yaml
 from dataclasses import dataclass, field
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 import json
 
 from fm_llm_solver.core.exceptions import ConfigurationError
@@ -25,7 +25,7 @@ class PathConfig(BaseModel):
     log_dir: str = Field(default="logs", description="Log directory")
     temp_dir: str = Field(default="temp", description="Temporary files directory")
     
-    @validator('*', pre=True)
+    @field_validator('*', mode='before')
     def expand_paths(cls, v):
         """Expand environment variables and user paths."""
         if isinstance(v, str):
@@ -48,7 +48,7 @@ class ModelConfig(BaseModel):
     max_new_tokens: int = Field(default=1024, ge=1, description="Maximum new tokens")
     top_p: float = Field(default=0.9, ge=0.0, le=1.0, description="Top-p sampling")
     
-    @validator('provider')
+    @field_validator('provider')
     def validate_provider(cls, v):
         """Validate model provider."""
         valid_providers = ["qwen", "openai", "anthropic", "llama", "custom"]
@@ -158,7 +158,7 @@ class DeploymentConfig(BaseModel):
     redis_url: Optional[str] = Field(default=None)
     database_url: str = Field(default="sqlite:///fm_llm_solver.db")
     
-    @validator('mode')
+    @field_validator('mode')
     def validate_mode(cls, v):
         """Validate deployment mode."""
         valid_modes = ["local", "hybrid", "cloud"]
@@ -211,9 +211,7 @@ class Config(BaseModel):
     debug: bool = Field(default=False)
     version: str = Field(default="1.0.0")
     
-    class Config:
-        """Pydantic config."""
-        extra = "allow"  # Allow extra fields for extensibility
+    model_config = ConfigDict(extra="allow")  # Allow extra fields for extensibility
 
 
 def load_config(
