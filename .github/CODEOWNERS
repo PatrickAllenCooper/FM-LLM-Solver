@@ -1,0 +1,43 @@
+# CODEOWNERS file for FM-LLM Solver
+# This file defines who is responsible for code in this repository.
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owner for everything in the repo
+* @PatrickAllenCooper
+
+# Core library code
+/fm_llm_solver/core/ @PatrickAllenCooper
+/fm_llm_solver/services/ @PatrickAllenCooper
+
+# Web interface
+/fm_llm_solver/web/ @PatrickAllenCooper
+/web_interface/ @PatrickAllenCooper
+/templates/ @PatrickAllenCooper
+
+# CLI and scripts
+/fm_llm_solver/cli/ @PatrickAllenCooper
+/scripts/ @PatrickAllenCooper
+
+# Machine Learning and Fine-tuning
+/fine_tuning/ @PatrickAllenCooper
+/inference/ @PatrickAllenCooper
+/knowledge_base/ @PatrickAllenCooper
+
+# Configuration and deployment
+/config/ @PatrickAllenCooper
+/deployment/ @PatrickAllenCooper
+/.github/ @PatrickAllenCooper
+/Dockerfile @PatrickAllenCooper
+/docker-compose.yml @PatrickAllenCooper
+
+# Documentation
+/docs/ @PatrickAllenCooper
+*.md @PatrickAllenCooper
+
+# Tests
+/tests/ @PatrickAllenCooper
+
+# Dependencies
+requirements*.txt @PatrickAllenCooper
+pyproject.toml @PatrickAllenCooper
+setup.py @PatrickAllenCooper 
