@@ -1,1 +1,13 @@
- 
+# Web Interface Dependencies for FM-LLM Solver
+# This file mirrors the root web_requirements.txt for Docker compatibility
+
+# Core Flask dependencies
+Flask>=2.3.0
+Flask-SQLAlchemy>=3.0.0
+
+# Database support
+SQLAlchemy>=1.4.0
+
+# Production deployment dependencies
+gunicorn>=20.1.0
+gevent>=22.0.0 

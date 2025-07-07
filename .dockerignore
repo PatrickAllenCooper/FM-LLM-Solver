@@ -1,0 +1,94 @@
+# Git
+.git
+.gitignore
+.github
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env
+pip-log.txt
+pip-delete-this-directory.txt
+.tox
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Project specific
+logs/
+*.log
+output/
+results/
+reports/
+instance/
+.pytest_cache/
+kb_data/
+kb_data_continuous/
+kb_data_discrete/
+data/fetched_papers/
+data/temp_pdf_batch/
+*.sqlite
+*.db
+
+# Development and testing
+tests/
+docs/_build/
+htmlcov/
+.coverage
+.pytest_cache
+.mypy_cache
+
+# Node.js (if any)
+node_modules/
+npm-debug.log
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Large model files
+*.bin
+*.safetensors
+models/
+model_cache/
+
+# Security
+*.pem
+*.key
+*.crt
+config/secrets/
+.env.local
+.env.production 

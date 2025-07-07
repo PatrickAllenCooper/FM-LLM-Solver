@@ -1,0 +1,125 @@
+{
+  "timestamp": "2025-07-07T04:50:18.938040",
+  "system_info": {
+    "cpu_count": 16,
+    "memory_total": 34266210304,
+    "disk_total": 1023303217152,
+    "python_version": "3.11.9 (tags/v3.11.9:de54cf5, Apr  2 2024, 10:12:12) [MSC v.1938 64 bit (AMD64)]",
+    "platform": "win32"
+  },
+  "benchmarks": {
+    "Certificate Generation": {
+      "error": "Import failed: No module named 'pydantic'",
+      "score": 0,
+      "max_score": 100,
+      "duration": 0.019299983978271484
+    },
+    "Verification Performance": {
+      "error": "Import failed: No module named 'pydantic'",
+      "score": 0,
+      "max_score": 100,
+      "duration": 0.0020101070404052734
+    },
+    "Web Interface": {
+      "error": "Import failed: No module named 'pydantic'",
+      "score": 0,
+      "max_score": 100,
+      "duration": 0.0020079612731933594
+    },
+    "Database Operations": {
+      "error": "Import failed: No module named 'pydantic'",
+      "score": 0,
+      "max_score": 100,
+      "duration": 0.0020062923431396484
+    },
+    "Memory Management": {
+      "score": 99.75390625,
+      "max_score": 100,
+      "metrics": {
+        "initial_memory_mb": 29.5390625,
+        "final_memory_mb": 29.78515625,
+        "memory_growth_mb": 0.24609375,
+        "cache_memory_usage_mb": 0.0,
+        "memory_efficiency": 99.75390625
+      },
+      "duration": 0.0020084381103515625
+    },
+    "Cache Performance": {
+      "error": "Import failed: No module named 'pydantic'",
+      "score": 0,
+      "max_score": 100,
+      "duration": 0.0024602413177490234
+    },
+    "Concurrent Operations": {
+      "score": 100,
+      "max_score": 100,
+      "metrics": {
+        "max_throughput": 194.16815576768172,
+        "concurrency_results": [
+          {
+            "workers": 1,
+            "completed_tasks": 20,
+            "total_time": 2.010270833969116,
+            "throughput": 9.948908207811794
+          },
+          {
+            "workers": 5,
+            "completed_tasks": 20,
+            "total_time": 0.40256810188293457,
+            "throughput": 49.68103510053047
+          },
+          {
+            "workers": 10,
+            "completed_tasks": 20,
+            "total_time": 0.2019329071044922,
+            "throughput": 99.04279736660654
+          },
+          {
+            "workers": 20,
+            "completed_tasks": 20,
+            "total_time": 0.10300350189208984,
+            "throughput": 194.16815576768172
+          }
+        ],
+        "efficiency_score": 100
+      },
+      "duration": 2.717775344848633
+    },
+    "System Resource Usage": {
+      "score": 93.84377534702708,
+      "max_score": 100,
+      "metrics": {
+        "average_cpu_percent": 12.22,
+        "average_memory_percent": 0.09244930594586945,
+        "cpu_samples": [
+          0.0,
+          13.5,
+          14.2,
+          11.8,
+          9.9,
+          34.6,
+          11.7,
+          9.6,
+          9.1,
+          7.8
+        ],
+        "memory_samples": [
+          0.09192215806929521,
+          0.09250787793215548,
+          0.09250787793215548,
+          0.09250787793215548,
+          0.09250787793215548,
+          0.09250787793215548,
+          0.09250787793215548,
+          0.09250787793215548,
+          0.09250787793215548,
+          0.09250787793215548
+        ],
+        "work_items_processed": 500
+      },
+      "duration": 1.0048167705535889
+    }
+  },
+  "performance_score": 36.699710199628385,
+  "recommendations": []
+}

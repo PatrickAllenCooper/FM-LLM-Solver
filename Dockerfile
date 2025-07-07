@@ -30,10 +30,11 @@ WORKDIR /app
 RUN groupadd -r fmllm && useradd -r -g fmllm fmllm
 
 # Install Python dependencies
-COPY requirements.txt requirements/requirements.txt requirements/web_requirements.txt ./requirements/
+COPY requirements.txt web_requirements.txt ./
+COPY requirements/ ./requirements/
 RUN pip3 install --no-cache-dir -r requirements.txt && \
     pip3 install --no-cache-dir -r requirements/requirements.txt && \
-    pip3 install --no-cache-dir -r requirements/web_requirements.txt
+    pip3 install --no-cache-dir -r web_requirements.txt
 
 # Install PyTorch with CUDA support
 RUN pip3 install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
