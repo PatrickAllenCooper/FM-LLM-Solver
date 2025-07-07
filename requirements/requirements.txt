@@ -58,5 +58,5 @@ Werkzeug>=2.3.0
 bcrypt==4.0.1
 
 # Monitoring
-psutil==5.9.8
+psutil==7.0.0
 GPUtil==1.4.0 
