@@ -1,0 +1,137 @@
+{
+  "summary": {
+    "total_checks": 93,
+    "passed": 92,
+    "failed": 1,
+    "success_rate": 98.9247311827957,
+    "missing_count": 0,
+    "warning_count": 1
+  },
+  "results": {
+    "core_capabilities": {
+      "certificate_generator": "\u2713 Present",
+      "verification_service": "\u2713 Present",
+      "model_provider": "\u2713 Present",
+      "prompt_builder": "\u2713 Present",
+      "parser": "\u2713 Present",
+      "cache_service": "\u2713 Present",
+      "monitor_service": "\u2713 Present",
+      "config_manager": "\u2713 Present",
+      "logging_manager": "\u2713 Present",
+      "database_manager": "\u2713 Present",
+      "async_manager": "\u2713 Present",
+      "memory_manager": "\u2713 Present",
+      "cache_manager": "\u2713 Present",
+      "error_handler": "\u2713 Present",
+      "monitoring": "\u2713 Present"
+    },
+    "web_interface": {
+      "app_factory": "\u2713 Present",
+      "main_routes": "\u2713 Present",
+      "models": "\u2713 Present",
+      "utils": "\u2713 Present",
+      "middleware": "\u2713 Present",
+      "templates": "\u2713 Present",
+      "static_files": "\u2717 Missing",
+      "run_web_interface.py": "\u2713 Main web interface runner",
+      "run_application.py": "\u2713 Unified application entry point"
+    },
+    "cli_tools": {
+      "main_cli": "\u2713 Present",
+      "config_cli": "\u2713 Present",
+      "deploy_cli": "\u2713 Present",
+      "experiment_cli": "\u2713 Present",
+      "kb_cli": "\u2713 Present",
+      "train_cli": "\u2713 Present",
+      "web_cli": "\u2713 Present",
+      "unified_script": "\u2713 Present"
+    },
+    "knowledge_base": {
+      "knowledge_base": "\u2713 Present",
+      "kb_builder": "\u2713 Present",
+      "pdf_processor": "\u2713 Present",
+      "document_classifier": "\u2713 Present",
+      "optimized_chunker": "\u2713 Present",
+      "kb_utils": "\u2713 Present",
+      "kb_data_dir": "\u2713 Present",
+      "kb_data_continuous_dir": "\u2713 Present",
+      "kb_data_discrete_dir": "\u2713 Present"
+    },
+    "fine_tuning": {
+      "finetune_llm": "\u2713 Present",
+      "create_data": "\u2713 Present",
+      "synthetic_data": "\u2713 Present",
+      "discrete_time_data": "\u2713 Present",
+      "type_specific_data": "\u2713 Present",
+      "extract_papers": "\u2713 Present",
+      "combine_datasets": "\u2713 Present"
+    },
+    "deployment": {
+      "dockerfile": "\u2713 Present",
+      "docker_compose": "\u2713 Present",
+      "kubernetes": "\u2713 Present",
+      "deploy_script": "\u2713 Present",
+      "deployment_test": "\u2713 Present",
+      "github_actions": "\u2713 Present"
+    },
+    "monitoring": {
+      "monitoring_core": "\u2713 Present",
+      "monitor_service": "\u2713 Present",
+      "web_monitoring": "\u2713 Present",
+      "monitoring_routes": "\u2713 Present",
+      "prometheus_config": "\u2713 Present"
+    },
+    "security": {
+      "auth_system": "\u2713 Present",
+      "auth_routes": "\u2713 Present",
+      "security_test": "\u2713 Present",
+      "security_headers": "\u2713 Present",
+      "rate_limiting": "\u2713 Present"
+    },
+    "tests": {
+      "unit_tests": {
+        "core_components": "\u2713 Present",
+        "verification": "\u2713 Present",
+        "generation": "\u2713 Present",
+        "stochastic": "\u2713 Present",
+        "pdf_processor": "\u2713 Present"
+      },
+      "integration_tests": {
+        "system_integration": "\u2713 Present",
+        "web_interface": "\u2713 Present",
+        "advanced": "\u2713 Present"
+      },
+      "benchmarks": {
+        "web_interface": "\u2713 Present",
+        "verification": "\u2713 Present",
+        "generation": "\u2713 Present",
+        "barrier_certificates": "\u2713 Present"
+      },
+      "performance": {
+        "load_test": "\u2713 Present",
+        "performance_test": "\u2713 Present"
+      }
+    },
+    "documentation": {
+      "readme": "\u2713 Present",
+      "architecture": "\u2713 Present",
+      "api_reference": "\u2713 Present",
+      "user_guide": "\u2713 Present",
+      "installation": "\u2713 Present",
+      "development": "\u2713 Present",
+      "features": "\u2713 Present",
+      "experiments": "\u2713 Present",
+      "monitoring": "\u2713 Present",
+      "security": "\u2713 Present",
+      "verification": "\u2713 Present",
+      "mathematical_primer": "\u2713 Present",
+      "optimization": "\u2713 Present",
+      "sphinx_config": "\u2713 Present",
+      "sphinx_index": "\u2713 Present"
+    }
+  },
+  "missing": [],
+  "warnings": [
+    "Web: static_files not in expected location"
+  ]
+}
