@@ -55,7 +55,7 @@ flask-login>=0.6.0 # User session management
 # Security
 Flask-Login==0.6.3
 Werkzeug>=2.3.0
-bcrypt==4.0.1
+bcrypt==4.3.0
 
 # Monitoring
 psutil==5.9.8
