@@ -2,6 +2,9 @@
 """
 Unified Test Runner for FM-LLM-Solver
 Consolidates all test execution with configurable options.
+
+Now includes adaptive testing capabilities that auto-detect environment
+and adjust testing strategy accordingly.
 """
 
 import sys
@@ -16,6 +19,14 @@ from datetime import datetime
 # Add project root to path
 PROJECT_ROOT = Path(__file__).parent.parent.absolute()
 sys.path.insert(0, str(PROJECT_ROOT))
+
+# Import adaptive testing capabilities
+try:
+    from tests.adaptive_test_runner import AdaptiveTestRunner
+    ADAPTIVE_AVAILABLE = True
+except ImportError:
+    ADAPTIVE_AVAILABLE = False
+    print("⚠️  Adaptive testing not available, falling back to basic mode")
 
 
 class UnifiedTestRunner:
@@ -276,40 +287,117 @@ class UnifiedTestRunner:
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(description="Unified Test Runner for FM-LLM-Solver")
+    
+    # Legacy test options (maintained for backward compatibility)
     parser.add_argument("--unit", action="store_true", help="Run only unit tests")
     parser.add_argument("--integration", action="store_true", help="Run only integration tests")
     parser.add_argument("--benchmarks", action="store_true", help="Run only benchmarks")
     parser.add_argument("--benchmark", type=str, help="Run specific benchmark")
     parser.add_argument("--quick", action="store_true", help="Run quick tests only")
     parser.add_argument("--skip-benchmarks", action="store_true", help="Skip benchmark tests")
+    
+    # Adaptive testing options
+    if ADAPTIVE_AVAILABLE:
+        parser.add_argument("--adaptive", action="store_true", default=True,
+                           help="Use adaptive testing (auto-detects environment, default)")
+        parser.add_argument("--no-adaptive", action="store_true", 
+                           help="Disable adaptive testing, use legacy mode")
+        parser.add_argument("--environment", choices=["macbook", "desktop", "deployed"],
+                           help="Force specific environment type for adaptive testing")
+        parser.add_argument("--scope", choices=["essential", "comprehensive", "production"],
+                           help="Override test scope for adaptive testing")
+        parser.add_argument("--include", nargs="+", 
+                           help="Include specific test categories (adaptive mode)")
+        parser.add_argument("--exclude", nargs="+",
+                           help="Exclude specific test categories (adaptive mode)")
+        parser.add_argument("--dry-run", action="store_true",
+                           help="Show adaptive strategy without running tests")
+    
+    # Common options
     parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
     parser.add_argument("--output", "-o", type=str, help="Output report file name")
     parser.add_argument("--config", type=str, default="config.yaml", help="Config file path")
     
     args = parser.parse_args()
     
-    # Create runner
-    runner = UnifiedTestRunner(args.config)
+    # Determine which mode to use
+    use_adaptive = (ADAPTIVE_AVAILABLE and args.adaptive and not args.no_adaptive and 
+                   not any([args.unit, args.integration, args.benchmarks, args.benchmark]))
     
-    # Determine what to run
-    if args.unit:
-        runner.run_unit_tests(verbose=args.verbose)
-    elif args.integration:
-        runner.run_integration_tests(quick=args.quick)
-    elif args.benchmarks or args.benchmark:
-        runner.run_benchmarks(specific_benchmark=args.benchmark)
-    else:
-        # Run all
-        return runner.run_all(skip_benchmarks=args.skip_benchmarks)
+    if use_adaptive:
+        print("🚀 Using Adaptive Test Runner")
         
-    # Generate report
-    runner.generate_report(args.output)
+        # Use adaptive test runner
+        runner = AdaptiveTestRunner(force_environment=args.environment)
+        
+        if args.dry_run:
+            print("🔍 Test Strategy (Dry Run)")
+            print("=" * 40)
+            print(f"Environment: {runner.environment_type}")
+            print(f"Summary: {runner.detector.get_summary()}")
+            
+            strategy = runner._build_test_strategy(
+                args.scope or runner.capabilities["recommended_test_scope"],
+                set(args.include) if args.include else None,
+                set(args.exclude) if args.exclude else None
+            )
+            
+            print(f"Scope: {strategy['scope']}")
+            print(f"Categories: {', '.join(strategy['categories'])}")
+            print(f"Parallel Jobs: {strategy['parallel_jobs']}")
+            print(f"Timeout Multiplier: {strategy['timeout_multiplier']:.1f}x")
+            return 0
+        
+        # Run adaptive tests
+        try:
+            results = runner.run_adaptive_tests(
+                scope_override=args.scope,
+                include_categories=set(args.include) if args.include else None,
+                exclude_categories=set(args.exclude) if args.exclude else None
+            )
+            
+            # Exit with appropriate code
+            success_rate = results["performance_metrics"]["success_rate"]
+            if success_rate >= 95:
+                return 0
+            elif success_rate >= 85:
+                return 1  # Minor issues
+            else:
+                return 2  # Major issues
+                
+        except KeyboardInterrupt:
+            print("\n❌ Tests interrupted by user")
+            return 130
+        except Exception as e:
+            print(f"\n❌ Adaptive test runner failed: {e}")
+            print("🔄 Falling back to legacy test runner...")
+            use_adaptive = False
     
-    # Check for failures
-    summary = runner.results.get('summary', {})
-    if summary.get('failed', 0) > 0 or summary.get('errors', 0) > 0:
-        return 1
-    return 0
+    if not use_adaptive:
+        print("🔄 Using Legacy Test Runner")
+        
+        # Use legacy test runner
+        runner = UnifiedTestRunner(args.config)
+        
+        # Determine what to run
+        if args.unit:
+            runner.run_unit_tests(verbose=args.verbose)
+        elif args.integration:
+            runner.run_integration_tests(quick=args.quick)
+        elif args.benchmarks or args.benchmark:
+            runner.run_benchmarks(specific_benchmark=args.benchmark)
+        else:
+            # Run all
+            return runner.run_all(skip_benchmarks=args.skip_benchmarks)
+            
+        # Generate report
+        runner.generate_report(args.output)
+        
+        # Check for failures
+        summary = runner.results.get('summary', {})
+        if summary.get('failed', 0) > 0 or summary.get('errors', 0) > 0:
+            return 1
+        return 0
 
 
 if __name__ == "__main__":
