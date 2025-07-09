@@ -1,29 +1,30 @@
-import argparse # Keep argparse ONLY for --config override
-
-# Add project root to Python path
+import argparse
 import os
 import sys
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
-sys.path.insert(0, PROJECT_ROOT)
-
-# Now we can import the utils module
-from utils.config_loader import load_config, DEFAULT_CONFIG_PATH # Import config loader
-
 import re
 import json
-import numpy as np
-from sentence_transformers import SentenceTransformer
-import faiss
-import spacy # Keep for potential MMD chunking or fallback
 import logging
-import requests # For MathPix API calls
 import time
 import platform
 import hashlib
 from pathlib import Path
-from omegaconf import OmegaConf
 from typing import Dict, List, Optional
+
+# Add project root to Python path
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
+sys.path.insert(0, PROJECT_ROOT)
+
+# Third-party imports
+import numpy as np
+from sentence_transformers import SentenceTransformer
+import faiss
+import spacy
+import requests
+from omegaconf import OmegaConf
+
+# Local imports
+from utils.config_loader import load_config, DEFAULT_CONFIG_PATH
 
 # Add tqdm for progress bars (with fallback to avoid dependency issues)
 try:

@@ -277,231 +277,44 @@ class CertificateGenerator:
         return self.models[model_key]
     
     def extract_certificate_from_output(self, llm_output: str) -> Optional[str]:
-        """Extract barrier certificate from LLM output with enhanced placeholder detection."""
-        # Primary: Look for BARRIER_CERTIFICATE_START block
-        pattern = r'BARRIER_CERTIFICATE_START\s*\n?.*?B\s*\([^)]+\)\s*=\s*([^\n\r]+)'
-        match = re.search(pattern, llm_output, re.DOTALL | re.IGNORECASE)
+        """Extract barrier certificate from LLM output using shared utilities."""
+        from utils.certificate_extraction import (
+            extract_certificate_from_llm_output,
+            clean_certificate_expression,
+            has_placeholder_variables,
+            contains_state_variables,
+            is_template_expression
+        )
         
-        if match:
-            expression = match.group(1).strip()
-            cleaned_expr = self._clean_certificate_expression(expression)
-            
-            # Enhanced placeholder detection
-            if self._has_placeholder_variables(cleaned_expr):
-                logger.warning(f"REJECTED: Contains placeholder variables: {cleaned_expr}")
-                return None
-                
-            if self._is_template_expression(cleaned_expr):
-                logger.warning(f"REJECTED: Template expression: {cleaned_expr}")
-                return None
-            
-            # Validate it contains actual variables
-            if self._contains_state_variables(cleaned_expr):
-                logger.info(f"Successfully extracted certificate: {cleaned_expr}")
-                return cleaned_expr
+        # Use shared extraction function
+        variables = ['x', 'y', 'z']  # Default state variables
+        extracted_expr, extraction_failed = extract_certificate_from_llm_output(llm_output, variables)
         
-        # Fallback: look for B(...) = ... pattern anywhere
-        fallback_pattern = r'B\s*\([^)]+\)\s*=\s*([^\n\r]+)'
-        fallback_match = re.search(fallback_pattern, llm_output, re.IGNORECASE)
+        if extraction_failed or extracted_expr is None:
+            logger.warning("Failed to extract valid certificate from LLM output")
+            return None
         
-        if fallback_match:
-            expression = fallback_match.group(1).strip()
-            cleaned_expr = self._clean_certificate_expression(expression)
-            
-            if self._has_placeholder_variables(cleaned_expr):
-                logger.warning(f"REJECTED (fallback): Contains placeholder variables: {cleaned_expr}")
-                return None
-                
-            if self._is_template_expression(cleaned_expr):
-                logger.warning(f"REJECTED (fallback): Template expression: {cleaned_expr}")
-                return None
-                
-            if self._contains_state_variables(cleaned_expr):
-                logger.info(f"Successfully extracted certificate (fallback): {cleaned_expr}")
-                return cleaned_expr
+        # Clean the extracted expression
+        cleaned_expr = clean_certificate_expression(extracted_expr)
         
-        # Enhanced fallback: look for mathematical expressions after = sign
-        math_pattern = r'=\s*([x\d\.\*\+\-\s\*\*\(\)]+[^\n\r]*)'
-        math_match = re.search(math_pattern, llm_output)
-        if math_match:
-            expression = math_match.group(1).strip()
-            cleaned_expr = self._clean_certificate_expression(expression)
+        # Enhanced placeholder detection
+        if has_placeholder_variables(cleaned_expr):
+            logger.warning(f"REJECTED: Contains placeholder variables: {cleaned_expr}")
+            return None
             
-            # Check if this is actually a valid mathematical expression (not a system equation)
-            if ('k]' in cleaned_expr or 'k+1]' in cleaned_expr or 
-                'and' in cleaned_expr or ',' in cleaned_expr):
-                # This is likely a system equation, not a certificate
-                logger.debug(f"Rejected math pattern - appears to be system equation: {cleaned_expr}")
-                return None
-            
-            # Only accept if it looks like a valid mathematical expression
-            if self._contains_state_variables(cleaned_expr) and not self._has_placeholder_variables(cleaned_expr):
-                logger.info(f"Successfully extracted certificate (math pattern): {cleaned_expr}")
-                return cleaned_expr
+        if is_template_expression(cleaned_expr):
+            logger.warning(f"REJECTED: Template expression: {cleaned_expr}")
+            return None
         
-        logger.warning("Failed to extract valid certificate from LLM output")
+        # Validate it contains actual variables
+        if contains_state_variables(cleaned_expr):
+            logger.info(f"Successfully extracted certificate: {cleaned_expr}")
+            return cleaned_expr
+        
+        logger.warning("Extracted certificate does not contain state variables")
         return None
     
-    def _clean_certificate_expression(self, expression: str) -> str:
-        """Clean LaTeX artifacts and other formatting issues from certificate expressions."""
-        if not expression:
-            return expression
-        
-        # FIRST: Remove any text after the mathematical expression
-        # Stop at common sentence starters or descriptive phrases
-        sentence_patterns = [
-            r'\s+is\s+.*$',                 # "is a valid...", "is appropriate..."
-            r'\s+which\s+.*$',               # "which ensures..."
-            r'\s+this\s+.*$',                # "this guarantees..."
-            r'\s+that\s+.*$',                # "that proves..."
-            r'\s+for\s+.*$',                 # "for the system..."
-            r'\s+where\s+.*$',               # "where x and y..."
-            r'\s+ensuring\s+.*$',            # "ensuring stability..."
-            r'\s+guaranteeing\s+.*$',        # "guaranteeing safety..."
-            r'\s+could\s+be\s+.*$',          # "could be appropriate"
-            r'\s+would\s+be\s+.*$',          # "would be appropriate"
-            r'\s+seems\s+.*$',               # "seems appropriate"
-            r'\s+appears\s+.*$',             # "appears suitable"
-            r'\s+might\s+be\s+.*$',          # "might be appropriate"
-            r'\s+should\s+be\s+.*$',         # "should be suitable"
-            r'\s+can\s+be\s+used\s*$',      # "can be used"
-            r'\s+satisfies\s+.*$',           # "satisfies the conditions"
-            r'\s+represents\s+.*$',          # "represents a barrier"
-            r'\[/?INST\].*$',               # Remove [INST] or [/INST] and everything after
-            r'\s+Great!.*$',                # "Great! That's correct..."
-            r'\s+[Tt]hat\'s\s+correct.*$',  # "That's correct..."
-        ]
-        
-        cleaned = expression
-        for pattern in sentence_patterns:
-            cleaned = re.sub(pattern, '', cleaned, flags=re.IGNORECASE)
-        
-        # Remove trailing [CUT] or similar bracketed text
-        cleaned = re.sub(r'\s*\[.*?\]\s*$', '', cleaned).strip()
-        
-        # Remove LaTeX brackets and delimiters
-        cleaned = re.sub(r'\\[\[\]()]', '', cleaned)  # Remove \[ \] \( \)
-        cleaned = re.sub(r'\\[\{\}]', '', cleaned)    # Remove \{ \}
-        
-        # Remove standalone LaTeX brackets at the end
-        cleaned = re.sub(r'\s*\\\]\s*$', '', cleaned)  # Remove trailing \]
-        cleaned = re.sub(r'\s*\\\[\s*$', '', cleaned)  # Remove trailing \[
-        cleaned = re.sub(r'\s*\\\)\s*$', '', cleaned)  # Remove trailing \)
-        cleaned = re.sub(r'\s*\\\(\s*$', '', cleaned)  # Remove trailing \(
-        
-        # Convert LaTeX math operators to standard notation
-        cleaned = cleaned.replace('\\cdot', '*')
-        cleaned = cleaned.replace('\\times', '*')
-        cleaned = cleaned.replace('\\div', '/')
-        cleaned = cleaned.replace('^', '**')           # Convert exponentiation
-        
-        # Remove LaTeX commands that might appear
-        cleaned = re.sub(r'\\[a-zA-Z]+\s*', '', cleaned)  # Remove LaTeX commands like \alpha, \beta
-        
-        # Remove excessive whitespace
-        cleaned = re.sub(r'\s+', ' ', cleaned)
-        cleaned = cleaned.strip()
-        
-        # Remove trailing punctuation that might cause parsing issues
-        cleaned = cleaned.rstrip('.,;:')
-        
-        logger.debug(f"Cleaned certificate expression: '{expression}' -> '{cleaned}'")
-        return cleaned
-    
-    def _has_placeholder_variables(self, expression: str) -> bool:
-        """Check if expression contains placeholder variables (Greek letters, single letters, etc.)."""
-        if not expression:
-            return True
-        
-        # Greek letters and common placeholders
-        placeholders = [
-            'α', 'β', 'γ', 'δ', 'λ', 'μ', 'θ', 'ρ', 'σ', 'τ', 'φ', 'χ', 'ψ', 'ω',
-            '\\alpha', '\\beta', '\\gamma', '\\delta', '\\lambda', '\\mu', '\\theta',
-            '\\rho', '\\sigma', '\\tau', '\\phi', '\\chi', '\\psi', '\\omega'
-        ]
-        
-        # Check for Greek letters and LaTeX placeholders
-        for placeholder in placeholders:
-            if placeholder in expression:
-                return True
-        
-        # More specific patterns for template variables
-        # Look for single letters that are multiplied by variables or used as coefficients
-        template_patterns = [
-            r'\b[a-h]\s*\*\s*x',      # a*x, b*x, etc.
-            r'\b[a-h]\s*\*\s*y',      # a*y, b*y, etc.
-            r'\b[a-h]\s*\*\s*z',      # a*z, b*z, etc.
-            r'\b[a-h]\s*x\b',         # ax, bx (without *)
-            r'\b[a-h]\s*y\b',         # ay, by (without *)
-            r'\b[a-h]\s*z\b',         # az, bz (without *)
-            r'\b[A-HJ-W]\s*x\b',      # Ax, Bx, etc.
-            r'\b[A-HJ-W]\s*y\b',      # Ay, By, etc.
-            r'\b[A-HJ-W]\s*z\b',      # Az, Bz, etc.
-            r'\b[a-zA-Z]\s*_\d+',     # a_1, b_2, etc.
-            r'\bc_\d+',               # c_1, c_2, etc.
-            r'coeff',                 # coefficient
-            r'param',                 # parameter
-        ]
-        
-        for pattern in template_patterns:
-            if re.search(pattern, expression, re.IGNORECASE):
-                return True
-        
-        # Don't reject expressions that are just numbers with x, y, z
-        # like "2.1*x**2 + 3.5*y**2 - 1.0"
-        
-        return False
-    
-    def _contains_state_variables(self, expression: str) -> bool:
-        """Check if expression contains actual state variables (x, y, z)."""
-        if not expression:
-            return False
-        
-        # Look for state variables x, y, z
-        state_var_pattern = r'\b[xyz]\b'
-        return bool(re.search(state_var_pattern, expression, re.IGNORECASE))
-    
-    def _is_template_expression(self, expression: str) -> bool:
-        """Check if the expression is a template/placeholder rather than a concrete barrier certificate."""
-        if not expression:
-            return True
-        
-        # If it already has placeholder variables, it's a template
-        if self._has_placeholder_variables(expression):
-            return True
-        
-        # Common template patterns that should be rejected
-        template_patterns = [
-            # Template variables (single letters as coefficients) - more precise matching
-            r'\b[a-h]\*[xy]',  # ax, bx, cy, etc. (single letters multiplying state variables)
-            r'\b[a-h]\*\*2',   # a**2, b**2, etc. (single letters as base)
-            r'\b[a-h][xy]\b',  # ax, by, etc. (single letter followed by state variable)
-            
-            # Common placeholder naming
-            r'\bc[0-9]',  # c1, c2, c3, etc.
-            r'\bcoeff',   # coeff, coefficient
-            r'\bparam',   # param, parameter
-            
-            # Standalone single letters that aren't state variables
-            r'^\s*[a-h]\s*$',  # Just 'a' or 'b' etc.
-            r'^\s*[a-h]\s*\+',  # Starting with single letter like 'a +'
-        ]
-        
-        # Check for any template patterns
-        for pattern in template_patterns:
-            if re.search(pattern, expression, re.IGNORECASE):
-                logger.debug(f"Template pattern detected: '{pattern}' in '{expression}'")
-                return True
-        
-        # Additional heuristic: if expression has more than 3 single-letter variables 
-        # (excluding x, y, z which are likely state variables), it's probably a template
-        single_letters = re.findall(r'\b[a-h]\b', expression.lower())  # Only check a-h, not all letters
-        
-        if len(set(single_letters)) >= 3:  # 3 or more different single-letter template variables
-            logger.debug(f"Too many template variables detected: {set(single_letters)} in '{expression}'")
-            return True
-        
-        return False
+    # Certificate cleaning and validation methods moved to utils.certificate_extraction
     
     def generate_certificate(self, system_description: str, model_key: str, rag_k: int = 3, domain_bounds: dict = None) -> Dict[str, Any]:
         """Generate a barrier certificate for the given system description."""

@@ -1,34 +1,32 @@
 import os
 import sys
-import sympy # Ensure sympy is imported for parse_expr
+import json
+import logging
+import time
+import warnings
 
 # Add project root to Python path
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
-sys.path.insert(0, PROJECT_ROOT) # Add project root to path
+sys.path.insert(0, PROJECT_ROOT)
 
-import argparse
-import json
+# Third-party imports
 import faiss
 import numpy as np
 import torch
-from transformers import (
-    AutoModelForCausalLM,
-    AutoTokenizer,
-    BitsAndBytesConfig,
-    pipeline,
-    logging as hf_logging, # Alias to avoid clash with standard logging
-)
-from peft import PeftModel
+from transformers import pipeline, logging as hf_logging
 from sentence_transformers import SentenceTransformer
-import warnings
-import logging
-import time
-import re
-import pandas as pd # For results summary
-from utils.config_loader import load_config, DEFAULT_CONFIG_PATH # Import config loader
-from knowledge_base.kb_utils import get_active_kb_paths, determine_kb_type_from_config, validate_kb_config
 from omegaconf import OmegaConf
+
+# Local imports
+from utils.config_loader import load_config, DEFAULT_CONFIG_PATH
+from knowledge_base.kb_utils import get_active_kb_paths, determine_kb_type_from_config, validate_kb_config
+
+# Import shared certificate extraction utilities
+from utils.certificate_extraction import (
+    extract_certificate_from_llm_output,
+    clean_and_validate_expression
+)
 
 # Import necessary functions from other modules
 try:
@@ -49,219 +47,7 @@ except ImportError as e:
 warnings.filterwarnings("ignore")
 hf_logging.set_verbosity_error() # Reduce transformers logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
-# --- Helper Functions ---
-def extract_certificate_from_llm_output(llm_text, variables):
-    """
-    Extracts the barrier certificate B(x) string from LLM output.
-    Prioritizes a delimited block, then falls back to regex patterns.
-    
-    Parameters
-    ----------
-    llm_text : str
-        The raw text output from the LLM
-    variables : list
-        List of string names representing the variables in the system (e.g. ["x", "y"])
-        
-    Returns
-    -------
-    tuple (str or None, bool)
-        (extracted_expression, True_if_extraction_failed_else_False)
-    """
-    if not llm_text:
-        logging.warning("Empty LLM output provided to extraction function")
-        return None, True
-
-    # Primary extraction: Look for the delimited block
-    # Regex to find B(vars) = expression within the delimiters
-    # Handles optional spaces around vars and equals sign
-    vars_for_b_func_str = ",\s*".join(map(re.escape, variables)) if variables else r"[\w\s,]+" # Regex for var list
-    # Pattern to capture the expression part after B(...) =
-    delimited_pattern_str = (
-        r"BARRIER_CERTIFICATE_START\s*\n"
-        r"B\s*\(\s*" + vars_for_b_func_str + r"\s*\)\s*=\s*(.*?)\s*\n" # Capture the expression
-        r"BARRIER_CERTIFICATE_END"
-    )
-    
-    match = re.search(delimited_pattern_str, llm_text, re.DOTALL | re.IGNORECASE)
-    if match:
-        candidate_expr = match.group(1).strip()
-        logging.info(f"Found delimited certificate: B(...) = {candidate_expr}")
-        cleaned_expr = clean_and_validate_expression(candidate_expr, variables)
-        if cleaned_expr:
-            logging.info(f"Extracted and validated B(x) from delimited block: {cleaned_expr}")
-            return cleaned_expr, False # Success
-        logging.warning("Delimited certificate found but content was invalid/unparsable by clean_and_validate_expression. Trying regex patterns.")
-
-    # Fallback regex patterns
-    vars_regex_part = '|'.join(map(re.escape, variables)) if variables else 'x|y'
-    
-    # Special pattern to extract the expression part from "B(x) = expression"
-    b_func_pattern = r'B\s*\([^)]*\)\s*=\s*([^;\.]+)'
-    match = re.search(b_func_pattern, llm_text)
-    if match:
-        expr_part = match.group(1).strip()
-        # Check if the expression contains a descriptive phrase
-        descriptive_keywords = [
-            'penalizes', 'guarantees', 'ensures', 'maintains', 'establishes', 'represents', 
-            'captures', 'describes', 'measures', 'provides', 'implements', 'achieves',
-            'prevents', 'avoids', 'limits', 'restricts', 'controls', 'monitors',
-            'sufficient', 'necessary', 'required', 'appropriate', 'suitable',
-            'the', 'this', 'that', 'these', 'those', 'can', 'will', 'should', 'could'
-        ]
-        if any(word in expr_part.lower() for word in descriptive_keywords):
-            logging.warning(f"Skipping B(x) notation candidate '{expr_part}' because it appears to be a descriptive phrase.")
-        else:
-            # Clean up the expression by removing anything before the first operation if needed
-            cleaned_expr = clean_and_validate_expression(expr_part, variables)
-            if cleaned_expr:
-                logging.info(f"Extracted and validated B(x) from B(x) notation: {cleaned_expr}")
-                return cleaned_expr, False
-    
-    # Other standard patterns
-    patterns = [
-        r'B\s*\(\s*(?:" + vars_regex_part + r"(?:\s*,\s*" + vars_regex_part + r")*\s*)\)\s*=\s*([^{};\n\.]+)', # Formal: B(var1,var2,...) = expr
-        r'Barrier\s+Certificate\s*[:=]\s*([^{};\n\.]+)', # Labeled: Barrier Certificate: expr
-        r'(?:is|certificate is|given by|function is)\s*[:=]?\s*([^{};\n\.]+)', # Descriptive: ...is expr
-        r'(?:conditions|function|certificate|propose)\s+(?:is|for|that|as)\s+([^{};\n\.]+)', # General
-        r'([^\n;:]+\*\*2[^\n;:]+)', # Advanced: equations with x**2 etc.
-        r'([^\n;:]*)(?:{vars_regex_part})(?:[+\-*/^()])+(?:[^\n;:]*)'.format(vars_regex_part=vars_regex_part)
-    ]
-
-    # Words that indicate an extracted text is a descriptive phrase and not an actual certificate
-    descriptive_keywords = [
-        'penalizes', 'guarantees', 'ensures', 'maintains', 'establishes', 'represents', 
-        'captures', 'describes', 'measures', 'provides', 'implements', 'achieves',
-        'prevents', 'avoids', 'limits', 'restricts', 'controls', 'monitors',
-        'sufficient', 'necessary', 'required', 'appropriate', 'suitable',
-        'the', 'this', 'that', 'these', 'those', 'can', 'will', 'should', 'could'
-    ]
-
-    for i, pattern_str in enumerate(patterns):
-        try:
-            # For the general pattern, ensure it can find at least one variable if variables are specified
-            if i == len(patterns) -1 and variables and not any(v in llm_text for v in variables):
-                 continue
-
-            match = re.search(pattern_str, llm_text, re.IGNORECASE | (re.DOTALL if i == 3 else 0))
-            if match:
-                candidate_text = match.group(1) if match.groups() and match.group(1) else match.group(0)
-                
-                # Skip this candidate if it contains descriptive keywords
-                contains_descriptive_word = any(word in candidate_text.lower() for word in descriptive_keywords)
-                if contains_descriptive_word:
-                    logging.warning(f"Skipping candidate '{candidate_text}' because it appears to be a descriptive phrase.")
-                    continue
-                
-                # Check if it contains at least one of the system variables
-                if variables and not any(var in candidate_text for var in variables):
-                    logging.warning(f"Skipping candidate '{candidate_text}' because it doesn't contain any system variables.")
-                    continue
-                
-                cleaned_expr = clean_and_validate_expression(candidate_text, variables)
-                if cleaned_expr:
-                    logging.info(f"Extracted and validated B(x) using regex pattern {i+1}: {cleaned_expr}")
-                    return cleaned_expr, False # Success
-        except re.error as re_err:
-            logging.error(f"Regex error with pattern {i+1} ('{pattern_str}'): {re_err}")
-
-    logging.warning(f"Could not reliably extract or validate a specific B(x) expression from LLM output via any method: {llm_text[:100]}...")
-    return None, True
-
-def clean_and_validate_expression(candidate_str, system_variables_str_list): # system_variables is list of strings
-    """
-    Cleans and validates a potential barrier certificate expression string.
-    Returns the cleaned string if valid and parsable by SymPy and contains system variables, otherwise None.
-    """
-    if not candidate_str:
-        return None
-    
-    candidate_str = str(candidate_str).strip()
-    
-    # Handle specific patterns that might cause issues
-    
-    # 1. Remove B(x) = prefix if it exists (to avoid interpreting B and x as variables)
-    b_prefix_match = re.match(r'B\s*\([^)]*\)\s*=\s*(.*)', candidate_str)
-    if b_prefix_match:
-        candidate_str = b_prefix_match.group(1).strip()
-    
-    # 2. Basic structure checks (parentheses, trailing operators)
-    if candidate_str.count('(') != candidate_str.count(')'):
-        logging.debug(f"CleanValidate: Invalid - Unbalanced parentheses in '{candidate_str}'")
-        return None
-    if candidate_str.endswith(('+', '-', '*', '/', '**', '^', '(')):
-        logging.debug(f"CleanValidate: Invalid - Trailing operator/open paren in '{candidate_str}'")
-        return None
-    if re.search(r'B\(\s*\)\s*=', candidate_str, re.IGNORECASE):
-        logging.debug(f"CleanValidate: Invalid - Empty B() function in '{candidate_str}'")
-        return None
-
-    # 3. Standard cleaning (LaTeX, descriptive text, trailing punctuation)
-    cleaned_str = re.sub(r'\\[\(\)]', '', candidate_str)  
-    cleaned_str = re.sub(r'\\[\{\}]', '', cleaned_str)
-    cleaned_str = cleaned_str.replace('\\cdot', '*')
-    cleaned_str = cleaned_str.replace('^', '**')
-    
-    descriptive_match = re.match(r"(.*?)(?:\s+(?:where|for|such that|on|ensuring|if|assuming|denotes|represents)\s+[a-zA-Z].*)", cleaned_str, re.DOTALL | re.IGNORECASE)
-    if descriptive_match:
-        cleaned_str = descriptive_match.group(1).strip()
-    else:
-        cleaned_str = cleaned_str.strip()
-    cleaned_str = cleaned_str.rstrip('.,;')
-
-    if not cleaned_str:
-        logging.debug(f"CleanValidate: Candidate '{candidate_str}' became empty after cleaning.")
-        return None
-
-    # 4. Attempt to parse with SymPy
-    try:
-        local_sympy_dict = {var_name: sympy.symbols(var_name) for var_name in system_variables_str_list} if system_variables_str_list else {}
-        parsed_expr = sympy.parse_expr(cleaned_str, local_dict=local_sympy_dict, transformations='all')
-        
-        if parsed_expr is None or parsed_expr is sympy.S.EmptySet: 
-             logging.debug(f"CleanValidate: Candidate '{cleaned_str}' (from '{candidate_str}') parsed to SymPy EmptySet or None.")
-             return None
-
-    except (SyntaxError, TypeError, sympy.SympifyError, AttributeError, RecursionError) as e: 
-        logging.warning(f"CleanValidate: Candidate '{cleaned_str}' (from '{candidate_str}') failed SymPy parsing: {e}")
-        return None
-    except Exception as e: 
-        logging.warning(f"CleanValidate: Candidate '{cleaned_str}' (from '{candidate_str}') failed SymPy parsing with unexpected error: {e}")
-        return None
-
-    # 5. Check if the parsed expression contains any of the system variables (if specified)
-    if system_variables_str_list:
-        try:
-            expr_free_symbols_names = {s.name for s in parsed_expr.free_symbols}
-        except AttributeError: # e.g. if parsed_expr is a number
-            expr_free_symbols_names = set()
-
-        # Fix: Check if parsed_expr is a tuple or has the is_number attribute before accessing it
-        is_number = False
-        if isinstance(parsed_expr, tuple):
-            logging.warning(f"CleanValidate: Parsed expression is a tuple: {parsed_expr}")
-            return None
-        elif hasattr(parsed_expr, 'is_number'):
-            is_number = parsed_expr.is_number
-        else:
-            logging.warning(f"CleanValidate: Parsed expression has unexpected type: {type(parsed_expr)}")
-            return None
-
-        if not any(var_name in expr_free_symbols_names for var_name in system_variables_str_list):
-            if is_number: # Allow constants if they parse correctly
-                logging.debug(f"CleanValidate: Candidate '{cleaned_str}' (parsed: '{parsed_expr}') is a constant. Allowing as potentially valid.")
-            else:
-                logging.debug(f"CleanValidate: Parsed '{parsed_expr}' from '{cleaned_str}' does not contain expected system variables: {system_variables_str_list}")
-                return None
-    
-    # 6. Final check for obviously disallowed characters (might be redundant now)
-    disallowed_chars = ['\\', '?', '!', '@', '#', '$', '%', '&', '|', '~', ';', '{', '}']
-    if any(c in cleaned_str for c in disallowed_chars):
-        logging.debug(f"CleanValidate: Candidate '{cleaned_str}' contains disallowed characters after all other checks.")
-        return None
-
-    logging.debug(f"CleanValidate: Successfully cleaned and validated '{candidate_str}' to '{cleaned_str}'")
-    return cleaned_str # Return the cleaned string, not the parsed_expr object
+# Certificate extraction functions moved to utils.certificate_extraction
 
 
 # --- Main Evaluation Logic ---

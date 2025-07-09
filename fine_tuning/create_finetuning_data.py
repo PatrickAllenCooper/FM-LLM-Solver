@@ -45,27 +45,12 @@ def load_kb_metadata(metadata_path):
         logging.error(f"Failed to load metadata from {metadata_path}: {e}")
         return None
 
-def format_instruction_example(system_description, barrier_certificate):
-    """Formats a single example into the instruction-following JSON structure."""
-    instruction = ("Given the autonomous system described by the following dynamics, "
-                   "propose a suitable barrier certificate function B(x) and, if possible, "
-                   "briefly outline the conditions it must satisfy.")
-    return {
-        "instruction": instruction,
-        "input": system_description, # The system dynamics, constraints, sets etc.
-        "output": barrier_certificate, # The barrier function B(x), possibly with verification notes
-        "metadata": { "source": "manual" } # Add source metadata
-    }
+from utils.data_formatting import (
+    format_instruction_example,
+    format_prompt_completion_example
+)
 
-def format_prompt_completion_example(system_description, barrier_certificate):
-    """Formats a single example into a simpler prompt/completion structure."""
-    prompt = f"System Dynamics:\n{system_description}\n\nBarrier Certificate:"
-    completion = f" {barrier_certificate}"
-    return {
-        "prompt": prompt,
-        "completion": completion,
-        "metadata": { "source": "manual" } # Add source metadata
-    }
+# Data formatting functions moved to utils.data_formatting
 
 # --- Main Logic ---
 

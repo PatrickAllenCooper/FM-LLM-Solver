@@ -73,41 +73,9 @@ def combine_datasets(input_patterns, output_file, required_source=None):
                         data = json.loads(line)
                         data_source = None
 
-                        # --- Extract Source Metadata --- #
-                        # Attempt 1: Check for top-level 'metadata.source'
-                        if isinstance(data.get('metadata'), dict):
-                            data_source = data['metadata'].get('source')
-
-                        # Attempt 2: Check if source is embedded in 'output' or 'completion' (less ideal)
-                        if not data_source:
-                            output_text = data.get('output', '') + data.get('completion', '')
-                            meta_match = re.search(r'Metadata:\s*({.*?})', output_text, re.IGNORECASE)
-                            if meta_match:
-                                try:
-                                    embedded_meta = json.loads(meta_match.group(1))
-                                    data_source = embedded_meta.get('source')
-                                except json.JSONDecodeError:
-                                    pass # Ignore malformed embedded metadata
-
-                        # Attempt 3: Infer source from filename if not found in data
-                        if not data_source:
-                            if 'synthetic' in os.path.basename(filepath).lower():
-                                data_source = 'synthetic_inferred'
-                            elif 'extract' in os.path.basename(filepath).lower():
-                                 data_source = 'llm_extracted_inferred'
-                            elif 'manual' in os.path.basename(filepath).lower() or 'finetuning_data.jsonl' == os.path.basename(filepath):
-                                 data_source = 'manual' # Assume default is manual
-                            else:
-                                 data_source = 'unknown'
-                            logging.debug(f"Inferred source '{data_source}' for line {line_num+1} in {filepath}")
-                            # Optionally add inferred source back to data if structure allows
-                            if isinstance(data.get('metadata'), dict):
-                                 data['metadata']['source'] = data_source
-                            elif 'output' in data and 'metadata': # Simple heuristic add
-                                data['output'] += f"\\nMetadata: {json.dumps({'source': data_source})}"
-                            elif 'completion' in data and 'metadata':
-                                data['completion'] += f"\\nMetadata: {json.dumps({'source': data_source})}"
-                        # --- End Extract Source Metadata --- #
+                        # Extract source metadata using shared utility
+                        from utils.data_formatting import extract_metadata_from_example
+                        data_source = extract_metadata_from_example(data, filepath)
 
                         # Filter based on source if a required source is specified
                         if required_source and data_source != required_source:

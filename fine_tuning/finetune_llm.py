@@ -1,6 +1,14 @@
 import os
 import sys
-import argparse
+import gc
+import warnings
+
+# Add project root to Python path
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
+sys.path.insert(0, PROJECT_ROOT)
+
+# Third-party imports
 import torch
 from datasets import load_dataset
 from transformers import (
@@ -15,22 +23,19 @@ from transformers import (
 )
 from peft import LoraConfig, PeftModel, get_peft_model, prepare_model_for_kbit_training
 from trl import SFTTrainer, SFTConfig
-import warnings
-import gc  # For manual garbage collection
-from omegaconf import OmegaConf, ListConfig # Import OmegaConf
+from omegaconf import OmegaConf, ListConfig
+
+# Local imports
+from utils.config_loader import load_config, DEFAULT_CONFIG_PATH
+from knowledge_base.kb_utils import get_ft_data_path_by_type, determine_kb_type_from_config
+from utils.data_formatting import (
+    formatting_prompts_func,
+    formatting_prompt_completion_func
+)
 
 # Suppress warnings
 warnings.filterwarnings("ignore")
 logging.set_verbosity_error() # Reduce transformers logging verbosity
-
-# Add project root to Python path
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
-sys.path.insert(0, PROJECT_ROOT)
-
-# Now we can import from utils
-from utils.config_loader import load_config, DEFAULT_CONFIG_PATH
-from knowledge_base.kb_utils import get_ft_data_path_by_type, determine_kb_type_from_config
 
 # --- Configuration --- #
 
@@ -94,30 +99,7 @@ MAX_SEQ_LENGTH = None             # Maximum sequence length to use (set if using
 
 # --- Helper Functions ---
 
-def formatting_prompts_func(example):
-    """Function to format dataset examples for instruction fine-tuning."""
-    # Process a single example (dictionary)
-    # Create a simpler combined text. Let SFTTrainer and the tokenizer's chat_template handle final formatting.
-    # This is to avoid potential conflicts if SFTTrainer re-templates an already chat-formatted string.
-    instruction = example.get('instruction', '')
-    input_text = example.get('input', '')
-    output_text = example.get('output', '')
-
-    # Basic concatenation, actual chat structure will be applied by the tokenizer's chat_template if available
-    text = f"Instruction:\n{instruction}\n\nInput:\n{input_text}\n\nOutput:\n{output_text}"
-    
-    # Return string directly instead of a dictionary
-    return text
-
-def formatting_prompt_completion_func(example):
-    """Function to format dataset examples for prompt/completion fine-tuning."""
-    # Process a single example (dictionary)
-    prompt = example.get('prompt', '')
-    completion = example.get('completion', '')
-    text = prompt + completion
-    
-    # Return string directly instead of a dictionary
-    return text
+# Data formatting functions moved to utils.data_formatting
 
 def free_memory():
     """Free up GPU memory by explicitly running garbage collection and emptying CUDA cache."""

@@ -200,55 +200,9 @@ def generate_system_description_text(system_info):
         desc += f"Safe Set (Region of Interest): {{ ({', '.join(var_names)}) | {system_info['safe_set_conditions']} }}\n"
     return desc.strip()
 
-def format_example(system_desc_text, certificate_str, format_type):
-    """Formats the example based on the desired output format."""
-    # Add source metadata
-    metadata = {'source': 'synthetic_sos_placeholder'}
+from utils.data_formatting import format_synthetic_example
 
-    if format_type == "instruction":
-        instruction = ("Given the autonomous system described by the following dynamics, "
-                       "propose a suitable barrier certificate function B(x).")
-        # Simple approach - extract variables from certificate string
-        try:
-            # Parse the certificate to extract variables
-            certificate_expr = sympy.sympify(certificate_str)
-            variables = list(certificate_expr.free_symbols)
-            var_names = sorted([str(var) for var in variables])
-            if var_names:
-                var_string = ', '.join(var_names)
-            else:
-                var_string = "x, y"  # Default fallback
-        except:
-            var_string = "x, y"  # Fallback if parsing fails
-            
-        output = f"Barrier Certificate Candidate:\nB({var_string}) = {certificate_str}\nMetadata: {json.dumps(metadata)}"
-
-        return {
-            "instruction": instruction,
-            "input": system_desc_text,
-            "output": output
-        }
-    elif format_type == "prompt_completion":
-        try:
-            certificate_expr = sympy.sympify(certificate_str)
-            variables = list(certificate_expr.free_symbols)
-            var_names = sorted([str(var) for var in variables])
-            if var_names:
-                var_string = ', '.join(var_names)
-            else:
-                var_string = "x, y"  # Default fallback
-        except:
-            var_string = "x, y"  # Fallback if parsing fails
-            
-        prompt = f"System Dynamics:\n{system_desc_text}\n\nBarrier Certificate:"
-        completion = f" B({var_string}) = {certificate_str}\nMetadata: {json.dumps(metadata)}"
-
-        return {
-            "prompt": prompt,
-            "completion": completion
-        }
-    else:
-        raise ValueError(f"Unsupported format type: {format_type}")
+# Data formatting function moved to utils.data_formatting
 
 # --- Main Logic ---
 
@@ -306,7 +260,7 @@ def generate_data(output_file, format_type):
 
                  if is_verified:
                      logging.info(f"Generated certificate '{certificate_str}' passed basic verification for system {system_info['id']}.")
-                     example = format_example(system_desc_text, certificate_str, format_type)
+                     example = format_synthetic_example(system_desc_text, certificate_str, format_type)
                      generated_examples.append(example)
                  else:
                      logging.warning(f"Generated certificate '{certificate_str}' FAILED basic verification for system {system_info['id']} (dB/dt={dB_dt}, Reason: {reason}). Skipping.")
@@ -317,12 +271,12 @@ def generate_data(output_file, format_type):
         except ImportError:
              logging.warning("Could not import verification functions. Proceeding without verification (certificates may be invalid).")
              # Proceed without verification - add the example anyway
-             example = format_example(system_desc_text, certificate_str, format_type)
+             example = format_synthetic_example(system_desc_text, certificate_str, format_type)
              generated_examples.append(example)
         except Exception as e:
             logging.warning(f"Error during verification for system {system_info['id']}: {e}. Proceeding without verification.")
             # Add the example anyway
-            example = format_example(system_desc_text, certificate_str, format_type)
+            example = format_synthetic_example(system_desc_text, certificate_str, format_type)
             generated_examples.append(example)
 
     logging.info(f"Generated {len(generated_examples)} synthetic examples. Skipped {skipped_count} systems.")
