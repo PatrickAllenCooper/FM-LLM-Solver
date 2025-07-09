@@ -28,24 +28,38 @@ class TestConfigurationManager:
                 "primary": {
                     "host": "localhost",
                     "port": 5432,
-                    "database": "test_db",
-                    "username": "test_user",
-                    "password": "${secret:DB_PASSWORD}"
+                    "name": "test_db",
+                    "user": "test_user"
                 }
+            },
+            "paths": {
+                "data_dir": "./data",
+                "logs_dir": "./logs"
+            },
+            "logging": {
+                "level": "INFO"
+            },
+            "model": {
+                "provider": "dummy",
+                "name": "dummy-model"
             }
         }
         
         with tempfile.TemporaryDirectory() as temp_dir:
-            config_file = Path(temp_dir) / "config.yaml"
-            
+            config_dir = Path(temp_dir)
+            config_file = config_dir / "config.yaml"
+            # Ensure the config directory exists
+            config_dir.mkdir(parents=True, exist_ok=True)
             import yaml
             with open(config_file, 'w') as f:
                 yaml.dump(sample_config, f)
-            
-            with patch.dict(os.environ, {"DB_PASSWORD": "secret_password"}):
-                config_manager = ConfigurationManager(config_file)
-                assert config_manager.environment == "testing"
-                assert config_manager.get("database.primary.host") == "localhost"
+            with patch.dict(os.environ, {"DB_PASSWORD": "secret_password", "FM_LLM_ENV": "testing"}):
+                config_manager = ConfigurationManager(config_dir, environment="testing")
+                assert config_manager.environment.value == "testing"
+                
+                # Load the configuration and access values
+                config = config_manager.load_config()
+                assert config["database"]["primary"]["host"] == "localhost"
 
 
 class TestDatabaseManager:

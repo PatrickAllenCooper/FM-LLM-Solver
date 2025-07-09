@@ -265,7 +265,7 @@ class RedisCache(CacheBackendInterface):
         self.hit_count = 0
         self.miss_count = 0
     
-    def _create_redis_client(self) -> Redis:
+    def _create_redis_client(self) -> "Redis":
         """Create Redis client."""
         try:
             if self.config.redis_url:

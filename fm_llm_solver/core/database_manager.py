@@ -35,9 +35,16 @@ from .logging_manager import get_logger
 from .exceptions import DatabaseError, ConfigurationError
 
 
-class Base(DeclarativeBase):
-    """Base class for SQLAlchemy models."""
-    pass
+# Define Base class only if SQLAlchemy is available
+if HAS_POSTGRES:
+    class Base(DeclarativeBase):
+        """Base class for SQLAlchemy models."""
+        pass
+else:
+    # Fallback base class when SQLAlchemy is not available
+    class Base:
+        """Fallback base class when SQLAlchemy is not available."""
+        pass
 
 
 class DatabaseManager:
@@ -285,7 +292,7 @@ class DatabaseManager:
             raise DatabaseError(f"Migration failed: {e}")
     
     @asynccontextmanager
-    async def async_session(self) -> AsyncGenerator[AsyncSession, None]:
+    async def async_session(self) -> AsyncGenerator["AsyncSession", None]:
         """Get async database session."""
         if not self._initialized:
             await self.initialize()
@@ -305,7 +312,7 @@ class DatabaseManager:
             await session.close()
     
     @contextmanager
-    def sync_session(self) -> Session:
+    def sync_session(self) -> "Session":
         """Get sync database session."""
         if not self._initialized:
             # Initialize synchronously
@@ -372,14 +379,14 @@ class DatabaseManager:
             else:
                 return []
     
-    async def create_tables(self, metadata: MetaData) -> None:
+    async def create_tables(self, metadata: "MetaData") -> None:
         """Create database tables from metadata."""
         async with self._async_engine.begin() as conn:
             await conn.run_sync(metadata.create_all)
         
         self.logger.info("Database tables created")
     
-    def create_tables_sync(self, metadata: MetaData) -> None:
+    def create_tables_sync(self, metadata: "MetaData") -> None:
         """Create database tables from metadata synchronously."""
         with self._sync_engine.begin() as conn:
             metadata.create_all(conn)
