@@ -35,7 +35,7 @@ def extract_certificate_from_llm_output(llm_text: str, variables: List[str]) -> 
         return None, True
 
     # Primary extraction: Look for the delimited block
-    vars_for_b_func_str = ",\s*".join(map(re.escape, variables)) if variables else r"[\w\s,]+"
+    vars_for_b_func_str = r",\s*".join(map(re.escape, variables)) if variables else r"[\w\s,]+"
     delimited_pattern_str = (
         r"BARRIER_CERTIFICATE_START\s*\n"
         r"B\s*\(\s*" + vars_for_b_func_str + r"\s*\)\s*=\s*(.*?)\s*\n"
