@@ -17,7 +17,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 def run_quick_check():
     """Run a quick system check"""
-    print("🔍 Quick System Check...")
+    print("Quick System Check...")
     
     # Check key components
     components = [
@@ -32,9 +32,9 @@ def run_quick_check():
     for module, name in components:
         try:
             __import__(module)
-            print(f"  ✅ {name}")
+            print(f"  OK {name}")
         except ImportError:
-            print(f"  ❌ {name}")
+            print(f"  FAIL {name}")
             all_good = False
     
     # Check GPU
@@ -42,17 +42,17 @@ def run_quick_check():
         import torch
         if torch.cuda.is_available():
             gpu_name = torch.cuda.get_device_name(0)
-            print(f"  🚀 GPU: {gpu_name}")
+            print(f"  GPU: {gpu_name}")
         else:
-            print("  ⚠️ GPU: Not available")
+            print("  GPU: Not available")
     except ImportError:
-        print("  ⚠️ GPU: PyTorch not available")
+        print("  GPU: PyTorch not available")
     
     return all_good
 
 def run_unit_tests():
     """Run unit tests"""
-    print("🧪 Running Unit Tests...")
+    print("Running Unit Tests...")
     import subprocess
     
     try:
@@ -61,22 +61,22 @@ def run_unit_tests():
         ], capture_output=True, text=True, timeout=120)
         
         if result.returncode == 0:
-            print("  ✅ Unit tests passed")
+            print("  Unit tests passed")
             return True
         else:
-            print("  ❌ Unit tests failed")
+            print("  Unit tests failed")
             print(result.stdout)
             return False
     except subprocess.TimeoutExpired:
-        print("  ⏰ Unit tests timed out")
+        print("  Unit tests timed out")
         return False
     except Exception as e:
-        print(f"  ❌ Unit tests error: {e}")
+        print(f"  Unit tests error: {e}")
         return False
 
 def run_unified_suite():
     """Run the unified test suite"""
-    print("🚀 Running Unified Test Suite...")
+    print("Running Unified Test Suite...")
     import subprocess
     
     try:
@@ -85,22 +85,22 @@ def run_unified_suite():
         ], capture_output=True, text=True, timeout=300)
         
         if result.returncode == 0:
-            print("  ✅ Unified test suite passed")
+            print("  Unified test suite passed")
             return True
         else:
-            print("  ❌ Unified test suite failed")
+            print("  Unified test suite failed")
             print(result.stdout)
             return False
     except subprocess.TimeoutExpired:
-        print("  ⏰ Unified test suite timed out")
+        print("  Unified test suite timed out")
         return False
     except Exception as e:
-        print(f"  ❌ Unified test suite error: {e}")
+        print(f"  Unified test suite error: {e}")
         return False
 
 def run_gpu_tests():
     """Run GPU-specific tests"""
-    print("🚀 Running GPU Tests...")
+    print("Running GPU Tests...")
     import subprocess
     
     try:
@@ -109,22 +109,22 @@ def run_gpu_tests():
         ], capture_output=True, text=True, timeout=120)
         
         if result.returncode == 0:
-            print("  ✅ GPU tests passed")
+            print("  GPU tests passed")
             return True
         else:
-            print("  ❌ GPU tests failed")
+            print("  GPU tests failed")
             print(result.stdout)
             return False
     except subprocess.TimeoutExpired:
-        print("  ⏰ GPU tests timed out")
+        print("  GPU tests timed out")
         return False
     except Exception as e:
-        print(f"  ❌ GPU tests error: {e}")
+        print(f"  GPU tests error: {e}")
         return False
 
 def show_summary():
     """Show test summary"""
-    print("📊 Test Summary...")
+    print("Test Summary...")
     import subprocess
     
     try:
@@ -134,7 +134,7 @@ def show_summary():
         
         print(result.stdout)
     except Exception as e:
-        print(f"  ❌ Summary error: {e}")
+        print(f"  Summary error: {e}")
 
 def main():
     """Main function"""
@@ -148,7 +148,7 @@ def main():
     
     args = parser.parse_args()
     
-    print("🎯 FM-LLM-Solver Test Runner")
+    print("FM-LLM-Solver Test Runner")
     print("=" * 40)
     
     if args.quick or not any([args.unit, args.unified, args.gpu, args.summary, args.all]):
@@ -166,7 +166,7 @@ def main():
     if args.summary or args.all:
         show_summary()
     
-    print("\n✅ Test runner completed!")
+    print("\nTest runner completed!")
 
 if __name__ == "__main__":
     main() 
