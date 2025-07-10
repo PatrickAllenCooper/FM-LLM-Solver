@@ -1,0 +1,166 @@
+{
+  "device": "cuda",
+  "gpu_available": true,
+  "memory_tests": {
+    "gpu_available": true,
+    "memory_tests": [
+      {
+        "size": 1000,
+        "start_memory_mb": 6570.7587890625,
+        "peak_memory_mb": 6582.607421875,
+        "final_memory_mb": 6570.7587890625,
+        "compute_time": 0.0,
+        "memory_cleaned": true
+      },
+      {
+        "size": 2000,
+        "start_memory_mb": 6570.7587890625,
+        "peak_memory_mb": 6616.53515625,
+        "final_memory_mb": 6570.7587890625,
+        "compute_time": 0.001004934310913086,
+        "memory_cleaned": true
+      },
+      {
+        "size": 4000,
+        "start_memory_mb": 6570.7587890625,
+        "peak_memory_mb": 6753.8642578125,
+        "final_memory_mb": 6570.7587890625,
+        "compute_time": 0.006386280059814453,
+        "memory_cleaned": true
+      },
+      {
+        "size": 8000,
+        "start_memory_mb": 6570.7587890625,
+        "peak_memory_mb": 7303.1806640625,
+        "final_memory_mb": 6570.7587890625,
+        "compute_time": 0.05151677131652832,
+        "memory_cleaned": true
+      }
+    ],
+    "all_tests_passed": true
+  },
+  "sampling_tests": [
+    {
+      "gpu_available": true,
+      "dimensions": 4,
+      "num_samples": 10000,
+      "gpu_time": 0.0,
+      "cpu_time": 0.0010035037994384766,
+      "speedup": 0,
+      "barrier_values_computed": 100,
+      "memory_used_mb": 6570.91162109375
+    },
+    {
+      "gpu_available": true,
+      "dimensions": 4,
+      "num_samples": 10000,
+      "gpu_time": 0.0010044574737548828,
+      "cpu_time": 0.0010051727294921875,
+      "speedup": 1.0007120816520294,
+      "barrier_values_computed": 100,
+      "memory_used_mb": 6570.91162109375
+    },
+    {
+      "gpu_available": true,
+      "dimensions": 3,
+      "num_samples": 10000,
+      "gpu_time": 0.0,
+      "cpu_time": 0.001157999038696289,
+      "speedup": 0,
+      "barrier_values_computed": 100,
+      "memory_used_mb": 6570.87353515625
+    },
+    {
+      "gpu_available": true,
+      "dimensions": 5,
+      "num_samples": 10000,
+      "gpu_time": 0.0,
+      "cpu_time": 0.0010051727294921875,
+      "speedup": 0,
+      "barrier_values_computed": 100,
+      "memory_used_mb": 6570.94970703125
+    }
+  ],
+  "verification_tests": [
+    {
+      "gpu_available": true,
+      "dimensions": 4,
+      "certificate": "x**2 + y**2 + z**2 + w**2 - 1.5",
+      "gpu_time": 0.0,
+      "lie_samples": 5000,
+      "boundary_samples": 2500,
+      "lie_violations": 0,
+      "boundary_violations": 98,
+      "memory_used_mb": 6570.8740234375
+    },
+    {
+      "gpu_available": true,
+      "dimensions": 4,
+      "certificate": "x**2 + y**2 + z**2 + w**2 - 1.5",
+      "gpu_time": 0.0,
+      "lie_samples": 5000,
+      "boundary_samples": 2500,
+      "lie_violations": 0,
+      "boundary_violations": 100,
+      "memory_used_mb": 6570.8740234375
+    },
+    {
+      "gpu_available": true,
+      "dimensions": 3,
+      "certificate": "x**2 + 2*y**2 + 3*z**2 - 1.5",
+      "gpu_time": 0.0010776519775390625,
+      "lie_samples": 5000,
+      "boundary_samples": 2500,
+      "lie_violations": 0,
+      "boundary_violations": 92,
+      "memory_used_mb": 6570.84521484375
+    },
+    {
+      "gpu_available": true,
+      "dimensions": 5,
+      "certificate": "x**2 + y**2 + z**2 + w**2 + v**2 - 1.5",
+      "gpu_time": 0.0,
+      "lie_samples": 5000,
+      "boundary_samples": 2500,
+      "lie_violations": 0,
+      "boundary_violations": 98,
+      "memory_used_mb": 6570.90234375
+    }
+  ],
+  "batch_tests": {
+    "gpu_available": true,
+    "num_certificates": 4,
+    "total_time": 0.001003265380859375,
+    "avg_time_per_certificate": 0.00025081634521484375,
+    "batch_results": [
+      {
+        "certificate": "x**2 + y**2 - 1.5",
+        "dimensions": 2,
+        "avg_barrier_value": "6.465162",
+        "std_barrier_value": "8.843006"
+      },
+      {
+        "certificate": "x**2 + 2*y**2 - 2.0",
+        "dimensions": 2,
+        "avg_barrier_value": "7.1153016",
+        "std_barrier_value": "7.7774158"
+      },
+      {
+        "certificate": "x**2 + y**2 + z**2 - 1.0",
+        "dimensions": 3,
+        "avg_barrier_value": "13.594948",
+        "std_barrier_value": "10.991541"
+      },
+      {
+        "certificate": "x**2 + y**2 + z**2 + w**2 - 2.5",
+        "dimensions": 4,
+        "avg_barrier_value": "13.473345",
+        "std_barrier_value": "10.320969"
+      }
+    ],
+    "memory_used_mb": 6570.7744140625
+  },
+  "overall_success_rate": 1.0,
+  "total_tests": 10,
+  "passed_tests": 10
+}

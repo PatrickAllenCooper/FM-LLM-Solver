@@ -1,0 +1,234 @@
+{
+  "timestamp": "2025-07-09 08:31:21",
+  "gpu_available": true,
+  "total_time": 301.772421836853,
+  "overall_success_rate": 0.3333333333333333,
+  "successful_categories": 2,
+  "total_categories": 6,
+  "test_categories": {
+    "unit_tests": {
+      "success": false,
+      "error": "Unit tests timed out",
+      "return_code": -1
+    },
+    "certificate_pipeline": {
+      "success": false,
+      "error": "expected string or bytes-like object, got 'tuple'"
+    },
+    "gpu_accelerated": {
+      "success": true,
+      "results": {
+        "device": "cuda",
+        "gpu_available": true,
+        "memory_tests": {
+          "gpu_available": true,
+          "memory_tests": [
+            {
+              "size": 1000,
+              "start_memory_mb": 0.0,
+              "peak_memory_mb": 20.0,
+              "final_memory_mb": 8.55517578125,
+              "compute_time": 0.026469707489013672,
+              "memory_cleaned": false
+            },
+            {
+              "size": 2000,
+              "start_memory_mb": 8.55517578125,
+              "peak_memory_mb": 56.55517578125,
+              "final_memory_mb": 8.55517578125,
+              "compute_time": 0.003060579299926758,
+              "memory_cleaned": true
+            },
+            {
+              "size": 4000,
+              "start_memory_mb": 8.55517578125,
+              "peak_memory_mb": 194.55517578125,
+              "final_memory_mb": 8.55517578125,
+              "compute_time": 0.012163400650024414,
+              "memory_cleaned": true
+            },
+            {
+              "size": 8000,
+              "start_memory_mb": 8.55517578125,
+              "peak_memory_mb": 740.97705078125,
+              "final_memory_mb": 8.55517578125,
+              "compute_time": 0.07042098045349121,
+              "memory_cleaned": true
+            }
+          ],
+          "all_tests_passed": false
+        },
+        "sampling_tests": [
+          {
+            "gpu_available": true,
+            "dimensions": 4,
+            "num_samples": 10000,
+            "gpu_time": 0.012248039245605469,
+            "cpu_time": 0.012087583541870117,
+            "speedup": 0.9868994783150354,
+            "barrier_values_computed": 100,
+            "memory_used_mb": 8.7080078125
+          },
+          {
+            "gpu_available": true,
+            "dimensions": 4,
+            "num_samples": 10000,
+            "gpu_time": 0.0010030269622802734,
+            "cpu_time": 0.0,
+            "speedup": 0.0,
+            "barrier_values_computed": 100,
+            "memory_used_mb": 8.7080078125
+          },
+          {
+            "gpu_available": true,
+            "dimensions": 3,
+            "num_samples": 10000,
+            "gpu_time": 0.0,
+            "cpu_time": 0.0010030269622802734,
+            "speedup": 0,
+            "barrier_values_computed": 100,
+            "memory_used_mb": 8.669921875
+          },
+          {
+            "gpu_available": true,
+            "dimensions": 5,
+            "num_samples": 10000,
+            "gpu_time": 0.0,
+            "cpu_time": 0.001005411148071289,
+            "speedup": 0,
+            "barrier_values_computed": 100,
+            "memory_used_mb": 8.74609375
+          }
+        ],
+        "verification_tests": [
+          {
+            "gpu_available": true,
+            "dimensions": 4,
+            "certificate": "x**2 + y**2 + z**2 + w**2 - 1.5",
+            "gpu_time": 0.0,
+            "lie_samples": 5000,
+            "boundary_samples": 2500,
+            "lie_violations": 0,
+            "boundary_violations": 97,
+            "memory_used_mb": 8.67041015625
+          },
+          {
+            "gpu_available": true,
+            "dimensions": 4,
+            "certificate": "x**2 + y**2 + z**2 + w**2 - 1.5",
+            "gpu_time": 0.0,
+            "lie_samples": 5000,
+            "boundary_samples": 2500,
+            "lie_violations": 0,
+            "boundary_violations": 98,
+            "memory_used_mb": 8.67041015625
+          },
+          {
+            "gpu_available": true,
+            "dimensions": 3,
+            "certificate": "x**2 + 2*y**2 + 3*z**2 - 1.5",
+            "gpu_time": 0.0,
+            "lie_samples": 5000,
+            "boundary_samples": 2500,
+            "lie_violations": 0,
+            "boundary_violations": 93,
+            "memory_used_mb": 8.6416015625
+          },
+          {
+            "gpu_available": true,
+            "dimensions": 5,
+            "certificate": "x**2 + y**2 + z**2 + w**2 + v**2 - 1.5",
+            "gpu_time": 0.0,
+            "lie_samples": 5000,
+            "boundary_samples": 2500,
+            "lie_violations": 0,
+            "boundary_violations": 98,
+            "memory_used_mb": 8.69873046875
+          }
+        ],
+        "batch_tests": {
+          "gpu_available": true,
+          "num_certificates": 4,
+          "total_time": 0.0010042190551757812,
+          "avg_time_per_certificate": 0.0002510547637939453,
+          "batch_results": [
+            {
+              "certificate": "x**2 + y**2 - 1.5",
+              "dimensions": 2,
+              "avg_barrier_value": "5.771005",
+              "std_barrier_value": "8.166461"
+            },
+            {
+              "certificate": "x**2 + 2*y**2 - 2.0",
+              "dimensions": 2,
+              "avg_barrier_value": "5.2520723",
+              "std_barrier_value": "6.911182"
+            },
+            {
+              "certificate": "x**2 + y**2 + z**2 - 1.0",
+              "dimensions": 3,
+              "avg_barrier_value": "10.392459",
+              "std_barrier_value": "9.55945"
+            },
+            {
+              "certificate": "x**2 + y**2 + z**2 + w**2 - 2.5",
+              "dimensions": 4,
+              "avg_barrier_value": "13.902583",
+              "std_barrier_value": "11.049261"
+            }
+          ],
+          "memory_used_mb": 8.57080078125
+        },
+        "overall_success_rate": 0.9,
+        "total_tests": 10,
+        "passed_tests": 9
+      },
+      "gpu_available": true,
+      "success_rate": 0.9,
+      "device": "cuda"
+    },
+    "integration_tests": {
+      "success": false,
+      "return_code": 1,
+      "stdout": "",
+      "stderr": "Traceback (most recent call last):\n  File \"C:\\Users\\patri\\code\\FM-LLM-Solver\\tests\\integration\\run_quick_integration_tests.py\", line 189, in <module>\n    sys.exit(main()) \n             ^^^^^^\n  File \"C:\\Users\\patri\\code\\FM-LLM-Solver\\tests\\integration\\run_quick_integration_tests.py\", line 13, in main\n    print(\"\\U0001f680 Starting Quick Integration Tests...\")\n  File \"C:\\Users\\patri\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\encodings\\cp1252.py\", line 19, in encode\n    return codecs.charmap_encode(input,self.errors,encoding_table)[0]\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nUnicodeEncodeError: 'charmap' codec can't encode character '\\U0001f680' in position 0: character maps to <undefined>\n"
+    },
+    "performance_benchmarks": {
+      "success": true,
+      "total_time": 0.30132198333740234,
+      "performance_results": [
+        {
+          "test_case": "simple_2d",
+          "dimensions": 2,
+          "processing_time": 0.10085153579711914,
+          "success": true
+        },
+        {
+          "test_case": "complex_3d",
+          "dimensions": 3,
+          "processing_time": 0.10034418106079102,
+          "success": true
+        },
+        {
+          "test_case": "high_dim_4d",
+          "dimensions": 4,
+          "processing_time": 0.10012626647949219,
+          "success": true
+        }
+      ],
+      "avg_time_per_case": 0.10044066111246745
+    },
+    "robustness_tests": {
+      "success": false,
+      "error": "expected string or bytes-like object, got 'tuple'"
+    }
+  },
+  "summary": {
+    "unit_tests_passed": false,
+    "pipeline_tests_passed": false,
+    "gpu_tests_passed": true,
+    "integration_tests_passed": false,
+    "performance_tests_passed": true,
+    "robustness_tests_passed": false
+  }
+}

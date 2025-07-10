@@ -5,8 +5,8 @@ import sys
 import time
 from pathlib import Path
 
-# Add project root to path
-PROJECT_ROOT = Path(__file__).parent.absolute()
+# Add project root to sys.path (works on Windows, macOS, Linux)
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 def main():

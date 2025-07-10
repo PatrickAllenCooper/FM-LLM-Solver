@@ -88,11 +88,14 @@ def test_improved_generation():
                 
             logger.info(f"🎉 IMPROVEMENTS: {', '.join(improvements)}")
         
-        return result
+        # Use assertions instead of returning
+        assert result is not None, "Generation result should not be None"
+        assert result.get('success', False), "Generation should be successful"
+        assert certificate, "Certificate should be generated"
         
     except Exception as e:
         logger.error(f"❌ Test failed: {e}")
-        return None
+        assert False, f"Test failed with exception: {e}"
 
 if __name__ == "__main__":
     test_improved_generation() 

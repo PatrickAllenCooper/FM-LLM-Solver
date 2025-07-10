@@ -30,6 +30,7 @@ from fm_llm_solver.core.types import (
     VerificationResult,
     GenerationResult
 )
+from fm_llm_solver.core.environment_detector import get_environment_detector
 
 __all__ = [
     # Config
@@ -55,5 +56,7 @@ __all__ = [
     "SystemDescription",
     "BarrierCertificate",
     "VerificationResult",
-    "GenerationResult"
+    "GenerationResult",
+    # Environment Detection
+    "get_environment_detector"
 ] 

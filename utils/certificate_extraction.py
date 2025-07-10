@@ -56,7 +56,8 @@ def extract_certificate_from_llm_output(llm_text: str, variables: List[str]) -> 
     vars_regex_part = '|'.join(map(re.escape, variables)) if variables else 'x|y'
     
     # Special pattern to extract the expression part from "B(x) = expression"
-    b_func_pattern = r'B\s*\([^)]*\)\s*=\s*([^;\.]+)'
+    # FIXED: Improved pattern to handle decimal numbers and better boundary detection
+    b_func_pattern = r'B\s*\([^)]*\)\s*=\s*([^;\n]+)'
     match = re.search(b_func_pattern, llm_text)
     if match:
         expr_part = match.group(1).strip()
@@ -118,6 +119,10 @@ def extract_certificate_from_llm_output(llm_text: str, variables: List[str]) -> 
                 
                 cleaned_expr = clean_and_validate_expression(candidate_text, variables)
                 if cleaned_expr:
+                    # FIXED: Add template detection check before returning
+                    if is_template_expression(cleaned_expr):
+                        logger.warning(f"Rejected template expression: {cleaned_expr}")
+                        continue
                     logger.info(f"Extracted and validated B(x) using regex pattern {i+1}: {cleaned_expr}")
                     return cleaned_expr, False
         except re.error as re_err:
@@ -140,9 +145,17 @@ def clean_and_validate_expression(candidate_str: str, system_variables_str_list:
     # Handle specific patterns that might cause issues
     
     # 1. Remove B(x) = prefix if it exists (to avoid interpreting B and x as variables)
+    # FIXED: Improved pattern to preserve decimal numbers
     b_prefix_match = re.match(r'B\s*\([^)]*\)\s*=\s*(.*)', candidate_str)
     if b_prefix_match:
         candidate_str = b_prefix_match.group(1).strip()
+        # Ensure we preserve the full expression including decimals
+        if candidate_str.endswith('.'):
+            # If it ends with a dot, it might be a decimal number cut off
+            # Look for the complete decimal number in the original string
+            decimal_match = re.search(r'B\s*\([^)]*\)\s*=\s*([^;\.\n]+(?:[0-9]\.[0-9]+)?)', candidate_str)
+            if decimal_match:
+                candidate_str = decimal_match.group(1).strip()
     
     # 2. Basic structure checks (parentheses, trailing operators)
     if candidate_str.count('(') != candidate_str.count(')'):
@@ -409,6 +422,14 @@ def is_template_expression(expression: str) -> bool:
         # Standalone single letters that aren't state variables
         r'^\s*[a-h]\s*$',  # Just 'a' or 'b' etc.
         r'^\s*[a-h]\s*\+',  # Starting with single letter like 'a +'
+        
+        # FIXED: Add more strict template patterns
+        r'\b[a-h]\*[xyz]',  # a*x, b*y, c*z, etc.
+        r'\b[a-h][xyz]\b',  # ax, by, cz, etc. (without *)
+        r'\b[A-HJ-W]\*[xyz]',  # A*x, B*y, C*z, etc.
+        r'\b[A-HJ-W][xyz]\b',  # Ax, By, Cz, etc. (without *)
+        r'\b[a-h]\*\*[xyz]',  # a**x, b**y, etc.
+        r'\b[a-h]\*[xyz]\*\*2',  # a*x**2, b*y**2, etc.
     ]
     
     # Check for any template patterns

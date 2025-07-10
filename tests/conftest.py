@@ -366,15 +366,17 @@ def pytest_collection_modifyitems(config, items):
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_environment():
     """Set up the test environment."""
-    # Ensure test directories exist
+    # Ensure test directories exist - use Windows-compatible paths
+    import tempfile
+    temp_dir = tempfile.gettempdir()
     test_dirs = [
-        "/tmp/test_logs",
-        "/tmp/test_cache",
-        "/tmp/test_data"
+        Path(temp_dir) / "test_logs",
+        Path(temp_dir) / "test_cache", 
+        Path(temp_dir) / "test_data"
     ]
     
     for test_dir in test_dirs:
-        Path(test_dir).mkdir(exist_ok=True)
+        test_dir.mkdir(exist_ok=True)
     
     # Set logging level for tests
     logging.getLogger().setLevel(logging.DEBUG)
@@ -384,7 +386,7 @@ def setup_test_environment():
     # Cleanup after all tests
     import shutil
     for test_dir in test_dirs:
-        if Path(test_dir).exists():
+        if test_dir.exists():
             shutil.rmtree(test_dir, ignore_errors=True)
 
 

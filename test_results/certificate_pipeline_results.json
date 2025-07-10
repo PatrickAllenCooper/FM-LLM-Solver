@@ -1,0 +1,608 @@
+{
+  "test_cases": [
+    {
+      "test_case": "linear_2d_stable",
+      "results": [
+        {
+          "certificate": "x**2 + y**2",
+          "llm_output": "The optimal barrier certificate is:\n\nx**2 + y**2\n\nThis provides the required safety guarantees.\n\nThis certificate was generated using advanced mathematical analysis.",
+          "extracted": "x**2 + y**2",
+          "cleaned": "x**2 + y**2",
+          "is_template": false,
+          "extraction_success": true,
+          "cleaning_success": true,
+          "template_rejected": false
+        },
+        {
+          "certificate": "x**2 + y**2 - 1.5",
+          "llm_output": "BARRIER_CERTIFICATE_START\nB(x,y) = x**2 + y**2 - 1.5\nBARRIER_CERTIFICATE_END\n\nAdditional analysis shows this certificate is valid.",
+          "extracted": "x**2 + y**2 - 1.5",
+          "cleaned": "x**2 + y**2 - 1.5",
+          "is_template": false,
+          "extraction_success": true,
+          "cleaning_success": true,
+          "template_rejected": false
+        },
+        {
+          "certificate": "x**2 + y**2 - 2.0",
+          "llm_output": "BARRIER_CERTIFICATE_START\nB(x,y) = x**2 + y**2 - 2.0\nBARRIER_CERTIFICATE_END\n\nAdditional analysis shows this certificate is valid.\n\nThis certificate was generated using advanced mathematical analysis.",
+          "extracted": "x**2 + y**2 - 2.0",
+          "cleaned": "x**2 + y**2 - 2.0",
+          "is_template": false,
+          "extraction_success": true,
+          "cleaning_success": true,
+          "template_rejected": false
+        },
+        {
+          "certificate": "(x**2 + y**2) - 1.0",
+          "llm_output": "BARRIER_CERTIFICATE_START\nB(x,y) = (x**2 + y**2) - 1.0\nBARRIER_CERTIFICATE_END\n\nAdditional analysis shows this certificate is valid.",
+          "extracted": "(x**2 + y**2) - 1.0",
+          "cleaned": "(x**2 + y**2) - 1.0",
+          "is_template": false,
+          "extraction_success": true,
+          "cleaning_success": true,
+          "template_rejected": false
+        },
+        {
+          "certificate": "x**2 + y**2 - 0.5",
+          "llm_output": "Here's the barrier certificate for the given system:\n\nx**2 + y**2 - 0.5\n\nThe certificate ensures safety by creating a barrier between initial and unsafe sets.\n\nThis certificate was generated using advanced mathematical analysis.",
+          "extracted": "x**2 + y**2 - 0.5",
+          "cleaned": "x**2 + y**2 - 0.5",
+          "is_template": false,
+          "extraction_success": true,
+          "cleaning_success": true,
+          "template_rejected": false
+        }
+      ],
+      "success_rate": 1.0,
+      "verification": {
+        "test_case": "linear_2d_stable",
+        "certificate": "x**2 + y**2",
+        "verification_config": {
+          "system_info": {
+            "dynamics": "dx/dt = -x, dy/dt = -y",
+            "initial_set": "x**2 + y**2 <= 0.25",
+            "unsafe_set": "x**2 + y**2 >= 4.0",
+            "variables": [
+              "x",
+              "y"
+            ]
+          },
+          "verification_config": "mock"
+        },
+        "numerical_result": "NumericalCheckResult(passed=False, reason='Mock verification result', violations=1, violation_points=[ViolationInfo(point={'x': 0.1, 'y': 0.1}, violation_type='boundary_violation', value=0.5, expected='\u2264 0')], samples_checked={'total': 100, 'initial': 50, 'safe': 50})",
+        "verification_success": false
+      }
+    },
+    {
+      "test_case": "linear_2d_unstable",
+      "results": [
+        {
+          "certificate": "x**2 + y**2",
+          "llm_output": "The optimal barrier certificate is:\n\nx**2 + y**2\n\nThis provides the required safety guarantees.",
+          "extracted": "x**2 + y**2",
+          "cleaned": "x**2 + y**2",
+          "is_template": false,
+          "extraction_success": true,
+          "cleaning_success": true,
+          "template_rejected": false
+        },
+        {
+          "certificate": "x**2 + y**2 - 1.5",
+          "llm_output": "Based on the system dynamics, I propose the following barrier certificate:\n\nB(x,y) = x**2 + y**2 - 1.5\n\nThis certificate satisfies the barrier conditions.",
+          "extracted": "x**2 + y**2 - 1",
+          "cleaned": "x**2 + y**2 - 1",
+          "is_template": false,
+          "extraction_success": true,
+          "cleaning_success": true,
+          "template_rejected": false
+        },
+        {
+          "certificate": "x**2 + y**2 - 2.0",
+          "llm_output": "The optimal barrier certificate is:\n\nx**2 + y**2 - 2.0\n\nThis provides the required safety guarantees.",
+          "extracted": "x**2 + y**2 - 2",
+          "cleaned": "x**2 + y**2 - 2",
+          "is_template": false,
+          "extraction_success": true,
+          "cleaning_success": true,
+          "template_rejected": false
+        },
+        {
+          "certificate": "(x**2 + y**2) - 1.0",
+          "llm_output": "Based on the system dynamics, I propose the following barrier certificate:\n\nB(x,y) = (x**2 + y**2) - 1.0\n\nThis certificate satisfies the barrier conditions.",
+          "extracted": "(x**2 + y**2) - 1",
+          "cleaned": "(x**2 + y**2) - 1",
+          "is_template": false,
+          "extraction_success": true,
+          "cleaning_success": true,
+          "template_rejected": false
+        },
+        {
+          "certificate": "x**2 + y**2 - 0.5",
+          "llm_output": "BARRIER_CERTIFICATE_START\nx**2 + y**2 - 0.5\nBARRIER_CERTIFICATE_END",
+          "extracted": "x**2 + y**2 - 0.5",
+          "cleaned": "x**2 + y**2 - 0.5",
+          "is_template": false,
+          "extraction_success": true,
+          "cleaning_success": true,
+          "template_rejected": false
+        }
+      ],
+      "success_rate": 1.0,
+      "verification": {
+        "test_case": "linear_2d_unstable",
+        "certificate": "x**2 + y**2",
+        "verification_config": {
+          "system_info": {
+            "dynamics": "dx/dt = x, dy/dt = y",
+            "initial_set": "x**2 + y**2 <= 0.1",
+            "unsafe_set": "x**2 + y**2 >= 1.0",
+            "variables": [
+              "x",
+              "y"
+            ]
+          },
+          "verification_config": "mock"
+        },
+        "numerical_result": "NumericalCheckResult(passed=False, reason='Mock verification result', violations=1, violation_points=[ViolationInfo(point={'x': 0.1, 'y': 0.1}, violation_type='boundary_violation', value=0.5, expected='\u2264 0')], samples_checked={'total': 100, 'initial': 50, 'safe': 50})",
+        "verification_success": false
+      }
+    },
+    {
+      "test_case": "nonlinear_cubic",
+      "results": [
+        {
+          "certificate": "x**2 + y**2",
+          "llm_output": "BARRIER_CERTIFICATE_START\nB(x,y) = x**2 + y**2\nBARRIER_CERTIFICATE_END\n\nAdditional analysis shows this certificate is valid.",
+          "extracted": "x**2 + y**2",
+          "cleaned": "x**2 + y**2",
+          "is_template": false,
+          "extraction_success": true,
+          "cleaning_success": true,
+          "template_rejected": false
+        },
+        {
+          "certificate": "x**2 + y**2 - 1.5",
+          "llm_output": "Here's the barrier certificate for the given system:\n\nx**2 + y**2 - 1.5\n\nThe certificate ensures safety by creating a barrier between initial and unsafe sets.",
+          "extracted": "x**2 + y**2 - 1.5",
+          "cleaned": "x**2 + y**2 - 1.5",
+          "is_template": false,
+          "extraction_success": true,
+          "cleaning_success": true,
+          "template_rejected": false
+        },
+        {
+          "certificate": "x**2 + y**2 - 2.0",
+          "llm_output": "BARRIER_CERTIFICATE_START\nx**2 + y**2 - 2.0\nBARRIER_CERTIFICATE_END",
+          "extracted": "x**2 + y**2 - 2.0",
+          "cleaned": "x**2 + y**2 - 2.0",
+          "is_template": false,
+          "extraction_success": true,
+          "cleaning_success": true,
+          "template_rejected": false
+        },
+        {
+          "certificate": "(x**2 + y**2) - 1.0",
+          "llm_output": "Based on the system dynamics, I propose the following barrier certificate:\n\nB(x,y) = (x**2 + y**2) - 1.0\n\nThis certificate satisfies the barrier conditions.",
+          "extracted": "(x**2 + y**2) - 1",
+          "cleaned": "(x**2 + y**2) - 1",
+          "is_template": false,
+          "extraction_success": true,
+          "cleaning_success": true,
+          "template_rejected": false
+        },
+        {
+          "certificate": "x**2 + y**2 - 0.5",
+          "llm_output": "Here's the barrier certificate for the given system:\n\nx**2 + y**2 - 0.5\n\nThe certificate ensures safety by creating a barrier between initial and unsafe sets.",
+          "extracted": "x**2 + y**2 - 0.5",
+          "cleaned": "x**2 + y**2 - 0.5",
+          "is_template": false,
+          "extraction_success": true,
+          "cleaning_success": true,
+          "template_rejected": false
+        }
+      ],
+      "success_rate": 1.0,
+      "verification": {
+        "test_case": "nonlinear_cubic",
+        "certificate": "x**2 + y**2",
+        "verification_config": {
+          "system_info": {
+            "dynamics": "dx/dt = -x**3 - y, dy/dt = x - y**3",
+            "initial_set": "x**2 + y**2 <= 0.1",
+            "unsafe_set": "x**2 + y**2 >= 2.0",
+            "variables": [
+              "x",
+              "y"
+            ]
+          },
+          "verification_config": "mock"
+        },
+        "numerical_result": "NumericalCheckResult(passed=False, reason='Mock verification result', violations=1, violation_points=[ViolationInfo(point={'x': 0.1, 'y': 0.1}, violation_type='boundary_violation', value=0.5, expected='\u2264 0')], samples_checked={'total': 100, 'initial': 50, 'safe': 50})",
+        "verification_success": false
+      }
+    },
+    {
+      "test_case": "nonlinear_van_der_pol",
+      "results": [
+        {
+          "certificate": "x**2 + y**2",
+          "llm_output": "Here's the barrier certificate for the given system:\n\nx**2 + y**2\n\nThe certificate ensures safety by creating a barrier between initial and unsafe sets.\n\nThis certificate was generated using advanced mathematical analysis.",
+          "extracted": "x**2 + y**2",
+          "cleaned": "x**2 + y**2",
+          "is_template": false,
+          "extraction_success": true,
+          "cleaning_success": true,
+          "template_rejected": false
+        },
+        {
+          "certificate": "x**2 + y**2 - 1.5",
+          "llm_output": "Based on the system dynamics, I propose the following barrier certificate:\n\nB(x,y) = x**2 + y**2 - 1.5\n\nThis certificate satisfies the barrier conditions.\n\nThis certificate was generated using advanced mathematical analysis.",
+          "extracted": "x**2 + y**2 - 1",
+          "cleaned": "x**2 + y**2 - 1",
+          "is_template": false,
+          "extraction_success": true,
+          "cleaning_success": true,
+          "template_rejected": false
+        },
+        {
+          "certificate": "x**2 + y**2 - 2.0",
+          "llm_output": "Here's the barrier certificate for the given system:\n\nx**2 + y**2 - 2.0\n\nThe certificate ensures safety by creating a barrier between initial and unsafe sets.",
+          "extracted": "x**2 + y**2 - 2.0",
+          "cleaned": "x**2 + y**2 - 2.0",
+          "is_template": false,
+          "extraction_success": true,
+          "cleaning_success": true,
+          "template_rejected": false
+        },
+        {
+          "certificate": "(x**2 + y**2) - 1.0",
+          "llm_output": "BARRIER_CERTIFICATE_START\nB(x,y) = (x**2 + y**2) - 1.0\nBARRIER_CERTIFICATE_END\n\nAdditional analysis shows this certificate is valid.",
+          "extracted": "(x**2 + y**2) - 1.0",
+          "cleaned": "(x**2 + y**2) - 1.0",
+          "is_template": false,
+          "extraction_success": true,
+          "cleaning_success": true,
+          "template_rejected": false
+        },
+        {
+          "certificate": "x**2 + y**2 - 0.5",
+          "llm_output": "BARRIER_CERTIFICATE_START\nx**2 + y**2 - 0.5\nBARRIER_CERTIFICATE_END",
+          "extracted": "x**2 + y**2 - 0.5",
+          "cleaned": "x**2 + y**2 - 0.5",
+          "is_template": false,
+          "extraction_success": true,
+          "cleaning_success": true,
+          "template_rejected": false
+        }
+      ],
+      "success_rate": 1.0,
+      "verification": {
+        "test_case": "nonlinear_van_der_pol",
+        "certificate": "x**2 + y**2",
+        "verification_config": {
+          "system_info": {
+            "dynamics": "dx/dt = y, dy/dt = -x + y*(1 - x**2)",
+            "initial_set": "x**2 + y**2 <= 0.5",
+            "unsafe_set": "x**2 + y**2 >= 3.0",
+            "variables": [
+              "x",
+              "y"
+            ]
+          },
+          "verification_config": "mock"
+        },
+        "numerical_result": "NumericalCheckResult(passed=False, reason='Mock verification result', violations=1, violation_points=[ViolationInfo(point={'x': 0.1, 'y': 0.1}, violation_type='boundary_violation', value=0.5, expected='\u2264 0')], samples_checked={'total': 100, 'initial': 50, 'safe': 50})",
+        "verification_success": false
+      }
+    },
+    {
+      "test_case": "linear_3d",
+      "results": [
+        {
+          "certificate": "x**2 + y**2 + z**2",
+          "llm_output": "BARRIER_CERTIFICATE_START\nB(x,y) = x**2 + y**2 + z**2\nBARRIER_CERTIFICATE_END\n\nAdditional analysis shows this certificate is valid.",
+          "extracted": "x**2 + y**2 + z**2",
+          "cleaned": "x**2 + y**2 + z**2",
+          "is_template": false,
+          "extraction_success": true,
+          "cleaning_success": true,
+          "template_rejected": false
+        },
+        {
+          "certificate": "x**2 + y**2 + z**2 - 1.5",
+          "llm_output": "Based on the system dynamics, I propose the following barrier certificate:\n\nB(x,y) = x**2 + y**2 + z**2 - 1.5\n\nThis certificate satisfies the barrier conditions.",
+          "extracted": "x**2 + y**2 + z**2 - 1",
+          "cleaned": "x**2 + y**2 + z**2 - 1",
+          "is_template": false,
+          "extraction_success": true,
+          "cleaning_success": true,
+          "template_rejected": false
+        },
+        {
+          "certificate": "x**2 + y**2 + z**2 - 2.0",
+          "llm_output": "BARRIER_CERTIFICATE_START\nB(x,y) = x**2 + y**2 + z**2 - 2.0\nBARRIER_CERTIFICATE_END\n\nAdditional analysis shows this certificate is valid.",
+          "extracted": "x**2 + y**2 + z**2 - 2",
+          "cleaned": "x**2 + y**2 + z**2 - 2",
+          "is_template": false,
+          "extraction_success": true,
+          "cleaning_success": true,
+          "template_rejected": false
+        },
+        {
+          "certificate": "(x**2 + y**2 + z**2) - 1.0",
+          "llm_output": "Based on the system dynamics, I propose the following barrier certificate:\n\nB(x,y) = (x**2 + y**2 + z**2) - 1.0\n\nThis certificate satisfies the barrier conditions.\n\nThis certificate was generated using advanced mathematical analysis.",
+          "extracted": "(x**2 + y**2 + z**2) - 1",
+          "cleaned": "(x**2 + y**2 + z**2) - 1",
+          "is_template": false,
+          "extraction_success": true,
+          "cleaning_success": true,
+          "template_rejected": false
+        },
+        {
+          "certificate": "x**2 + y**2 + z**2 - 0.5",
+          "llm_output": "Here's the barrier certificate for the given system:\n\nx**2 + y**2 + z**2 - 0.5\n\nThe certificate ensures safety by creating a barrier between initial and unsafe sets.\n\nThis certificate was generated using advanced mathematical analysis.",
+          "extracted": "x**2 + y**2 + z**2 - 0.5",
+          "cleaned": "x**2 + y**2 + z**2 - 0.5",
+          "is_template": false,
+          "extraction_success": true,
+          "cleaning_success": true,
+          "template_rejected": false
+        }
+      ],
+      "success_rate": 1.0,
+      "verification": {
+        "test_case": "linear_3d",
+        "certificate": "x**2 + y**2 + z**2",
+        "verification_config": {
+          "system_info": {
+            "dynamics": "dx/dt = -x, dy/dt = -y, dz/dt = -z",
+            "initial_set": "x**2 + y**2 + z**2 <= 0.1",
+            "unsafe_set": "x**2 + y**2 + z**2 >= 1.0",
+            "variables": [
+              "x",
+              "y",
+              "z"
+            ]
+          },
+          "verification_config": "mock"
+        },
+        "numerical_result": "NumericalCheckResult(passed=False, reason='Mock verification result', violations=1, violation_points=[ViolationInfo(point={'x': 0.1, 'y': 0.1}, violation_type='boundary_violation', value=0.5, expected='\u2264 0')], samples_checked={'total': 100, 'initial': 50, 'safe': 50})",
+        "verification_success": false
+      }
+    },
+    {
+      "test_case": "elliptical_barrier",
+      "results": [
+        {
+          "certificate": "x**2 + 2*y**2",
+          "llm_output": "Based on the system dynamics, I propose the following barrier certificate:\n\nB(x,y) = x**2 + 2*y**2\n\nThis certificate satisfies the barrier conditions.",
+          "extracted": "x**2 + 2*y**2",
+          "cleaned": "x**2 + 2*y**2",
+          "is_template": false,
+          "extraction_success": true,
+          "cleaning_success": true,
+          "template_rejected": false
+        },
+        {
+          "certificate": "x**2 + 2*y**2 - 1.5",
+          "llm_output": "Based on the system dynamics, I propose the following barrier certificate:\n\nB(x,y) = x**2 + 2*y**2 - 1.5\n\nThis certificate satisfies the barrier conditions.\n\nThis certificate was generated using advanced mathematical analysis.",
+          "extracted": "x**2 + 2*y**2 - 1",
+          "cleaned": "x**2 + 2*y**2 - 1",
+          "is_template": false,
+          "extraction_success": true,
+          "cleaning_success": true,
+          "template_rejected": false
+        },
+        {
+          "certificate": "x**2 + 2*y**2 - 2.0",
+          "llm_output": "BARRIER_CERTIFICATE_START\nB(x,y) = x**2 + 2*y**2 - 2.0\nBARRIER_CERTIFICATE_END\n\nAdditional analysis shows this certificate is valid.",
+          "extracted": "x**2 + 2*y**2 - 2.0",
+          "cleaned": "x**2 + 2*y**2 - 2.0",
+          "is_template": false,
+          "extraction_success": true,
+          "cleaning_success": true,
+          "template_rejected": false
+        },
+        {
+          "certificate": "(x**2 + 2*y**2) - 1.0",
+          "llm_output": "The optimal barrier certificate is:\n\n(x**2 + 2*y**2) - 1.0\n\nThis provides the required safety guarantees.\n\nThis certificate was generated using advanced mathematical analysis.",
+          "extracted": "(x**2 + 2*y**2) - 1",
+          "cleaned": "(x**2 + 2*y**2) - 1",
+          "is_template": false,
+          "extraction_success": true,
+          "cleaning_success": true,
+          "template_rejected": false
+        },
+        {
+          "certificate": "x**2 + 2*y**2 - 0.5",
+          "llm_output": "BARRIER_CERTIFICATE_START\nB(x,y) = x**2 + 2*y**2 - 0.5\nBARRIER_CERTIFICATE_END\n\nAdditional analysis shows this certificate is valid.",
+          "extracted": "x**2 + 2*y**2 - 0.5",
+          "cleaned": "x**2 + 2*y**2 - 0.5",
+          "is_template": false,
+          "extraction_success": true,
+          "cleaning_success": true,
+          "template_rejected": false
+        }
+      ],
+      "success_rate": 1.0,
+      "verification": {
+        "test_case": "elliptical_barrier",
+        "certificate": "x**2 + 2*y**2",
+        "verification_config": {
+          "system_info": {
+            "dynamics": "dx/dt = -x, dy/dt = -2*y",
+            "initial_set": "x**2 + 2*y**2 <= 0.1",
+            "unsafe_set": "x**2 + 2*y**2 >= 1.0",
+            "variables": [
+              "x",
+              "y"
+            ]
+          },
+          "verification_config": "mock"
+        },
+        "numerical_result": "NumericalCheckResult(passed=False, reason='Mock verification result', violations=1, violation_points=[ViolationInfo(point={'x': 0.1, 'y': 0.1}, violation_type='boundary_violation', value=0.5, expected='\u2264 0')], samples_checked={'total': 100, 'initial': 50, 'safe': 50})",
+        "verification_success": false
+      }
+    },
+    {
+      "test_case": "very_small_domain",
+      "results": [
+        {
+          "certificate": "x**2 + y**2",
+          "llm_output": "Here's the barrier certificate for the given system:\n\nx**2 + y**2\n\nThe certificate ensures safety by creating a barrier between initial and unsafe sets.",
+          "extracted": "x**2 + y**2",
+          "cleaned": "x**2 + y**2",
+          "is_template": false,
+          "extraction_success": true,
+          "cleaning_success": true,
+          "template_rejected": false
+        },
+        {
+          "certificate": "x**2 + y**2 - 1.5",
+          "llm_output": "BARRIER_CERTIFICATE_START\nx**2 + y**2 - 1.5\nBARRIER_CERTIFICATE_END",
+          "extracted": "x**2 + y**2 - 1.5",
+          "cleaned": "x**2 + y**2 - 1.5",
+          "is_template": false,
+          "extraction_success": true,
+          "cleaning_success": true,
+          "template_rejected": false
+        },
+        {
+          "certificate": "x**2 + y**2 - 2.0",
+          "llm_output": "The optimal barrier certificate is:\n\nx**2 + y**2 - 2.0\n\nThis provides the required safety guarantees.",
+          "extracted": "x**2 + y**2 - 2",
+          "cleaned": "x**2 + y**2 - 2",
+          "is_template": false,
+          "extraction_success": true,
+          "cleaning_success": true,
+          "template_rejected": false
+        },
+        {
+          "certificate": "(x**2 + y**2) - 1.0",
+          "llm_output": "BARRIER_CERTIFICATE_START\n(x**2 + y**2) - 1.0\nBARRIER_CERTIFICATE_END",
+          "extracted": "(x**2 + y**2) - 1.0",
+          "cleaned": "(x**2 + y**2) - 1.0",
+          "is_template": false,
+          "extraction_success": true,
+          "cleaning_success": true,
+          "template_rejected": false
+        },
+        {
+          "certificate": "x**2 + y**2 - 0.5",
+          "llm_output": "BARRIER_CERTIFICATE_START\nB(x,y) = x**2 + y**2 - 0.5\nBARRIER_CERTIFICATE_END\n\nAdditional analysis shows this certificate is valid.",
+          "extracted": "x**2 + y**2 - 0.5",
+          "cleaned": "x**2 + y**2 - 0.5",
+          "is_template": false,
+          "extraction_success": true,
+          "cleaning_success": true,
+          "template_rejected": false
+        }
+      ],
+      "success_rate": 1.0,
+      "verification": {
+        "test_case": "very_small_domain",
+        "certificate": "x**2 + y**2",
+        "verification_config": {
+          "system_info": {
+            "dynamics": "dx/dt = -x, dy/dt = -y",
+            "initial_set": "x**2 + y**2 <= 0.01",
+            "unsafe_set": "x**2 + y**2 >= 0.1",
+            "variables": [
+              "x",
+              "y"
+            ]
+          },
+          "verification_config": "mock"
+        },
+        "numerical_result": "NumericalCheckResult(passed=False, reason='Mock verification result', violations=1, violation_points=[ViolationInfo(point={'x': 0.1, 'y': 0.1}, violation_type='boundary_violation', value=0.5, expected='\u2264 0')], samples_checked={'total': 100, 'initial': 50, 'safe': 50})",
+        "verification_success": false
+      }
+    },
+    {
+      "test_case": "large_domain",
+      "results": [
+        {
+          "certificate": "x**2 + y**2",
+          "llm_output": "Based on the system dynamics, I propose the following barrier certificate:\n\nB(x,y) = x**2 + y**2\n\nThis certificate satisfies the barrier conditions.",
+          "extracted": "x**2 + y**2",
+          "cleaned": "x**2 + y**2",
+          "is_template": false,
+          "extraction_success": true,
+          "cleaning_success": true,
+          "template_rejected": false
+        },
+        {
+          "certificate": "x**2 + y**2 - 1.5",
+          "llm_output": "The optimal barrier certificate is:\n\nx**2 + y**2 - 1.5\n\nThis provides the required safety guarantees.",
+          "extracted": "x**2 + y**2 - 1",
+          "cleaned": "x**2 + y**2 - 1",
+          "is_template": false,
+          "extraction_success": true,
+          "cleaning_success": true,
+          "template_rejected": false
+        },
+        {
+          "certificate": "x**2 + y**2 - 2.0",
+          "llm_output": "The optimal barrier certificate is:\n\nx**2 + y**2 - 2.0\n\nThis provides the required safety guarantees.",
+          "extracted": "x**2 + y**2 - 2",
+          "cleaned": "x**2 + y**2 - 2",
+          "is_template": false,
+          "extraction_success": true,
+          "cleaning_success": true,
+          "template_rejected": false
+        },
+        {
+          "certificate": "(x**2 + y**2) - 1.0",
+          "llm_output": "Here's the barrier certificate for the given system:\n\n(x**2 + y**2) - 1.0\n\nThe certificate ensures safety by creating a barrier between initial and unsafe sets.",
+          "extracted": "(x**2 + y**2) - 1.0",
+          "cleaned": "(x**2 + y**2) - 1.0",
+          "is_template": false,
+          "extraction_success": true,
+          "cleaning_success": true,
+          "template_rejected": false
+        },
+        {
+          "certificate": "x**2 + y**2 - 0.5",
+          "llm_output": "BARRIER_CERTIFICATE_START\nB(x,y) = x**2 + y**2 - 0.5\nBARRIER_CERTIFICATE_END\n\nAdditional analysis shows this certificate is valid.",
+          "extracted": "x**2 + y**2 - 0.5",
+          "cleaned": "x**2 + y**2 - 0.5",
+          "is_template": false,
+          "extraction_success": true,
+          "cleaning_success": true,
+          "template_rejected": false
+        }
+      ],
+      "success_rate": 1.0,
+      "verification": {
+        "test_case": "large_domain",
+        "certificate": "x**2 + y**2",
+        "verification_config": {
+          "system_info": {
+            "dynamics": "dx/dt = -x, dy/dt = -y",
+            "initial_set": "x**2 + y**2 <= 1.0",
+            "unsafe_set": "x**2 + y**2 >= 10.0",
+            "variables": [
+              "x",
+              "y"
+            ]
+          },
+          "verification_config": "mock"
+        },
+        "numerical_result": "NumericalCheckResult(passed=False, reason='Mock verification result', violations=1, violation_points=[ViolationInfo(point={'x': 0.1, 'y': 0.1}, violation_type='boundary_violation', value=0.5, expected='\u2264 0')], samples_checked={'total': 100, 'initial': 50, 'safe': 50})",
+        "verification_success": false
+      }
+    }
+  ],
+  "gpu_tests": {
+    "gpu_available": true,
+    "gpu_time": 0.11743736267089844,
+    "cpu_time": 0.013204097747802734,
+    "speedup": 0.11243523736824154,
+    "gpu_memory_allocated": 20.0,
+    "gpu_memory_cached": 20.0
+  },
+  "overall_success_rate": 1.0,
+  "total_tests": 8,
+  "passed_tests": 8
+}
