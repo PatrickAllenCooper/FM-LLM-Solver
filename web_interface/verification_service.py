@@ -13,6 +13,9 @@ sys.path.insert(0, PROJECT_ROOT)
 from evaluation.verify_certificate import verify_barrier_certificate
 from omegaconf import DictConfig
 
+# Import the new validator
+from utils.level_set_tracker import BarrierCertificateValidator
+
 logger = logging.getLogger(__name__)
 
 class VerificationService:
@@ -390,47 +393,103 @@ class VerificationService:
             
             verification_cfg = DictConfig(verification_cfg_dict)
             
-            # Perform verification
-            result = verify_barrier_certificate(
-                certificate_str,
-                verification_system_info,
-                verification_cfg,
-            )
+            # NEW: Use BarrierCertificateValidator for enhanced verification
+            try:
+                # Create validator instance
+                validator = BarrierCertificateValidator(
+                    certificate_str=certificate_str,
+                    system_info=verification_system_info,
+                    config=verification_cfg
+                )
+                
+                # Perform validation using the new approach
+                validation_result = validator.validate()
+                
+                # If new validation passes, also run traditional verification for comparison
+                if validation_result['is_valid']:
+                    logger.info("New validator passed - running traditional verification for comparison")
+                    traditional_result = verify_barrier_certificate(
+                        certificate_str,
+                        verification_system_info,
+                        verification_cfg,
+                    )
+                else:
+                    logger.info("New validator failed - skipping traditional verification")
+                    traditional_result = None
+                
+            except Exception as e:
+                logger.warning(f"New validator failed with error: {e}. Falling back to traditional verification.")
+                validation_result = None
+                traditional_result = verify_barrier_certificate(
+                    certificate_str,
+                    verification_system_info,
+                    verification_cfg,
+                )
             
             verification_time = time.time() - start_time
             
-            # Parse the verification result
-            if isinstance(result, dict):
+            # Combine results from both validators
+            if validation_result:
+                # Use new validator results as primary
                 verification_result = {
-                    'overall_success': result.get('overall_success', False),
-                    'numerical_passed': result.get('numerical_verification', {}).get('success', False),
-                    'symbolic_passed': result.get('symbolic_verification', {}).get('success', False),
-                    'sos_passed': result.get('sos_verification', {}).get('success', False),
+                    'overall_success': validation_result['is_valid'],
+                    'numerical_passed': validation_result.get('numerical_valid', False),
+                    'symbolic_passed': validation_result.get('symbolic_valid', False),
+                    'sos_passed': validation_result.get('sos_valid', False),
                     'verification_time': verification_time,
                     'details': {
-                        'parsing': result.get('parsing', {}),
-                        'numerical': result.get('numerical_verification', {}),
-                        'symbolic': result.get('symbolic_verification', {}),
-                        'sos': result.get('sos_verification', {}),
+                        'parsing': {'success': True, 'certificate': certificate_str},
+                        'numerical': {
+                            'success': validation_result.get('numerical_valid', False),
+                            'reason': validation_result.get('numerical_reason', ''),
+                            'level_sets': validation_result.get('level_sets', {}),
+                            'separation_valid': validation_result.get('separation_valid', False),
+                            'lie_derivative_valid': validation_result.get('lie_derivative_valid', False)
+                        },
+                        'symbolic': validation_result.get('symbolic_details', {}),
+                        'sos': validation_result.get('sos_details', {}),
                         'system_info': verification_system_info,
-                        'certificate': certificate_str
+                        'certificate': certificate_str,
+                        'new_validator_used': True,
+                        'traditional_result': traditional_result if traditional_result else None
                     }
                 }
             else:
-                # Handle legacy result format
-                verification_result = {
-                    'overall_success': False,
-                    'numerical_passed': False,
-                    'symbolic_passed': False,
-                    'sos_passed': False,
-                    'verification_time': verification_time,
-                    'details': {
-                        'error': 'Unexpected verification result format',
-                        'result': str(result),
-                        'system_info': verification_system_info,
-                        'certificate': certificate_str
+                # Fall back to traditional verification result format
+                result = traditional_result
+                if isinstance(result, dict):
+                    verification_result = {
+                        'overall_success': result.get('overall_success', False),
+                        'numerical_passed': result.get('numerical_verification', {}).get('success', False),
+                        'symbolic_passed': result.get('symbolic_verification', {}).get('success', False),
+                        'sos_passed': result.get('sos_verification', {}).get('success', False),
+                        'verification_time': verification_time,
+                        'details': {
+                            'parsing': result.get('parsing', {}),
+                            'numerical': result.get('numerical_verification', {}),
+                            'symbolic': result.get('symbolic_verification', {}),
+                            'sos': result.get('sos_verification', {}),
+                            'system_info': verification_system_info,
+                            'certificate': certificate_str,
+                            'new_validator_used': False
+                        }
                     }
-                }
+                else:
+                    # Handle legacy result format
+                    verification_result = {
+                        'overall_success': False,
+                        'numerical_passed': False,
+                        'symbolic_passed': False,
+                        'sos_passed': False,
+                        'verification_time': verification_time,
+                        'details': {
+                            'error': 'Unexpected verification result format',
+                            'result': str(result),
+                            'system_info': verification_system_info,
+                            'certificate': certificate_str,
+                            'new_validator_used': False
+                        }
+                    }
             
             return verification_result
             

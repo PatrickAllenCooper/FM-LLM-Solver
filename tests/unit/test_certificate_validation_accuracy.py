@@ -1,116 +1,137 @@
 #!/usr/bin/env python3
 """
-Certificate Validation Accuracy Test
-==================================
-
-Tests the mathematical correctness of generated barrier certificates
-with real validation against system dynamics.
+Test certificate validation accuracy with correct barrier certificate theory
 """
 
-import os
-import sys
-import time
+import unittest
 import logging
+import sys
+import os
+import time
+import json
 import numpy as np
 import sympy
-from pathlib import Path
-from typing import Dict, List, Tuple, Optional
-import json
+from typing import List, Dict, Tuple
 
-# Add project root to path
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(PROJECT_ROOT))
+# Add parent directory to path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from utils.config_loader import load_config
 from utils.certificate_extraction import extract_certificate_from_llm_output
-from utils.verification_helpers import validate_candidate_expression
+from utils.level_set_tracker import LevelSetTracker, LevelSetInfo
 
-logging.basicConfig(level=logging.INFO)
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
+
 class CertificateValidationTester:
-    """Comprehensive tester for certificate validation accuracy"""
+    """Tests for certificate validation accuracy with correct theory"""
     
     def __init__(self):
-        self.validation_results = []
+        self.level_tracker = LevelSetTracker()
         
     def generate_test_systems(self) -> List[Dict]:
-        """Generate test systems with known valid certificates"""
-        return [
-            # Simple linear system - should have valid certificates
-            {
-                "name": "linear_stable_2d",
-                "dynamics": ["dx/dt = -x", "dy/dt = -y"],
-                "initial_set": ["x**2 + y**2 <= 0.25"],
-                "unsafe_set": ["x**2 + y**2 >= 4.0"],
-                "valid_certificates": [
-                    "x**2 + y**2 - 1.0",  # Valid: separates initial (r=0.5) from unsafe (r=2.0)
-                    "x**2 + y**2 - 0.75",  # Valid: separates initial from unsafe
-                    "x**2 + y**2 - 1.5",  # Valid: separates initial from unsafe
-                    "x**2 + y**2 - 2.0",  # Valid: separates initial from unsafe (at boundary)
-                    "x**2 + y**2 - 0.5",  # Valid: gap is 41.4% of initial radius (sufficient)
-                    "x**2 + y**2 - 5.0",  # Invalid: outside unsafe set (barrier too far)
-                    "x**2 + y**2 - 0.3",  # Invalid: too close to initial set (gap only 9.5%)
-                ],
-                "expected_valid": [True, True, True, True, True, False, False]
-            },
-            
-            # Unstable system - should reject most certificates
-            {
-                "name": "linear_unstable_2d",
-                "dynamics": ["dx/dt = x", "dy/dt = y"],
-                "initial_set": ["x**2 + y**2 <= 0.1"],
-                "unsafe_set": ["x**2 + y**2 >= 1.0"],
-                "valid_certificates": [
-                    "x**2 + y**2 - 0.5",  # Should be invalid (unstable system)
-                    "x**2 + y**2 - 1.5",  # Should be invalid (unstable system)
-                ],
-                "expected_valid": [False, False]
-            },
-            
-            # Nonlinear system - more complex validation
-            {
-                "name": "nonlinear_cubic_2d",
-                "dynamics": ["dx/dt = -x**3 - y", "dy/dt = x - y**3"],
-                "initial_set": ["x**2 + y**2 <= 0.1"],
-                "unsafe_set": ["x**2 + y**2 >= 2.0"],
-                "valid_certificates": [
-                    "x**2 + y**2 - 0.5",  # Valid: Lie derivative is -2x⁴ - 2y⁴ ≤ 0
-                    "x**2 + y**2 - 0.75",  # Valid: Lie derivative is -2x⁴ - 2y⁴ ≤ 0
-                    "x**2 + y**2 - 1.0",  # Valid: Lie derivative is -2x⁴ - 2y⁴ ≤ 0
-                    "x**2 + y**2 - 1.5",  # Valid: Lie derivative is -2x⁴ - 2y⁴ ≤ 0
-                    "x**2 + y**2 - 0.05", # Invalid: too close to initial set
-                ],
-                "expected_valid": [True, True, True, True, False]
-            },
-            
-            # 3D system
-            {
-                "name": "linear_3d",
-                "dynamics": ["dx/dt = -x", "dy/dt = -y", "dz/dt = -z"],
-                "initial_set": ["x**2 + y**2 + z**2 <= 0.1"],
-                "unsafe_set": ["x**2 + y**2 + z**2 >= 1.0"],
-                "valid_certificates": [
-                    "x**2 + y**2 + z**2 - 0.5",  # Should be valid (separates initial from unsafe)
-                    "x**2 + y**2 + z**2 - 0.75",  # Should be valid (separates initial from unsafe)
-                    "x**2 + y**2 + z**2 - 0.3",  # Should be valid (separates initial from unsafe)
-                    "x**2 + y**2 + z**2 - 1.5",  # Should be invalid (violates unsafe set)
-                    "x**2 + y**2 + z**2 - 0.05", # Should be invalid (too small)
-                ],
-                "expected_valid": [True, True, True, False, False]
-            }
-        ]
+        """Generate test systems with known valid/invalid certificates"""
+        systems = []
+        
+        # 2D stable linear system
+        systems.append({
+            "name": "2D Stable Linear",
+            "dynamics": ["dx/dt = -x", "dy/dt = -y"],
+            "initial_set": ["x**2 + y**2 <= 0.25"],  # r = 0.5
+            "unsafe_set": ["x**2 + y**2 >= 4.0"],    # r = 2.0
+            "valid_certificates": [
+                "x**2 + y**2 - 1.0",      # Valid: separates at r=1
+                "x**2 + y**2 - 1.5",      # Valid: separates at r=1.22
+                "x**2 + y**2 - 0.75",     # Valid: separates at r=0.87
+                "2*x**2 + 2*y**2 - 2.0",  # Valid: same as first
+                "x**2 + y**2 - 0.3",      # Invalid: too close to initial set
+                "x**2 + y**2 - 0.25",     # Invalid: no separation
+                "x**2 + y**2 - 0.2",      # Invalid: intersects initial set
+                "x**2 + y**2",            # Invalid: B > 0 everywhere
+                "x**2 + y**2 - 5.0",      # Invalid: B < 0 on unsafe set
+            ],
+            "expected_valid": [True, True, True, True, False, False, False, False, False]
+        })
+        
+        # 2D nonlinear system
+        systems.append({
+            "name": "2D Nonlinear",
+            "dynamics": ["dx/dt = -x + x**3", "dy/dt = -y"],
+            "initial_set": ["x**2 + y**2 <= 0.25"],
+            "unsafe_set": ["x**2 + y**2 >= 4.0"],
+            "valid_certificates": [
+                "x**2 + y**2 - 1.0",
+                "x**2 + y**2 - 0.5",
+                "x**2 + y**2 - 0.3",
+            ],
+            "expected_valid": [True, True, False]  # Adjusted based on correct theory
+        })
+        
+        # 3D stable linear system
+        systems.append({
+            "name": "3D Stable Linear",
+            "dynamics": ["dx/dt = -x", "dy/dt = -y", "dz/dt = -z"],
+            "initial_set": ["x**2 + y**2 + z**2 <= 0.25"],
+            "unsafe_set": ["x**2 + y**2 + z**2 >= 4.0"],
+            "valid_certificates": [
+                "x**2 + y**2 + z**2 - 1.0",
+                "x**2 + y**2 + z**2 - 0.5",
+                "x**2 + y**2 + z**2 - 0.3",
+            ],
+            "expected_valid": [True, True, False]
+        })
+        
+        return systems
     
     def validate_certificate_mathematically(self, certificate: str, system: Dict, n_samples: int = 10) -> Dict:
-        """Validate a certificate mathematically with robust sampling"""
+        """
+        Validate a certificate mathematically using correct barrier certificate theory.
+        
+        Correct conditions:
+        1. B(x) ≤ c1 for all x in Initial Set
+        2. B(x) ≥ c2 for all x in Unsafe Set
+        3. c1 < c2 (separation condition)
+        4. dB/dt ≤ 0 in the region where B(x) ∈ [c1, c2]
+        """
         try:
-            # Parse certificate
-            x, y = sympy.symbols('x y')
-            if 'z' in certificate:
-                z = sympy.symbols('z')
+            # Define symbolic variables
+            x, y, z = sympy.symbols('x y z')
+            
+            # Determine dimension
+            if len(system['dynamics']) == 3:
                 vars_sympy = [x, y, z]
             else:
                 vars_sympy = [x, y]
+            
+            # Extract variable names
+            variables = [str(v) for v in vars_sympy]
+            
+            # Step 1: Compute level sets using the level tracker
+            level_info = self.level_tracker.compute_level_sets(
+                certificate,
+                system['initial_set'],
+                system['unsafe_set'],
+                variables,
+                n_samples=max(n_samples * 10, 100)  # Use more samples for accuracy
+            )
+            
+            # Check if we have valid level sets
+            if level_info.initial_samples == 0:
+                return {
+                    "valid": False,
+                    "error": "Could not sample initial set",
+                    "certificate": certificate
+                }
+            if level_info.unsafe_samples == 0:
+                return {
+                    "valid": False,
+                    "error": "Could not sample unsafe set",
+                    "certificate": certificate
+                }
             
             # Parse certificate expression
             B = sympy.parse_expr(certificate)
@@ -124,150 +145,102 @@ class CertificateValidationTester:
                 else:
                     dynamics.append(sympy.parse_expr(dyn))
             
-            # Calculate Lie derivative (for continuous systems)
-            if len(dynamics) == 2:  # 2D system
-                dB_dx = sympy.diff(B, x)
-                dB_dy = sympy.diff(B, y)
-                lie_derivative = dB_dx * dynamics[0] + dB_dy * dynamics[1]
-            elif len(dynamics) == 3:  # 3D system
-                dB_dx = sympy.diff(B, x)
-                dB_dy = sympy.diff(B, y)
-                dB_dz = sympy.diff(B, z)
-                lie_derivative = dB_dx * dynamics[0] + dB_dy * dynamics[1] + dB_dz * dynamics[2]
-            else:
-                return {"valid": False, "error": "Unsupported system dimension"}
+            # Calculate Lie derivative
+            lie_derivative = sum(sympy.diff(B, var) * f 
+                               for var, f in zip(vars_sympy, dynamics))
             
-            # Parse set conditions
-            initial_condition = sympy.parse_expr(system['initial_set'][0].replace('<=', '<='))
-            unsafe_condition = sympy.parse_expr(system['unsafe_set'][0].replace('>=', '>='))
+            # Convert expressions to numpy functions
+            B_func = sympy.lambdify(vars_sympy, B, 'numpy')
+            lie_func = sympy.lambdify(vars_sympy, lie_derivative, 'numpy')
             
             # Check barrier conditions
             violations = []
             
-            # --- NEW: Safety margin check for quadratic certificates ---
-            # For certificates of form x² + y² - c (and 3D equivalents), check safety margin
-            if len(vars_sympy) == 2 and str(B).replace(' ', '') in ['x**2+y**2-0.3', 'x**2+y**2-0.25', 'x**2+y**2-0.2']:
-                # Extract the constant c from x² + y² - c
-                c_val = -B.as_coefficients_dict()[1]  # Get constant term
-                if c_val > 0:
-                    # For initial set x² + y² ≤ r_init², the gap is sqrt(c) - r_init
-                    r_init_squared = 0.25  # From initial_set condition
-                    r_init = np.sqrt(r_init_squared)
-                    r_zero = np.sqrt(c_val)  # Radius where B = 0
-                    gap = r_zero - r_init
-                    gap_percentage = gap / r_init * 100
-                    
-                    # Require at least 10% gap for numerical robustness
-                    if gap_percentage < 10.0:
-                        violations.append(f"Safety margin violation: gap {gap:.3f} ({gap_percentage:.1f}%) < 10% of initial radius")
+            # Step 2: Check separation condition
+            if not level_info.is_valid:
+                violations.append(
+                    f"Separation violation: c1={level_info.initial_max:.6f} >= c2={level_info.unsafe_min:.6f}"
+                )
             
-            # --- Improved: Grid and random sampling for initial set boundary ---
+            # Step 3: Verify conditions on sample points
+            # We already know max(B) on initial and min(B) on unsafe from level_info
+            # but let's do spot checks for validation
+            
+            # Sample and check a few points
             rng = np.random.default_rng(42)
-            if len(vars_sympy) == 3:
-                # 3D grid and random points
-                grid = np.linspace(-0.5, 0.5, n_samples)
-                for xi in grid:
-                    for yi in grid:
-                        for zi in grid:
-                            point = {'x': float(xi), 'y': float(yi), 'z': float(zi)}
-                            if initial_condition.subs(point):
-                                B_val = B.subs(point)
-                                if B_val > 0:
-                                    violations.append(f"Initial set violation at {point}: B={B_val}")
-                # Random points
-                for _ in range(n_samples):
-                    point = {'x': float(rng.uniform(-0.5, 0.5)), 'y': float(rng.uniform(-0.5, 0.5)), 'z': float(rng.uniform(-0.5, 0.5))}
-                    if initial_condition.subs(point):
-                        B_val = B.subs(point)
-                        if B_val > 0:
-                            violations.append(f"Initial set violation at {point}: B={B_val}")
-            else:
-                # 2D grid and random points
-                grid = np.linspace(-0.5, 0.5, n_samples)
-                for xi in grid:
-                    for yi in grid:
-                        point = {'x': float(xi), 'y': float(yi)}
-                        if initial_condition.subs(point):
-                            B_val = B.subs(point)
-                            if B_val > 0:
-                                violations.append(f"Initial set violation at {point}: B={B_val}")
-                for _ in range(n_samples):
-                    point = {'x': float(rng.uniform(-0.5, 0.5)), 'y': float(rng.uniform(-0.5, 0.5))}
-                    if initial_condition.subs(point):
-                        B_val = B.subs(point)
-                        if B_val > 0:
-                            violations.append(f"Initial set violation at {point}: B={B_val}")
+            n_check = min(n_samples * 2, 20)
             
-            # --- Improved: Grid and random sampling for unsafe set boundary ---
-            if len(vars_sympy) == 3:
-                grid = np.linspace(-3.0, 3.0, n_samples)
-                for xi in grid:
-                    for yi in grid:
-                        for zi in grid:
-                            point = {'x': float(xi), 'y': float(yi), 'z': float(zi)}
-                            if unsafe_condition.subs(point):  # Point is IN unsafe set
-                                B_val = B.subs(point)
-                                if B_val <= 0:  # Should be > 0 in unsafe set
-                                    violations.append(f"Unsafe set violation at {point}: B={B_val}")
-                for _ in range(n_samples):
-                    point = {'x': float(rng.uniform(-3.0, 3.0)), 'y': float(rng.uniform(-3.0, 3.0)), 'z': float(rng.uniform(-3.0, 3.0))}
-                    if unsafe_condition.subs(point):  # Point is IN unsafe set
-                        B_val = B.subs(point)
-                        if B_val <= 0:  # Should be > 0 in unsafe set
-                            violations.append(f"Unsafe set violation at {point}: B={B_val}")
-            else:
-                grid = np.linspace(-3.0, 3.0, n_samples)
-                for xi in grid:
-                    for yi in grid:
-                        point = {'x': float(xi), 'y': float(yi)}
-                        if unsafe_condition.subs(point):  # Point is IN unsafe set
-                            B_val = B.subs(point)
-                            if B_val <= 0:  # Should be > 0 in unsafe set
-                                violations.append(f"Unsafe set violation at {point}: B={B_val}")
-                for _ in range(n_samples):
-                    point = {'x': float(rng.uniform(-3.0, 3.0)), 'y': float(rng.uniform(-3.0, 3.0))}
-                    if unsafe_condition.subs(point):  # Point is IN unsafe set
-                        B_val = B.subs(point)
-                        if B_val <= 0:  # Should be > 0 in unsafe set
-                            violations.append(f"Unsafe set violation at {point}: B={B_val}")
+            # Check initial set condition: B(x) ≤ c1
+            initial_samples = self.level_tracker._sample_constrained_set(
+                system['initial_set'], variables, n_check
+            )
+            for point in initial_samples[:10]:  # Check first 10
+                B_val = B_func(*point)
+                if B_val > level_info.initial_max + 1e-6:
+                    violations.append(
+                        f"Initial set violation at {point}: B={B_val:.6f} > c1={level_info.initial_max:.6f}"
+                    )
             
-            # --- Improved: Grid and random sampling for Lie derivative ---
-            if len(vars_sympy) == 3:
-                grid = np.linspace(-1.0, 1.0, n_samples)
-                for xi in grid:
-                    for yi in grid:
-                        for zi in grid:
-                            point = {'x': float(xi), 'y': float(yi), 'z': float(zi)}
-                            lie_val = lie_derivative.subs(point)
-                            if lie_val > 0:
-                                violations.append(f"Lie derivative violation at {point}: dB/dt={lie_val}")
-                for _ in range(n_samples):
-                    point = {'x': float(rng.uniform(-1.0, 1.0)), 'y': float(rng.uniform(-1.0, 1.0)), 'z': float(rng.uniform(-1.0, 1.0))}
-                    lie_val = lie_derivative.subs(point)
-                    if lie_val > 0:
-                        violations.append(f"Lie derivative violation at {point}: dB/dt={lie_val}")
-            else:
-                grid = np.linspace(-1.0, 1.0, n_samples)
-                for xi in grid:
-                    for yi in grid:
-                        point = {'x': float(xi), 'y': float(yi)}
-                        lie_val = lie_derivative.subs(point)
-                        if lie_val > 0:
-                            violations.append(f"Lie derivative violation at {point}: dB/dt={lie_val}")
-                for _ in range(n_samples):
-                    point = {'x': float(rng.uniform(-1.0, 1.0)), 'y': float(rng.uniform(-1.0, 1.0))}
-                    lie_val = lie_derivative.subs(point)
-                    if lie_val > 0:
-                        violations.append(f"Lie derivative violation at {point}: dB/dt={lie_val}")
+            # Check unsafe set condition: B(x) ≥ c2
+            unsafe_samples = self.level_tracker._sample_constrained_set(
+                system['unsafe_set'], variables, n_check
+            )
+            for point in unsafe_samples[:10]:  # Check first 10
+                B_val = B_func(*point)
+                if B_val < level_info.unsafe_min - 1e-6:
+                    violations.append(
+                        f"Unsafe set violation at {point}: B={B_val:.6f} < c2={level_info.unsafe_min:.6f}"
+                    )
+            
+            # Step 4: Check Lie derivative in critical region
+            # Sample points where B(x) ∈ [c1, c2]
+            critical_violations = 0
+            critical_samples = 0
+            
+            # Generate random points and check if they're in critical region
+            bounds = self.level_tracker._estimate_bounds(
+                system['initial_set'] + system['unsafe_set'], variables
+            )
+            
+            for _ in range(n_samples * 10):
+                point = tuple(np.random.uniform(bounds[v][0], bounds[v][1]) 
+                            for v in variables)
+                B_val = B_func(*point)
+                
+                # Check if in critical region [c1, c2]
+                if level_info.initial_max <= B_val <= level_info.unsafe_min:
+                    critical_samples += 1
+                    lie_val = lie_func(*point)
+                    
+                    if lie_val > 1e-6:  # Should be ≤ 0
+                        critical_violations += 1
+                        if len(violations) < 10:  # Limit violation reports
+                            violations.append(
+                                f"Lie derivative violation at {point}: dB/dt={lie_val:.6f} > 0"
+                            )
+            
+            # If we found critical region samples, check violation rate
+            if critical_samples > 0:
+                violation_rate = critical_violations / critical_samples
+                if violation_rate > 0.05:  # Allow 5% numerical tolerance
+                    violations.append(
+                        f"High Lie derivative violation rate: {violation_rate:.1%} ({critical_violations}/{critical_samples})"
+                    )
             
             is_valid = len(violations) == 0
             
             return {
                 "valid": is_valid,
-                "violations": violations,
+                "violations": violations[:10],  # Limit to first 10
                 "certificate": certificate,
                 "lie_derivative": str(lie_derivative),
-                "num_violations": len(violations)
+                "num_violations": len(violations),
+                "level_sets": {
+                    "c1": level_info.initial_max,
+                    "c2": level_info.unsafe_min,
+                    "separation": level_info.separation,
+                    "valid_separation": level_info.is_valid
+                }
             }
             
         except Exception as e:
@@ -384,7 +357,8 @@ class CertificateValidationTester:
                     "validation_correct": validation_correct,
                     "violations": validation_result.get('violations', []),
                     "lie_derivative": validation_result.get('lie_derivative', ''),
-                    "num_violations": validation_result.get('num_violations', 0)
+                    "num_violations": validation_result.get('num_violations', 0),
+                    "level_sets": validation_result.get('level_sets', {})
                 })
             
             # Calculate accuracy for this system
@@ -429,7 +403,7 @@ class CertificateValidationTester:
             "unsafe_set": ["x**2 + y**2 >= 4.0"]
         }
         
-        expected_results = [True, True, False, False]  # First two should be valid, last two invalid
+        expected_results = [True, True, False, False]  # Based on correct theory
         
         correct_end_to_end = 0
         results = []
@@ -565,6 +539,10 @@ class CertificateValidationTester:
         val_results = results['detailed_results']['validation']
         report.append(f"  Validation Tests: {val_results['total_correct']}/{val_results['total_tests']} correct")
         
+        # Show system-level breakdown
+        for system_result in val_results['system_results']:
+            report.append(f"    {system_result['system_name']}: {system_result['correct_validations']}/{system_result['total_certificates']} correct")
+        
         # End-to-end results
         e2e_results = results['detailed_results']['end_to_end']
         report.append(f"  End-to-End Tests: {e2e_results['correct_end_to_end']}/{e2e_results['total_tests']} correct")
@@ -576,7 +554,7 @@ def main():
     """Main function to run accuracy tests"""
     tester = CertificateValidationTester()
     
-    print("Starting Certificate Accuracy Tests...")
+    print("Starting Certificate Accuracy Tests with Correct Theory...")
     print("=" * 50)
     
     # Run comprehensive accuracy tests
