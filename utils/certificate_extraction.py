@@ -52,6 +52,46 @@ def extract_certificate_from_llm_output(llm_text: str, variables: List[str]) -> 
             return cleaned_expr, False
         logger.warning("Delimited certificate found but content was invalid/unparsable. Trying regex patterns.")
 
+    # Check for code blocks (```python or ``` blocks)
+    code_block_patterns = [
+        r'```python\s*\n.*?def\s+barrier_certificate\s*\([^)]*\)\s*:\s*\n\s*return\s+([^\n]+)\s*\n.*?```',
+        r'```\s*\n.*?def\s+barrier_certificate\s*\([^)]*\)\s*:\s*\n\s*return\s+([^\n]+)\s*\n.*?```',
+        r'```python\s*\n.*?return\s+([^\n]+)\s*\n.*?```',
+        r'```\s*\n.*?return\s+([^\n]+)\s*\n.*?```',
+    ]
+    
+    for pattern in code_block_patterns:
+        match = re.search(pattern, llm_text, re.DOTALL | re.IGNORECASE)
+        if match:
+            candidate_expr = match.group(1).strip()
+            logger.info(f"Found certificate in code block: {candidate_expr}")
+            cleaned_expr = clean_and_validate_expression(candidate_expr, variables)
+            if cleaned_expr:
+                logger.info(f"Extracted and validated B(x) from code block: {cleaned_expr}")
+                return cleaned_expr, False
+
+    # Check for mathematical notation variations
+    math_notation_patterns = [
+        # B: ℝ² → ℝ defined by B(x,y) := expression
+        r'B\s*:\s*ℝ[²2]\s*→\s*ℝ\s+defined\s+by\s+B\s*\([^)]*\)\s*:=\s*([^\n]+)',
+        # B(x,y) := expression
+        r'B\s*\([^)]*\)\s*:=\s*([^\n]+)',
+        # Mathematical theorem style
+        r'Theorem:.*?barrier\s+certificate\s+B.*?defined\s+by\s*\n\s*B\s*\([^)]*\)\s*[:=]\s*([^\n]+)',
+    ]
+    
+    for pattern in math_notation_patterns:
+        match = re.search(pattern, llm_text, re.DOTALL | re.IGNORECASE)
+        if match:
+            candidate_expr = match.group(1).strip()
+            # Handle unicode superscripts
+            candidate_expr = candidate_expr.replace('²', '**2').replace('³', '**3')
+            logger.info(f"Found certificate in mathematical notation: {candidate_expr}")
+            cleaned_expr = clean_and_validate_expression(candidate_expr, variables)
+            if cleaned_expr:
+                logger.info(f"Extracted and validated B(x) from mathematical notation: {cleaned_expr}")
+                return cleaned_expr, False
+
     # Fallback regex patterns
     vars_regex_part = '|'.join(map(re.escape, variables)) if variables else 'x|y'
     
@@ -75,6 +115,27 @@ def extract_certificate_from_llm_output(llm_text: str, variables: List[str]) -> 
             cleaned_expr = clean_and_validate_expression(expr_part, variables)
             if cleaned_expr:
                 logger.info(f"Extracted and validated B(x) from B(x) notation: {cleaned_expr}")
+                return cleaned_expr, False
+    
+    # Look for patterns with "certificate is:" or similar
+    certificate_patterns = [
+        r'[Cc]ertificate\s*(?:is|=|:)\s*([^\n]+)',
+        r'[Bb]arrier\s+[Cc]ertificate\s*(?:is|=|:)\s*([^\n]+)',
+        r'[Tt]he\s+certificate\s*(?:is|=|:)\s*([^\n]+)',
+        r'[Uu]se\s+(?:the\s+)?certificate\s*(?:is|=|:)?\s*([^\n]+)',
+        r'[Pp]ropose\s+(?:the\s+)?certificate\s*(?:is|=|:)?\s*([^\n]+)',
+    ]
+    
+    for pattern in certificate_patterns:
+        match = re.search(pattern, llm_text)
+        if match:
+            candidate_expr = match.group(1).strip()
+            # Skip if it's just descriptive text
+            if not any(op in candidate_expr for op in ['**', '+', '-', '*', '/', '^']):
+                continue
+            cleaned_expr = clean_and_validate_expression(candidate_expr, variables)
+            if cleaned_expr and not is_template_expression(cleaned_expr):
+                logger.info(f"Extracted and validated certificate: {cleaned_expr}")
                 return cleaned_expr, False
     
     # Other standard patterns
@@ -168,7 +229,25 @@ def clean_and_validate_expression(candidate_str: str, system_variables_str_list:
         logger.debug(f"CleanValidate: Invalid - Empty B() function in '{candidate_str}'")
         return None
 
-    # 3. Standard cleaning (LaTeX, descriptive text, trailing punctuation)
+    # 3. Check for invalid mathematical expressions before cleaning
+    # Reject negative exponents (not valid for barrier certificates)
+    if re.search(r'\*\*\s*\(-\s*\d+', candidate_str):
+        logger.debug(f"CleanValidate: Invalid - Negative exponent detected in '{candidate_str}'")
+        return None
+    
+    # Reject fractional exponents (not polynomial)
+    if re.search(r'\*\*\s*\(\s*\d+\s*/\s*\d+', candidate_str):
+        logger.debug(f"CleanValidate: Invalid - Fractional exponent detected in '{candidate_str}'")
+        return None
+    
+    # Reject square root, log, sin, cos, etc. (non-polynomial functions)
+    non_polynomial_functions = ['sqrt', 'log', 'ln', 'exp', 'sin', 'cos', 'tan', 'arcsin', 'arccos', 'arctan']
+    for func in non_polynomial_functions:
+        if re.search(rf'\b{func}\s*\(', candidate_str, re.IGNORECASE):
+            logger.debug(f"CleanValidate: Invalid - Non-polynomial function '{func}' detected in '{candidate_str}'")
+            return None
+
+    # 4. Standard cleaning (LaTeX, descriptive text, trailing punctuation)
     cleaned_str = re.sub(r'\\[\(\)]', '', candidate_str)  
     cleaned_str = re.sub(r'\\[\{\}]', '', cleaned_str)
     cleaned_str = cleaned_str.replace('\\cdot', '*')
@@ -185,7 +264,7 @@ def clean_and_validate_expression(candidate_str: str, system_variables_str_list:
         logger.debug(f"CleanValidate: Candidate '{candidate_str}' became empty after cleaning.")
         return None
 
-    # 4. Attempt to parse with SymPy
+    # 5. Attempt to parse with SymPy
     try:
         local_sympy_dict = {var_name: sympy.symbols(var_name) for var_name in system_variables_str_list} if system_variables_str_list else {}
         parsed_expr = sympy.parse_expr(cleaned_str, local_dict=local_sympy_dict, transformations='all')
@@ -194,6 +273,17 @@ def clean_and_validate_expression(candidate_str: str, system_variables_str_list:
             logger.debug(f"CleanValidate: Candidate '{cleaned_str}' (from '{candidate_str}') parsed to SymPy EmptySet or None.")
             return None
 
+        # 6. Additional validation: Check if the expression is a polynomial
+        # Barrier certificates should be polynomial functions
+        if system_variables_str_list:
+            symbols = [sympy.symbols(var) for var in system_variables_str_list]
+            for symbol in symbols:
+                if symbol in parsed_expr.free_symbols:
+                    # Check if the expression is polynomial in this variable
+                    if not parsed_expr.is_polynomial(*symbols):
+                        logger.debug(f"CleanValidate: Expression '{cleaned_str}' is not a polynomial")
+                        return None
+
     except (SyntaxError, TypeError, sympy.SympifyError, AttributeError, RecursionError) as e: 
         logger.warning(f"CleanValidate: Candidate '{cleaned_str}' (from '{candidate_str}') failed SymPy parsing: {e}")
         return None
@@ -201,7 +291,7 @@ def clean_and_validate_expression(candidate_str: str, system_variables_str_list:
         logger.warning(f"CleanValidate: Candidate '{cleaned_str}' (from '{candidate_str}') failed SymPy parsing with unexpected error: {e}")
         return None
 
-    # 5. Check if the parsed expression contains any of the system variables (if specified)
+    # 7. Check if the parsed expression contains any of the system variables (if specified)
     if system_variables_str_list:
         try:
             expr_free_symbols_names = {s.name for s in parsed_expr.free_symbols}
@@ -226,7 +316,7 @@ def clean_and_validate_expression(candidate_str: str, system_variables_str_list:
                 logger.debug(f"CleanValidate: Candidate '{cleaned_str}' (parsed: '{parsed_expr}') does not contain any system variables: {system_variables_str_list}. Free symbols: {expr_free_symbols_names}")
                 return None
 
-    # 6. Return the cleaned string if all checks pass
+    # 8. Return the cleaned string if all checks pass
     logger.debug(f"CleanValidate: Successfully validated candidate '{cleaned_str}' (from '{candidate_str}')")
     return cleaned_str
 
