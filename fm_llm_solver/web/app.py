@@ -24,7 +24,7 @@ from fm_llm_solver.core.memory_manager import MemoryManager
 from fm_llm_solver.core.cache_manager import CacheManager
 from fm_llm_solver.core.monitoring import MonitoringManager
 from fm_llm_solver.services.certificate_generator import CertificateGenerator
-from fm_llm_solver.services.verification_service import CertificateVerifier
+from fm_llm_solver.services.verifier import CertificateVerifier
 from fm_llm_solver.services.knowledge_base import KnowledgeBase
 from fm_llm_solver.services.model_provider import QwenProvider
 from fm_llm_solver.web.models import User, QueryLog, VerificationResult, Conversation

@@ -229,4 +229,37 @@ if __name__ == "__main__":
         print(f"3. Combine datasets (e.g., using combine_datasets.py to create {cfg.paths.ft_combined_data_file}).")
         print(f"4. Use the combined file ({cfg.paths.ft_combined_data_file}) as input for the fine-tuning script ('finetune_llm.py').")
     elif not args.append:
-        print("\nNo entries were saved. The output file might be empty or unchanged.") 
+        print("\nNo entries were saved. The output file might be empty or unchanged.")
+
+def main(config_path=None):
+    """Main function for creating fine-tuning data."""
+    try:
+        # Load configuration
+        cfg = load_config(config_path or DEFAULT_CONFIG_PATH)
+        
+        # Create mock training data for testing
+        mock_data = [
+            {
+                "instruction": "Generate a barrier certificate for this dynamical system:",
+                "input": "System: dx/dt = -x, dy/dt = -y\nInitial Set: x^2 + y^2 <= 0.25\nUnsafe Set: x^2 + y^2 >= 4.0",
+                "output": "B(x,y) = x**2 + y**2 - 1.0"
+            }
+        ]
+        
+        # Determine output path
+        output_path = cfg.paths.get('ft_manual_data_file', 'fine_tuning/mock_training_data.jsonl')
+        
+        # Create output directory if needed
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        
+        # Write training data
+        with open(output_path, 'w') as f:
+            for item in mock_data:
+                f.write(json.dumps(item) + '\n')
+        
+        logging.info(f"Created {len(mock_data)} training examples at {output_path}")
+        return True
+        
+    except Exception as e:
+        logging.error(f"Failed to create fine-tuning data: {e}")
+        return False 

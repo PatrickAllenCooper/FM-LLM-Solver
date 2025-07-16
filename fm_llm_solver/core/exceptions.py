@@ -221,4 +221,44 @@ class RetryableError(FMLLMSolverError):
 
 class NonRetryableError(FMLLMSolverError):
     """Base class for errors that should not be retried."""
-    pass 
+    pass
+
+
+class PerformanceError(FMLLMSolverError):
+    """Raised when performance requirements are not met."""
+    
+    def __init__(self, message: str, metric: Optional[str] = None, 
+                 threshold: Optional[float] = None, actual: Optional[float] = None, **kwargs):
+        super().__init__(message, **kwargs)
+        if metric:
+            self.details["metric"] = metric
+        if threshold is not None:
+            self.details["threshold"] = threshold
+        if actual is not None:
+            self.details["actual"] = actual
+
+
+class ServiceError(FMLLMSolverError):
+    """Raised when a service operation fails."""
+    
+    def __init__(self, message: str, service: Optional[str] = None, 
+                 operation: Optional[str] = None, **kwargs):
+        super().__init__(message, **kwargs)
+        if service:
+            self.details["service"] = service
+        if operation:
+            self.details["operation"] = operation
+
+
+class MemoryError(FMLLMSolverError):
+    """Raised when memory operations fail."""
+    
+    def __init__(self, message: str, memory_type: Optional[str] = None, 
+                 requested: Optional[int] = None, available: Optional[int] = None, **kwargs):
+        super().__init__(message, **kwargs)
+        if memory_type:
+            self.details["memory_type"] = memory_type
+        if requested is not None:
+            self.details["requested"] = requested
+        if available is not None:
+            self.details["available"] = available 
