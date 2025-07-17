@@ -14,10 +14,16 @@
 
 ## 🚀 Quick Start
 
-### Installation
+### ⚡ One-Command Deployment
 ```bash
 git clone https://github.com/PatrickAllenCooper/FM-LLM-Solver.git
 cd FM-LLM-Solver
+./deploy_simple.sh
+```
+**Ready in 5 minutes!** Access at http://localhost:5000
+
+### Manual Installation
+```bash
 pip install -r requirements.txt
 ```
 
@@ -118,7 +124,8 @@ verification:
 
 ## 📚 Documentation
 
-- [Installation Guide](docs/INSTALLATION.md) - Setup and dependencies
+- [Deployment Guide](DEPLOYMENT_GUIDE.md) - One-command setup
+- [Installation Guide](docs/INSTALLATION.md) - Manual setup and dependencies
 - [User Guide](docs/USER_GUIDE.md) - Using the system
 - [Mathematical Primer](docs/MATHEMATICAL_PRIMER.md) - Barrier certificate theory
 

@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  fm-llm-solver:
+    build:
+      context: .
+      dockerfile: Dockerfile.simple
+    container_name: fm-llm-solver
+    ports:
+      - "5000:5000"
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+    volumes:
+      - ./config.yaml:/app/config.yaml
+      - ./logs:/app/logs
+      - ./test_results:/app/test_results
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import torch; print('GPU:', torch.cuda.is_available())"]
+      interval: 30s
+      timeout: 10s
+      retries: 3 
