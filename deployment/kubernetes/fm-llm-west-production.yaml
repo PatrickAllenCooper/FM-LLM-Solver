@@ -1,0 +1,451 @@
+# FM-LLM Solver Production Deployment - US West 1
+# Complete production configuration with GPU support, static IP, and optimized settings
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: fm-llm-prod
+  labels:
+    name: fm-llm-prod
+    cost-center: fm-llm-solver
+---
+# Resource Quota - Updated with generous limits
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: fm-llm-resource-quota
+  namespace: fm-llm-prod
+spec:
+  hard:
+    requests.cpu: "8000m"
+    requests.memory: "20Gi"
+    limits.cpu: "16000m"
+    limits.memory: "40Gi"
+    requests.nvidia.com/gpu: "2"
+    limits.nvidia.com/gpu: "2"
+    persistentvolumeclaims: "10"
+    services: "20"
+    secrets: "50"
+    configmaps: "50"
+---
+# Web Application Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fm-llm-web
+  namespace: fm-llm-prod
+  labels:
+    app: fm-llm-web
+    component: web-interface
+    version: production
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: fm-llm-web
+  template:
+    metadata:
+      labels:
+        app: fm-llm-web
+        component: web-interface
+        version: production
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "5000"
+        prometheus.io/path: "/metrics"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+      - name: web-app
+        image: us-central1-docker.pkg.dev/fmgen-net-production/fm-llm-repo/fm-llm-web:latest
+        ports:
+        - containerPort: 5000
+          name: http
+        env:
+        - name: FLASK_ENV
+          value: "production"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: fm-llm-secrets
+              key: database-url
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: fm-llm-secrets
+              key: redis-url
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: fm-llm-secrets
+              key: secret-key
+        - name: INFERENCE_API_URL
+          value: "http://fm-llm-inference-service:8000"
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 5000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+        volumeMounts:
+        - name: shared-data
+          mountPath: /shared
+      volumes:
+      - name: shared-data
+        emptyDir: {}
+---
+# Web Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: fm-llm-web-service
+  namespace: fm-llm-prod
+  labels:
+    app: fm-llm-web
+spec:
+  selector:
+    app: fm-llm-web
+  ports:
+  - port: 80
+    targetPort: 5000
+    protocol: TCP
+    name: http
+  type: ClusterIP
+---
+# Horizontal Pod Autoscaler for Web
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: fm-llm-web-hpa
+  namespace: fm-llm-prod
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: fm-llm-web
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+---
+# Inference API Deployment with GPU
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fm-llm-inference
+  namespace: fm-llm-prod
+  labels:
+    app: fm-llm-inference
+    component: inference-api
+    version: production
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: fm-llm-inference
+  template:
+    metadata:
+      labels:
+        app: fm-llm-inference
+        component: inference-api
+        version: production
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      nodeSelector:
+        workload-type: gpu-inference
+      tolerations:
+      - key: nvidia.com/gpu
+        operator: Equal
+        value: present
+        effect: NoSchedule
+      initContainers:
+      - name: model-downloader
+        image: google/cloud-sdk:slim
+        command: ["/bin/bash"]
+        args:
+        - -c
+        - |
+          echo "Downloading models and knowledge base..."
+          gsutil -m cp -r gs://fm-llm-models-fmgen-net-production/* /shared/models/ || echo "Models download failed"
+          gsutil -m cp -r gs://fm-llm-knowledge-base-fmgen-net-production/* /shared/kb/ || echo "KB download failed"
+          echo "Download completed"
+        env:
+        - name: MODELS_BUCKET
+          value: "fm-llm-models-fmgen-net-production"
+        - name: KB_BUCKET
+          value: "fm-llm-knowledge-base-fmgen-net-production"
+        resources:
+          limits:
+            cpu: 500m
+            memory: 1Gi
+          requests:
+            cpu: 200m
+            memory: 512Mi
+        volumeMounts:
+        - name: shared-data
+          mountPath: /shared
+      containers:
+      - name: inference-api
+        image: us-central1-docker.pkg.dev/fmgen-net-production/fm-llm-repo/fm-llm-inference:latest
+        ports:
+        - containerPort: 8000
+          name: http
+        env:
+        - name: MODEL_PATH
+          value: "/shared/models"
+        - name: KB_PATH
+          value: "/shared/kb"
+        - name: CUDA_VISIBLE_DEVICES
+          value: "0"
+        - name: PYTORCH_CUDA_ALLOC_CONF
+          value: "max_split_size_mb:512"
+        resources:
+          requests:
+            memory: "3Gi"
+            cpu: "1000m"
+            ephemeral-storage: "10Gi"
+            nvidia.com/gpu: 1
+          limits:
+            memory: "6Gi"
+            cpu: "2000m"
+            ephemeral-storage: "20Gi"
+            nvidia.com/gpu: 1
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 120
+          periodSeconds: 60
+          timeoutSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8000
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 15
+        volumeMounts:
+        - name: shared-data
+          mountPath: /shared
+      volumes:
+      - name: shared-data
+        emptyDir:
+          sizeLimit: 50Gi
+---
+# Inference Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: fm-llm-inference-service
+  namespace: fm-llm-prod
+  labels:
+    app: fm-llm-inference
+spec:
+  selector:
+    app: fm-llm-inference
+  ports:
+  - port: 8000
+    targetPort: 8000
+    protocol: TCP
+    name: http
+  type: ClusterIP
+---
+# Horizontal Pod Autoscaler for Inference
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: fm-llm-inference-hpa
+  namespace: fm-llm-prod
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: fm-llm-inference
+  minReplicas: 0
+  maxReplicas: 2
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 30
+---
+# Ingress with Static IP
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: fm-llm-ingress
+  namespace: fm-llm-prod
+  annotations:
+    kubernetes.io/ingress.global-static-ip-name: fm-llm-static-ip-west
+    networking.gke.io/managed-certificates: fm-llm-ssl-cert
+    kubernetes.io/ingress.class: "gce"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/client-max-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+spec:
+  rules:
+  - host: fmgen.net
+    http:
+      paths:
+      - path: /api/*
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: fm-llm-inference-service
+            port:
+              number: 8000
+      - path: /*
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: fm-llm-web-service
+            port:
+              number: 80
+---
+# Managed SSL Certificate
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: fm-llm-ssl-cert
+  namespace: fm-llm-prod
+spec:
+  domains:
+  - fmgen.net
+  - www.fmgen.net
+---
+# Secrets for sensitive data
+apiVersion: v1
+kind: Secret
+metadata:
+  name: fm-llm-secrets
+  namespace: fm-llm-prod
+type: Opaque
+stringData:
+  database-url: "postgresql://fm_llm_user:fm_llm_password@34.0.0.0:5432/fm_llm_db"
+  redis-url: "redis://10.0.0.0:6379"
+  secret-key: "your-secure-secret-key-here"
+---
+# ConfigMap for application configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fm-llm-config
+  namespace: fm-llm-prod
+data:
+  config.yaml: |
+    app:
+      name: "FM-LLM Solver"
+      version: "1.0.0"
+      environment: "production"
+      
+    models:
+      default_model: "Qwen/Qwen2.5-7B-Instruct"
+      quantization: "4bit"
+      max_length: 4096
+      
+    inference:
+      timeout: 300
+      max_concurrent: 10
+      gpu_memory_fraction: 0.9
+      
+    verification:
+      sampling_density: 1000
+      timeout: 60
+      parallel_workers: 4
+      
+    security:
+      session_timeout: 3600
+      max_login_attempts: 5
+      require_https: true
+      
+    monitoring:
+      enable_prometheus: true
+      log_level: "INFO"
+---
+# Network Policy for security
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: fm-llm-network-policy
+  namespace: fm-llm-prod
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: fm-llm-prod
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+  egress:
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443  # HTTPS
+    - protocol: TCP
+      port: 80   # HTTP
+    - protocol: TCP
+      port: 5432 # PostgreSQL
+    - protocol: TCP
+      port: 6379 # Redis
+    - protocol: UDP
+      port: 53   # DNS 

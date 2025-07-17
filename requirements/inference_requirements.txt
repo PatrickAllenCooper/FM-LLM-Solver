@@ -1,0 +1,45 @@
+# Inference API Requirements (CPU-optimized)
+# Core API framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+
+# Configuration and utilities
+python-dotenv>=1.0.0
+PyYAML>=6.0
+omegaconf>=2.3.0
+click>=8.1.0
+
+# ML and AI dependencies (CPU-only builds)
+torch==2.0.1+cpu
+torchvision==0.15.2+cpu
+torchaudio==2.0.2+cpu
+
+# Transformers and model loading
+transformers==4.35.2
+accelerate==0.24.1
+peft==0.6.2
+
+# CPU-only quantization (skip problematic GPU packages)
+# Note: bitsandbytes will be CPU fallback mode
+
+# Embeddings and vector search
+sentence-transformers==2.2.2
+faiss-cpu==1.7.4
+
+# Scientific computing
+numpy>=1.24.0
+scipy>=1.10.0
+
+# Caching and async
+aioredis==2.0.1
+redis==5.0.1
+
+# System utilities
+psutil==5.9.6
+requests==2.31.0
+
+# Data handling
+datasets==2.14.7
+tokenizers==0.15.0 

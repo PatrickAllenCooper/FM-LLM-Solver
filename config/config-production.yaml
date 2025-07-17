@@ -1,0 +1,208 @@
+# FM-LLM Solver Production Configuration
+# Optimized for Google Cloud Platform deployment
+
+# Core application settings
+app:
+  name: "FM-LLM Solver"
+  version: "1.0.0"
+  environment: "production"
+  debug: false
+
+# Web interface configuration
+web_interface:
+  host: "0.0.0.0"
+  port: 5000
+  database_path: "/app/instance/production.db"
+  debug: false
+  secret_key_env: "SECRET_KEY"
+  
+  # User quotas (enforced in production)
+  user_quotas:
+    free:
+      daily_limit: 50
+      monthly_limit: 500
+    premium:
+      daily_limit: 200
+      monthly_limit: 2000
+    enterprise:
+      daily_limit: 1000
+      monthly_limit: 10000
+
+# Database configuration
+database:
+  type: "postgresql"
+  host: "127.0.0.1"  # Cloud SQL proxy
+  port: 5432
+  name: "fm_llm_solver"
+  pool_size: 10
+  max_overflow: 20
+  pool_pre_ping: true
+
+# Redis cache configuration
+cache:
+  type: "redis"
+  host: "10.66.171.51"  # Redis instance IP
+  port: 6379
+  db: 0
+  ttl: 3600
+  max_connections: 50
+
+# Model configurations
+models:
+  base:
+    name: "Base Llama2-7B"
+    description: "Base model without fine-tuning"
+    type: "base"
+    barrier_type: "unified"
+    
+  finetuned:
+    name: "Fine-tuned Llama2-7B"
+    description: "Model fine-tuned on barrier certificate data"
+    type: "finetuned"
+    barrier_type: "unified"
+    
+  discrete:
+    name: "Discrete-Time Specialist"
+    description: "Model specialized for discrete-time systems"
+    type: "finetuned"
+    barrier_type: "discrete"
+    
+  continuous:
+    name: "Continuous-Time Specialist"
+    description: "Model specialized for continuous-time systems"
+    type: "finetuned"
+    barrier_type: "continuous"
+
+# Fine-tuning configuration
+fine_tuning:
+  base_model_name: "meta-llama/Llama-2-7b-chat-hf"
+  use_adapter: true
+  
+  quantization:
+    use_4bit: true
+    bnb_4bit_compute_dtype: "float16"
+    bnb_4bit_quant_type: "nf4"
+    use_nested_quant: false
+
+# Knowledge base configuration
+knowledge_base:
+  embedding_model_name: "sentence-transformers/all-MiniLM-L6-v2"
+  chunk_size: 500
+  chunk_overlap: 50
+  use_gpu: false  # CPU-only for production
+
+# Inference configuration
+inference:
+  max_new_tokens: 512
+  temperature: 0.1
+  top_p: 0.9
+  rag_k: 3
+  max_retries: 3
+  timeout_seconds: 300
+
+# Deployment configuration
+deployment:
+  mode: "cloud"  # local, cloud, hybrid
+  
+  services:
+    web:
+      replicas: 2
+      resources:
+        requests:
+          cpu: "300m"
+          memory: "512Mi"
+        limits:
+          cpu: "800m"
+          memory: "1Gi"
+    
+    inference:
+      replicas: 1
+      resources:
+        requests:
+          cpu: "1000m"
+          memory: "2Gi"
+        limits:
+          cpu: "2000m"
+          memory: "4Gi"
+      timeout: 300
+  
+  cloud:
+    project_id: "fmgen-net-production"
+    region: "us-central1"
+    inference_api_url: "http://fm-llm-inference-service:8000"
+    
+    storage:
+      models_bucket: "fm-llm-models-fmgen-net-production"
+      kb_bucket: "fm-llm-knowledge-base-fmgen-net-production"
+  
+  performance:
+    enable_caching: true
+    cache_ttl: 3600
+    max_concurrent_requests: 100
+    
+  security:
+    rate_limiting: true
+    api_key_required: true
+    cors_enabled: true
+    ssl_redirect: true
+
+# Paths configuration (container paths)
+paths:
+  project_root: "/app"
+  models_dir: "/app/models"
+  kb_output_dir: "/app/knowledge_base"
+  kb_vector_store_filename: "faiss_index.bin"
+  kb_metadata_filename: "metadata.json"
+  
+  # Discrete-time knowledge base
+  kb_discrete_output_dir: "/app/knowledge_base/discrete"
+  kb_discrete_vector_store_filename: "faiss_index_discrete.bin"
+  kb_discrete_metadata_filename: "metadata_discrete.json"
+  
+  # Continuous-time knowledge base
+  kb_continuous_output_dir: "/app/knowledge_base/continuous"
+  kb_continuous_vector_store_filename: "faiss_index_continuous.bin"
+  kb_continuous_metadata_filename: "metadata_continuous.json"
+  
+  ft_output_dir: "/app/models/fine_tuned"
+  logs_dir: "/app/logs"
+  cache_dir: "/app/cache"
+
+# Logging configuration
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file_logging: false  # Use container logs
+  console_logging: true
+  
+  loggers:
+    web_interface: "INFO"
+    inference_api: "INFO"
+    certificate_generator: "INFO"
+    verification_service: "INFO"
+
+# Monitoring configuration
+monitoring:
+  enabled: true
+  metrics_port: 8080
+  health_check_interval: 30
+  
+  prometheus:
+    enabled: true
+    port: 8090
+    path: "/metrics"
+  
+  alerts:
+    error_rate_threshold: 0.05
+    response_time_threshold: 5.0
+    memory_usage_threshold: 0.85
+
+# Feature flags
+features:
+  user_authentication: true
+  api_access: true
+  conversation_mode: true
+  rag_retrieval: true
+  certificate_verification: true
+  cost_tracking: true
+  usage_analytics: true 

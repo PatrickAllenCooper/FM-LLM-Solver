@@ -1,0 +1,30 @@
+steps:
+# Build web interface image
+- name: 'gcr.io/cloud-builders/docker'
+  args: 
+  - 'build'
+  - '-f'
+  - 'Dockerfile.web'
+  - '-t'
+  - '${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/fm-llm-web:latest'
+  - '.'
+
+# Push web interface image
+- name: 'gcr.io/cloud-builders/docker'
+  args:
+  - 'push'
+  - '${_LOCATION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/fm-llm-web:latest'
+
+# Substitutions
+substitutions:
+  _LOCATION: 'us-central1'
+  _REPOSITORY: 'fm-llm-repo'
+
+# Options
+options:
+  substitution_option: 'ALLOW_LOOSE'
+  machine_type: 'E2_HIGHCPU_8'
+  disk_size_gb: '100'
+
+# Timeout
+timeout: '1200s' 

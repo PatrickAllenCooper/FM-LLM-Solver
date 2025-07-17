@@ -992,6 +992,32 @@ def internal_error(error):
     return render_template("500.html"), 500
 
 
+@app.route("/health")
+def health():
+    """Simple health check endpoint for Kubernetes."""
+    try:
+        # Test database connection
+        db.session.execute("SELECT 1")
+        return jsonify({"status": "healthy", "timestamp": datetime.utcnow().isoformat()}), 200
+    except Exception as e:
+        return jsonify({"status": "unhealthy", "error": str(e), "timestamp": datetime.utcnow().isoformat()}), 503
+
+@app.route("/ready")
+def ready():
+    """Readiness probe endpoint for Kubernetes."""
+    try:
+        # Check if services are initialized
+        if not certificate_generator or not verification_service:
+            return jsonify({"status": "not_ready", "reason": "services_not_initialized"}), 503
+        
+        # Test database connection
+        db.session.execute("SELECT 1")
+        
+        return jsonify({"status": "ready", "timestamp": datetime.utcnow().isoformat()}), 200
+    except Exception as e:
+        return jsonify({"status": "not_ready", "error": str(e), "timestamp": datetime.utcnow().isoformat()}), 503
+
+
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()

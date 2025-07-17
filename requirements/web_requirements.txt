@@ -1,13 +1,38 @@
-# Web Interface Dependencies for FM-LLM Solver
-# This file mirrors the root web_requirements.txt for Docker compatibility
+# Web Interface Requirements (CPU-only)
+# Flask and web framework
+flask==3.0.0
+flask-sqlalchemy==3.1.1
+flask-login==0.6.3
+flask-migrate==4.0.5
+flask-cors==4.0.0
+werkzeug==3.0.1
+gunicorn==21.2.0
+gevent==23.9.1
 
-# Core Flask dependencies
-Flask>=2.3.0
-Flask-SQLAlchemy>=3.0.0
+# Database
+psycopg2-binary==2.9.9
+sqlalchemy==2.0.23
 
-# Database support
-SQLAlchemy>=1.4.0
+# Cache and session
+redis==5.0.1
 
-# Production deployment dependencies
-gunicorn>=20.1.0
-gevent>=22.0.0 
+# Authentication and security
+cryptography==41.0.7
+bcrypt==4.1.2
+pyjwt==2.8.0
+
+# Configuration and utilities
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+python-dotenv>=1.0.0
+PyYAML>=6.0
+omegaconf>=2.3.0
+click>=8.1.0
+
+# Basic ML for web interface (CPU-only)
+numpy>=1.24.0
+requests==2.31.0
+sentence-transformers==2.2.2
+
+# System utilities
+psutil==5.9.6 

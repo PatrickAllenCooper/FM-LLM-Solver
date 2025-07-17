@@ -1,0 +1,57 @@
+FROM python:3.10-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    git \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN groupadd -r fmllm && useradd -r -g fmllm fmllm
+
+WORKDIR /app
+
+# Copy requirements
+COPY requirements.txt ./
+COPY requirements/ ./requirements/
+
+# Install Python dependencies (CPU-only for initial deployment)
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu && \
+    pip install --no-cache-dir \
+        fastapi==0.104.1 \
+        uvicorn[standard]==0.24.0 \
+        transformers==4.35.2 \
+        accelerate==0.24.1 \
+        peft==0.6.2 \
+        sentence-transformers==2.2.2 \
+        faiss-cpu==1.7.4 \
+        aioredis==2.0.1 \
+        psutil==5.9.6 \
+        omegaconf==2.3.0 \
+        numpy \
+        scipy \
+        requests
+
+# Copy application code
+COPY . .
+
+# Create necessary directories
+RUN mkdir -p /app/models /app/knowledge_base /app/logs /app/cache && \
+    chown -R fmllm:fmllm /app
+
+# Copy production config
+COPY config/config-production.yaml /app/config/config.yaml
+
+# Switch to non-root user
+USER fmllm
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+EXPOSE 8000
+
+# Start the inference API
+CMD ["python", "-m", "uvicorn", "inference_api.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"] 

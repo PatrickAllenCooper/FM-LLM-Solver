@@ -1,0 +1,29 @@
+# Simplified Web Interface Dockerfile - Production Hotfix
+FROM python:3.10-slim
+
+# Set working directory
+WORKDIR /app
+
+# Install minimal dependencies
+RUN pip install --no-cache-dir flask==2.3.3
+
+# Copy the simplified application
+COPY web_interface/simple_app.py /app/app.py
+
+# Create health check script
+RUN echo '#!/bin/bash\ncurl -f http://localhost:5000/health || exit 1' > /app/healthcheck.sh && \
+    chmod +x /app/healthcheck.sh
+
+# Expose port
+EXPOSE 5000
+
+# Add non-root user for security
+RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+USER appuser
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD ["/app/healthcheck.sh"]
+
+# Run the application
+CMD ["python", "app.py"] 
