@@ -5,10 +5,11 @@ Creates and configures the Flask application with proper initialization.
 """
 
 import os
+import time
 from pathlib import Path
 from typing import Optional
 
-from flask import Flask, g
+from flask import Flask, g, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_limiter import Limiter

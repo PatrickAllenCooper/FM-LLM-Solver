@@ -47,10 +47,11 @@ def rate_limit(max_requests: int = 50, window_seconds: int = 86400):
             if current_user.is_authenticated:
                 client_id = f"user:{current_user.id}"
                 # Use user's daily limit if available
+                effective_max_requests = max_requests
                 if hasattr(current_user, "get_daily_limit"):
                     user_limit = current_user.get_daily_limit()
                     if user_limit > max_requests:
-                        max_requests = user_limit
+                        effective_max_requests = user_limit
             else:
                 client_id = f"ip:{request.remote_addr}"
 
@@ -69,9 +70,9 @@ def rate_limit(max_requests: int = 50, window_seconds: int = 86400):
 
             # Check rate limit
             current_requests = len(_rate_limit_store[client_id]["requests"])
-            if current_requests >= max_requests:
+            if current_requests >= effective_max_requests:
                 logger.warning(
-                    f"Rate limit exceeded for {client_id}: {current_requests}/{max_requests}"
+                    f"Rate limit exceeded for {client_id}: {current_requests}/{effective_max_requests}"
                 )
                 return jsonify({"error": "Rate limit exceeded", "retry_after": window_seconds}), 429
 
