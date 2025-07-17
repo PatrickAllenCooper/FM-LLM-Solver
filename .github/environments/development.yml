@@ -1,0 +1,53 @@
+name: development
+description: Development environment for testing new features
+
+# Environment specific configurations
+environment:
+  name: development
+  url: https://dev.fm-llm-solver.com
+  
+# Deployment configurations
+deployment:
+  # Auto-deploy on push to development branch
+  auto_deploy: true
+  
+  # Approval required (false for development)
+  protection_rules:
+    required_reviewers: 0
+    wait_timer: 0
+    
+  # Environment variables
+  variables:
+    FLASK_ENV: development
+    DEBUG: true
+    LOG_LEVEL: DEBUG
+    
+  # Secrets (to be configured in GitHub repository settings)
+  secrets:
+    - KUBE_CONFIG_DEV
+    - DEV_DATABASE_URL
+    - DEV_REDIS_URL
+    - SLACK_WEBHOOK
+    
+# Resource limits for development
+resources:
+  cpu_limit: "2"
+  memory_limit: "4Gi"
+  replicas: 1
+  
+# Monitoring settings
+monitoring:
+  health_check_interval: 30s
+  health_check_timeout: 10s
+  health_check_retries: 3
+  
+# Testing configuration
+testing:
+  run_smoke_tests: true
+  run_integration_tests: false
+  run_performance_tests: false
+  
+# Cleanup policy
+cleanup:
+  retain_deployments: 5
+  auto_cleanup_after_days: 7 

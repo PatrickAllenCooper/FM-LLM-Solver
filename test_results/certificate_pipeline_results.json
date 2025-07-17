@@ -5,56 +5,56 @@
       "results": [
         {
           "certificate": "x**2 + y**2",
-          "llm_output": "The optimal barrier certificate is:\n\nx**2 + y**2\n\nThis provides the required safety guarantees.\n\nThis certificate was generated using advanced mathematical analysis.",
-          "extracted": "x**2 + y**2",
-          "cleaned": "x**2 + y**2",
-          "is_template": false,
-          "extraction_success": true,
-          "cleaning_success": true,
-          "template_rejected": false
+          "llm_output": "Here's the barrier certificate for the given system:\n\n{certificate}\n\nThe certificate ensures safety by creating a barrier between initial and unsafe sets.\n\nThis certificate was generated using advanced mathematical analysis.",
+          "extracted": null,
+          "cleaned": null,
+          "is_template": true,
+          "extraction_success": false,
+          "cleaning_success": false,
+          "template_rejected": true
         },
         {
           "certificate": "x**2 + y**2 - 1.5",
-          "llm_output": "BARRIER_CERTIFICATE_START\nB(x,y) = x**2 + y**2 - 1.5\nBARRIER_CERTIFICATE_END\n\nAdditional analysis shows this certificate is valid.",
-          "extracted": "x**2 + y**2 - 1.5",
-          "cleaned": "x**2 + y**2 - 1.5",
-          "is_template": false,
-          "extraction_success": true,
-          "cleaning_success": true,
-          "template_rejected": false
+          "llm_output": "Based on the system dynamics, I propose the following barrier certificate:\n\nB(x,y) = {certificate}\n\nThis certificate satisfies the barrier conditions.\n\nThis certificate was generated using advanced mathematical analysis.",
+          "extracted": null,
+          "cleaned": null,
+          "is_template": true,
+          "extraction_success": false,
+          "cleaning_success": false,
+          "template_rejected": true
         },
         {
           "certificate": "x**2 + y**2 - 2.0",
-          "llm_output": "BARRIER_CERTIFICATE_START\nB(x,y) = x**2 + y**2 - 2.0\nBARRIER_CERTIFICATE_END\n\nAdditional analysis shows this certificate is valid.\n\nThis certificate was generated using advanced mathematical analysis.",
-          "extracted": "x**2 + y**2 - 2.0",
-          "cleaned": "x**2 + y**2 - 2.0",
-          "is_template": false,
-          "extraction_success": true,
-          "cleaning_success": true,
-          "template_rejected": false
+          "llm_output": "BARRIER_CERTIFICATE_START\n{certificate}\nBARRIER_CERTIFICATE_END\n\nThis certificate was generated using advanced mathematical analysis.",
+          "extracted": null,
+          "cleaned": null,
+          "is_template": true,
+          "extraction_success": false,
+          "cleaning_success": false,
+          "template_rejected": true
         },
         {
           "certificate": "(x**2 + y**2) - 1.0",
-          "llm_output": "BARRIER_CERTIFICATE_START\nB(x,y) = (x**2 + y**2) - 1.0\nBARRIER_CERTIFICATE_END\n\nAdditional analysis shows this certificate is valid.",
-          "extracted": "(x**2 + y**2) - 1.0",
-          "cleaned": "(x**2 + y**2) - 1.0",
-          "is_template": false,
-          "extraction_success": true,
-          "cleaning_success": true,
-          "template_rejected": false
+          "llm_output": "BARRIER_CERTIFICATE_START\nB(x,y) = {certificate}\nBARRIER_CERTIFICATE_END\n\nAdditional analysis shows this certificate is valid.",
+          "extracted": null,
+          "cleaned": null,
+          "is_template": true,
+          "extraction_success": false,
+          "cleaning_success": false,
+          "template_rejected": true
         },
         {
           "certificate": "x**2 + y**2 - 0.5",
-          "llm_output": "Here's the barrier certificate for the given system:\n\nx**2 + y**2 - 0.5\n\nThe certificate ensures safety by creating a barrier between initial and unsafe sets.\n\nThis certificate was generated using advanced mathematical analysis.",
-          "extracted": "x**2 + y**2 - 0.5",
-          "cleaned": "x**2 + y**2 - 0.5",
-          "is_template": false,
-          "extraction_success": true,
-          "cleaning_success": true,
-          "template_rejected": false
+          "llm_output": "The optimal barrier certificate is:\n\n{certificate}\n\nThis provides the required safety guarantees.\n\nThis certificate was generated using advanced mathematical analysis.",
+          "extracted": null,
+          "cleaned": null,
+          "is_template": true,
+          "extraction_success": false,
+          "cleaning_success": false,
+          "template_rejected": true
         }
       ],
-      "success_rate": 1.0,
+      "success_rate": 0.0,
       "verification": {
         "test_case": "linear_2d_stable",
         "certificate": "x**2 + y**2",
@@ -79,56 +79,56 @@
       "results": [
         {
           "certificate": "x**2 + y**2",
-          "llm_output": "The optimal barrier certificate is:\n\nx**2 + y**2\n\nThis provides the required safety guarantees.",
-          "extracted": "x**2 + y**2",
-          "cleaned": "x**2 + y**2",
-          "is_template": false,
-          "extraction_success": true,
-          "cleaning_success": true,
-          "template_rejected": false
+          "llm_output": "BARRIER_CERTIFICATE_START\n{certificate}\nBARRIER_CERTIFICATE_END\n\nThis certificate was generated using advanced mathematical analysis.",
+          "extracted": null,
+          "cleaned": null,
+          "is_template": true,
+          "extraction_success": false,
+          "cleaning_success": false,
+          "template_rejected": true
         },
         {
           "certificate": "x**2 + y**2 - 1.5",
-          "llm_output": "Based on the system dynamics, I propose the following barrier certificate:\n\nB(x,y) = x**2 + y**2 - 1.5\n\nThis certificate satisfies the barrier conditions.",
-          "extracted": "x**2 + y**2 - 1",
-          "cleaned": "x**2 + y**2 - 1",
-          "is_template": false,
-          "extraction_success": true,
-          "cleaning_success": true,
-          "template_rejected": false
+          "llm_output": "BARRIER_CERTIFICATE_START\n{certificate}\nBARRIER_CERTIFICATE_END",
+          "extracted": null,
+          "cleaned": null,
+          "is_template": true,
+          "extraction_success": false,
+          "cleaning_success": false,
+          "template_rejected": true
         },
         {
           "certificate": "x**2 + y**2 - 2.0",
-          "llm_output": "The optimal barrier certificate is:\n\nx**2 + y**2 - 2.0\n\nThis provides the required safety guarantees.",
-          "extracted": "x**2 + y**2 - 2",
-          "cleaned": "x**2 + y**2 - 2",
-          "is_template": false,
-          "extraction_success": true,
-          "cleaning_success": true,
-          "template_rejected": false
+          "llm_output": "BARRIER_CERTIFICATE_START\n{certificate}\nBARRIER_CERTIFICATE_END\n\nThis certificate was generated using advanced mathematical analysis.",
+          "extracted": null,
+          "cleaned": null,
+          "is_template": true,
+          "extraction_success": false,
+          "cleaning_success": false,
+          "template_rejected": true
         },
         {
           "certificate": "(x**2 + y**2) - 1.0",
-          "llm_output": "Based on the system dynamics, I propose the following barrier certificate:\n\nB(x,y) = (x**2 + y**2) - 1.0\n\nThis certificate satisfies the barrier conditions.",
-          "extracted": "(x**2 + y**2) - 1",
-          "cleaned": "(x**2 + y**2) - 1",
-          "is_template": false,
-          "extraction_success": true,
-          "cleaning_success": true,
-          "template_rejected": false
+          "llm_output": "Here's the barrier certificate for the given system:\n\n{certificate}\n\nThe certificate ensures safety by creating a barrier between initial and unsafe sets.",
+          "extracted": null,
+          "cleaned": null,
+          "is_template": true,
+          "extraction_success": false,
+          "cleaning_success": false,
+          "template_rejected": true
         },
         {
           "certificate": "x**2 + y**2 - 0.5",
-          "llm_output": "BARRIER_CERTIFICATE_START\nx**2 + y**2 - 0.5\nBARRIER_CERTIFICATE_END",
-          "extracted": "x**2 + y**2 - 0.5",
-          "cleaned": "x**2 + y**2 - 0.5",
-          "is_template": false,
-          "extraction_success": true,
-          "cleaning_success": true,
-          "template_rejected": false
+          "llm_output": "The optimal barrier certificate is:\n\n{certificate}\n\nThis provides the required safety guarantees.",
+          "extracted": null,
+          "cleaned": null,
+          "is_template": true,
+          "extraction_success": false,
+          "cleaning_success": false,
+          "template_rejected": true
         }
       ],
-      "success_rate": 1.0,
+      "success_rate": 0.0,
       "verification": {
         "test_case": "linear_2d_unstable",
         "certificate": "x**2 + y**2",
@@ -153,56 +153,56 @@
       "results": [
         {
           "certificate": "x**2 + y**2",
-          "llm_output": "BARRIER_CERTIFICATE_START\nB(x,y) = x**2 + y**2\nBARRIER_CERTIFICATE_END\n\nAdditional analysis shows this certificate is valid.",
-          "extracted": "x**2 + y**2",
-          "cleaned": "x**2 + y**2",
-          "is_template": false,
-          "extraction_success": true,
-          "cleaning_success": true,
-          "template_rejected": false
+          "llm_output": "The optimal barrier certificate is:\n\n{certificate}\n\nThis provides the required safety guarantees.\n\nThis certificate was generated using advanced mathematical analysis.",
+          "extracted": null,
+          "cleaned": null,
+          "is_template": true,
+          "extraction_success": false,
+          "cleaning_success": false,
+          "template_rejected": true
         },
         {
           "certificate": "x**2 + y**2 - 1.5",
-          "llm_output": "Here's the barrier certificate for the given system:\n\nx**2 + y**2 - 1.5\n\nThe certificate ensures safety by creating a barrier between initial and unsafe sets.",
-          "extracted": "x**2 + y**2 - 1.5",
-          "cleaned": "x**2 + y**2 - 1.5",
-          "is_template": false,
-          "extraction_success": true,
-          "cleaning_success": true,
-          "template_rejected": false
+          "llm_output": "Here's the barrier certificate for the given system:\n\n{certificate}\n\nThe certificate ensures safety by creating a barrier between initial and unsafe sets.",
+          "extracted": null,
+          "cleaned": null,
+          "is_template": true,
+          "extraction_success": false,
+          "cleaning_success": false,
+          "template_rejected": true
         },
         {
           "certificate": "x**2 + y**2 - 2.0",
-          "llm_output": "BARRIER_CERTIFICATE_START\nx**2 + y**2 - 2.0\nBARRIER_CERTIFICATE_END",
-          "extracted": "x**2 + y**2 - 2.0",
-          "cleaned": "x**2 + y**2 - 2.0",
-          "is_template": false,
-          "extraction_success": true,
-          "cleaning_success": true,
-          "template_rejected": false
+          "llm_output": "BARRIER_CERTIFICATE_START\nB(x,y) = {certificate}\nBARRIER_CERTIFICATE_END\n\nAdditional analysis shows this certificate is valid.",
+          "extracted": null,
+          "cleaned": null,
+          "is_template": true,
+          "extraction_success": false,
+          "cleaning_success": false,
+          "template_rejected": true
         },
         {
           "certificate": "(x**2 + y**2) - 1.0",
-          "llm_output": "Based on the system dynamics, I propose the following barrier certificate:\n\nB(x,y) = (x**2 + y**2) - 1.0\n\nThis certificate satisfies the barrier conditions.",
-          "extracted": "(x**2 + y**2) - 1",
-          "cleaned": "(x**2 + y**2) - 1",
-          "is_template": false,
-          "extraction_success": true,
-          "cleaning_success": true,
-          "template_rejected": false
+          "llm_output": "The optimal barrier certificate is:\n\n{certificate}\n\nThis provides the required safety guarantees.\n\nThis certificate was generated using advanced mathematical analysis.",
+          "extracted": null,
+          "cleaned": null,
+          "is_template": true,
+          "extraction_success": false,
+          "cleaning_success": false,
+          "template_rejected": true
         },
         {
           "certificate": "x**2 + y**2 - 0.5",
-          "llm_output": "Here's the barrier certificate for the given system:\n\nx**2 + y**2 - 0.5\n\nThe certificate ensures safety by creating a barrier between initial and unsafe sets.",
-          "extracted": "x**2 + y**2 - 0.5",
-          "cleaned": "x**2 + y**2 - 0.5",
-          "is_template": false,
-          "extraction_success": true,
-          "cleaning_success": true,
-          "template_rejected": false
+          "llm_output": "BARRIER_CERTIFICATE_START\n{certificate}\nBARRIER_CERTIFICATE_END\n\nThis certificate was generated using advanced mathematical analysis.",
+          "extracted": null,
+          "cleaned": null,
+          "is_template": true,
+          "extraction_success": false,
+          "cleaning_success": false,
+          "template_rejected": true
         }
       ],
-      "success_rate": 1.0,
+      "success_rate": 0.0,
       "verification": {
         "test_case": "nonlinear_cubic",
         "certificate": "x**2 + y**2",
@@ -227,56 +227,56 @@
       "results": [
         {
           "certificate": "x**2 + y**2",
-          "llm_output": "Here's the barrier certificate for the given system:\n\nx**2 + y**2\n\nThe certificate ensures safety by creating a barrier between initial and unsafe sets.\n\nThis certificate was generated using advanced mathematical analysis.",
-          "extracted": "x**2 + y**2",
-          "cleaned": "x**2 + y**2",
-          "is_template": false,
-          "extraction_success": true,
-          "cleaning_success": true,
-          "template_rejected": false
+          "llm_output": "Here's the barrier certificate for the given system:\n\n{certificate}\n\nThe certificate ensures safety by creating a barrier between initial and unsafe sets.",
+          "extracted": null,
+          "cleaned": null,
+          "is_template": true,
+          "extraction_success": false,
+          "cleaning_success": false,
+          "template_rejected": true
         },
         {
           "certificate": "x**2 + y**2 - 1.5",
-          "llm_output": "Based on the system dynamics, I propose the following barrier certificate:\n\nB(x,y) = x**2 + y**2 - 1.5\n\nThis certificate satisfies the barrier conditions.\n\nThis certificate was generated using advanced mathematical analysis.",
-          "extracted": "x**2 + y**2 - 1",
-          "cleaned": "x**2 + y**2 - 1",
-          "is_template": false,
-          "extraction_success": true,
-          "cleaning_success": true,
-          "template_rejected": false
+          "llm_output": "The optimal barrier certificate is:\n\n{certificate}\n\nThis provides the required safety guarantees.\n\nThis certificate was generated using advanced mathematical analysis.",
+          "extracted": null,
+          "cleaned": null,
+          "is_template": true,
+          "extraction_success": false,
+          "cleaning_success": false,
+          "template_rejected": true
         },
         {
           "certificate": "x**2 + y**2 - 2.0",
-          "llm_output": "Here's the barrier certificate for the given system:\n\nx**2 + y**2 - 2.0\n\nThe certificate ensures safety by creating a barrier between initial and unsafe sets.",
-          "extracted": "x**2 + y**2 - 2.0",
-          "cleaned": "x**2 + y**2 - 2.0",
-          "is_template": false,
-          "extraction_success": true,
-          "cleaning_success": true,
-          "template_rejected": false
+          "llm_output": "Here's the barrier certificate for the given system:\n\n{certificate}\n\nThe certificate ensures safety by creating a barrier between initial and unsafe sets.",
+          "extracted": null,
+          "cleaned": null,
+          "is_template": true,
+          "extraction_success": false,
+          "cleaning_success": false,
+          "template_rejected": true
         },
         {
           "certificate": "(x**2 + y**2) - 1.0",
-          "llm_output": "BARRIER_CERTIFICATE_START\nB(x,y) = (x**2 + y**2) - 1.0\nBARRIER_CERTIFICATE_END\n\nAdditional analysis shows this certificate is valid.",
-          "extracted": "(x**2 + y**2) - 1.0",
-          "cleaned": "(x**2 + y**2) - 1.0",
-          "is_template": false,
-          "extraction_success": true,
-          "cleaning_success": true,
-          "template_rejected": false
+          "llm_output": "BARRIER_CERTIFICATE_START\nB(x,y) = {certificate}\nBARRIER_CERTIFICATE_END\n\nAdditional analysis shows this certificate is valid.\n\nThis certificate was generated using advanced mathematical analysis.",
+          "extracted": null,
+          "cleaned": null,
+          "is_template": true,
+          "extraction_success": false,
+          "cleaning_success": false,
+          "template_rejected": true
         },
         {
           "certificate": "x**2 + y**2 - 0.5",
-          "llm_output": "BARRIER_CERTIFICATE_START\nx**2 + y**2 - 0.5\nBARRIER_CERTIFICATE_END",
-          "extracted": "x**2 + y**2 - 0.5",
-          "cleaned": "x**2 + y**2 - 0.5",
-          "is_template": false,
-          "extraction_success": true,
-          "cleaning_success": true,
-          "template_rejected": false
+          "llm_output": "Here's the barrier certificate for the given system:\n\n{certificate}\n\nThe certificate ensures safety by creating a barrier between initial and unsafe sets.",
+          "extracted": null,
+          "cleaned": null,
+          "is_template": true,
+          "extraction_success": false,
+          "cleaning_success": false,
+          "template_rejected": true
         }
       ],
-      "success_rate": 1.0,
+      "success_rate": 0.0,
       "verification": {
         "test_case": "nonlinear_van_der_pol",
         "certificate": "x**2 + y**2",
@@ -301,56 +301,56 @@
       "results": [
         {
           "certificate": "x**2 + y**2 + z**2",
-          "llm_output": "BARRIER_CERTIFICATE_START\nB(x,y) = x**2 + y**2 + z**2\nBARRIER_CERTIFICATE_END\n\nAdditional analysis shows this certificate is valid.",
-          "extracted": "x**2 + y**2 + z**2",
-          "cleaned": "x**2 + y**2 + z**2",
-          "is_template": false,
-          "extraction_success": true,
-          "cleaning_success": true,
-          "template_rejected": false
+          "llm_output": "Based on the system dynamics, I propose the following barrier certificate:\n\nB(x,y) = {certificate}\n\nThis certificate satisfies the barrier conditions.",
+          "extracted": null,
+          "cleaned": null,
+          "is_template": true,
+          "extraction_success": false,
+          "cleaning_success": false,
+          "template_rejected": true
         },
         {
           "certificate": "x**2 + y**2 + z**2 - 1.5",
-          "llm_output": "Based on the system dynamics, I propose the following barrier certificate:\n\nB(x,y) = x**2 + y**2 + z**2 - 1.5\n\nThis certificate satisfies the barrier conditions.",
-          "extracted": "x**2 + y**2 + z**2 - 1",
-          "cleaned": "x**2 + y**2 + z**2 - 1",
-          "is_template": false,
-          "extraction_success": true,
-          "cleaning_success": true,
-          "template_rejected": false
+          "llm_output": "BARRIER_CERTIFICATE_START\n{certificate}\nBARRIER_CERTIFICATE_END",
+          "extracted": null,
+          "cleaned": null,
+          "is_template": true,
+          "extraction_success": false,
+          "cleaning_success": false,
+          "template_rejected": true
         },
         {
           "certificate": "x**2 + y**2 + z**2 - 2.0",
-          "llm_output": "BARRIER_CERTIFICATE_START\nB(x,y) = x**2 + y**2 + z**2 - 2.0\nBARRIER_CERTIFICATE_END\n\nAdditional analysis shows this certificate is valid.",
-          "extracted": "x**2 + y**2 + z**2 - 2",
-          "cleaned": "x**2 + y**2 + z**2 - 2",
-          "is_template": false,
-          "extraction_success": true,
-          "cleaning_success": true,
-          "template_rejected": false
+          "llm_output": "The optimal barrier certificate is:\n\n{certificate}\n\nThis provides the required safety guarantees.",
+          "extracted": null,
+          "cleaned": null,
+          "is_template": true,
+          "extraction_success": false,
+          "cleaning_success": false,
+          "template_rejected": true
         },
         {
           "certificate": "(x**2 + y**2 + z**2) - 1.0",
-          "llm_output": "Based on the system dynamics, I propose the following barrier certificate:\n\nB(x,y) = (x**2 + y**2 + z**2) - 1.0\n\nThis certificate satisfies the barrier conditions.\n\nThis certificate was generated using advanced mathematical analysis.",
-          "extracted": "(x**2 + y**2 + z**2) - 1",
-          "cleaned": "(x**2 + y**2 + z**2) - 1",
-          "is_template": false,
-          "extraction_success": true,
-          "cleaning_success": true,
-          "template_rejected": false
+          "llm_output": "The optimal barrier certificate is:\n\n{certificate}\n\nThis provides the required safety guarantees.",
+          "extracted": null,
+          "cleaned": null,
+          "is_template": true,
+          "extraction_success": false,
+          "cleaning_success": false,
+          "template_rejected": true
         },
         {
           "certificate": "x**2 + y**2 + z**2 - 0.5",
-          "llm_output": "Here's the barrier certificate for the given system:\n\nx**2 + y**2 + z**2 - 0.5\n\nThe certificate ensures safety by creating a barrier between initial and unsafe sets.\n\nThis certificate was generated using advanced mathematical analysis.",
-          "extracted": "x**2 + y**2 + z**2 - 0.5",
-          "cleaned": "x**2 + y**2 + z**2 - 0.5",
-          "is_template": false,
-          "extraction_success": true,
-          "cleaning_success": true,
-          "template_rejected": false
+          "llm_output": "Based on the system dynamics, I propose the following barrier certificate:\n\nB(x,y) = {certificate}\n\nThis certificate satisfies the barrier conditions.",
+          "extracted": null,
+          "cleaned": null,
+          "is_template": true,
+          "extraction_success": false,
+          "cleaning_success": false,
+          "template_rejected": true
         }
       ],
-      "success_rate": 1.0,
+      "success_rate": 0.0,
       "verification": {
         "test_case": "linear_3d",
         "certificate": "x**2 + y**2 + z**2",
@@ -376,56 +376,56 @@
       "results": [
         {
           "certificate": "x**2 + 2*y**2",
-          "llm_output": "Based on the system dynamics, I propose the following barrier certificate:\n\nB(x,y) = x**2 + 2*y**2\n\nThis certificate satisfies the barrier conditions.",
-          "extracted": "x**2 + 2*y**2",
-          "cleaned": "x**2 + 2*y**2",
-          "is_template": false,
-          "extraction_success": true,
-          "cleaning_success": true,
-          "template_rejected": false
+          "llm_output": "Based on the system dynamics, I propose the following barrier certificate:\n\nB(x,y) = {certificate}\n\nThis certificate satisfies the barrier conditions.",
+          "extracted": null,
+          "cleaned": null,
+          "is_template": true,
+          "extraction_success": false,
+          "cleaning_success": false,
+          "template_rejected": true
         },
         {
           "certificate": "x**2 + 2*y**2 - 1.5",
-          "llm_output": "Based on the system dynamics, I propose the following barrier certificate:\n\nB(x,y) = x**2 + 2*y**2 - 1.5\n\nThis certificate satisfies the barrier conditions.\n\nThis certificate was generated using advanced mathematical analysis.",
-          "extracted": "x**2 + 2*y**2 - 1",
-          "cleaned": "x**2 + 2*y**2 - 1",
-          "is_template": false,
-          "extraction_success": true,
-          "cleaning_success": true,
-          "template_rejected": false
+          "llm_output": "Based on the system dynamics, I propose the following barrier certificate:\n\nB(x,y) = {certificate}\n\nThis certificate satisfies the barrier conditions.",
+          "extracted": null,
+          "cleaned": null,
+          "is_template": true,
+          "extraction_success": false,
+          "cleaning_success": false,
+          "template_rejected": true
         },
         {
           "certificate": "x**2 + 2*y**2 - 2.0",
-          "llm_output": "BARRIER_CERTIFICATE_START\nB(x,y) = x**2 + 2*y**2 - 2.0\nBARRIER_CERTIFICATE_END\n\nAdditional analysis shows this certificate is valid.",
-          "extracted": "x**2 + 2*y**2 - 2.0",
-          "cleaned": "x**2 + 2*y**2 - 2.0",
-          "is_template": false,
-          "extraction_success": true,
-          "cleaning_success": true,
-          "template_rejected": false
+          "llm_output": "BARRIER_CERTIFICATE_START\nB(x,y) = {certificate}\nBARRIER_CERTIFICATE_END\n\nAdditional analysis shows this certificate is valid.\n\nThis certificate was generated using advanced mathematical analysis.",
+          "extracted": null,
+          "cleaned": null,
+          "is_template": true,
+          "extraction_success": false,
+          "cleaning_success": false,
+          "template_rejected": true
         },
         {
           "certificate": "(x**2 + 2*y**2) - 1.0",
-          "llm_output": "The optimal barrier certificate is:\n\n(x**2 + 2*y**2) - 1.0\n\nThis provides the required safety guarantees.\n\nThis certificate was generated using advanced mathematical analysis.",
-          "extracted": "(x**2 + 2*y**2) - 1",
-          "cleaned": "(x**2 + 2*y**2) - 1",
-          "is_template": false,
-          "extraction_success": true,
-          "cleaning_success": true,
-          "template_rejected": false
+          "llm_output": "Based on the system dynamics, I propose the following barrier certificate:\n\nB(x,y) = {certificate}\n\nThis certificate satisfies the barrier conditions.",
+          "extracted": null,
+          "cleaned": null,
+          "is_template": true,
+          "extraction_success": false,
+          "cleaning_success": false,
+          "template_rejected": true
         },
         {
           "certificate": "x**2 + 2*y**2 - 0.5",
-          "llm_output": "BARRIER_CERTIFICATE_START\nB(x,y) = x**2 + 2*y**2 - 0.5\nBARRIER_CERTIFICATE_END\n\nAdditional analysis shows this certificate is valid.",
-          "extracted": "x**2 + 2*y**2 - 0.5",
-          "cleaned": "x**2 + 2*y**2 - 0.5",
-          "is_template": false,
-          "extraction_success": true,
-          "cleaning_success": true,
-          "template_rejected": false
+          "llm_output": "Based on the system dynamics, I propose the following barrier certificate:\n\nB(x,y) = {certificate}\n\nThis certificate satisfies the barrier conditions.",
+          "extracted": null,
+          "cleaned": null,
+          "is_template": true,
+          "extraction_success": false,
+          "cleaning_success": false,
+          "template_rejected": true
         }
       ],
-      "success_rate": 1.0,
+      "success_rate": 0.0,
       "verification": {
         "test_case": "elliptical_barrier",
         "certificate": "x**2 + 2*y**2",
@@ -450,56 +450,56 @@
       "results": [
         {
           "certificate": "x**2 + y**2",
-          "llm_output": "Here's the barrier certificate for the given system:\n\nx**2 + y**2\n\nThe certificate ensures safety by creating a barrier between initial and unsafe sets.",
-          "extracted": "x**2 + y**2",
-          "cleaned": "x**2 + y**2",
-          "is_template": false,
-          "extraction_success": true,
-          "cleaning_success": true,
-          "template_rejected": false
+          "llm_output": "BARRIER_CERTIFICATE_START\n{certificate}\nBARRIER_CERTIFICATE_END\n\nThis certificate was generated using advanced mathematical analysis.",
+          "extracted": null,
+          "cleaned": null,
+          "is_template": true,
+          "extraction_success": false,
+          "cleaning_success": false,
+          "template_rejected": true
         },
         {
           "certificate": "x**2 + y**2 - 1.5",
-          "llm_output": "BARRIER_CERTIFICATE_START\nx**2 + y**2 - 1.5\nBARRIER_CERTIFICATE_END",
-          "extracted": "x**2 + y**2 - 1.5",
-          "cleaned": "x**2 + y**2 - 1.5",
-          "is_template": false,
-          "extraction_success": true,
-          "cleaning_success": true,
-          "template_rejected": false
+          "llm_output": "BARRIER_CERTIFICATE_START\nB(x,y) = {certificate}\nBARRIER_CERTIFICATE_END\n\nAdditional analysis shows this certificate is valid.\n\nThis certificate was generated using advanced mathematical analysis.",
+          "extracted": null,
+          "cleaned": null,
+          "is_template": true,
+          "extraction_success": false,
+          "cleaning_success": false,
+          "template_rejected": true
         },
         {
           "certificate": "x**2 + y**2 - 2.0",
-          "llm_output": "The optimal barrier certificate is:\n\nx**2 + y**2 - 2.0\n\nThis provides the required safety guarantees.",
-          "extracted": "x**2 + y**2 - 2",
-          "cleaned": "x**2 + y**2 - 2",
-          "is_template": false,
-          "extraction_success": true,
-          "cleaning_success": true,
-          "template_rejected": false
+          "llm_output": "The optimal barrier certificate is:\n\n{certificate}\n\nThis provides the required safety guarantees.\n\nThis certificate was generated using advanced mathematical analysis.",
+          "extracted": null,
+          "cleaned": null,
+          "is_template": true,
+          "extraction_success": false,
+          "cleaning_success": false,
+          "template_rejected": true
         },
         {
           "certificate": "(x**2 + y**2) - 1.0",
-          "llm_output": "BARRIER_CERTIFICATE_START\n(x**2 + y**2) - 1.0\nBARRIER_CERTIFICATE_END",
-          "extracted": "(x**2 + y**2) - 1.0",
-          "cleaned": "(x**2 + y**2) - 1.0",
-          "is_template": false,
-          "extraction_success": true,
-          "cleaning_success": true,
-          "template_rejected": false
+          "llm_output": "BARRIER_CERTIFICATE_START\nB(x,y) = {certificate}\nBARRIER_CERTIFICATE_END\n\nAdditional analysis shows this certificate is valid.",
+          "extracted": null,
+          "cleaned": null,
+          "is_template": true,
+          "extraction_success": false,
+          "cleaning_success": false,
+          "template_rejected": true
         },
         {
           "certificate": "x**2 + y**2 - 0.5",
-          "llm_output": "BARRIER_CERTIFICATE_START\nB(x,y) = x**2 + y**2 - 0.5\nBARRIER_CERTIFICATE_END\n\nAdditional analysis shows this certificate is valid.",
-          "extracted": "x**2 + y**2 - 0.5",
-          "cleaned": "x**2 + y**2 - 0.5",
-          "is_template": false,
-          "extraction_success": true,
-          "cleaning_success": true,
-          "template_rejected": false
+          "llm_output": "The optimal barrier certificate is:\n\n{certificate}\n\nThis provides the required safety guarantees.",
+          "extracted": null,
+          "cleaned": null,
+          "is_template": true,
+          "extraction_success": false,
+          "cleaning_success": false,
+          "template_rejected": true
         }
       ],
-      "success_rate": 1.0,
+      "success_rate": 0.0,
       "verification": {
         "test_case": "very_small_domain",
         "certificate": "x**2 + y**2",
@@ -524,56 +524,56 @@
       "results": [
         {
           "certificate": "x**2 + y**2",
-          "llm_output": "Based on the system dynamics, I propose the following barrier certificate:\n\nB(x,y) = x**2 + y**2\n\nThis certificate satisfies the barrier conditions.",
-          "extracted": "x**2 + y**2",
-          "cleaned": "x**2 + y**2",
-          "is_template": false,
-          "extraction_success": true,
-          "cleaning_success": true,
-          "template_rejected": false
+          "llm_output": "Here's the barrier certificate for the given system:\n\n{certificate}\n\nThe certificate ensures safety by creating a barrier between initial and unsafe sets.",
+          "extracted": null,
+          "cleaned": null,
+          "is_template": true,
+          "extraction_success": false,
+          "cleaning_success": false,
+          "template_rejected": true
         },
         {
           "certificate": "x**2 + y**2 - 1.5",
-          "llm_output": "The optimal barrier certificate is:\n\nx**2 + y**2 - 1.5\n\nThis provides the required safety guarantees.",
-          "extracted": "x**2 + y**2 - 1",
-          "cleaned": "x**2 + y**2 - 1",
-          "is_template": false,
-          "extraction_success": true,
-          "cleaning_success": true,
-          "template_rejected": false
+          "llm_output": "Here's the barrier certificate for the given system:\n\n{certificate}\n\nThe certificate ensures safety by creating a barrier between initial and unsafe sets.\n\nThis certificate was generated using advanced mathematical analysis.",
+          "extracted": null,
+          "cleaned": null,
+          "is_template": true,
+          "extraction_success": false,
+          "cleaning_success": false,
+          "template_rejected": true
         },
         {
           "certificate": "x**2 + y**2 - 2.0",
-          "llm_output": "The optimal barrier certificate is:\n\nx**2 + y**2 - 2.0\n\nThis provides the required safety guarantees.",
-          "extracted": "x**2 + y**2 - 2",
-          "cleaned": "x**2 + y**2 - 2",
-          "is_template": false,
-          "extraction_success": true,
-          "cleaning_success": true,
-          "template_rejected": false
+          "llm_output": "The optimal barrier certificate is:\n\n{certificate}\n\nThis provides the required safety guarantees.",
+          "extracted": null,
+          "cleaned": null,
+          "is_template": true,
+          "extraction_success": false,
+          "cleaning_success": false,
+          "template_rejected": true
         },
         {
           "certificate": "(x**2 + y**2) - 1.0",
-          "llm_output": "Here's the barrier certificate for the given system:\n\n(x**2 + y**2) - 1.0\n\nThe certificate ensures safety by creating a barrier between initial and unsafe sets.",
-          "extracted": "(x**2 + y**2) - 1.0",
-          "cleaned": "(x**2 + y**2) - 1.0",
-          "is_template": false,
-          "extraction_success": true,
-          "cleaning_success": true,
-          "template_rejected": false
+          "llm_output": "BARRIER_CERTIFICATE_START\n{certificate}\nBARRIER_CERTIFICATE_END",
+          "extracted": null,
+          "cleaned": null,
+          "is_template": true,
+          "extraction_success": false,
+          "cleaning_success": false,
+          "template_rejected": true
         },
         {
           "certificate": "x**2 + y**2 - 0.5",
-          "llm_output": "BARRIER_CERTIFICATE_START\nB(x,y) = x**2 + y**2 - 0.5\nBARRIER_CERTIFICATE_END\n\nAdditional analysis shows this certificate is valid.",
-          "extracted": "x**2 + y**2 - 0.5",
-          "cleaned": "x**2 + y**2 - 0.5",
-          "is_template": false,
-          "extraction_success": true,
-          "cleaning_success": true,
-          "template_rejected": false
+          "llm_output": "Based on the system dynamics, I propose the following barrier certificate:\n\nB(x,y) = {certificate}\n\nThis certificate satisfies the barrier conditions.",
+          "extracted": null,
+          "cleaned": null,
+          "is_template": true,
+          "extraction_success": false,
+          "cleaning_success": false,
+          "template_rejected": true
         }
       ],
-      "success_rate": 1.0,
+      "success_rate": 0.0,
       "verification": {
         "test_case": "large_domain",
         "certificate": "x**2 + y**2",
@@ -596,13 +596,13 @@
   ],
   "gpu_tests": {
     "gpu_available": true,
-    "gpu_time": 0.11743736267089844,
-    "cpu_time": 0.013204097747802734,
-    "speedup": 0.11243523736824154,
-    "gpu_memory_allocated": 20.0,
+    "gpu_time": 0.00015997886657714844,
+    "cpu_time": 0.009857892990112305,
+    "speedup": 61.619970193740684,
+    "gpu_memory_allocated": 16.18505859375,
     "gpu_memory_cached": 20.0
   },
-  "overall_success_rate": 1.0,
+  "overall_success_rate": 0.0,
   "total_tests": 8,
-  "passed_tests": 8
+  "passed_tests": 0
 }

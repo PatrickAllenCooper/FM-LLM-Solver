@@ -1,0 +1,859 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>User Guide &mdash; FM-LLM Solver 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=92fd9be5" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="_static/custom.css" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=8d563738"></script>
+      <script src="_static/doctools.js?v=9a2dae69"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="API Reference" href="API_REFERENCE.html" />
+    <link rel="prev" title="Installation Guide" href="INSTALLATION.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            FM-LLM Solver
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="INSTALLATION.html">Installation Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="INSTALLATION.html#system-requirements">System Requirements</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="INSTALLATION.html#hardware">Hardware</a></li>
+<li class="toctree-l3"><a class="reference internal" href="INSTALLATION.html#software">Software</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="INSTALLATION.html#installation-steps">Installation Steps</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="INSTALLATION.html#clone-repository">1. Clone Repository</a></li>
+<li class="toctree-l3"><a class="reference internal" href="INSTALLATION.html#set-up-python-environment">2. Set Up Python Environment</a></li>
+<li class="toctree-l3"><a class="reference internal" href="INSTALLATION.html#install-dependencies">3. Install Dependencies</a></li>
+<li class="toctree-l3"><a class="reference internal" href="INSTALLATION.html#configure-environment-variables">4. Configure Environment Variables</a></li>
+<li class="toctree-l3"><a class="reference internal" href="INSTALLATION.html#verify-installation">5. Verify Installation</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="INSTALLATION.html#deployment-options">Deployment Options</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="INSTALLATION.html#local-deployment">Local Deployment</a></li>
+<li class="toctree-l3"><a class="reference internal" href="INSTALLATION.html#hybrid-deployment-recommended-for-production">Hybrid Deployment (Recommended for Production)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="INSTALLATION.html#docker-deployment">Docker Deployment</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="INSTALLATION.html#troubleshooting">Troubleshooting</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="INSTALLATION.html#cuda-not-available">CUDA Not Available</a></li>
+<li class="toctree-l3"><a class="reference internal" href="INSTALLATION.html#memory-issues">Memory Issues</a></li>
+<li class="toctree-l3"><a class="reference internal" href="INSTALLATION.html#api-key-issues">API Key Issues</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="INSTALLATION.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">User Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#table-of-contents">Table of Contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#getting-started">Getting Started</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#configuration">Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#quick-test">Quick Test</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#building-knowledge-base">Building Knowledge Base</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#fetch-papers">1. Fetch Papers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#build-knowledge-base">2. Build Knowledge Base</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#test-knowledge-base">3. Test Knowledge Base</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#generating-certificates">Generating Certificates</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#command-line-interface">Command Line Interface</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#python-api">Python API</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#system-description-format">System Description Format</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#fine-tuning">Fine-Tuning</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#prepare-training-data">Prepare Training Data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#train-model">Train Model</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#web-interface">Web Interface</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#start-the-web-server">Start the Web Server</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#features">Features</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#api-endpoints">API Endpoints</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#evaluation-benchmarking">Evaluation &amp; Benchmarking</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#run-benchmark-suite">Run Benchmark Suite</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#add-custom-benchmarks">Add Custom Benchmarks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#model-comparison">Model Comparison</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#advanced-features">Advanced Features</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#domain-bounds">Domain Bounds</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#discrete-time-systems">Discrete-Time Systems</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#stochastic-systems">Stochastic Systems</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#custom-verification">Custom Verification</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#tips-best-practices">Tips &amp; Best Practices</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#troubleshooting">Troubleshooting</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#common-issues">Common Issues</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#getting-help">Getting Help</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="API_REFERENCE.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="API_REFERENCE.html#python-api">Python API</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="API_REFERENCE.html#certificate-generation">Certificate Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="API_REFERENCE.html#verification">Verification</a></li>
+<li class="toctree-l3"><a class="reference internal" href="API_REFERENCE.html#knowledge-base">Knowledge Base</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="API_REFERENCE.html#rest-api">REST API</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="API_REFERENCE.html#authentication">Authentication</a></li>
+<li class="toctree-l3"><a class="reference internal" href="API_REFERENCE.html#endpoints">Endpoints</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="API_REFERENCE.html#generate-certificate">Generate Certificate</a></li>
+<li class="toctree-l4"><a class="reference internal" href="API_REFERENCE.html#verify-certificate">Verify Certificate</a></li>
+<li class="toctree-l4"><a class="reference internal" href="API_REFERENCE.html#status-check">Status Check</a></li>
+<li class="toctree-l4"><a class="reference internal" href="API_REFERENCE.html#user-metrics">User Metrics</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="API_REFERENCE.html#monitoring-api">Monitoring API</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="API_REFERENCE.html#usage-metrics">Usage Metrics</a></li>
+<li class="toctree-l4"><a class="reference internal" href="API_REFERENCE.html#health-check">Health Check</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="API_REFERENCE.html#error-codes">Error Codes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="API_REFERENCE.html#rate-limits">Rate Limits</a></li>
+<li class="toctree-l2"><a class="reference internal" href="API_REFERENCE.html#examples">Examples</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="API_REFERENCE.html#python-client">Python Client</a></li>
+<li class="toctree-l3"><a class="reference internal" href="API_REFERENCE.html#javascript-client">JavaScript Client</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="ARCHITECTURE.html">FM-LLM-Solver Architecture</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="ARCHITECTURE.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ARCHITECTURE.html#system-architecture">System Architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ARCHITECTURE.html#core-components">Core Components</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#web-interface-layer">1. Web Interface Layer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="ARCHITECTURE.html#flask-web-application-fm-llm-solver-web">Flask Web Application (<code class="docutils literal notranslate"><span class="pre">fm_llm_solver/web/</span></code>)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#core-services-layer">2. Core Services Layer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="ARCHITECTURE.html#certificate-generator-fm-llm-solver-services-certificate-generator-py">Certificate Generator (<code class="docutils literal notranslate"><span class="pre">fm_llm_solver/services/certificate_generator.py</span></code>)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="ARCHITECTURE.html#verification-service-fm-llm-solver-services-verification-service-py">Verification Service (<code class="docutils literal notranslate"><span class="pre">fm_llm_solver/services/verification_service.py</span></code>)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="ARCHITECTURE.html#knowledge-base-fm-llm-solver-services-knowledge-base-py">Knowledge Base (<code class="docutils literal notranslate"><span class="pre">fm_llm_solver/services/knowledge_base.py</span></code>)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#infrastructure-layer">3. Infrastructure Layer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="ARCHITECTURE.html#configuration-management-fm-llm-solver-core-config-manager-py">Configuration Management (<code class="docutils literal notranslate"><span class="pre">fm_llm_solver/core/config_manager.py</span></code>)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="ARCHITECTURE.html#database-management-fm-llm-solver-core-database-manager-py">Database Management (<code class="docutils literal notranslate"><span class="pre">fm_llm_solver/core/database_manager.py</span></code>)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="ARCHITECTURE.html#cache-management-fm-llm-solver-core-cache-manager-py">Cache Management (<code class="docutils literal notranslate"><span class="pre">fm_llm_solver/core/cache_manager.py</span></code>)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="ARCHITECTURE.html#async-management-fm-llm-solver-core-async-manager-py">Async Management (<code class="docutils literal notranslate"><span class="pre">fm_llm_solver/core/async_manager.py</span></code>)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="ARCHITECTURE.html#memory-management-fm-llm-solver-core-memory-manager-py">Memory Management (<code class="docutils literal notranslate"><span class="pre">fm_llm_solver/core/memory_manager.py</span></code>)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="ARCHITECTURE.html#monitoring-system-fm-llm-solver-core-monitoring-py">Monitoring System (<code class="docutils literal notranslate"><span class="pre">fm_llm_solver/core/monitoring.py</span></code>)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#storage-layer">4. Storage Layer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="ARCHITECTURE.html#postgresql-database">PostgreSQL Database</a></li>
+<li class="toctree-l4"><a class="reference internal" href="ARCHITECTURE.html#redis-cache">Redis Cache</a></li>
+<li class="toctree-l4"><a class="reference internal" href="ARCHITECTURE.html#faiss-vector-database">FAISS Vector Database</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="ARCHITECTURE.html#data-flow">Data Flow</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#certificate-generation-flow">Certificate Generation Flow</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#verification-flow">Verification Flow</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="ARCHITECTURE.html#security-architecture">Security Architecture</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#authentication-authorization">Authentication &amp; Authorization</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#data-protection">Data Protection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#network-security">Network Security</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="ARCHITECTURE.html#performance-architecture">Performance Architecture</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#async-operations">Async Operations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#caching-strategy">Caching Strategy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#memory-management">Memory Management</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#database-optimization">Database Optimization</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="ARCHITECTURE.html#deployment-architecture">Deployment Architecture</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#development-environment">Development Environment</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#staging-environment">Staging Environment</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#production-environment">Production Environment</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="ARCHITECTURE.html#monitoring-observability">Monitoring &amp; Observability</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#metrics-collection">Metrics Collection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#logging-strategy">Logging Strategy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#health-checks">Health Checks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#alerting">Alerting</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="ARCHITECTURE.html#scalability-considerations">Scalability Considerations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#horizontal-scaling">Horizontal Scaling</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#vertical-scaling">Vertical Scaling</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#performance-bottlenecks">Performance Bottlenecks</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="ARCHITECTURE.html#development-guidelines">Development Guidelines</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#code-organization">Code Organization</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#testing-strategy">Testing Strategy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#documentation">Documentation</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="ARCHITECTURE.html#future-architecture-considerations">Future Architecture Considerations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#microservices-migration">Microservices Migration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#machine-learning-pipeline">Machine Learning Pipeline</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#advanced-caching">Advanced Caching</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="DEVELOPMENT.html">Development Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="DEVELOPMENT.html#architecture-overview">Architecture Overview</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="DEVELOPMENT.html#core-components">Core Components</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="DEVELOPMENT.html#development-setup">Development Setup</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="DEVELOPMENT.html#fork-and-clone">1. Fork and Clone</a></li>
+<li class="toctree-l3"><a class="reference internal" href="DEVELOPMENT.html#development-environment">2. Development Environment</a></li>
+<li class="toctree-l3"><a class="reference internal" href="DEVELOPMENT.html#pre-commit-hooks-optional">3. Pre-commit Hooks (Optional)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="DEVELOPMENT.html#code-style">Code Style</a></li>
+<li class="toctree-l2"><a class="reference internal" href="DEVELOPMENT.html#testing">Testing</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="DEVELOPMENT.html#running-tests">Running Tests</a></li>
+<li class="toctree-l3"><a class="reference internal" href="DEVELOPMENT.html#writing-tests">Writing Tests</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="DEVELOPMENT.html#adding-features">Adding Features</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="DEVELOPMENT.html#new-system-types">1. New System Types</a></li>
+<li class="toctree-l3"><a class="reference internal" href="DEVELOPMENT.html#new-models">2. New Models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="DEVELOPMENT.html#new-verification-methods">3. New Verification Methods</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="DEVELOPMENT.html#debugging">Debugging</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="DEVELOPMENT.html#enable-debug-logging">Enable Debug Logging</a></li>
+<li class="toctree-l3"><a class="reference internal" href="DEVELOPMENT.html#common-issues">Common Issues</a></li>
+<li class="toctree-l3"><a class="reference internal" href="DEVELOPMENT.html#performance-profiling">Performance Profiling</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="DEVELOPMENT.html#contributing">Contributing</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="DEVELOPMENT.html#create-feature-branch">1. Create Feature Branch</a></li>
+<li class="toctree-l3"><a class="reference internal" href="DEVELOPMENT.html#make-changes">2. Make Changes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="DEVELOPMENT.html#test-thoroughly">3. Test Thoroughly</a></li>
+<li class="toctree-l3"><a class="reference internal" href="DEVELOPMENT.html#submit-pull-request">4. Submit Pull Request</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="DEVELOPMENT.html#release-process">Release Process</a></li>
+<li class="toctree-l2"><a class="reference internal" href="DEVELOPMENT.html#project-structure-best-practices">Project Structure Best Practices</a></li>
+<li class="toctree-l2"><a class="reference internal" href="DEVELOPMENT.html#security-considerations">Security Considerations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="DEVELOPMENT.html#performance-optimization">Performance Optimization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="DEVELOPMENT.html#documentation">Documentation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="DEVELOPMENT.html#getting-help">Getting Help</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="EXPERIMENTS.html">Barrier Certificate Experimentation Framework</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="EXPERIMENTS.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l2"><a class="reference internal" href="EXPERIMENTS.html#quick-start">Quick Start</a></li>
+<li class="toctree-l2"><a class="reference internal" href="EXPERIMENTS.html#running-experiments">Running Experiments</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="EXPERIMENTS.html#basic-usage">Basic Usage</a></li>
+<li class="toctree-l3"><a class="reference internal" href="EXPERIMENTS.html#common-options">Common Options</a></li>
+<li class="toctree-l3"><a class="reference internal" href="EXPERIMENTS.html#predefined-experiment-types">Predefined Experiment Types</a></li>
+<li class="toctree-l3"><a class="reference internal" href="EXPERIMENTS.html#examples">Examples</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="EXPERIMENTS.html#understanding-experiment-results">Understanding Experiment Results</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="EXPERIMENTS.html#raw-results-structure">Raw Results Structure</a></li>
+<li class="toctree-l3"><a class="reference internal" href="EXPERIMENTS.html#analyzing-results">Analyzing Results</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="EXPERIMENTS.html#advanced-custom-experiment-dimensions">Advanced: Custom Experiment Dimensions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="EXPERIMENTS.html#best-practices">Best Practices</a></li>
+<li class="toctree-l2"><a class="reference internal" href="EXPERIMENTS.html#troubleshooting">Troubleshooting</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Advanced Topics:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="MATHEMATICAL_PRIMER.html">Mathematical Primer: Barrier Certificates</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#dynamical-systems">1. Dynamical Systems</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#continuous-time-systems">Continuous-Time Systems</a></li>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#discrete-time-systems">Discrete-Time Systems</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#safety-verification-problem">2. Safety Verification Problem</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#definition">Definition</a></li>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#mathematical-formulation">Mathematical Formulation</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#barrier-certificates">3. Barrier Certificates</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#id1">Definition</a></li>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#intuition">Intuition</a></li>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#theorem-barrier-certificate-implies-safety">Theorem (Barrier Certificate Implies Safety)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#types-of-barrier-certificates">4. Types of Barrier Certificates</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#polynomial-barriers">Polynomial Barriers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#exponential-barriers">Exponential Barriers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#rational-barriers">Rational Barriers</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#verification-conditions">5. Verification Conditions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#continuous-time">Continuous-Time</a></li>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#discrete-time">Discrete-Time</a></li>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#stochastic-systems">Stochastic Systems</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#sum-of-squares-sos-programming">6. Sum-of-Squares (SOS) Programming</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#sos-polynomials">SOS Polynomials</a></li>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#sos-relaxation-for-barriers">SOS Relaxation for Barriers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#computational-approach">Computational Approach</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#why-llms-for-barrier-certificates">7. Why LLMs for Barrier Certificates?</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#the-challenge">The Challenge</a></li>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#llm-advantages">LLM Advantages</a></li>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#mathematical-justification">Mathematical Justification</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#example-2d-nonlinear-system">8. Example: 2D Nonlinear System</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#system">System</a></li>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#sets">Sets</a></li>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#barrier-certificate">Barrier Certificate</a></li>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#verification">Verification</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#advanced-topics">9. Advanced Topics</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#control-barrier-functions">Control Barrier Functions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#time-varying-barriers">Time-Varying Barriers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#compositional-barriers">Compositional Barriers</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#significance-and-applications">10. Significance and Applications</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#theoretical-significance">Theoretical Significance</a></li>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#practical-applications">Practical Applications</a></li>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#connection-to-lyapunov-theory">Connection to Lyapunov Theory</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#conclusion">Conclusion</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="VERIFICATION.html">Verification System</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="VERIFICATION.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="VERIFICATION.html#verification-methods">Verification Methods</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="VERIFICATION.html#numerical-verification">1. Numerical Verification</a></li>
+<li class="toctree-l3"><a class="reference internal" href="VERIFICATION.html#symbolic-verification">2. Symbolic Verification</a></li>
+<li class="toctree-l3"><a class="reference internal" href="VERIFICATION.html#sos-verification">3. SOS Verification</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="VERIFICATION.html#usage">Usage</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="VERIFICATION.html#command-line">Command Line</a></li>
+<li class="toctree-l3"><a class="reference internal" href="VERIFICATION.html#python-api">Python API</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="VERIFICATION.html#configuration">Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="VERIFICATION.html#special-cases">Special Cases</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="VERIFICATION.html#discrete-time-systems">Discrete-Time Systems</a></li>
+<li class="toctree-l3"><a class="reference internal" href="VERIFICATION.html#stochastic-systems">Stochastic Systems</a></li>
+<li class="toctree-l3"><a class="reference internal" href="VERIFICATION.html#domain-bounded-certificates">Domain-Bounded Certificates</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="VERIFICATION.html#interpreting-results">Interpreting Results</a></li>
+<li class="toctree-l2"><a class="reference internal" href="VERIFICATION.html#limitations">Limitations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="VERIFICATION.html#best-practices">Best Practices</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="OPTIMIZATION.html">Optimization Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="OPTIMIZATION.html#gpu-memory-management">GPU Memory Management</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="OPTIMIZATION.html#quick-settings">Quick Settings</a></li>
+<li class="toctree-l3"><a class="reference internal" href="OPTIMIZATION.html#model-selection-by-vram">Model Selection by VRAM</a></li>
+<li class="toctree-l3"><a class="reference internal" href="OPTIMIZATION.html#inference-optimization">Inference Optimization</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="OPTIMIZATION.html#cpu-optimization">CPU Optimization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="OPTIMIZATION.html#batch-processing">Batch Processing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="OPTIMIZATION.html#awq-models">AWQ Models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="OPTIMIZATION.html#knowledge-base-optimization">Knowledge Base Optimization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="OPTIMIZATION.html#monitoring-performance">Monitoring Performance</a></li>
+<li class="toctree-l2"><a class="reference internal" href="OPTIMIZATION.html#common-issues">Common Issues</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="OPTIMIZATION.html#oom-errors">OOM Errors</a></li>
+<li class="toctree-l3"><a class="reference internal" href="OPTIMIZATION.html#slow-generation">Slow Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="OPTIMIZATION.html#quality-vs-speed-trade-offs">Quality vs Speed Trade-offs</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="MONITORING.html">Monitoring</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="MONITORING.html#access">Access</a></li>
+<li class="toctree-l2"><a class="reference internal" href="MONITORING.html#metrics-tracked">Metrics Tracked</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="MONITORING.html#usage">Usage</a></li>
+<li class="toctree-l3"><a class="reference internal" href="MONITORING.html#costs-admin-only">Costs (Admin Only)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="MONITORING.html#system-performance">System Performance</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="MONITORING.html#configuration">Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="MONITORING.html#api-endpoints">API Endpoints</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="MONITORING.html#metrics">Metrics</a></li>
+<li class="toctree-l3"><a class="reference internal" href="MONITORING.html#analytics">Analytics</a></li>
+<li class="toctree-l3"><a class="reference internal" href="MONITORING.html#health-export">Health &amp; Export</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="MONITORING.html#features">Features</a></li>
+<li class="toctree-l2"><a class="reference internal" href="MONITORING.html#integration">Integration</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="MONITORING.html#prometheus">Prometheus</a></li>
+<li class="toctree-l3"><a class="reference internal" href="MONITORING.html#webhooks">Webhooks</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="MONITORING.html#tips">Tips</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="SECURITY.html">Security Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="SECURITY.html#features">Features</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="SECURITY.html#authentication-authorization">Authentication &amp; Authorization</a></li>
+<li class="toctree-l3"><a class="reference internal" href="SECURITY.html#rate-limiting">Rate Limiting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="SECURITY.html#protection-mechanisms">Protection Mechanisms</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="SECURITY.html#setup">Setup</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="SECURITY.html#initialize-security">1. Initialize Security</a></li>
+<li class="toctree-l3"><a class="reference internal" href="SECURITY.html#configure-settings">2. Configure Settings</a></li>
+<li class="toctree-l3"><a class="reference internal" href="SECURITY.html#start-with-security">3. Start with Security</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="SECURITY.html#usage">Usage</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="SECURITY.html#web-interface">Web Interface</a></li>
+<li class="toctree-l3"><a class="reference internal" href="SECURITY.html#api-access">API Access</a></li>
+<li class="toctree-l3"><a class="reference internal" href="SECURITY.html#admin-panel">Admin Panel</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="SECURITY.html#best-practices">Best Practices</a></li>
+<li class="toctree-l2"><a class="reference internal" href="SECURITY.html#monitoring">Monitoring</a></li>
+<li class="toctree-l2"><a class="reference internal" href="SECURITY.html#emergency-procedures">Emergency Procedures</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="SECURITY.html#block-an-ip">Block an IP</a></li>
+<li class="toctree-l3"><a class="reference internal" href="SECURITY.html#reset-user-password">Reset User Password</a></li>
+<li class="toctree-l3"><a class="reference internal" href="SECURITY.html#disable-all-access">Disable All Access</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="FEATURES.html">Features Overview</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="FEATURES.html#security-authentication">Security &amp; Authentication</a></li>
+<li class="toctree-l2"><a class="reference internal" href="FEATURES.html#monitoring-analytics">Monitoring &amp; Analytics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="FEATURES.html#deployment-options">Deployment Options</a></li>
+<li class="toctree-l2"><a class="reference internal" href="FEATURES.html#advanced-certificate-generation">Advanced Certificate Generation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="FEATURES.html#system-types-supported">System Types Supported</a></li>
+<li class="toctree-l3"><a class="reference internal" href="FEATURES.html#verification-methods">Verification Methods</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="FEATURES.html#knowledge-base-rag">Knowledge Base &amp; RAG</a></li>
+<li class="toctree-l2"><a class="reference internal" href="FEATURES.html#model-support">Model Support</a></li>
+<li class="toctree-l2"><a class="reference internal" href="FEATURES.html#web-interface">Web Interface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="FEATURES.html#experiment-management">Experiment Management</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">FM-LLM Solver</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">User Guide</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/USER_GUIDE.md.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section class="tex2jax_ignore mathjax_ignore" id="user-guide">
+<h1>User Guide<a class="headerlink" href="#user-guide" title="Link to this heading"></a></h1>
+<p>This guide covers all aspects of using FM-LLM Solver, from basic certificate generation to advanced features.</p>
+<section id="table-of-contents">
+<h2>Table of Contents<a class="headerlink" href="#table-of-contents" title="Link to this heading"></a></h2>
+<ol class="arabic simple">
+<li><p><a class="reference external" href="https://docs.python.org/3/library/unittest.mock-examples.html#getting-started" title="Python 3.13"><span class="xref myst">Getting Started</span></a></p></li>
+<li><p><a class="reference internal" href="#building-knowledge-base"><span class="xref myst">Building Knowledge Base</span></a></p></li>
+<li><p><a class="reference internal" href="#generating-certificates"><span class="xref myst">Generating Certificates</span></a></p></li>
+<li><p><a class="reference internal" href="#fine-tuning"><span class="xref myst">Fine-Tuning</span></a></p></li>
+<li><p><a class="reference internal" href="#web-interface"><span class="xref myst">Web Interface</span></a></p></li>
+<li><p><a class="reference internal" href="#evaluation--benchmarking"><span class="xref myst">Evaluation &amp; Benchmarking</span></a></p></li>
+<li><p><a class="reference internal" href="#advanced-features"><span class="xref myst">Advanced Features</span></a></p></li>
+</ol>
+</section>
+<section id="getting-started">
+<h2>Getting Started<a class="headerlink" href="#getting-started" title="Link to this heading"></a></h2>
+<section id="configuration">
+<h3>Configuration<a class="headerlink" href="#configuration" title="Link to this heading"></a></h3>
+<p>The main configuration file is <code class="docutils literal notranslate"><span class="pre">config/config.yaml</span></code>. Key settings:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">model</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">provider</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;qwen&quot;</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Qwen/Qwen2.5-14B-Instruct&quot;</span>
+<span class="w">  </span><span class="nt">use_finetuned</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">  </span><span class="c1"># Use fine-tuned model if available</span>
+
+<span class="nt">rag</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">k_retrieved</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span><span class="w">  </span><span class="c1"># Number of context documents</span>
+
+<span class="nt">deployment</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">mode</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;local&quot;</span><span class="w">  </span><span class="c1"># local, hybrid, or cloud</span>
+</pre></div>
+</div>
+</section>
+<section id="quick-test">
+<h3>Quick Test<a class="headerlink" href="#quick-test" title="Link to this heading"></a></h3>
+<p>Generate your first barrier certificate:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>inference/generate_certificate.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s2">&quot;System: dx/dt = -x^3 - y, dy/dt = x - y^3. Initial: x^2+y^2 &lt;= 0.1. Unsafe: x &gt;= 1.5&quot;</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="building-knowledge-base">
+<h2>Building Knowledge Base<a class="headerlink" href="#building-knowledge-base" title="Link to this heading"></a></h2>
+<section id="fetch-papers">
+<h3>1. Fetch Papers<a class="headerlink" href="#fetch-papers" title="Link to this heading"></a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Set environment variable</span>
+<span class="nb">export</span><span class="w"> </span><span class="nv">UNPAYWALL_EMAIL</span><span class="o">=</span><span class="s1">&#39;your-email@example.com&#39;</span>
+
+<span class="c1"># Fetch papers (uses data/user_ids.csv for author list)</span>
+python<span class="w"> </span>data_fetching/paper_fetcher.py
+</pre></div>
+</div>
+</section>
+<section id="build-knowledge-base">
+<h3>2. Build Knowledge Base<a class="headerlink" href="#build-knowledge-base" title="Link to this heading"></a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Set Mathpix credentials</span>
+<span class="nb">export</span><span class="w"> </span><span class="nv">MATHPIX_APP_ID</span><span class="o">=</span><span class="s1">&#39;your_app_id&#39;</span>
+<span class="nb">export</span><span class="w"> </span><span class="nv">MATHPIX_APP_KEY</span><span class="o">=</span><span class="s1">&#39;your_app_key&#39;</span>
+
+<span class="c1"># Build knowledge base</span>
+python<span class="w"> </span>knowledge_base/knowledge_base_builder.py
+</pre></div>
+</div>
+<p>The knowledge base will be saved to <code class="docutils literal notranslate"><span class="pre">kb_data/</span></code> or <code class="docutils literal notranslate"><span class="pre">output/knowledge_base/</span></code>.</p>
+</section>
+<section id="test-knowledge-base">
+<h3>3. Test Knowledge Base<a class="headerlink" href="#test-knowledge-base" title="Link to this heading"></a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>knowledge_base/test_knowledge_base.py<span class="w"> </span><span class="s2">&quot;What is a barrier certificate?&quot;</span><span class="w"> </span>-k<span class="w"> </span><span class="m">3</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="generating-certificates">
+<h2>Generating Certificates<a class="headerlink" href="#generating-certificates" title="Link to this heading"></a></h2>
+<section id="command-line-interface">
+<h3>Command Line Interface<a class="headerlink" href="#command-line-interface" title="Link to this heading"></a></h3>
+<p>Basic usage:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>inference/generate_certificate.py<span class="w"> </span><span class="s2">&quot;System description&quot;</span>
+</pre></div>
+</div>
+<p>With options:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>inference/generate_certificate.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s2">&quot;System: dx/dt = -x + y, dy/dt = -x - y&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--model_config<span class="w"> </span>base<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--rag_k<span class="w"> </span><span class="m">5</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--kb_path<span class="w"> </span>kb_data/
+</pre></div>
+</div>
+</section>
+<section id="python-api">
+<h3>Python API<a class="headerlink" href="#python-api" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">inference.generate_certificate</span> <span class="kn">import</span> <span class="n">generate_barrier_certificate</span>
+
+<span class="n">result</span> <span class="o">=</span> <span class="n">generate_barrier_certificate</span><span class="p">(</span>
+    <span class="n">system_description</span><span class="o">=</span><span class="s2">&quot;dx/dt = -x^3 - y, dy/dt = x - y^3&quot;</span><span class="p">,</span>
+    <span class="n">model_config</span><span class="o">=</span><span class="s2">&quot;finetuned&quot;</span><span class="p">,</span>
+    <span class="n">rag_k</span><span class="o">=</span><span class="mi">3</span>
+<span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Certificate: </span><span class="si">{</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;certificate&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Confidence: </span><span class="si">{</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;confidence&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="system-description-format">
+<h3>System Description Format<a class="headerlink" href="#system-description-format" title="Link to this heading"></a></h3>
+<p>Include these components:</p>
+<ul class="simple">
+<li><p><strong>System Dynamics</strong>: The differential equations</p></li>
+<li><p><strong>Initial Set</strong>: Where trajectories start</p></li>
+<li><p><strong>Unsafe Set</strong>: Region to avoid</p></li>
+</ul>
+<p>Example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">System</span> <span class="n">Dynamics</span><span class="p">:</span> <span class="n">dx</span><span class="o">/</span><span class="n">dt</span> <span class="o">=</span> <span class="o">-</span><span class="n">x</span><span class="o">^</span><span class="mi">3</span> <span class="o">-</span> <span class="n">y</span><span class="p">,</span> <span class="n">dy</span><span class="o">/</span><span class="n">dt</span> <span class="o">=</span> <span class="n">x</span> <span class="o">-</span> <span class="n">y</span><span class="o">^</span><span class="mi">3</span>
+<span class="n">Initial</span> <span class="n">Set</span><span class="p">:</span> <span class="n">x</span><span class="o">^</span><span class="mi">2</span> <span class="o">+</span> <span class="n">y</span><span class="o">^</span><span class="mi">2</span> <span class="o">&lt;=</span> <span class="mf">0.1</span>
+<span class="n">Unsafe</span> <span class="n">Set</span><span class="p">:</span> <span class="n">x</span> <span class="o">&gt;=</span> <span class="mf">1.5</span> <span class="ow">or</span> <span class="n">y</span> <span class="o">&gt;=</span> <span class="mf">1.5</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="fine-tuning">
+<h2>Fine-Tuning<a class="headerlink" href="#fine-tuning" title="Link to this heading"></a></h2>
+<section id="prepare-training-data">
+<h3>Prepare Training Data<a class="headerlink" href="#prepare-training-data" title="Link to this heading"></a></h3>
+<ol class="arabic">
+<li><p><strong>Manual creation</strong>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>fine_tuning/create_finetuning_data.py
+</pre></div>
+</div>
+</li>
+<li><p><strong>Extract from papers</strong>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>fine_tuning/extract_from_papers.py
+</pre></div>
+</div>
+</li>
+<li><p><strong>Combine datasets</strong>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>fine_tuning/combine_datasets.py
+</pre></div>
+</div>
+</li>
+</ol>
+</section>
+<section id="train-model">
+<h3>Train Model<a class="headerlink" href="#train-model" title="Link to this heading"></a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Ensure CUDA is available</span>
+python<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;import torch; print(torch.cuda.is_available())&quot;</span>
+
+<span class="c1"># Fine-tune</span>
+python<span class="w"> </span>fine_tuning/finetune_llm.py
+</pre></div>
+</div>
+<p>Training parameters can be adjusted in <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code>:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">training</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">num_epochs</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
+<span class="w">  </span><span class="nt">batch_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
+<span class="w">  </span><span class="nt">learning_rate</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2e-4</span>
+<span class="w">  </span><span class="nt">gradient_accumulation_steps</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">4</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="web-interface">
+<h2>Web Interface<a class="headerlink" href="#web-interface" title="Link to this heading"></a></h2>
+<section id="start-the-web-server">
+<h3>Start the Web Server<a class="headerlink" href="#start-the-web-server" title="Link to this heading"></a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Initialize security (first time only)</span>
+python<span class="w"> </span>scripts/init_security.py
+
+<span class="c1"># Start server</span>
+python<span class="w"> </span>run_web_interface.py
+</pre></div>
+</div>
+<p>Access at <a class="reference external" href="http://localhost:5000">http://localhost:5000</a></p>
+</section>
+<section id="features">
+<h3>Features<a class="headerlink" href="#features" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>Interactive Chat</strong>: Conversational interface for certificate generation</p></li>
+<li><p><strong>History</strong>: View past generations and conversations</p></li>
+<li><p><strong>Authentication</strong>: Secure login with rate limiting</p></li>
+<li><p><strong>API Access</strong>: RESTful endpoints for programmatic use</p></li>
+<li><p><strong>Monitoring</strong>: Dashboard with usage statistics</p></li>
+</ul>
+</section>
+<section id="api-endpoints">
+<h3>API Endpoints<a class="headerlink" href="#api-endpoints" title="Link to this heading"></a></h3>
+<p>Generate certificate:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:5000/api/generate<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;X-API-Key: your-api-key&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Content-Type: application/json&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-d<span class="w"> </span><span class="s1">&#39;{</span>
+<span class="s1">    &quot;system_description&quot;: &quot;dx/dt = -x^3 - y, dy/dt = x - y^3&quot;,</span>
+<span class="s1">    &quot;model_config&quot;: &quot;finetuned&quot;</span>
+<span class="s1">  }&#39;</span>
+</pre></div>
+</div>
+<p>Check status:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>curl<span class="w"> </span>http://localhost:5000/api/status
+</pre></div>
+</div>
+</section>
+</section>
+<section id="evaluation-benchmarking">
+<h2>Evaluation &amp; Benchmarking<a class="headerlink" href="#evaluation-benchmarking" title="Link to this heading"></a></h2>
+<section id="run-benchmark-suite">
+<h3>Run Benchmark Suite<a class="headerlink" href="#run-benchmark-suite" title="Link to this heading"></a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Evaluate on all benchmark systems</span>
+python<span class="w"> </span>evaluation/evaluate_pipeline.py
+
+<span class="c1"># With custom parameters</span>
+python<span class="w"> </span>evaluation/evaluate_pipeline.py<span class="w"> </span>-k<span class="w"> </span><span class="m">5</span><span class="w"> </span>--output<span class="w"> </span>results.csv
+</pre></div>
+</div>
+</section>
+<section id="add-custom-benchmarks">
+<h3>Add Custom Benchmarks<a class="headerlink" href="#add-custom-benchmarks" title="Link to this heading"></a></h3>
+<p>Edit <code class="docutils literal notranslate"><span class="pre">data/benchmark_systems.json</span></code>:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;systems&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;My System&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;dynamics&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;dx/dt = -x + u, du/dt = -u&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;initial_set&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;x^2 + u^2 &lt;= 1&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;unsafe_set&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;x &gt;= 2&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;expected_certificate&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;V(x,u) = x^2 + u^2&quot;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="model-comparison">
+<h3>Model Comparison<a class="headerlink" href="#model-comparison" title="Link to this heading"></a></h3>
+<p>Compare base vs fine-tuned model:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>scripts/analysis/compare_models.py
+</pre></div>
+</div>
+</section>
+</section>
+<section id="advanced-features">
+<h2>Advanced Features<a class="headerlink" href="#advanced-features" title="Link to this heading"></a></h2>
+<section id="domain-bounds">
+<h3>Domain Bounds<a class="headerlink" href="#domain-bounds" title="Link to this heading"></a></h3>
+<p>Specify validity regions for certificates:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">result</span> <span class="o">=</span> <span class="n">generate_barrier_certificate</span><span class="p">(</span>
+    <span class="n">system_description</span><span class="o">=</span><span class="s2">&quot;...&quot;</span><span class="p">,</span>
+    <span class="n">domain_bounds</span><span class="o">=</span><span class="p">{</span>
+        <span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span>
+        <span class="s2">&quot;y&quot;</span><span class="p">:</span> <span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span>
+    <span class="p">}</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="discrete-time-systems">
+<h3>Discrete-Time Systems<a class="headerlink" href="#discrete-time-systems" title="Link to this heading"></a></h3>
+<p>For discrete-time systems, use appropriate syntax:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">System</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="n">k</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.9</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">+</span> <span class="mf">0.1</span><span class="o">*</span><span class="n">u</span><span class="p">[</span><span class="n">k</span><span class="p">],</span> <span class="n">u</span><span class="p">[</span><span class="n">k</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="mf">0.1</span><span class="o">*</span><span class="n">x</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">+</span> <span class="mf">0.9</span><span class="o">*</span><span class="n">u</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
+</pre></div>
+</div>
+</section>
+<section id="stochastic-systems">
+<h3>Stochastic Systems<a class="headerlink" href="#stochastic-systems" title="Link to this heading"></a></h3>
+<p>Include noise terms in the dynamics:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">System</span><span class="p">:</span> <span class="n">dx</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="n">x</span><span class="o">^</span><span class="mi">3</span> <span class="o">-</span> <span class="n">y</span><span class="p">)</span><span class="n">dt</span> <span class="o">+</span> <span class="mf">0.1</span><span class="o">*</span><span class="n">dW1</span><span class="p">,</span> <span class="n">dy</span> <span class="o">=</span> <span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">y</span><span class="o">^</span><span class="mi">3</span><span class="p">)</span><span class="n">dt</span> <span class="o">+</span> <span class="mf">0.1</span><span class="o">*</span><span class="n">dW2</span>
+</pre></div>
+</div>
+</section>
+<section id="custom-verification">
+<h3>Custom Verification<a class="headerlink" href="#custom-verification" title="Link to this heading"></a></h3>
+<p>Use the verification module directly:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">evaluation.verify_certificate</span> <span class="kn">import</span> <span class="n">verify_barrier_certificate</span>
+
+<span class="n">result</span> <span class="o">=</span> <span class="n">verify_barrier_certificate</span><span class="p">(</span>
+    <span class="n">dynamics</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="s2">&quot;-x**3 - y&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">:</span> <span class="s2">&quot;x - y**3&quot;</span><span class="p">},</span>
+    <span class="n">certificate</span><span class="o">=</span><span class="s2">&quot;x**4 + y**4&quot;</span><span class="p">,</span>
+    <span class="n">initial_set</span><span class="o">=</span><span class="s2">&quot;x**2 + y**2 &lt;= 0.1&quot;</span><span class="p">,</span>
+    <span class="n">unsafe_set</span><span class="o">=</span><span class="s2">&quot;x &gt;= 1.5&quot;</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="tips-best-practices">
+<h2>Tips &amp; Best Practices<a class="headerlink" href="#tips-best-practices" title="Link to this heading"></a></h2>
+<ol class="arabic simple">
+<li><p><strong>System Description</strong>: Be precise and use standard mathematical notation</p></li>
+<li><p><strong>RAG Context</strong>: Start with k=3, increase if results are poor</p></li>
+<li><p><strong>Verification</strong>: Always verify generated certificates before use</p></li>
+<li><p><strong>Fine-Tuning</strong>: Use domain-specific examples for best results</p></li>
+<li><p><strong>Memory</strong>: Enable quantization for large models on limited GPUs</p></li>
+</ol>
+</section>
+<section id="troubleshooting">
+<h2>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading"></a></h2>
+<section id="common-issues">
+<h3>Common Issues<a class="headerlink" href="#common-issues" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>GPU Memory</strong>: Reduce batch size or enable quantization</p></li>
+<li><p><strong>Slow Generation</strong>: Disable RAG or reduce k_retrieved</p></li>
+<li><p><strong>Poor Results</strong>: Ensure knowledge base is built correctly</p></li>
+<li><p><strong>API Errors</strong>: Check credentials and rate limits</p></li>
+</ul>
+</section>
+<section id="getting-help">
+<h3>Getting Help<a class="headerlink" href="#getting-help" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p>Check <a class="reference internal" href="API_REFERENCE.html"><span class="std std-doc">API Reference</span></a> for detailed documentation</p></li>
+<li><p>Review <a class="reference internal" href="DEVELOPMENT.html"><span class="std std-doc">Development Guide</span></a> for technical details</p></li>
+<li><p>Submit issues on GitHub for bugs or feature requests</p></li>
+</ul>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="INSTALLATION.html" class="btn btn-neutral float-left" title="Installation Guide" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="API_REFERENCE.html" class="btn btn-neutral float-right" title="API Reference" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Patrick Allen Cooper.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

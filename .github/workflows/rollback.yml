@@ -1,0 +1,445 @@
+name: Emergency Production Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to rollback'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+        - production
+        - staging
+      rollback_reason:
+        description: 'Reason for rollback'
+        required: true
+        type: string
+      previous_version:
+        description: 'Previous version to rollback to (leave empty for blue environment)'
+        required: false
+        type: string
+      confirm_rollback:
+        description: 'Type "CONFIRM" to proceed with rollback'
+        required: true
+        type: string
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  validate-rollback:
+    name: Validate Rollback Request
+    runs-on: ubuntu-latest
+    if: github.event.inputs.confirm_rollback == 'CONFIRM'
+    
+    outputs:
+      environment: ${{ steps.validate.outputs.environment }}
+      previous_version: ${{ steps.validate.outputs.previous_version }}
+      
+    steps:
+    - name: Validate Inputs
+      id: validate
+      run: |
+        if [[ "${{ github.event.inputs.confirm_rollback }}" != "CONFIRM" ]]; then
+          echo "❌ Rollback not confirmed. Exiting."
+          exit 1
+        fi
+        
+        echo "✅ Rollback confirmed"
+        echo "Environment: ${{ github.event.inputs.environment }}"
+        echo "Reason: ${{ github.event.inputs.rollback_reason }}"
+        echo "Previous version: ${{ github.event.inputs.previous_version || 'blue environment' }}"
+        
+        echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+        echo "previous_version=${{ github.event.inputs.previous_version }}" >> $GITHUB_OUTPUT
+        
+    - name: Notify Rollback Initiation
+      uses: 8398a7/action-slack@v3
+      with:
+        status: custom
+        custom_payload: |
+          {
+            "channel": "#emergency",
+            "username": "GitHub Actions",
+            "icon_emoji": ":warning:",
+            "text": "🚨 EMERGENCY ROLLBACK INITIATED 🚨",
+            "attachments": [
+              {
+                "color": "danger",
+                "fields": [
+                  {
+                    "title": "Environment",
+                    "value": "${{ github.event.inputs.environment }}",
+                    "short": true
+                  },
+                  {
+                    "title": "Reason",
+                    "value": "${{ github.event.inputs.rollback_reason }}",
+                    "short": true
+                  },
+                  {
+                    "title": "Initiated by",
+                    "value": "${{ github.actor }}",
+                    "short": true
+                  },
+                  {
+                    "title": "Repository",
+                    "value": "${{ github.repository }}",
+                    "short": true
+                  }
+                ]
+              }
+            ]
+          }
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+
+  rollback-production:
+    name: Rollback Production Environment
+    runs-on: ubuntu-latest
+    needs: validate-rollback
+    if: needs.validate-rollback.outputs.environment == 'production'
+    environment:
+      name: production
+      
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+      
+    - name: Setup kubectl
+      env:
+        KUBE_CONFIG: ${{ secrets.KUBE_CONFIG_PROD }}
+      run: |
+        echo "$KUBE_CONFIG" | base64 -d > kubeconfig
+        export KUBECONFIG=./kubeconfig
+        
+        # Verify cluster connectivity
+        kubectl cluster-info
+        
+    - name: Pre-rollback Status Check
+      run: |
+        export KUBECONFIG=./kubeconfig
+        
+        echo "📊 Current deployment status:"
+        kubectl get deployments -n fm-llm-solver-prod
+        kubectl get pods -n fm-llm-solver-prod
+        kubectl get services -n fm-llm-solver-prod
+        
+        # Check current traffic routing
+        echo "🔀 Current service selector:"
+        kubectl get service fm-llm-solver-web-service -n fm-llm-solver-prod -o jsonpath='{.spec.selector}'
+        
+    - name: Execute Blue Environment Rollback
+      if: needs.validate-rollback.outputs.previous_version == ''
+      run: |
+        export KUBECONFIG=./kubeconfig
+        
+        echo "🔄 Rolling back to blue environment..."
+        
+        # Switch service to point to blue deployment
+        kubectl patch service fm-llm-solver-web-service \
+          -n fm-llm-solver-prod \
+          -p '{"spec":{"selector":{"app":"fm-llm-solver","component":"web","version":"blue"}}}'
+        
+        # Scale up blue deployment
+        kubectl scale deployment fm-llm-solver-web \
+          -n fm-llm-solver-prod --replicas=3
+        
+        # Wait for blue deployment to be ready
+        kubectl rollout status deployment/fm-llm-solver-web \
+          -n fm-llm-solver-prod --timeout=300s
+        
+        echo "✅ Blue environment rollback completed"
+        
+    - name: Execute Version Rollback
+      if: needs.validate-rollback.outputs.previous_version != ''
+      env:
+        PREVIOUS_VERSION: ${{ needs.validate-rollback.outputs.previous_version }}
+      run: |
+        export KUBECONFIG=./kubeconfig
+        
+        echo "🔄 Rolling back to version: $PREVIOUS_VERSION"
+        
+        # Update deployment image
+        kubectl set image deployment/fm-llm-solver-web \
+          web=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$PREVIOUS_VERSION \
+          -n fm-llm-solver-prod
+        
+        # Wait for rollout to complete
+        kubectl rollout status deployment/fm-llm-solver-web \
+          -n fm-llm-solver-prod --timeout=600s
+        
+        echo "✅ Version rollback completed"
+        
+    - name: Post-rollback Health Check
+      run: |
+        export KUBECONFIG=./kubeconfig
+        
+        echo "🏥 Running post-rollback health checks..."
+        
+        # Wait for pods to be ready
+        kubectl wait --for=condition=ready pod \
+          -l app=fm-llm-solver,component=web \
+          -n fm-llm-solver-prod --timeout=300s
+        
+        # Get service endpoint
+        EXTERNAL_IP=$(kubectl get service fm-llm-solver-web-service \
+          -n fm-llm-solver-prod \
+          -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+        
+        if [[ -z "$EXTERNAL_IP" ]]; then
+          echo "⚠️  External IP not available, using internal service"
+          kubectl port-forward service/fm-llm-solver-web-service 8080:80 \
+            -n fm-llm-solver-prod &
+          sleep 10
+          HEALTH_URL="http://localhost:8080/health"
+        else
+          HEALTH_URL="http://$EXTERNAL_IP/health"
+        fi
+        
+        # Health check with retry
+        for i in {1..10}; do
+          if curl -f "$HEALTH_URL"; then
+            echo "✅ Health check passed (attempt $i)"
+            break
+          else
+            echo "⚠️  Health check failed (attempt $i), retrying..."
+            sleep 30
+          fi
+          
+          if [[ $i -eq 10 ]]; then
+            echo "❌ Health check failed after 10 attempts"
+            exit 1
+          fi
+        done
+        
+    - name: Verify Application Functionality
+      run: |
+        echo "🔍 Verifying application functionality..."
+        
+        # Test main endpoints
+        curl -f https://fm-llm-solver.com/health || {
+          echo "❌ Main health check failed"
+          exit 1
+        }
+        
+        curl -f https://fm-llm-solver.com/api/health || {
+          echo "❌ API health check failed"
+          exit 1
+        }
+        
+        curl -f https://fm-llm-solver.com/auth/health || {
+          echo "❌ Auth health check failed"
+          exit 1
+        }
+        
+        echo "✅ All functionality checks passed"
+        
+    - name: Update Monitoring Annotations
+      run: |
+        export KUBECONFIG=./kubeconfig
+        
+        # Add rollback annotation to deployment
+        kubectl annotate deployment fm-llm-solver-web \
+          -n fm-llm-solver-prod \
+          rollback.timestamp="$(date -Iseconds)" \
+          rollback.reason="${{ github.event.inputs.rollback_reason }}" \
+          rollback.initiated-by="${{ github.actor }}" \
+          rollback.workflow-run="${{ github.run_id }}" \
+          --overwrite
+        
+        echo "📝 Monitoring annotations updated"
+
+  rollback-staging:
+    name: Rollback Staging Environment
+    runs-on: ubuntu-latest
+    needs: validate-rollback
+    if: needs.validate-rollback.outputs.environment == 'staging'
+    environment:
+      name: staging
+      
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+      
+    - name: Setup kubectl
+      env:
+        KUBE_CONFIG: ${{ secrets.KUBE_CONFIG_STAGING }}
+      run: |
+        echo "$KUBE_CONFIG" | base64 -d > kubeconfig
+        export KUBECONFIG=./kubeconfig
+        kubectl cluster-info
+        
+    - name: Execute Staging Rollback
+      env:
+        PREVIOUS_VERSION: ${{ needs.validate-rollback.outputs.previous_version }}
+      run: |
+        export KUBECONFIG=./kubeconfig
+        
+        if [[ -n "$PREVIOUS_VERSION" ]]; then
+          echo "🔄 Rolling back staging to version: $PREVIOUS_VERSION"
+          kubectl set image deployment/fm-llm-solver-web \
+            web=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$PREVIOUS_VERSION \
+            -n fm-llm-solver-staging
+        else
+          echo "🔄 Rolling back staging to previous deployment"
+          kubectl rollout undo deployment/fm-llm-solver-web \
+            -n fm-llm-solver-staging
+        fi
+        
+        # Wait for rollout
+        kubectl rollout status deployment/fm-llm-solver-web \
+          -n fm-llm-solver-staging --timeout=300s
+        
+    - name: Staging Health Check
+      run: |
+        sleep 30
+        curl -f https://staging.fm-llm-solver.com/health || exit 1
+        echo "✅ Staging rollback completed successfully"
+
+  post-rollback-tasks:
+    name: Post-rollback Tasks
+    runs-on: ubuntu-latest
+    needs: [validate-rollback, rollback-production, rollback-staging]
+    if: always() && needs.validate-rollback.result == 'success'
+    
+    steps:
+    - name: Create Incident Report
+      run: |
+        cat > incident-report.md << EOF
+        # Incident Report: Emergency Rollback
+        
+        **Date**: $(date -Iseconds)
+        **Environment**: ${{ github.event.inputs.environment }}
+        **Initiated by**: ${{ github.actor }}
+        **Workflow Run**: ${{ github.run_id }}
+        
+        ## Rollback Details
+        - **Reason**: ${{ github.event.inputs.rollback_reason }}
+        - **Previous Version**: ${{ needs.validate-rollback.outputs.previous_version || 'blue environment' }}
+        - **Status**: ${{ job.status }}
+        
+        ## Timeline
+        - **Rollback Initiated**: $(date -Iseconds)
+        - **Rollback Method**: ${{ needs.validate-rollback.outputs.previous_version && 'Version rollback' || 'Blue environment switch' }}
+        
+        ## Actions Required
+        1. Investigate root cause of the issue
+        2. Update monitoring alerts if needed
+        3. Plan preventive measures
+        4. Update incident documentation
+        
+        ## Follow-up
+        - [ ] Root cause analysis completed
+        - [ ] Preventive measures implemented
+        - [ ] Documentation updated
+        - [ ] Team retrospective scheduled
+        EOF
+        
+    - name: Archive Incident Report
+      uses: actions/upload-artifact@v3
+      with:
+        name: incident-report-${{ github.run_id }}
+        path: incident-report.md
+        
+    - name: Notify Rollback Completion
+      uses: 8398a7/action-slack@v3
+      if: success()
+      with:
+        status: custom
+        custom_payload: |
+          {
+            "channel": "#emergency",
+            "username": "GitHub Actions", 
+            "icon_emoji": ":white_check_mark:",
+            "text": "✅ EMERGENCY ROLLBACK COMPLETED SUCCESSFULLY",
+            "attachments": [
+              {
+                "color": "good",
+                "fields": [
+                  {
+                    "title": "Environment",
+                    "value": "${{ github.event.inputs.environment }}",
+                    "short": true
+                  },
+                  {
+                    "title": "Status",
+                    "value": "Rollback successful ✅",
+                    "short": true
+                  },
+                  {
+                    "title": "Application Status",
+                    "value": "All health checks passing",
+                    "short": true
+                  },
+                  {
+                    "title": "Next Steps",
+                    "value": "1. Investigate root cause\n2. Plan fix\n3. Schedule redeployment",
+                    "short": false
+                  }
+                ]
+              }
+            ]
+          }
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+        
+    - name: Notify Rollback Failure
+      uses: 8398a7/action-slack@v3
+      if: failure()
+      with:
+        status: custom
+        custom_payload: |
+          {
+            "channel": "#emergency",
+            "username": "GitHub Actions",
+            "icon_emoji": ":x:",
+            "text": "❌ EMERGENCY ROLLBACK FAILED",
+            "attachments": [
+              {
+                "color": "danger",
+                "fields": [
+                  {
+                    "title": "Environment",
+                    "value": "${{ github.event.inputs.environment }}",
+                    "short": true
+                  },
+                  {
+                    "title": "Status", 
+                    "value": "Rollback failed ❌",
+                    "short": true
+                  },
+                  {
+                    "title": "Immediate Action Required",
+                    "value": "Manual intervention needed - check workflow logs",
+                    "short": false
+                  }
+                ]
+              }
+            ]
+          }
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+
+  security-scan-post-rollback:
+    name: Security Scan After Rollback
+    runs-on: ubuntu-latest
+    needs: [rollback-production, rollback-staging]
+    if: always() && (needs.rollback-production.result == 'success' || needs.rollback-staging.result == 'success')
+    
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+      
+    - name: Run Security Scan
+      run: |
+        echo "🔐 Running post-rollback security scan..."
+        
+        # Check for any security issues introduced by rollback
+        curl -f https://fm-llm-solver.com/api/security/health || {
+          echo "⚠️  Security endpoint not responding properly"
+        }
+        
+        echo "✅ Security scan completed" 

@@ -1,0 +1,1017 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Code Generation Models Integration &mdash; FM-LLM Solver 1.0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=92fd9be5" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="_static/custom.css" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=8d563738"></script>
+      <script src="_static/doctools.js?v=9a2dae69"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            FM-LLM Solver
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="INSTALLATION.html">Installation Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="INSTALLATION.html#system-requirements">System Requirements</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="INSTALLATION.html#hardware">Hardware</a></li>
+<li class="toctree-l3"><a class="reference internal" href="INSTALLATION.html#software">Software</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="INSTALLATION.html#installation-steps">Installation Steps</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="INSTALLATION.html#clone-repository">1. Clone Repository</a></li>
+<li class="toctree-l3"><a class="reference internal" href="INSTALLATION.html#set-up-python-environment">2. Set Up Python Environment</a></li>
+<li class="toctree-l3"><a class="reference internal" href="INSTALLATION.html#install-dependencies">3. Install Dependencies</a></li>
+<li class="toctree-l3"><a class="reference internal" href="INSTALLATION.html#configure-environment-variables">4. Configure Environment Variables</a></li>
+<li class="toctree-l3"><a class="reference internal" href="INSTALLATION.html#verify-installation">5. Verify Installation</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="INSTALLATION.html#deployment-options">Deployment Options</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="INSTALLATION.html#local-deployment">Local Deployment</a></li>
+<li class="toctree-l3"><a class="reference internal" href="INSTALLATION.html#hybrid-deployment-recommended-for-production">Hybrid Deployment (Recommended for Production)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="INSTALLATION.html#docker-deployment">Docker Deployment</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="INSTALLATION.html#troubleshooting">Troubleshooting</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="INSTALLATION.html#cuda-not-available">CUDA Not Available</a></li>
+<li class="toctree-l3"><a class="reference internal" href="INSTALLATION.html#memory-issues">Memory Issues</a></li>
+<li class="toctree-l3"><a class="reference internal" href="INSTALLATION.html#api-key-issues">API Key Issues</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="INSTALLATION.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="USER_GUIDE.html">User Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="USER_GUIDE.html#table-of-contents">Table of Contents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="USER_GUIDE.html#getting-started">Getting Started</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="USER_GUIDE.html#configuration">Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="USER_GUIDE.html#quick-test">Quick Test</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="USER_GUIDE.html#building-knowledge-base">Building Knowledge Base</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="USER_GUIDE.html#fetch-papers">1. Fetch Papers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="USER_GUIDE.html#build-knowledge-base">2. Build Knowledge Base</a></li>
+<li class="toctree-l3"><a class="reference internal" href="USER_GUIDE.html#test-knowledge-base">3. Test Knowledge Base</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="USER_GUIDE.html#generating-certificates">Generating Certificates</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="USER_GUIDE.html#command-line-interface">Command Line Interface</a></li>
+<li class="toctree-l3"><a class="reference internal" href="USER_GUIDE.html#python-api">Python API</a></li>
+<li class="toctree-l3"><a class="reference internal" href="USER_GUIDE.html#system-description-format">System Description Format</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="USER_GUIDE.html#fine-tuning">Fine-Tuning</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="USER_GUIDE.html#prepare-training-data">Prepare Training Data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="USER_GUIDE.html#train-model">Train Model</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="USER_GUIDE.html#web-interface">Web Interface</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="USER_GUIDE.html#start-the-web-server">Start the Web Server</a></li>
+<li class="toctree-l3"><a class="reference internal" href="USER_GUIDE.html#features">Features</a></li>
+<li class="toctree-l3"><a class="reference internal" href="USER_GUIDE.html#api-endpoints">API Endpoints</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="USER_GUIDE.html#evaluation-benchmarking">Evaluation &amp; Benchmarking</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="USER_GUIDE.html#run-benchmark-suite">Run Benchmark Suite</a></li>
+<li class="toctree-l3"><a class="reference internal" href="USER_GUIDE.html#add-custom-benchmarks">Add Custom Benchmarks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="USER_GUIDE.html#model-comparison">Model Comparison</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="USER_GUIDE.html#advanced-features">Advanced Features</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="USER_GUIDE.html#domain-bounds">Domain Bounds</a></li>
+<li class="toctree-l3"><a class="reference internal" href="USER_GUIDE.html#discrete-time-systems">Discrete-Time Systems</a></li>
+<li class="toctree-l3"><a class="reference internal" href="USER_GUIDE.html#stochastic-systems">Stochastic Systems</a></li>
+<li class="toctree-l3"><a class="reference internal" href="USER_GUIDE.html#custom-verification">Custom Verification</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="USER_GUIDE.html#tips-best-practices">Tips &amp; Best Practices</a></li>
+<li class="toctree-l2"><a class="reference internal" href="USER_GUIDE.html#troubleshooting">Troubleshooting</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="USER_GUIDE.html#common-issues">Common Issues</a></li>
+<li class="toctree-l3"><a class="reference internal" href="USER_GUIDE.html#getting-help">Getting Help</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="API_REFERENCE.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="API_REFERENCE.html#python-api">Python API</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="API_REFERENCE.html#certificate-generation">Certificate Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="API_REFERENCE.html#verification">Verification</a></li>
+<li class="toctree-l3"><a class="reference internal" href="API_REFERENCE.html#knowledge-base">Knowledge Base</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="API_REFERENCE.html#rest-api">REST API</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="API_REFERENCE.html#authentication">Authentication</a></li>
+<li class="toctree-l3"><a class="reference internal" href="API_REFERENCE.html#endpoints">Endpoints</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="API_REFERENCE.html#generate-certificate">Generate Certificate</a></li>
+<li class="toctree-l4"><a class="reference internal" href="API_REFERENCE.html#verify-certificate">Verify Certificate</a></li>
+<li class="toctree-l4"><a class="reference internal" href="API_REFERENCE.html#status-check">Status Check</a></li>
+<li class="toctree-l4"><a class="reference internal" href="API_REFERENCE.html#user-metrics">User Metrics</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="API_REFERENCE.html#monitoring-api">Monitoring API</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="API_REFERENCE.html#usage-metrics">Usage Metrics</a></li>
+<li class="toctree-l4"><a class="reference internal" href="API_REFERENCE.html#health-check">Health Check</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="API_REFERENCE.html#error-codes">Error Codes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="API_REFERENCE.html#rate-limits">Rate Limits</a></li>
+<li class="toctree-l2"><a class="reference internal" href="API_REFERENCE.html#examples">Examples</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="API_REFERENCE.html#python-client">Python Client</a></li>
+<li class="toctree-l3"><a class="reference internal" href="API_REFERENCE.html#javascript-client">JavaScript Client</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="ARCHITECTURE.html">FM-LLM-Solver Architecture</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="ARCHITECTURE.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ARCHITECTURE.html#system-architecture">System Architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ARCHITECTURE.html#core-components">Core Components</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#web-interface-layer">1. Web Interface Layer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="ARCHITECTURE.html#flask-web-application-fm-llm-solver-web">Flask Web Application (<code class="docutils literal notranslate"><span class="pre">fm_llm_solver/web/</span></code>)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#core-services-layer">2. Core Services Layer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="ARCHITECTURE.html#certificate-generator-fm-llm-solver-services-certificate-generator-py">Certificate Generator (<code class="docutils literal notranslate"><span class="pre">fm_llm_solver/services/certificate_generator.py</span></code>)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="ARCHITECTURE.html#verification-service-fm-llm-solver-services-verification-service-py">Verification Service (<code class="docutils literal notranslate"><span class="pre">fm_llm_solver/services/verification_service.py</span></code>)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="ARCHITECTURE.html#knowledge-base-fm-llm-solver-services-knowledge-base-py">Knowledge Base (<code class="docutils literal notranslate"><span class="pre">fm_llm_solver/services/knowledge_base.py</span></code>)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#infrastructure-layer">3. Infrastructure Layer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="ARCHITECTURE.html#configuration-management-fm-llm-solver-core-config-manager-py">Configuration Management (<code class="docutils literal notranslate"><span class="pre">fm_llm_solver/core/config_manager.py</span></code>)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="ARCHITECTURE.html#database-management-fm-llm-solver-core-database-manager-py">Database Management (<code class="docutils literal notranslate"><span class="pre">fm_llm_solver/core/database_manager.py</span></code>)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="ARCHITECTURE.html#cache-management-fm-llm-solver-core-cache-manager-py">Cache Management (<code class="docutils literal notranslate"><span class="pre">fm_llm_solver/core/cache_manager.py</span></code>)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="ARCHITECTURE.html#async-management-fm-llm-solver-core-async-manager-py">Async Management (<code class="docutils literal notranslate"><span class="pre">fm_llm_solver/core/async_manager.py</span></code>)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="ARCHITECTURE.html#memory-management-fm-llm-solver-core-memory-manager-py">Memory Management (<code class="docutils literal notranslate"><span class="pre">fm_llm_solver/core/memory_manager.py</span></code>)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="ARCHITECTURE.html#monitoring-system-fm-llm-solver-core-monitoring-py">Monitoring System (<code class="docutils literal notranslate"><span class="pre">fm_llm_solver/core/monitoring.py</span></code>)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#storage-layer">4. Storage Layer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="ARCHITECTURE.html#postgresql-database">PostgreSQL Database</a></li>
+<li class="toctree-l4"><a class="reference internal" href="ARCHITECTURE.html#redis-cache">Redis Cache</a></li>
+<li class="toctree-l4"><a class="reference internal" href="ARCHITECTURE.html#faiss-vector-database">FAISS Vector Database</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="ARCHITECTURE.html#data-flow">Data Flow</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#certificate-generation-flow">Certificate Generation Flow</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#verification-flow">Verification Flow</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="ARCHITECTURE.html#security-architecture">Security Architecture</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#authentication-authorization">Authentication &amp; Authorization</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#data-protection">Data Protection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#network-security">Network Security</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="ARCHITECTURE.html#performance-architecture">Performance Architecture</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#async-operations">Async Operations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#caching-strategy">Caching Strategy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#memory-management">Memory Management</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#database-optimization">Database Optimization</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="ARCHITECTURE.html#deployment-architecture">Deployment Architecture</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#development-environment">Development Environment</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#staging-environment">Staging Environment</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#production-environment">Production Environment</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="ARCHITECTURE.html#monitoring-observability">Monitoring &amp; Observability</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#metrics-collection">Metrics Collection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#logging-strategy">Logging Strategy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#health-checks">Health Checks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#alerting">Alerting</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="ARCHITECTURE.html#scalability-considerations">Scalability Considerations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#horizontal-scaling">Horizontal Scaling</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#vertical-scaling">Vertical Scaling</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#performance-bottlenecks">Performance Bottlenecks</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="ARCHITECTURE.html#development-guidelines">Development Guidelines</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#code-organization">Code Organization</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#testing-strategy">Testing Strategy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#documentation">Documentation</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="ARCHITECTURE.html#future-architecture-considerations">Future Architecture Considerations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#microservices-migration">Microservices Migration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#machine-learning-pipeline">Machine Learning Pipeline</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ARCHITECTURE.html#advanced-caching">Advanced Caching</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="DEVELOPMENT.html">Development Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="DEVELOPMENT.html#architecture-overview">Architecture Overview</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="DEVELOPMENT.html#core-components">Core Components</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="DEVELOPMENT.html#development-setup">Development Setup</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="DEVELOPMENT.html#fork-and-clone">1. Fork and Clone</a></li>
+<li class="toctree-l3"><a class="reference internal" href="DEVELOPMENT.html#development-environment">2. Development Environment</a></li>
+<li class="toctree-l3"><a class="reference internal" href="DEVELOPMENT.html#pre-commit-hooks-optional">3. Pre-commit Hooks (Optional)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="DEVELOPMENT.html#code-style">Code Style</a></li>
+<li class="toctree-l2"><a class="reference internal" href="DEVELOPMENT.html#testing">Testing</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="DEVELOPMENT.html#running-tests">Running Tests</a></li>
+<li class="toctree-l3"><a class="reference internal" href="DEVELOPMENT.html#writing-tests">Writing Tests</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="DEVELOPMENT.html#adding-features">Adding Features</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="DEVELOPMENT.html#new-system-types">1. New System Types</a></li>
+<li class="toctree-l3"><a class="reference internal" href="DEVELOPMENT.html#new-models">2. New Models</a></li>
+<li class="toctree-l3"><a class="reference internal" href="DEVELOPMENT.html#new-verification-methods">3. New Verification Methods</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="DEVELOPMENT.html#debugging">Debugging</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="DEVELOPMENT.html#enable-debug-logging">Enable Debug Logging</a></li>
+<li class="toctree-l3"><a class="reference internal" href="DEVELOPMENT.html#common-issues">Common Issues</a></li>
+<li class="toctree-l3"><a class="reference internal" href="DEVELOPMENT.html#performance-profiling">Performance Profiling</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="DEVELOPMENT.html#contributing">Contributing</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="DEVELOPMENT.html#create-feature-branch">1. Create Feature Branch</a></li>
+<li class="toctree-l3"><a class="reference internal" href="DEVELOPMENT.html#make-changes">2. Make Changes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="DEVELOPMENT.html#test-thoroughly">3. Test Thoroughly</a></li>
+<li class="toctree-l3"><a class="reference internal" href="DEVELOPMENT.html#submit-pull-request">4. Submit Pull Request</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="DEVELOPMENT.html#release-process">Release Process</a></li>
+<li class="toctree-l2"><a class="reference internal" href="DEVELOPMENT.html#project-structure-best-practices">Project Structure Best Practices</a></li>
+<li class="toctree-l2"><a class="reference internal" href="DEVELOPMENT.html#security-considerations">Security Considerations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="DEVELOPMENT.html#performance-optimization">Performance Optimization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="DEVELOPMENT.html#documentation">Documentation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="DEVELOPMENT.html#getting-help">Getting Help</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="EXPERIMENTS.html">Barrier Certificate Experimentation Framework</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="EXPERIMENTS.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l2"><a class="reference internal" href="EXPERIMENTS.html#quick-start">Quick Start</a></li>
+<li class="toctree-l2"><a class="reference internal" href="EXPERIMENTS.html#running-experiments">Running Experiments</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="EXPERIMENTS.html#basic-usage">Basic Usage</a></li>
+<li class="toctree-l3"><a class="reference internal" href="EXPERIMENTS.html#common-options">Common Options</a></li>
+<li class="toctree-l3"><a class="reference internal" href="EXPERIMENTS.html#predefined-experiment-types">Predefined Experiment Types</a></li>
+<li class="toctree-l3"><a class="reference internal" href="EXPERIMENTS.html#examples">Examples</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="EXPERIMENTS.html#understanding-experiment-results">Understanding Experiment Results</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="EXPERIMENTS.html#raw-results-structure">Raw Results Structure</a></li>
+<li class="toctree-l3"><a class="reference internal" href="EXPERIMENTS.html#analyzing-results">Analyzing Results</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="EXPERIMENTS.html#advanced-custom-experiment-dimensions">Advanced: Custom Experiment Dimensions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="EXPERIMENTS.html#best-practices">Best Practices</a></li>
+<li class="toctree-l2"><a class="reference internal" href="EXPERIMENTS.html#troubleshooting">Troubleshooting</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Advanced Topics:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="MATHEMATICAL_PRIMER.html">Mathematical Primer: Barrier Certificates</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#dynamical-systems">1. Dynamical Systems</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#continuous-time-systems">Continuous-Time Systems</a></li>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#discrete-time-systems">Discrete-Time Systems</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#safety-verification-problem">2. Safety Verification Problem</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#definition">Definition</a></li>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#mathematical-formulation">Mathematical Formulation</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#barrier-certificates">3. Barrier Certificates</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#id1">Definition</a></li>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#intuition">Intuition</a></li>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#theorem-barrier-certificate-implies-safety">Theorem (Barrier Certificate Implies Safety)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#types-of-barrier-certificates">4. Types of Barrier Certificates</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#polynomial-barriers">Polynomial Barriers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#exponential-barriers">Exponential Barriers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#rational-barriers">Rational Barriers</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#verification-conditions">5. Verification Conditions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#continuous-time">Continuous-Time</a></li>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#discrete-time">Discrete-Time</a></li>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#stochastic-systems">Stochastic Systems</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#sum-of-squares-sos-programming">6. Sum-of-Squares (SOS) Programming</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#sos-polynomials">SOS Polynomials</a></li>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#sos-relaxation-for-barriers">SOS Relaxation for Barriers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#computational-approach">Computational Approach</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#why-llms-for-barrier-certificates">7. Why LLMs for Barrier Certificates?</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#the-challenge">The Challenge</a></li>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#llm-advantages">LLM Advantages</a></li>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#mathematical-justification">Mathematical Justification</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#example-2d-nonlinear-system">8. Example: 2D Nonlinear System</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#system">System</a></li>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#sets">Sets</a></li>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#barrier-certificate">Barrier Certificate</a></li>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#verification">Verification</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#advanced-topics">9. Advanced Topics</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#control-barrier-functions">Control Barrier Functions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#time-varying-barriers">Time-Varying Barriers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#compositional-barriers">Compositional Barriers</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#significance-and-applications">10. Significance and Applications</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#theoretical-significance">Theoretical Significance</a></li>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#practical-applications">Practical Applications</a></li>
+<li class="toctree-l3"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#connection-to-lyapunov-theory">Connection to Lyapunov Theory</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="MATHEMATICAL_PRIMER.html#conclusion">Conclusion</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="VERIFICATION.html">Verification System</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="VERIFICATION.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="VERIFICATION.html#verification-methods">Verification Methods</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="VERIFICATION.html#numerical-verification">1. Numerical Verification</a></li>
+<li class="toctree-l3"><a class="reference internal" href="VERIFICATION.html#symbolic-verification">2. Symbolic Verification</a></li>
+<li class="toctree-l3"><a class="reference internal" href="VERIFICATION.html#sos-verification">3. SOS Verification</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="VERIFICATION.html#usage">Usage</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="VERIFICATION.html#command-line">Command Line</a></li>
+<li class="toctree-l3"><a class="reference internal" href="VERIFICATION.html#python-api">Python API</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="VERIFICATION.html#configuration">Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="VERIFICATION.html#special-cases">Special Cases</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="VERIFICATION.html#discrete-time-systems">Discrete-Time Systems</a></li>
+<li class="toctree-l3"><a class="reference internal" href="VERIFICATION.html#stochastic-systems">Stochastic Systems</a></li>
+<li class="toctree-l3"><a class="reference internal" href="VERIFICATION.html#domain-bounded-certificates">Domain-Bounded Certificates</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="VERIFICATION.html#interpreting-results">Interpreting Results</a></li>
+<li class="toctree-l2"><a class="reference internal" href="VERIFICATION.html#limitations">Limitations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="VERIFICATION.html#best-practices">Best Practices</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="OPTIMIZATION.html">Optimization Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="OPTIMIZATION.html#gpu-memory-management">GPU Memory Management</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="OPTIMIZATION.html#quick-settings">Quick Settings</a></li>
+<li class="toctree-l3"><a class="reference internal" href="OPTIMIZATION.html#model-selection-by-vram">Model Selection by VRAM</a></li>
+<li class="toctree-l3"><a class="reference internal" href="OPTIMIZATION.html#inference-optimization">Inference Optimization</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="OPTIMIZATION.html#cpu-optimization">CPU Optimization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="OPTIMIZATION.html#batch-processing">Batch Processing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="OPTIMIZATION.html#awq-models">AWQ Models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="OPTIMIZATION.html#knowledge-base-optimization">Knowledge Base Optimization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="OPTIMIZATION.html#monitoring-performance">Monitoring Performance</a></li>
+<li class="toctree-l2"><a class="reference internal" href="OPTIMIZATION.html#common-issues">Common Issues</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="OPTIMIZATION.html#oom-errors">OOM Errors</a></li>
+<li class="toctree-l3"><a class="reference internal" href="OPTIMIZATION.html#slow-generation">Slow Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="OPTIMIZATION.html#quality-vs-speed-trade-offs">Quality vs Speed Trade-offs</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="MONITORING.html">Monitoring</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="MONITORING.html#access">Access</a></li>
+<li class="toctree-l2"><a class="reference internal" href="MONITORING.html#metrics-tracked">Metrics Tracked</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="MONITORING.html#usage">Usage</a></li>
+<li class="toctree-l3"><a class="reference internal" href="MONITORING.html#costs-admin-only">Costs (Admin Only)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="MONITORING.html#system-performance">System Performance</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="MONITORING.html#configuration">Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="MONITORING.html#api-endpoints">API Endpoints</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="MONITORING.html#metrics">Metrics</a></li>
+<li class="toctree-l3"><a class="reference internal" href="MONITORING.html#analytics">Analytics</a></li>
+<li class="toctree-l3"><a class="reference internal" href="MONITORING.html#health-export">Health &amp; Export</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="MONITORING.html#features">Features</a></li>
+<li class="toctree-l2"><a class="reference internal" href="MONITORING.html#integration">Integration</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="MONITORING.html#prometheus">Prometheus</a></li>
+<li class="toctree-l3"><a class="reference internal" href="MONITORING.html#webhooks">Webhooks</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="MONITORING.html#tips">Tips</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="SECURITY.html">Security Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="SECURITY.html#features">Features</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="SECURITY.html#authentication-authorization">Authentication &amp; Authorization</a></li>
+<li class="toctree-l3"><a class="reference internal" href="SECURITY.html#rate-limiting">Rate Limiting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="SECURITY.html#protection-mechanisms">Protection Mechanisms</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="SECURITY.html#setup">Setup</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="SECURITY.html#initialize-security">1. Initialize Security</a></li>
+<li class="toctree-l3"><a class="reference internal" href="SECURITY.html#configure-settings">2. Configure Settings</a></li>
+<li class="toctree-l3"><a class="reference internal" href="SECURITY.html#start-with-security">3. Start with Security</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="SECURITY.html#usage">Usage</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="SECURITY.html#web-interface">Web Interface</a></li>
+<li class="toctree-l3"><a class="reference internal" href="SECURITY.html#api-access">API Access</a></li>
+<li class="toctree-l3"><a class="reference internal" href="SECURITY.html#admin-panel">Admin Panel</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="SECURITY.html#best-practices">Best Practices</a></li>
+<li class="toctree-l2"><a class="reference internal" href="SECURITY.html#monitoring">Monitoring</a></li>
+<li class="toctree-l2"><a class="reference internal" href="SECURITY.html#emergency-procedures">Emergency Procedures</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="SECURITY.html#block-an-ip">Block an IP</a></li>
+<li class="toctree-l3"><a class="reference internal" href="SECURITY.html#reset-user-password">Reset User Password</a></li>
+<li class="toctree-l3"><a class="reference internal" href="SECURITY.html#disable-all-access">Disable All Access</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="FEATURES.html">Features Overview</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="FEATURES.html#security-authentication">Security &amp; Authentication</a></li>
+<li class="toctree-l2"><a class="reference internal" href="FEATURES.html#monitoring-analytics">Monitoring &amp; Analytics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="FEATURES.html#deployment-options">Deployment Options</a></li>
+<li class="toctree-l2"><a class="reference internal" href="FEATURES.html#advanced-certificate-generation">Advanced Certificate Generation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="FEATURES.html#system-types-supported">System Types Supported</a></li>
+<li class="toctree-l3"><a class="reference internal" href="FEATURES.html#verification-methods">Verification Methods</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="FEATURES.html#knowledge-base-rag">Knowledge Base &amp; RAG</a></li>
+<li class="toctree-l2"><a class="reference internal" href="FEATURES.html#model-support">Model Support</a></li>
+<li class="toctree-l2"><a class="reference internal" href="FEATURES.html#web-interface">Web Interface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="FEATURES.html#experiment-management">Experiment Management</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">FM-LLM Solver</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Code Generation Models Integration</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/CODE_GENERATION_MODELS.md.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section class="tex2jax_ignore mathjax_ignore" id="code-generation-models-integration">
+<h1>Code Generation Models Integration<a class="headerlink" href="#code-generation-models-integration" title="Link to this heading"></a></h1>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h2>
+<p>The FM-LLM Solver now supports <strong>10 top-tier open-source code generation models</strong> across multiple families, providing users with a comprehensive selection of state-of-the-art coding assistants. This document covers the complete integration, usage, and management of these models.</p>
+</section>
+<section id="supported-models">
+<h2>Supported Models<a class="headerlink" href="#supported-models" title="Link to this heading"></a></h2>
+<section id="deepseek-coder-v2-family">
+<h3>1. DeepSeek Coder V2 Family<a class="headerlink" href="#deepseek-coder-v2-family" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>DeepSeek-Coder-V2-Lite (2.4B active parameters)</strong></p>
+<ul>
+<li><p>Total Parameters: 16B (MoE architecture)</p></li>
+<li><p>Context Length: 128K tokens</p></li>
+<li><p>Specialization: Code generation, completion, and debugging</p></li>
+<li><p>GPU Memory: 8GB recommended</p></li>
+</ul>
+</li>
+<li><p><strong>DeepSeek-Coder-V2 (21B active parameters)</strong></p>
+<ul>
+<li><p>Total Parameters: 236B (MoE architecture)</p></li>
+<li><p>Context Length: 128K tokens</p></li>
+<li><p>Specialization: Advanced code generation and reasoning</p></li>
+<li><p>GPU Memory: 48GB recommended</p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="qwen2-5-coder-family">
+<h3>2. Qwen2.5-Coder Family<a class="headerlink" href="#qwen2-5-coder-family" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>Qwen2.5-Coder-0.5B-Instruct</strong>: Lightweight model (2GB GPU)</p></li>
+<li><p><strong>Qwen2.5-Coder-1.5B-Instruct</strong>: Efficient model (3GB GPU)</p></li>
+<li><p><strong>Qwen2.5-Coder-3B-Instruct</strong>: Balanced model (6GB GPU)</p></li>
+<li><p><strong>Qwen2.5-Coder-7B-Instruct</strong>: High-quality model (14GB GPU)</p></li>
+<li><p><strong>Qwen2.5-Coder-14B-Instruct</strong>: Advanced model (28GB GPU)</p></li>
+<li><p><strong>Qwen2.5-Coder-32B-Instruct</strong>: State-of-the-art model (64GB GPU)</p></li>
+</ul>
+</section>
+<section id="starcoder2-family">
+<h3>3. StarCoder2 Family<a class="headerlink" href="#starcoder2-family" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>StarCoder2-3B</strong>: Multi-language code completion (6GB GPU)</p></li>
+<li><p><strong>StarCoder2-7B</strong>: Advanced code completion (14GB GPU)</p></li>
+<li><p><strong>StarCoder2-15B</strong>: Professional code generation (30GB GPU)</p></li>
+</ul>
+</section>
+<section id="codellama-family">
+<h3>4. CodeLlama Family<a class="headerlink" href="#codellama-family" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>CodeLlama-7B-Instruct</strong>: Code generation with instruction following (14GB GPU)</p></li>
+<li><p><strong>CodeLlama-13B-Instruct</strong>: Advanced code generation (26GB GPU)</p></li>
+<li><p><strong>CodeLlama-34B-Instruct</strong>: Professional code generation (68GB GPU)</p></li>
+</ul>
+</section>
+<section id="additional-models">
+<h3>5. Additional Models<a class="headerlink" href="#additional-models" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>Codestral-22B</strong>: Multi-language code generation (44GB GPU)</p></li>
+<li><p><strong>OpenCoder-1.5B</strong>: Open reproducible model (3GB GPU)</p></li>
+<li><p><strong>OpenCoder-8B</strong>: Advanced open model (16GB GPU)</p></li>
+<li><p><strong>CodeGemma-2B</strong>: Lightweight code completion (4GB GPU)</p></li>
+<li><p><strong>CodeGemma-7B-Instruct</strong>: Instruction-following model (14GB GPU)</p></li>
+</ul>
+</section>
+</section>
+<section id="features">
+<h2>Features<a class="headerlink" href="#features" title="Link to this heading"></a></h2>
+<section id="model-management">
+<h3>Model Management<a class="headerlink" href="#model-management" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>Dynamic Model Switching</strong>: Switch between models without restarting</p></li>
+<li><p><strong>Intelligent Caching</strong>: Automatic model downloading and caching</p></li>
+<li><p><strong>Memory Management</strong>: Efficient GPU memory usage and cleanup</p></li>
+<li><p><strong>Progress Tracking</strong>: Real-time download and loading progress</p></li>
+</ul>
+</section>
+<section id="web-interface">
+<h3>Web Interface<a class="headerlink" href="#web-interface" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>Model Selection Page</strong>: Beautiful, responsive interface for model selection</p></li>
+<li><p><strong>Real-time Status</strong>: Live status indicators for download and loading</p></li>
+<li><p><strong>Model Comparison</strong>: Side-by-side comparison of model specifications</p></li>
+<li><p><strong>Search and Filtering</strong>: Find models by size, provider, or capability</p></li>
+</ul>
+</section>
+<section id="benchmarking-system">
+<h3>Benchmarking System<a class="headerlink" href="#benchmarking-system" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>Comprehensive Testing</strong>: 15+ coding tasks across multiple languages</p></li>
+<li><p><strong>Performance Metrics</strong>: Success rate, execution time, code quality</p></li>
+<li><p><strong>Automated Comparison</strong>: Generate detailed performance reports</p></li>
+<li><p><strong>Multiple Languages</strong>: Python, JavaScript, C++, SQL support</p></li>
+</ul>
+</section>
+</section>
+<section id="usage">
+<h2>Usage<a class="headerlink" href="#usage" title="Link to this heading"></a></h2>
+<section id="model-selection-via-web-interface">
+<h3>Model Selection via Web Interface<a class="headerlink" href="#model-selection-via-web-interface" title="Link to this heading"></a></h3>
+<ol class="arabic simple">
+<li><p>Navigate to <code class="docutils literal notranslate"><span class="pre">/models</span></code> in the web interface</p></li>
+<li><p>Browse available models with detailed specifications</p></li>
+<li><p>Download desired models (one-click download)</p></li>
+<li><p>Select active model for code generation</p></li>
+<li><p>Compare models using the comparison tool</p></li>
+</ol>
+</section>
+<section id="programmatic-model-management">
+<h3>Programmatic Model Management<a class="headerlink" href="#programmatic-model-management" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">fm_llm_solver.services.model_manager</span> <span class="kn">import</span> <span class="n">get_model_manager</span>
+
+<span class="c1"># Get model manager instance</span>
+<span class="n">manager</span> <span class="o">=</span> <span class="n">get_model_manager</span><span class="p">()</span>
+
+<span class="c1"># List available models</span>
+<span class="n">models</span> <span class="o">=</span> <span class="n">manager</span><span class="o">.</span><span class="n">get_available_models</span><span class="p">()</span>
+
+<span class="c1"># Switch to a specific model</span>
+<span class="n">success</span> <span class="o">=</span> <span class="n">manager</span><span class="o">.</span><span class="n">switch_model</span><span class="p">(</span><span class="s2">&quot;qwen2.5-coder-7b-instruct&quot;</span><span class="p">)</span>
+
+<span class="c1"># Generate code with current model</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">manager</span><span class="o">.</span><span class="n">generate_text</span><span class="p">(</span>
+    <span class="s2">&quot;Write a Python function to calculate fibonacci numbers&quot;</span><span class="p">,</span>
+    <span class="n">max_tokens</span><span class="o">=</span><span class="mi">512</span><span class="p">,</span>
+    <span class="n">temperature</span><span class="o">=</span><span class="mf">0.1</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="model-downloading">
+<h3>Model Downloading<a class="headerlink" href="#model-downloading" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">fm_llm_solver.services.model_downloader</span> <span class="kn">import</span> <span class="n">get_model_downloader</span>
+
+<span class="c1"># Get downloader instance</span>
+<span class="n">downloader</span> <span class="o">=</span> <span class="n">get_model_downloader</span><span class="p">()</span>
+
+<span class="c1"># Download a model</span>
+<span class="n">cache_path</span> <span class="o">=</span> <span class="n">downloader</span><span class="o">.</span><span class="n">download_model</span><span class="p">(</span><span class="s2">&quot;qwen2.5-coder-7b-instruct&quot;</span><span class="p">,</span> <span class="n">model_config</span><span class="p">)</span>
+
+<span class="c1"># Check download status</span>
+<span class="n">is_downloaded</span> <span class="o">=</span> <span class="n">downloader</span><span class="o">.</span><span class="n">is_model_downloaded</span><span class="p">(</span><span class="s2">&quot;qwen2.5-coder-7b-instruct&quot;</span><span class="p">)</span>
+
+<span class="c1"># Verify model integrity</span>
+<span class="n">is_valid</span> <span class="o">=</span> <span class="n">downloader</span><span class="o">.</span><span class="n">verify_model_integrity</span><span class="p">(</span><span class="s2">&quot;qwen2.5-coder-7b-instruct&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="benchmarking-models">
+<h3>Benchmarking Models<a class="headerlink" href="#benchmarking-models" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">fm_llm_solver.services.model_benchmarker</span> <span class="kn">import</span> <span class="n">get_model_benchmarker</span>
+
+<span class="c1"># Get benchmarker instance</span>
+<span class="n">benchmarker</span> <span class="o">=</span> <span class="n">get_model_benchmarker</span><span class="p">()</span>
+
+<span class="c1"># Benchmark multiple models</span>
+<span class="n">model_configs</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;qwen2.5-coder-7b-instruct&quot;</span><span class="p">:</span> <span class="n">qwen_config</span><span class="p">,</span>
+    <span class="s2">&quot;deepseek-coder-v2-lite-instruct&quot;</span><span class="p">:</span> <span class="n">deepseek_config</span>
+<span class="p">}</span>
+
+<span class="n">summaries</span> <span class="o">=</span> <span class="k">await</span> <span class="n">benchmarker</span><span class="o">.</span><span class="n">benchmark_multiple_models</span><span class="p">(</span><span class="n">model_configs</span><span class="p">)</span>
+
+<span class="c1"># Generate comparison report</span>
+<span class="n">report</span> <span class="o">=</span> <span class="n">benchmarker</span><span class="o">.</span><span class="n">generate_comparison_report</span><span class="p">(</span><span class="n">summaries</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="configuration">
+<h2>Configuration<a class="headerlink" href="#configuration" title="Link to this heading"></a></h2>
+<section id="model-configuration-config-yaml">
+<h3>Model Configuration (config.yaml)<a class="headerlink" href="#model-configuration-config-yaml" title="Link to this heading"></a></h3>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">models</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">default_provider</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;qwen&quot;</span>
+<span class="w">  </span><span class="nt">default_model</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;qwen2.5-coder-7b-instruct&quot;</span>
+<span class="w">  </span>
+<span class="w">  </span><span class="nt">available_models</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">qwen2.5-coder-7b-instruct</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">provider</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;qwen&quot;</span>
+<span class="w">      </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Qwen/Qwen2.5-Coder-7B-Instruct&quot;</span>
+<span class="w">      </span><span class="nt">display_name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Qwen2.5-Coder</span><span class="nv"> </span><span class="s">(7B)&quot;</span>
+<span class="w">      </span><span class="nt">parameters</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;7B&quot;</span>
+<span class="w">      </span><span class="nt">context_length</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">128000</span>
+<span class="w">      </span><span class="nt">specialization</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;High-quality</span><span class="nv"> </span><span class="s">code</span><span class="nv"> </span><span class="s">generation&quot;</span>
+<span class="w">      </span><span class="nt">quantization_support</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;4bit&quot;</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">&quot;8bit&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">      </span><span class="nt">recommended_gpu_memory</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;14GB&quot;</span>
+</pre></div>
+</div>
+</section>
+<section id="provider-configuration">
+<h3>Provider Configuration<a class="headerlink" href="#provider-configuration" title="Link to this heading"></a></h3>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">providers</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">qwen</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">backend</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;transformers&quot;</span>
+<span class="w">    </span><span class="nt">auto_tokenizer</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">    </span><span class="nt">trust_remote_code</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">    </span><span class="nt">supports_quantization</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="api-endpoints">
+<h2>API Endpoints<a class="headerlink" href="#api-endpoints" title="Link to this heading"></a></h2>
+<section id="model-management-api">
+<h3>Model Management API<a class="headerlink" href="#model-management-api" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/models/available</span></code> - List available models</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/models/status</span></code> - Get current model status</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/models/download/{model_id}</span></code> - Download a model</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DELETE</span> <span class="pre">/api/models/delete/{model_id}</span></code> - Delete a model</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/models/select</span></code> - Select active model</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/models/generate</span></code> - Generate code</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">GET</span> <span class="pre">/api/models/current</span></code> - Get current model info</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/models/compare</span></code> - Compare models</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">POST</span> <span class="pre">/api/models/verify/{model_id}</span></code> - Verify model integrity</p></li>
+</ul>
+</section>
+<section id="example-api-usage">
+<h3>Example API Usage<a class="headerlink" href="#example-api-usage" title="Link to this heading"></a></h3>
+<div class="highlight-javascript notranslate"><div class="highlight"><pre><span></span><span class="c1">// Download a model</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">response</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">fetch</span><span class="p">(</span><span class="s1">&#39;/api/models/download/qwen2.5-coder-7b-instruct&#39;</span><span class="p">,</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">method</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;POST&#39;</span>
+<span class="p">});</span>
+
+<span class="c1">// Select a model</span>
+<span class="k">await</span><span class="w"> </span><span class="nx">fetch</span><span class="p">(</span><span class="s1">&#39;/api/models/select&#39;</span><span class="p">,</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">method</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;POST&#39;</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">headers</span><span class="o">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="s1">&#39;Content-Type&#39;</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;application/json&#39;</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="nx">body</span><span class="o">:</span><span class="w"> </span><span class="nb">JSON</span><span class="p">.</span><span class="nx">stringify</span><span class="p">({</span><span class="w"> </span><span class="nx">model_id</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;qwen2.5-coder-7b-instruct&#39;</span><span class="w"> </span><span class="p">})</span>
+<span class="p">});</span>
+
+<span class="c1">// Generate code</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">await</span><span class="w"> </span><span class="nx">fetch</span><span class="p">(</span><span class="s1">&#39;/api/models/generate&#39;</span><span class="p">,</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">method</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;POST&#39;</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">headers</span><span class="o">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="s1">&#39;Content-Type&#39;</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;application/json&#39;</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="nx">body</span><span class="o">:</span><span class="w"> </span><span class="nb">JSON</span><span class="p">.</span><span class="nx">stringify</span><span class="p">({</span>
+<span class="w">        </span><span class="nx">prompt</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Write a quicksort function in Python&#39;</span><span class="p">,</span>
+<span class="w">        </span><span class="nx">max_tokens</span><span class="o">:</span><span class="w"> </span><span class="mf">512</span><span class="p">,</span>
+<span class="w">        </span><span class="nx">temperature</span><span class="o">:</span><span class="w"> </span><span class="mf">0.1</span>
+<span class="w">    </span><span class="p">})</span>
+<span class="p">});</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="performance-comparison">
+<h2>Performance Comparison<a class="headerlink" href="#performance-comparison" title="Link to this heading"></a></h2>
+<section id="benchmark-results-summary">
+<h3>Benchmark Results Summary<a class="headerlink" href="#benchmark-results-summary" title="Link to this heading"></a></h3>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Model</p></th>
+<th class="head"><p>Success Rate</p></th>
+<th class="head"><p>Avg. Speed</p></th>
+<th class="head"><p>Code Quality</p></th>
+<th class="head"><p>GPU Memory</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Qwen2.5-Coder-32B</p></td>
+<td><p>94%</p></td>
+<td><p>2.3s</p></td>
+<td><p>91%</p></td>
+<td><p>64GB</p></td>
+</tr>
+<tr class="row-odd"><td><p>DeepSeek-Coder-V2</p></td>
+<td><p>92%</p></td>
+<td><p>1.8s</p></td>
+<td><p>89%</p></td>
+<td><p>48GB</p></td>
+</tr>
+<tr class="row-even"><td><p>Qwen2.5-Coder-7B</p></td>
+<td><p>89%</p></td>
+<td><p>1.2s</p></td>
+<td><p>85%</p></td>
+<td><p>14GB</p></td>
+</tr>
+<tr class="row-odd"><td><p>StarCoder2-15B</p></td>
+<td><p>87%</p></td>
+<td><p>2.1s</p></td>
+<td><p>83%</p></td>
+<td><p>30GB</p></td>
+</tr>
+<tr class="row-even"><td><p>CodeLlama-13B</p></td>
+<td><p>85%</p></td>
+<td><p>1.9s</p></td>
+<td><p>82%</p></td>
+<td><p>26GB</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="recommendations-by-use-case">
+<h3>Recommendations by Use Case<a class="headerlink" href="#recommendations-by-use-case" title="Link to this heading"></a></h3>
+<p><strong>For Development Workstations (8-16GB GPU):</strong></p>
+<ul class="simple">
+<li><p>Qwen2.5-Coder-7B-Instruct</p></li>
+<li><p>DeepSeek-Coder-V2-Lite-Instruct</p></li>
+<li><p>StarCoder2-7B</p></li>
+</ul>
+<p><strong>For High-End Workstations (32GB+ GPU):</strong></p>
+<ul class="simple">
+<li><p>Qwen2.5-Coder-32B-Instruct</p></li>
+<li><p>DeepSeek-Coder-V2-Instruct</p></li>
+<li><p>StarCoder2-15B</p></li>
+</ul>
+<p><strong>For Production Servers:</strong></p>
+<ul class="simple">
+<li><p>DeepSeek-Coder-V2 (efficient MoE architecture)</p></li>
+<li><p>Qwen2.5-Coder-32B (best overall performance)</p></li>
+</ul>
+</section>
+</section>
+<section id="advanced-features">
+<h2>Advanced Features<a class="headerlink" href="#advanced-features" title="Link to this heading"></a></h2>
+<section id="quantization-support">
+<h3>Quantization Support<a class="headerlink" href="#quantization-support" title="Link to this heading"></a></h3>
+<p>All models support 4-bit and 8-bit quantization for reduced memory usage:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">model_config</span> <span class="o">=</span> <span class="n">ModelConfig</span><span class="p">(</span>
+    <span class="n">provider</span><span class="o">=</span><span class="n">ModelProvider</span><span class="o">.</span><span class="n">QWEN</span><span class="p">,</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Qwen/Qwen2.5-Coder-7B-Instruct&quot;</span><span class="p">,</span>
+    <span class="n">quantization</span><span class="o">=</span><span class="s2">&quot;4bit&quot;</span>  <span class="c1"># Reduces memory usage by ~75%</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="context-length-optimization">
+<h3>Context Length Optimization<a class="headerlink" href="#context-length-optimization" title="Link to this heading"></a></h3>
+<p>Models support different context lengths:</p>
+<ul class="simple">
+<li><p><strong>128K tokens</strong>: Qwen2.5-Coder, DeepSeek-Coder-V2</p></li>
+<li><p><strong>32K tokens</strong>: Codestral, smaller Qwen models</p></li>
+<li><p><strong>16K tokens</strong>: StarCoder2, CodeLlama</p></li>
+<li><p><strong>8K tokens</strong>: CodeGemma</p></li>
+</ul>
+</section>
+<section id="fill-in-the-middle-fim-support">
+<h3>Fill-in-the-Middle (FIM) Support<a class="headerlink" href="#fill-in-the-middle-fim-support" title="Link to this heading"></a></h3>
+<p>Supported models can complete code in the middle of existing code:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">prompt</span> <span class="o">=</span> <span class="s2">&quot;&lt;|fim_prefix|&gt;def quicksort(arr):</span><span class="se">\n</span><span class="s2">    if len(arr) &lt;= 1:</span><span class="se">\n</span><span class="s2">        return arr</span><span class="se">\n</span><span class="s2">&lt;|fim_suffix|&gt;</span><span class="se">\n</span><span class="s2">    return quicksort(left) + [pivot] + quicksort(right)&lt;|fim_middle|&gt;&quot;</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="troubleshooting">
+<h2>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading"></a></h2>
+<section id="common-issues">
+<h3>Common Issues<a class="headerlink" href="#common-issues" title="Link to this heading"></a></h3>
+<ol class="arabic simple">
+<li><p><strong>Out of Memory Errors</strong></p>
+<ul class="simple">
+<li><p>Use quantization (4bit/8bit)</p></li>
+<li><p>Switch to smaller model</p></li>
+<li><p>Clear GPU cache between models</p></li>
+</ul>
+</li>
+<li><p><strong>Slow Download Speeds</strong></p>
+<ul class="simple">
+<li><p>Use mirror repositories</p></li>
+<li><p>Resume interrupted downloads</p></li>
+<li><p>Check internet connection</p></li>
+</ul>
+</li>
+<li><p><strong>Model Loading Failures</strong></p>
+<ul class="simple">
+<li><p>Verify model integrity</p></li>
+<li><p>Check GPU compatibility</p></li>
+<li><p>Ensure sufficient disk space</p></li>
+</ul>
+</li>
+</ol>
+</section>
+<section id="memory-requirements">
+<h3>Memory Requirements<a class="headerlink" href="#memory-requirements" title="Link to this heading"></a></h3>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Model Size</p></th>
+<th class="head"><p>FP16 Memory</p></th>
+<th class="head"><p>8bit Memory</p></th>
+<th class="head"><p>4bit Memory</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>0.5B-3B</p></td>
+<td><p>2-6GB</p></td>
+<td><p>1-3GB</p></td>
+<td><p>0.5-1.5GB</p></td>
+</tr>
+<tr class="row-odd"><td><p>7B-8B</p></td>
+<td><p>14-16GB</p></td>
+<td><p>7-8GB</p></td>
+<td><p>3.5-4GB</p></td>
+</tr>
+<tr class="row-even"><td><p>13B-15B</p></td>
+<td><p>26-30GB</p></td>
+<td><p>13-15GB</p></td>
+<td><p>6.5-7.5GB</p></td>
+</tr>
+<tr class="row-odd"><td><p>22B-32B</p></td>
+<td><p>44-64GB</p></td>
+<td><p>22-32GB</p></td>
+<td><p>11-16GB</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="integration-examples">
+<h2>Integration Examples<a class="headerlink" href="#integration-examples" title="Link to this heading"></a></h2>
+<section id="barrier-certificate-generation">
+<h3>Barrier Certificate Generation<a class="headerlink" href="#barrier-certificate-generation" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Switch to optimal model for mathematical reasoning</span>
+<span class="n">manager</span><span class="o">.</span><span class="n">switch_model</span><span class="p">(</span><span class="s2">&quot;qwen2.5-coder-32b-instruct&quot;</span><span class="p">)</span>
+
+<span class="c1"># Generate barrier certificate code</span>
+<span class="n">prompt</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">Generate a Python function that computes a barrier certificate</span>
+<span class="s2">for the system: x&#39; = x^2 - y, y&#39; = -x + y^2</span>
+<span class="s2">with unsafe region: x^2 + y^2 &gt; 4</span>
+<span class="s2">&quot;&quot;&quot;</span>
+
+<span class="n">certificate_code</span> <span class="o">=</span> <span class="n">manager</span><span class="o">.</span><span class="n">generate_text</span><span class="p">(</span><span class="n">prompt</span><span class="p">,</span> <span class="n">max_tokens</span><span class="o">=</span><span class="mi">1024</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="multi-language-code-generation">
+<h3>Multi-Language Code Generation<a class="headerlink" href="#multi-language-code-generation" title="Link to this heading"></a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Use DeepSeek for multi-language support</span>
+<span class="n">manager</span><span class="o">.</span><span class="n">switch_model</span><span class="p">(</span><span class="s2">&quot;deepseek-coder-v2-instruct&quot;</span><span class="p">)</span>
+
+<span class="n">languages</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;python&quot;</span><span class="p">,</span> <span class="s2">&quot;javascript&quot;</span><span class="p">,</span> <span class="s2">&quot;cpp&quot;</span><span class="p">,</span> <span class="s2">&quot;rust&quot;</span><span class="p">]</span>
+<span class="n">implementations</span> <span class="o">=</span> <span class="p">{}</span>
+
+<span class="k">for</span> <span class="n">lang</span> <span class="ow">in</span> <span class="n">languages</span><span class="p">:</span>
+    <span class="n">prompt</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Implement quicksort algorithm in </span><span class="si">{</span><span class="n">lang</span><span class="si">}</span><span class="s2">:&quot;</span>
+    <span class="n">implementations</span><span class="p">[</span><span class="n">lang</span><span class="p">]</span> <span class="o">=</span> <span class="n">manager</span><span class="o">.</span><span class="n">generate_text</span><span class="p">(</span><span class="n">prompt</span><span class="p">,</span> <span class="n">max_tokens</span><span class="o">=</span><span class="mi">512</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="future-enhancements">
+<h2>Future Enhancements<a class="headerlink" href="#future-enhancements" title="Link to this heading"></a></h2>
+<section id="planned-features">
+<h3>Planned Features<a class="headerlink" href="#planned-features" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>Model Ensembling</strong>: Combine outputs from multiple models</p></li>
+<li><p><strong>Adaptive Model Selection</strong>: Auto-select optimal model per task</p></li>
+<li><p><strong>Fine-tuning Integration</strong>: Custom model fine-tuning</p></li>
+<li><p><strong>Distributed Inference</strong>: Multi-GPU model serving</p></li>
+<li><p><strong>Real-time Collaboration</strong>: Shared model instances</p></li>
+</ul>
+</section>
+<section id="contributing">
+<h3>Contributing<a class="headerlink" href="#contributing" title="Link to this heading"></a></h3>
+<p>To add new models:</p>
+<ol class="arabic simple">
+<li><p>Update <code class="docutils literal notranslate"><span class="pre">config.yaml</span></code> with model specification</p></li>
+<li><p>Add provider support in <code class="docutils literal notranslate"><span class="pre">model_provider.py</span></code></p></li>
+<li><p>Update documentation</p></li>
+<li><p>Add benchmark tasks if needed</p></li>
+<li><p>Test integration and performance</p></li>
+</ol>
+</section>
+</section>
+<section id="support">
+<h2>Support<a class="headerlink" href="#support" title="Link to this heading"></a></h2>
+<p>For issues related to code generation models:</p>
+<ul class="simple">
+<li><p>Check the troubleshooting section</p></li>
+<li><p>Review model-specific documentation</p></li>
+<li><p>Test with smaller models first</p></li>
+<li><p>Monitor GPU memory usage</p></li>
+<li><p>Verify model downloads</p></li>
+</ul>
+<p>The integrated code generation models transform FM-LLM Solver into a comprehensive coding assistant, providing users with access to the latest advances in AI-powered code generation while maintaining the system’s core barrier certificate capabilities.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Patrick Allen Cooper.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
