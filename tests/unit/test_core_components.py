@@ -5,9 +5,6 @@ Tests configuration, logging, exceptions, and types.
 """
 
 import pytest
-import os
-import tempfile
-from pathlib import Path
 import yaml
 import json
 
@@ -20,9 +17,7 @@ from fm_llm_solver.core.config import (
 )
 from fm_llm_solver.core.exceptions import (
     FMLLMSolverError,
-    ConfigurationError,
     ValidationError,
-    GenerationError,
     ModelError,
     AuthenticationError,
 )
@@ -39,7 +34,6 @@ from fm_llm_solver.core.logging import (
     configure_logging,
     get_logger,
     StructuredFormatter,
-    ColoredFormatter,
 )
 
 

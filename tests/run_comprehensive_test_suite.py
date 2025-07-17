@@ -11,8 +11,7 @@ import logging
 import json
 import subprocess
 from pathlib import Path
-from typing import Dict, List, Optional
-import tempfile
+from typing import Dict
 
 # Add project root to path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]

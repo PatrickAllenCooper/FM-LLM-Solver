@@ -10,14 +10,13 @@ import functools
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, Callable
 
-from flask import request, jsonify, g, current_app, session, Flask
+from flask import request, jsonify, current_app, session, Flask
 from flask_login import current_user
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_cors import CORS
 import hashlib
 import hmac
-import jwt
 import bleach
 from urllib.parse import urlparse
 import ipaddress

@@ -5,13 +5,11 @@ Configuration CLI commands for FM-LLM Solver.
 import click
 import json
 from pathlib import Path
-from typing import Dict, Any
 
 from fm_llm_solver.core.logging import get_logger
 from fm_llm_solver.core.config_manager import (
     ConfigurationManager,
     Environment,
-    SecretProvider,
     ConfigurationTemplate,
 )
 
@@ -19,7 +17,6 @@ from fm_llm_solver.core.config_manager import (
 @click.group()
 def config():
     """Configuration management commands."""
-    pass
 
 
 @config.command()

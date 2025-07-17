@@ -2,7 +2,6 @@
 """Quick integration test runner with immediate feedback - no heavy ML loading."""
 
 import sys
-import time
 from pathlib import Path
 
 # Add project root to sys.path (works on Windows, macOS, Linux)

@@ -10,7 +10,7 @@ import os
 import sys
 import json
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict
 
 
 def load_test_results() -> Dict:

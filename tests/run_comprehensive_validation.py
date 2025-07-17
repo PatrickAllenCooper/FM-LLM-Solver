@@ -7,13 +7,11 @@ external dependencies like pytest. It performs structural validation
 and capability testing.
 """
 
-import os
 import sys
 import json
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict
 from datetime import datetime
-import importlib.util
 
 # Add project root to path
 PROJECT_ROOT = Path(__file__).parent.parent

@@ -7,7 +7,7 @@ import time
 import json
 import os
 import sys
-from typing import Dict, List, Tuple, Optional, Any
+from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, asdict
 from datetime import datetime
 import numpy as np

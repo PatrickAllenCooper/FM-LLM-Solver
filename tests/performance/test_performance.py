@@ -6,11 +6,9 @@ Tests system performance under load and measures response times.
 
 import time
 import pytest
-import asyncio
 import concurrent.futures
 from unittest.mock import Mock, patch
 
-from fm_llm_solver.core.config_manager import ConfigurationManager
 from fm_llm_solver.core.cache_manager import CacheManager
 from fm_llm_solver.core.monitoring import MonitoringManager
 from fm_llm_solver.services.certificate_generator import CertificateGenerator
@@ -299,7 +297,7 @@ class TestLoadTesting:
 
         # Analyze results
         successful_requests = [r for r in results if r.get("success", False)]
-        failed_requests = [r for r in results if not r.get("success", False)]
+        [r for r in results if not r.get("success", False)]
 
         success_rate = len(successful_requests) / len(results)
         avg_response_time = (

@@ -16,7 +16,6 @@ from fm_llm_solver.core.logging import get_logger
 @click.group()
 def train():
     """Model training and fine-tuning commands."""
-    pass
 
 
 @train.command()
@@ -333,7 +332,7 @@ def evaluate(
 @click.pass_context
 def experiment(ctx, output_dir: Optional[str], models: tuple, datasets: tuple):
     """Run comprehensive training experiments."""
-    config = ctx.obj["config"]
+    ctx.obj["config"]
     logger = get_logger("train.experiment")
 
     if not output_dir:

@@ -37,8 +37,6 @@ class FMLLMSolverError(Exception):
 class ConfigurationError(FMLLMSolverError):
     """Raised when configuration is invalid or missing."""
 
-    pass
-
 
 class ValidationError(FMLLMSolverError):
     """Raised when input validation fails."""
@@ -51,8 +49,6 @@ class ValidationError(FMLLMSolverError):
 
 class GenerationError(FMLLMSolverError):
     """Raised when certificate generation fails."""
-
-    pass
 
 
 class ModelError(GenerationError):
@@ -67,13 +63,9 @@ class ModelError(GenerationError):
 class VerificationError(FMLLMSolverError):
     """Raised when certificate verification fails."""
 
-    pass
-
 
 class KnowledgeBaseError(FMLLMSolverError):
     """Raised when knowledge base operations fail."""
-
-    pass
 
 
 class APIError(FMLLMSolverError):
@@ -242,8 +234,6 @@ class RetryableError(FMLLMSolverError):
 
 class NonRetryableError(FMLLMSolverError):
     """Base class for errors that should not be retried."""
-
-    pass
 
 
 class PerformanceError(FMLLMSolverError):

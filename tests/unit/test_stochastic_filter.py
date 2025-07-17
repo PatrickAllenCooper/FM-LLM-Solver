@@ -9,7 +9,6 @@ Usage:
     python tests/test_stochastic_filter.py
 """
 
-import os
 import sys
 from pathlib import Path
 
@@ -19,7 +18,6 @@ PROJECT_ROOT = SCRIPT_DIR.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from knowledge_base.document_classifier import BarrierCertificateClassifier
-from utils.config_loader import load_config
 from omegaconf import OmegaConf
 
 

@@ -6,7 +6,6 @@ End-to-end tests simulating real-world usage patterns
 
 import sys
 import os
-import json
 import time
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

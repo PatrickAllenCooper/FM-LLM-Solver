@@ -11,15 +11,14 @@ Deep analysis of every web interface element:
 """
 
 import sys
-import os
 import time
 import json
 import logging
 import numpy as np
 from pathlib import Path
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, asdict
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 # Add project root to path
 PROJECT_ROOT = Path(__file__).parent.parent.absolute()

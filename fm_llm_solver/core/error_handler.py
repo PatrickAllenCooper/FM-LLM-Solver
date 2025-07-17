@@ -5,13 +5,11 @@ Provides error recovery, graceful degradation, retry mechanisms, and structured
 error reporting throughout the system.
 """
 
-import asyncio
 import functools
-import logging
 import time
 import traceback
 from contextlib import contextmanager
-from typing import Any, Callable, Dict, List, Optional, Type, Union, Generator
+from typing import Any, Callable, Dict, List, Optional, Type, Generator
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -19,9 +17,6 @@ from .exceptions import (
     FMLLMSolverError,
     RetryableError,
     NonRetryableError,
-    ServiceUnavailableError,
-    TimeoutError,
-    ExternalServiceError,
 )
 from .logging_manager import get_logger
 

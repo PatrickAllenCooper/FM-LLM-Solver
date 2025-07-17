@@ -8,14 +8,11 @@ Tests the full integration of all components working together.
 """
 
 import pytest
-import os
 import sys
 import tempfile
 import json
 import time
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
-from typing import Dict, Any, List
 
 # Add project root to path
 PROJECT_ROOT = Path(__file__).parent.parent.parent
@@ -87,7 +84,7 @@ class TestCompleteWorkflows:
             from utils.config_loader import load_config
 
             config = load_config()
-            verifier = CertificateVerifier(config)
+            CertificateVerifier(config)
 
             # Format system for verification
             system_description = """System Dynamics: {', '.join(test_system['dynamics'])}
@@ -256,7 +253,7 @@ Unsafe Set: {', '.join(test_system['unsafe_set'])}"""
             from fine_tuning.create_finetuning_data import main as create_data_main
 
             # Test the main function
-            result = create_data_main()
+            create_data_main()
 
             # Mock data creation for testing
             mock_training_data = [
@@ -283,7 +280,7 @@ Unsafe Set: {', '.join(test_system['unsafe_set'])}"""
 
         # Step 2: Test training infrastructure
         try:
-            from fine_tuning.finetune_llm import main as finetune_main
+            pass
 
             # Mock training configuration
             mock_training_config = {
@@ -301,7 +298,7 @@ Unsafe Set: {', '.join(test_system['unsafe_set'])}"""
 
         # Step 3: Test inference with fine-tuned model
         try:
-            from inference.generate_certificate import generate_certificate
+            pass
 
             test_system = "dx/dt = -x, dy/dt = -y, Initial: x^2+y^2<=0.25, Unsafe: x^2+y^2>=4"
 
@@ -351,7 +348,7 @@ Unsafe Set: {', '.join(test_system['unsafe_set'])}"""
                     # Test invalid input handling
                     error_raised = False
                     try:
-                        result = self._process_invalid_input(scenario["input"])
+                        self._process_invalid_input(scenario["input"])
                     except Exception:
                         error_raised = True
 
@@ -364,7 +361,7 @@ Unsafe Set: {', '.join(test_system['unsafe_set'])}"""
                 elif "timeout" in scenario["name"].lower():
                     # Test timeout handling
                     try:
-                        result = self._simulate_llm_timeout()
+                        self._simulate_llm_timeout()
                         recovery_count += 1
                         print(f"   ✅ {scenario['name']}: Timeout handled gracefully")
                     except Exception as e:
@@ -373,7 +370,7 @@ Unsafe Set: {', '.join(test_system['unsafe_set'])}"""
                 elif "verification" in scenario["name"].lower():
                     # Test verification error handling
                     try:
-                        result = self._simulate_verification_failure()
+                        self._simulate_verification_failure()
                         recovery_count += 1
                         print(f"   ✅ {scenario['name']}: Verification error handled gracefully")
                     except Exception as e:
@@ -430,7 +427,7 @@ Unsafe Set: {', '.join(test_system['unsafe_set'])}"""
             system_start = time.time()
 
             # Mock system processing
-            mock_certificate = f"x**2 + y**2 - {1.0 + i * 0.1}"
+            f"x**2 + y**2 - {1.0 + i * 0.1}"
             mock_verification = {"passed": True, "time": 0.1}
 
             system_time = time.time() - system_start

@@ -2,7 +2,6 @@
 """Debug certificate validation issues"""
 
 import sympy
-import numpy as np
 
 # Test case: linear stable 2D system
 x, y = sympy.symbols("x y")

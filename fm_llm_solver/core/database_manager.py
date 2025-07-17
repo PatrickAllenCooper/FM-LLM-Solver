@@ -6,32 +6,18 @@ and schema management for production deployments.
 """
 
 import asyncio
-import json
-import logging
 import os
-import time
 from contextlib import asynccontextmanager, contextmanager
-from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union, AsyncGenerator
+from typing import Any, Dict, List, Optional, Union, AsyncGenerator
 
 try:
-    import asyncpg
     import psycopg2
     from psycopg2 import pool
-    from psycopg2.extras import RealDictCursor
     from sqlalchemy import (
         create_engine,
         text,
         MetaData,
-        Table,
-        Column,
-        Integer,
-        String,
-        DateTime,
-        Boolean,
-        Text,
-        JSON,
     )
     from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
     from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
@@ -45,7 +31,7 @@ except ImportError:
 
 from .config_manager import ConfigurationManager
 from .logging_manager import get_logger
-from .exceptions import DatabaseError, ConfigurationError
+from .exceptions import DatabaseError
 
 
 # Define Base class only if SQLAlchemy is available
@@ -54,14 +40,10 @@ if HAS_POSTGRES:
     class Base(DeclarativeBase):
         """Base class for SQLAlchemy models."""
 
-        pass
-
 else:
     # Fallback base class when SQLAlchemy is not available
     class Base:
         """Fallback base class when SQLAlchemy is not available."""
-
-        pass
 
 
 class DatabaseManager:

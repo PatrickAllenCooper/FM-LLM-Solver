@@ -8,12 +8,10 @@ import os
 from pathlib import Path
 from typing import Dict, Any, Optional, List, Union
 import yaml
-from dataclasses import dataclass, field
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 import json
 
 from fm_llm_solver.core.exceptions import ConfigurationError
-from fm_llm_solver.core.types import ModelProvider
 
 
 class PathConfig(BaseModel):

@@ -10,7 +10,6 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 
 from utils.certificate_extraction_improved import (
     extract_certificate_from_llm_output,
-    clean_and_validate_expression,
     is_template_expression,
     normalize_expression,
     extract_from_ascii_math,

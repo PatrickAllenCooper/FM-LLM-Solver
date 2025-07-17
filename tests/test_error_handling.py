@@ -6,13 +6,11 @@ Tests for robustness and graceful failure modes
 
 import sys
 import os
-import pytest
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from utils.certificate_extraction import extract_certificate_from_llm_output
 from tests.unit.test_certificate_validation_accuracy import CertificateValidationTester
-import sympy
 
 
 class TestErrorHandling:

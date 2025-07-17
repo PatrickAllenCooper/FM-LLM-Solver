@@ -5,8 +5,6 @@ Handles verification of barrier certificates using multiple methods.
 """
 
 import time
-from typing import Dict, Any, Optional, List
-from enum import Enum
 
 from fm_llm_solver.core.interfaces import Verifier
 from fm_llm_solver.core.types import (

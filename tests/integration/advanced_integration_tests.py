@@ -6,7 +6,6 @@ Now that we know all components can import successfully, these tests
 actually exercise the functionality to ensure end-to-end workflows work.
 """
 
-import os
 import sys
 import json
 import time
@@ -115,7 +114,7 @@ class AdvancedIntegrationTester:
         logger.info("🚀 Starting Advanced Integration Tests")
 
         # Setup phase
-        setup_results = self.setup_components()
+        self.setup_components()
 
         # Test categories
         tests = [
@@ -352,7 +351,7 @@ BARRIER_CERTIFICATE_END""",
         cert_gen_working = False
         if "cert_gen" in self.components:
             try:
-                cert_gen = self.components["cert_gen"]
+                self.components["cert_gen"]
 
                 # Test domain bounds format validation
                 # Just check if the component accepts the bounds format
@@ -646,7 +645,6 @@ Initial Set: x**2 + y**2 <= 0.5"""
             # Step 4: Test verification
             if "verification" in self.components and workflow_steps["system_parsing"]:
                 # Use a simple test certificate
-                mock_certificate = "x**2 + y**2"
                 verification_service = self.components["verification"]
 
                 # Just test the setup, not full verification
@@ -803,7 +801,7 @@ Unsafe Set: x >= 1.5"""
             times = []
             for _ in range(5):
                 start = time.time()
-                parsed = verification_service.parse_system_description(test_system)
+                verification_service.parse_system_description(test_system)
                 times.append(time.time() - start)
 
             avg_parsing_time = sum(times) / len(times)
@@ -825,7 +823,7 @@ BARRIER_CERTIFICATE_END"""
             times = []
             for _ in range(10):
                 start = time.time()
-                extracted = cert_gen.extract_certificate_from_output(test_output)
+                cert_gen.extract_certificate_from_output(test_output)
                 times.append(time.time() - start)
 
             avg_extraction_time = sum(times) / len(times)
@@ -999,7 +997,7 @@ def main():
         tester = AdvancedIntegrationTester(args.config)
 
         # Run all integration tests
-        test_results = tester.run_all_integration_tests()
+        tester.run_all_integration_tests()
 
         # Generate comprehensive report
         report = tester.generate_comprehensive_report()

@@ -8,16 +8,14 @@ request queuing, and concurrent task execution throughout the system.
 import asyncio
 import logging
 import time
-import weakref
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
-from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional, Union, Coroutine
+from typing import Any, Callable, Dict, List, Optional
 from queue import Queue, Empty
 import threading
 from functools import wraps, partial
 
-from .exceptions import PerformanceError, ServiceError
+from .exceptions import PerformanceError
 from .monitoring import MonitoringManager
 
 

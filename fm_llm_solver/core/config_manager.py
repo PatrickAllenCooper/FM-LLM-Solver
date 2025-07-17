@@ -13,7 +13,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 from omegaconf import OmegaConf, DictConfig
-from pydantic import BaseModel, Field, field_validator, ConfigDict
 
 import logging
 from fm_llm_solver.core.exceptions import ConfigurationError

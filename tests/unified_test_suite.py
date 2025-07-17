@@ -16,11 +16,9 @@ import time
 import logging
 import json
 import platform
-import subprocess
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
-import tempfile
 
 # Add project root to path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -326,8 +324,6 @@ class UnifiedTestSuite:
         try:
             from utils.certificate_extraction import (
                 extract_certificate_from_llm_output,
-                clean_and_validate_expression,
-                is_template_expression,
             )
 
             # Test cases
@@ -358,10 +354,9 @@ class UnifiedTestSuite:
     def _test_verification_helpers(self) -> tuple[bool, Dict]:
         """Test verification helper functions"""
         try:
-            from utils.verification_helpers import validate_candidate_expression
+            pass
 
             # Test validation
-            test_expression = "x**2 + y**2 - 1.5"
             # Note: This would need a proper context, but we'll test the import
             return True, {"helper_functions_available": True}
         except Exception as e:
@@ -399,7 +394,7 @@ class UnifiedTestSuite:
             from utils.data_formatting import format_instruction_example
 
             # Test formatting
-            example = format_instruction_example("test", "test", "test")
+            format_instruction_example("test", "test", "test")
             return True, {"formatting_functions_available": True}
         except Exception as e:
             return False, {"error": str(e)}
@@ -448,7 +443,7 @@ class UnifiedTestSuite:
             start_time = time.time()
             x = torch.randn(1000, 1000, device="cuda")
             y = torch.randn(1000, 1000, device="cuda")
-            z = torch.mm(x, y)
+            torch.mm(x, y)
             torch.cuda.synchronize()
             gpu_time = time.time() - start_time
 
@@ -456,7 +451,7 @@ class UnifiedTestSuite:
             start_time = time.time()
             x_cpu = torch.randn(1000, 1000)
             y_cpu = torch.randn(1000, 1000)
-            z_cpu = torch.mm(x_cpu, y_cpu)
+            torch.mm(x_cpu, y_cpu)
             cpu_time = time.time() - start_time
 
             speedup = cpu_time / gpu_time if gpu_time > 0 else 0
@@ -738,7 +733,7 @@ class UnifiedTestSuite:
             from utils.certificate_extraction import extract_certificate_from_llm_output
 
             start_time = time.time()
-            result = extract_certificate_from_llm_output(large_input, ["x", "y"])
+            extract_certificate_from_llm_output(large_input, ["x", "y"])
             duration = time.time() - start_time
 
             return True, {

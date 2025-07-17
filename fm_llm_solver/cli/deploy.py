@@ -9,7 +9,6 @@ from fm_llm_solver.core.logging import get_logger
 @click.group()
 def deploy():
     """Deployment management commands."""
-    pass
 
 
 @deploy.command()
@@ -17,7 +16,7 @@ def deploy():
 @click.pass_context
 def to(ctx, target):
     """Deploy to specified target."""
-    logger = get_logger("deploy.to")
+    get_logger("deploy.to")
     click.echo(f"🚀 Deploying to {target}...")
     # TODO: Implement deployment logic
 

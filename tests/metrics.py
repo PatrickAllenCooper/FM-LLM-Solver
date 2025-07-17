@@ -5,7 +5,7 @@ Computes precision, recall, F1 scores and other validation metrics
 
 import json
 import numpy as np
-from typing import Dict, List, Tuple, Optional, Any
+from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, asdict
 from datetime import datetime
 import os
@@ -409,7 +409,7 @@ def main():
             print(f"Error: Results file '{args.results_file}' not found")
             return
 
-        metrics = calculate_metrics_from_file(args.results_file, args.output)
+        calculate_metrics_from_file(args.results_file, args.output)
 
         # Analyze failures
         calculator = MetricsCalculator()

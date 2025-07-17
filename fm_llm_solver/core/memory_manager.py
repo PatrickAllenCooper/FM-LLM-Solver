@@ -11,10 +11,11 @@ import sys
 import time
 import weakref
 import threading
-from collections import defaultdict, deque
+from collections import deque
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Type, TypeVar, Generic, Callable
+from functools import wraps
+from typing import Any, Dict, List, Optional, TypeVar, Generic, Callable
 import psutil
 import os
 
@@ -604,7 +605,7 @@ def memory_limit(max_mb: float):
 
                 return result
 
-            except Exception as e:
+            except Exception:
                 # Cleanup on error
                 gc.collect()
                 raise

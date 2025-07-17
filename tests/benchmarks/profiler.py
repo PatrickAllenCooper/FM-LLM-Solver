@@ -6,11 +6,10 @@ Analyzes performance bottlenecks and generates optimization recommendations
 import time
 import cProfile
 import pstats
-import io
 import json
 import os
 import sys
-from typing import Dict, List, Tuple, Any, Optional
+from typing import Dict, List, Any
 from dataclasses import dataclass, asdict
 from datetime import datetime
 import tracemalloc
@@ -19,12 +18,9 @@ import gc
 # Add project root to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from utils.level_set_tracker import BarrierCertificateValidator, LevelSetTracker
-from utils.set_membership import SetMembershipTester
-from utils.adaptive_tolerance import AdaptiveTolerance
+from utils.level_set_tracker import BarrierCertificateValidator
 from evaluation.verify_certificate import verify_barrier_certificate
 from omegaconf import DictConfig
-import numpy as np
 
 
 @dataclass
@@ -71,10 +67,9 @@ class BarrierCertificateProfiler:
 
         try:
             validator = BarrierCertificateValidator(certificate, system_info, config)
-            result = validator.validate()
+            validator.validate()
         except Exception as e:
             print(f"Error during validation: {e}")
-            result = None
 
         profiler.disable()
         total_time = time.time() - start_time
@@ -406,7 +401,7 @@ def compare_validators():
     old_profiler.enable()
 
     try:
-        old_result = verify_barrier_certificate(certificate, system_info, config)
+        verify_barrier_certificate(certificate, system_info, config)
     except Exception as e:
         print(f"Error in old validator: {e}")
 

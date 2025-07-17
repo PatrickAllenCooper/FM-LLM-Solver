@@ -5,7 +5,7 @@ Handles parsing of system descriptions and barrier certificates.
 """
 
 import re
-from typing import List, Dict, Optional, Set
+from typing import List, Dict
 import sympy as sp
 from sympy.parsing.sympy_parser import parse_expr
 

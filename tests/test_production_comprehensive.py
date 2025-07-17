@@ -7,13 +7,9 @@ Tests are designed to run without requiring external dependencies.
 """
 
 import pytest
-import os
 import sys
-import tempfile
-import json
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
-from typing import Dict, Any
+from unittest.mock import Mock, patch
 
 # Add project root to path
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -355,7 +351,7 @@ class TestWebInterface:
             response = client.get("/")
 
             # Check for important security headers
-            headers = response.headers
+            response.headers
             # Note: Some headers might be set by middleware
             assert response.status_code == 200
 

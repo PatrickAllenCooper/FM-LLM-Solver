@@ -9,7 +9,7 @@ import sys
 import json
 import time
 import logging
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Dict, List, Any, Optional
 from datetime import datetime
 from dataclasses import dataclass, field
 from collections import defaultdict

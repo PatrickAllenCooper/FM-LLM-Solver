@@ -11,8 +11,7 @@ import logging
 import pytest
 import numpy as np
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
-import tempfile
+from typing import Dict, List
 import json
 import torch
 
@@ -21,12 +20,6 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from utils.config_loader import load_config
-from utils.certificate_extraction import (
-    extract_certificate_from_llm_output,
-    clean_and_validate_expression,
-    is_template_expression,
-)
-from utils.verification_helpers import create_verification_context, validate_candidate_expression
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -172,7 +165,7 @@ class GPUAcceleratedTester:
 
             # Test CPU equivalent
             start_time = time.time()
-            samples_cpu_direct = np.random.randn(num_samples, dimensions) * 2.0
+            np.random.randn(num_samples, dimensions) * 2.0
             cpu_time = time.time() - start_time
 
             # Evaluate barrier certificate on samples

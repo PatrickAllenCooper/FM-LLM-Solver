@@ -8,12 +8,11 @@ with log aggregation systems like ELK stack or Prometheus.
 import json
 import logging
 import logging.handlers
-import os
 import sys
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional
 
 from .config_manager import ConfigurationManager
 

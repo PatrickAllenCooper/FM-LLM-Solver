@@ -12,7 +12,6 @@ Usage:
     python tests/adaptive_test_runner.py --verbose
 """
 
-import os
 import sys
 import time
 import json
@@ -21,9 +20,6 @@ import argparse
 from pathlib import Path
 from typing import Dict, List, Optional, Set
 from datetime import datetime
-import concurrent.futures
-import resource
-import psutil
 
 # Add project root to path
 PROJECT_ROOT = Path(__file__).parent.parent

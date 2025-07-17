@@ -6,9 +6,7 @@ Critical Fixes Test
 Quick test to verify the most critical accuracy issues are addressed.
 """
 
-import os
 import sys
-import time
 import logging
 from pathlib import Path
 

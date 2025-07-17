@@ -172,7 +172,7 @@ class TestConcurrentProcessing:
         cpu_start = time.time()
         for i in range(num_batches):
             points = torch.randn(batch_size, 2)
-            values = validate_batch_gpu(certificate, points.numpy())
+            validate_batch_gpu(certificate, points.numpy())
         cpu_time = time.time() - cpu_start
 
         # GPU processing
@@ -183,7 +183,7 @@ class TestConcurrentProcessing:
             # For actual GPU processing, would need GPU-compatible evaluation
             # Here we simulate the overhead
             points_cpu = points.cpu().numpy()
-            values = validate_batch_gpu(certificate, points_cpu)
+            validate_batch_gpu(certificate, points_cpu)
         gpu_time = time.time() - gpu_start
 
         print(f"\nCPU time: {cpu_time:.3f}s")

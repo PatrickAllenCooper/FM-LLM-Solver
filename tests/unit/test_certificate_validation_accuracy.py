@@ -3,7 +3,6 @@
 Test certificate validation accuracy with correct barrier certificate theory
 """
 
-import unittest
 import logging
 import sys
 import os
@@ -11,13 +10,13 @@ import time
 import json
 import numpy as np
 import sympy
-from typing import List, Dict, Tuple
+from typing import List, Dict
 
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from utils.certificate_extraction import extract_certificate_from_llm_output
-from utils.level_set_tracker import LevelSetTracker, LevelSetInfo
+from utils.level_set_tracker import LevelSetTracker
 
 # Configure logging
 logging.basicConfig(
@@ -173,7 +172,7 @@ class CertificateValidationTester:
             # but let's do spot checks for validation
 
             # Sample and check a few points
-            rng = np.random.default_rng(42)
+            np.random.default_rng(42)
             n_check = min(n_samples * 2, 20)
 
             # Check initial set condition: B(x) ≤ c1

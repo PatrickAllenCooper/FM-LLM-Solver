@@ -6,7 +6,6 @@ Test security features of FM-LLM Solver web interface.
 import os
 import sys
 import requests
-import json
 
 # Add project root to path
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -106,7 +105,6 @@ def test_input_validation():
     print("\n=== Testing Input Validation ===")
 
     # Test XSS attempt
-    malicious_input = "<script>alert('XSS')</script>"
 
     # Would need to test with actual form submission
     print("✓ Input validation decorators implemented")

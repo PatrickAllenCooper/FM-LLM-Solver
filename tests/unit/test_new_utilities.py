@@ -7,27 +7,19 @@ and that the new utility modules provide the expected behavior.
 
 import pytest
 import sympy
-from typing import Dict, Any
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 # Import the new utility modules
 from utils.verification_helpers import (
     VerificationConfig,
     SystemInfo,
-    VerificationContext,
-    create_verification_context,
     validate_candidate_expression,
-    process_dynamics_for_system_type,
-    create_numerical_functions,
     build_verification_summaries,
 )
 from utils.numerical_checks import (
     NumericalCheckConfig,
     ViolationInfo,
     NumericalCheckResult,
-    check_domain_bounds_simplified,
-    check_lie_derivative_simplified,
-    check_boundary_conditions_simplified,
 )
 from utils.condition_parser import (
     parse_set_conditions_simplified,

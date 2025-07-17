@@ -16,7 +16,6 @@ from flask import (
     request,
     jsonify,
     current_app,
-    g,
     redirect,
     url_for,
     flash,
@@ -28,8 +27,6 @@ from fm_llm_solver.web.models import (
     db,
     QueryLog,
     VerificationResult,
-    Conversation,
-    ConversationMessage,
 )
 from fm_llm_solver.web.utils import rate_limit, validate_input
 

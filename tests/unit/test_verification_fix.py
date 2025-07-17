@@ -5,7 +5,6 @@ Tests the known correct barrier certificate that was previously failing.
 """
 
 import sys
-import os
 from pathlib import Path
 
 # Add project root to path

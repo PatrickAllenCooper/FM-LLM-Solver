@@ -148,7 +148,7 @@ For stochastic systems, the barrier certificate B(x) must satisfy:
     def _get_generation_instruction(self, system: SystemDescription) -> str:
         """Get the generation instruction."""
         variables = list(system.dynamics.keys())
-        var_str = ", ".join(variables)
+        ", ".join(variables)
 
         return """## Task
 

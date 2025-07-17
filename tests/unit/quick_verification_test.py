@@ -5,7 +5,6 @@ Tests the critical boundary condition fix with real-time progress.
 """
 
 import sys
-import os
 import time
 from pathlib import Path
 

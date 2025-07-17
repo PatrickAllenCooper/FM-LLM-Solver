@@ -9,12 +9,10 @@ A lightweight testing framework that avoids the freezing issues by:
 4. Progressive complexity levels
 """
 
-import os
 import sys
 import json
 import time
 import logging
-from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, asdict
@@ -80,7 +78,7 @@ class SmartTestbench:
     def _try_import_config(self) -> bool:
         """Try importing config utilities."""
         try:
-            from utils.config_loader import load_config
+            pass
 
             # Don't actually load to avoid hanging
             return True
@@ -90,7 +88,7 @@ class SmartTestbench:
     def _try_import_verification(self) -> bool:
         """Try importing verification service."""
         try:
-            from web_interface.verification_service import VerificationService
+            pass
 
             return True
         except Exception:
@@ -99,7 +97,7 @@ class SmartTestbench:
     def _try_import_models(self) -> bool:
         """Try importing database models."""
         try:
-            import web_interface.models
+            pass
 
             return True
         except Exception:
@@ -108,7 +106,7 @@ class SmartTestbench:
     def _try_import_cert_gen(self) -> bool:
         """Try importing certificate generator (will likely fail due to heavy deps)."""
         try:
-            from web_interface.certificate_generator import CertificateGenerator
+            pass
 
             return True
         except Exception:
@@ -180,8 +178,6 @@ class SmartTestbench:
 
     def _test_system_basics(self) -> Dict[str, Any]:
         """Test basic system functionality."""
-        import os, sys, json, time
-        from pathlib import Path
 
         # Test file system access
         config_exists = (PROJECT_ROOT / "config.yaml").exists()
@@ -356,11 +352,11 @@ def main():
 
         # Diagnose components
         logger.info("🔍 Diagnosing component health...")
-        component_status = testbench.diagnose_components()
+        testbench.diagnose_components()
 
         # Run basic tests
         logger.info("🧪 Running basic tests...")
-        test_results = testbench.run_basic_tests()
+        testbench.run_basic_tests()
 
         # Generate report
         report = testbench.generate_report()

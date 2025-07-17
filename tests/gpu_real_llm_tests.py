@@ -8,14 +8,13 @@ to validate filtering, parsing, and numerical checking on real model outputs.
 Hardware Requirements: NVIDIA GPU with 6+ GB VRAM
 """
 
-import os
 import sys
 import json
 import time
 import logging
 import numpy as np
 from pathlib import Path
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Dict, List, Optional
 from dataclasses import dataclass, asdict
 import torch
 
@@ -377,7 +376,6 @@ Generate the barrier certificate:"""
 
             # Numerical verification
             n_samples = 200  # Reasonable number for testing
-            violations = []
 
             # Test points in initial set
             initial_violations = 0

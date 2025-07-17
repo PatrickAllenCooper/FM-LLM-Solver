@@ -11,10 +11,7 @@ from pathlib import Path
 # Import the components we're testing
 from fm_llm_solver.core.config_manager import ConfigurationManager
 from fm_llm_solver.core.database_manager import DatabaseManager
-from fm_llm_solver.core.logging_manager import LoggingManager
-from fm_llm_solver.core.error_handler import ErrorHandler
 from fm_llm_solver.core.cache_manager import CacheManager
-from fm_llm_solver.core.monitoring import MonitoringManager
 
 
 class TestConfigurationManager:

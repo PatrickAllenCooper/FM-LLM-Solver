@@ -18,7 +18,7 @@ import subprocess
 import psutil
 import socket
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict
 import logging
 
 logger = logging.getLogger(__name__)
@@ -464,7 +464,7 @@ class EnvironmentDetector:
     def _get_max_parallel_jobs(self, env_type: str, hardware: Dict) -> int:
         """Get maximum recommended parallel test jobs."""
         cpu_cores = hardware["cpu_cores"]
-        memory_gb = hardware["memory_total_gb"]
+        hardware["memory_total_gb"]
 
         if env_type == "macbook":
             # Conservative for laptops to avoid overheating/battery drain

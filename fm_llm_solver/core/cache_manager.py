@@ -5,23 +5,18 @@ Provides Redis integration, cache invalidation, performance optimization,
 and multiple cache backends with fallback mechanisms.
 """
 
-import json
 import pickle
 import time
 import hashlib
-import logging
 from abc import ABC, abstractmethod
-from contextlib import contextmanager
-from datetime import datetime, timedelta
 from functools import wraps
-from typing import Any, Dict, List, Optional, Union, Callable, Generator
+from typing import Any, Dict, List, Optional, Callable
 from dataclasses import dataclass, field
 from enum import Enum
 
 try:
     import redis
     from redis import Redis
-    from redis.connection import ConnectionPool
 
     HAS_REDIS = True
 except ImportError:
@@ -101,37 +96,30 @@ class CacheBackendInterface(ABC):
     @abstractmethod
     def get(self, key: str) -> Optional[Any]:
         """Get value from cache."""
-        pass
 
     @abstractmethod
     def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
         """Set value in cache."""
-        pass
 
     @abstractmethod
     def delete(self, key: str) -> bool:
         """Delete value from cache."""
-        pass
 
     @abstractmethod
     def exists(self, key: str) -> bool:
         """Check if key exists in cache."""
-        pass
 
     @abstractmethod
     def clear(self) -> bool:
         """Clear all cache entries."""
-        pass
 
     @abstractmethod
     def keys(self, pattern: str = "*") -> List[str]:
         """Get all keys matching pattern."""
-        pass
 
     @abstractmethod
     def stats(self) -> Dict[str, Any]:
         """Get cache statistics."""
-        pass
 
 
 class MemoryCache(CacheBackendInterface):

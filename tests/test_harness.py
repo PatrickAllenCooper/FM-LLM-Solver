@@ -13,22 +13,18 @@ import sys
 import os
 import time
 import logging
-from typing import Dict, List, Any, Tuple, Optional
+from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, asdict
 from datetime import datetime
-import traceback
 
 # Add project root to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from utils.level_set_tracker import BarrierCertificateValidator, LevelSetTracker
-from utils.set_membership import SetMembershipTester
-from utils.adaptive_tolerance import AdaptiveTolerance
+from utils.level_set_tracker import BarrierCertificateValidator
 from evaluation.verify_certificate import verify_barrier_certificate
 from evaluation.verify_certificate_fixed import numerical_check_all_conditions_fixed
 from omegaconf import DictConfig
 import sympy
-import numpy as np
 
 
 @dataclass

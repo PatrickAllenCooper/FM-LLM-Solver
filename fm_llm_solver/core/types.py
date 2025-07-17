@@ -5,7 +5,7 @@ Provides strong typing for data structures used throughout the system.
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Any, Union, Tuple
+from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime
 from enum import Enum
 

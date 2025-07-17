@@ -5,7 +5,6 @@ Tests that the implementation follows correct mathematical theory
 """
 
 import unittest
-import numpy as np
 import sympy as sp
 import sys
 import os
@@ -13,7 +12,7 @@ import os
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from utils.level_set_tracker import LevelSetTracker, LevelSetInfo
+from utils.level_set_tracker import LevelSetTracker
 from tests.unit.test_certificate_validation_accuracy import CertificateValidationTester
 
 

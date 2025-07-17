@@ -5,7 +5,7 @@ Handles generation of barrier certificates using LLMs with RAG.
 """
 
 import time
-from typing import Optional, List, Dict, Any
+from typing import Optional, List
 
 from fm_llm_solver.core.interfaces import Generator, KnowledgeStore, ModelProvider, Cache
 from fm_llm_solver.core.types import (

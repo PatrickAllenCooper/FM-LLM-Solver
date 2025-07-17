@@ -14,7 +14,6 @@ Run with: python tests/llm_generation_diagnostic_testbench.py
 
 import os
 import sys
-import re
 import json
 import time
 import logging

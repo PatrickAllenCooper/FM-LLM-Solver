@@ -7,7 +7,6 @@ Handles request logging, error handling, and security headers.
 import uuid
 import time
 from functools import wraps
-from typing import Optional
 
 from flask import Flask, request, g, jsonify
 from werkzeug.exceptions import HTTPException

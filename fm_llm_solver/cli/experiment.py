@@ -9,7 +9,6 @@ from fm_llm_solver.core.logging import get_logger
 @click.group()
 def experiment():
     """Experiment management commands."""
-    pass
 
 
 @experiment.command()
@@ -17,7 +16,7 @@ def experiment():
 @click.pass_context
 def run(ctx, config_file):
     """Run experiments."""
-    logger = get_logger("experiment.run")
+    get_logger("experiment.run")
     click.echo("🧪 Running experiments...")
     # TODO: Implement experiment runner
 

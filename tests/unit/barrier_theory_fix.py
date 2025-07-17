@@ -6,7 +6,7 @@ Corrects the fundamental theory violations in the current system
 
 import numpy as np
 import sympy as sp
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple
 from dataclasses import dataclass
 import logging
 
@@ -115,7 +115,7 @@ class BarrierCertificateValidator:
         samples = []
 
         # Parse constraints
-        var_symbols = sp.symbols(variables)
+        sp.symbols(variables)
         parsed_constraints = []
         for constraint in constraints:
             # Handle <= and >= constraints

@@ -26,7 +26,6 @@ try:
         Counter,
         Histogram,
         Gauge,
-        Summary,
         Info,
         CollectorRegistry,
         generate_latest,
@@ -41,7 +40,6 @@ from .config_manager import ConfigurationManager
 from .logging_manager import get_logger
 from .database_manager import get_database_manager
 from .cache_manager import get_cache_manager
-from .exceptions import ServiceUnavailableError
 
 
 class HealthStatus(Enum):
@@ -739,7 +737,7 @@ class MonitoringManager:
             self.metrics_collector.record_custom_metric(
                 f"{operation_name}_duration", duration, tags
             )
-        except Exception as e:
+        except Exception:
             duration = time.time() - start_time
             self.metrics_collector.record_custom_metric(
                 f"{operation_name}_error_duration", duration, tags

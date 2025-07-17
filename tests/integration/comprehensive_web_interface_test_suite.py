@@ -15,13 +15,12 @@ This suite maximizes successful barrier certificate generation through rigorous 
 """
 
 import sys
-import os
 import time
 import json
 import logging
 import traceback
 from pathlib import Path
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, asdict
 import numpy as np
 
@@ -408,7 +407,7 @@ Unsafe Set: x**4 + y**4 >= 1.0""",
             # Extract detailed information
             details = verification_result.get("details", {})
             numerical_details = details.get("numerical", {})
-            reason = numerical_details.get("reason", "No details available")
+            numerical_details.get("reason", "No details available")
 
             # Check for warnings
             warnings = []

@@ -15,7 +15,6 @@ from fm_llm_solver.core.logging import get_logger
 @click.group()
 def kb():
     """Knowledge base management commands."""
-    pass
 
 
 @kb.command()
@@ -135,7 +134,6 @@ def _build_open_source(pdf_files, output_dir, batch_size, cpu_only, logger):
     # Check dependencies
     try:
         import PyMuPDF  # fitz
-        import sentence_transformers
     except ImportError as e:
         click.echo(f"❌ Missing dependency: {e}")
         click.echo("   Install with: pip install PyMuPDF sentence-transformers")

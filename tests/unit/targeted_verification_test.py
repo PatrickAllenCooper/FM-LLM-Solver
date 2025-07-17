@@ -5,7 +5,6 @@ Tests the boundary fix success and diagnoses the safe set generation issue.
 """
 
 import sys
-import os
 import time
 from pathlib import Path
 
@@ -112,7 +111,6 @@ def test_simple_boundary_only():
     print("\n🎯 TESTING BOUNDARY CONDITIONS ONLY")
     print("-" * 40)
 
-    certificate = "x**2 + y**2"
     system = """System Dynamics: dx/dt = -x, dy/dt = -y
 Initial Set: x**2 + y**2 <= 0.25
 Unsafe Set: x**2 + y**2 >= 4.0"""
@@ -124,11 +122,10 @@ Unsafe Set: x**2 + y**2 >= 4.0"""
     print("✅ System parsed successfully")
 
     # Test boundary extraction directly
-    from evaluation.verify_certificate import extract_initial_set_bound
     import sympy
 
     # Convert to relationals for testing
-    variables = [sympy.Symbol("x"), sympy.Symbol("y")]
+    [sympy.Symbol("x"), sympy.Symbol("y")]
     initial_conditions = parsed_system.get("initial_set", [])
 
     print(f"📋 Initial conditions: {initial_conditions}")

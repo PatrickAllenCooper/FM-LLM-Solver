@@ -13,13 +13,11 @@ These tests verify that all components work together correctly:
 import os
 import pytest
 import tempfile
-import asyncio
 from pathlib import Path
 from unittest.mock import Mock, patch
 
 # Import our components
 from fm_llm_solver.core.config_manager import ConfigurationManager
-from fm_llm_solver.core.database_manager import DatabaseManager
 from fm_llm_solver.core.logging_manager import LoggingManager
 from fm_llm_solver.core.error_handler import ErrorHandler
 from fm_llm_solver.core.cache_manager import CacheManager

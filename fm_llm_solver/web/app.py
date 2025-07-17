@@ -27,16 +27,11 @@ from fm_llm_solver.services.certificate_generator import CertificateGenerator
 from fm_llm_solver.services.verifier import CertificateVerifier
 from fm_llm_solver.services.knowledge_base import KnowledgeBase
 from fm_llm_solver.services.model_provider import QwenProvider
-from fm_llm_solver.web.models import User, QueryLog, VerificationResult, Conversation
+from fm_llm_solver.web.models import User
 from fm_llm_solver.web.utils import (
     setup_security_headers,
     setup_rate_limiting,
     setup_cors,
-    validate_input,
-    sanitize_output,
-    get_client_ip,
-    log_security_event,
-    handle_error_response,
 )
 
 
@@ -108,7 +103,7 @@ def create_app(config_path: Optional[str] = None, test_config: Optional[dict] = 
 
 def config_to_flask(config: dict, config_manager: ConfigurationManager) -> dict:
     """Convert FM-LLM config to Flask config."""
-    web_config = config.get("web_interface", {})
+    config.get("web_interface", {})
     db_config = config.get("database", {}).get("primary", {})
 
     # Build database URL
@@ -501,7 +496,6 @@ def register_cli_commands(app: Flask) -> None:
         """Run performance benchmarks."""
         try:
             import time
-            import asyncio
 
             print("Running performance benchmarks...\n")
 
@@ -529,7 +523,7 @@ def register_cli_commands(app: Flask) -> None:
                 tracker.start_tracking()
 
                 # Simulate memory allocation
-                data = [list(range(1000)) for _ in range(100)]
+                [list(range(1000)) for _ in range(100)]
 
                 stats = tracker.stop_tracking()
                 print(f"  Memory used: {stats['memory_diff_mb']:.2f} MB")

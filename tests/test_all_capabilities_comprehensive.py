@@ -7,13 +7,9 @@ external dependencies and testing core functionality.
 """
 
 import pytest
-import os
 import sys
-import tempfile
-import json
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
-from typing import Dict, Any
+from unittest.mock import MagicMock
 import importlib.util
 
 # Add project root to path

@@ -24,7 +24,7 @@ def main():
         # Run tests
         print("🧪 Running integration tests...")
         start_time = time.time()
-        results = tester.run_all_integration_tests()
+        tester.run_all_integration_tests()
         duration = time.time() - start_time
 
         # Generate report

@@ -6,12 +6,11 @@ Runs all Phase 1 tests and generates comprehensive reports
 
 import sys
 import os
-import subprocess
 import time
 import json
 import argparse
 from datetime import datetime
-from typing import Dict, List, Tuple, Optional
+from typing import Dict
 import traceback
 
 # Add project root to path
@@ -292,7 +291,7 @@ class Phase1TestRunner:
             for i in range(3):
                 start = time.time()
                 validator = BarrierCertificateValidator(certificate, system_info, config)
-                result = validator.validate()
+                validator.validate()
                 elapsed = time.time() - start
                 times.append(elapsed)
 

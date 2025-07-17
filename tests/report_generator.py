@@ -5,15 +5,13 @@ Generates beautiful, interactive HTML reports with metrics and visualizations
 
 import json
 import os
-from datetime import datetime
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any
 import base64
 import io
 
 # Try to import matplotlib for charts
 try:
     import matplotlib.pyplot as plt
-    import matplotlib.patches as mpatches
 
     MATPLOTLIB_AVAILABLE = True
 except ImportError:
@@ -123,7 +121,7 @@ class HTMLReportGenerator:
     def generate_html(self):
         """Generate the complete HTML report"""
         # Calculate statistics
-        total_tests = self.results.get("total_tests", 0)
+        self.results.get("total_tests", 0)
         summary = self.results.get("summary", {})
         passed = summary.get("passed", 0)
         failed = summary.get("failed", 0)

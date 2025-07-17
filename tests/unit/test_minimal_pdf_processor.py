@@ -5,7 +5,6 @@ Minimal PDF processor test script without torch or complex NumPy dependencies.
 
 import os
 import sys
-import re
 import logging
 import platform
 import tempfile

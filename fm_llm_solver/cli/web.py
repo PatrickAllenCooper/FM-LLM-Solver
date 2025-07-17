@@ -9,7 +9,6 @@ from fm_llm_solver.core.logging import get_logger
 @click.group()
 def web():
     """Web interface management commands."""
-    pass
 
 
 @web.command()
@@ -19,7 +18,7 @@ def web():
 @click.pass_context
 def run(ctx, host: str, port: int, debug: bool):
     """Run the web interface."""
-    config = ctx.obj["config"]
+    ctx.obj["config"]
     logger = get_logger("web.run")
 
     click.echo(f"🌐 Starting web interface on {host}:{port}")

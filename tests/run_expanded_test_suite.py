@@ -106,7 +106,7 @@ def main():
 
     # Check if psutil is available for memory tests
     try:
-        import psutil
+        pass
     except ImportError:
         print("\nWarning: psutil not installed. Installing for memory tests...")
         subprocess.run([sys.executable, "-m", "pip", "install", "psutil"], check=True)

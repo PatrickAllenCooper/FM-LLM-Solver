@@ -9,10 +9,8 @@ import sys
 import time
 import logging
 import pytest
-import numpy as np
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
-import tempfile
+from typing import Dict, List
 import json
 
 # Add project root to path
@@ -25,7 +23,6 @@ from utils.certificate_extraction import (
     clean_and_validate_expression,
     is_template_expression,
 )
-from utils.verification_helpers import create_verification_context, validate_candidate_expression
 from utils.numerical_checks import NumericalCheckConfig, ViolationInfo, NumericalCheckResult
 
 logging.basicConfig(level=logging.INFO)
@@ -276,14 +273,14 @@ This provides the required safety guarantees.""",
             start_time = time.time()
             x = torch.randn(1000, 1000, device="cuda")
             y = torch.randn(1000, 1000, device="cuda")
-            z = torch.mm(x, y)
+            torch.mm(x, y)
             gpu_time = time.time() - start_time
 
             # Test CPU equivalent
             start_time = time.time()
             x_cpu = torch.randn(1000, 1000)
             y_cpu = torch.randn(1000, 1000)
-            z_cpu = torch.mm(x_cpu, y_cpu)
+            torch.mm(x_cpu, y_cpu)
             cpu_time = time.time() - start_time
 
             return {

@@ -8,9 +8,6 @@ import unittest
 import sys
 import os
 import time
-import json
-import numpy as np
-from typing import Dict, List, Tuple
 
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -18,7 +15,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 from utils.certificate_extraction import extract_certificate_from_llm_output
 from utils.level_set_tracker import LevelSetTracker
 from utils.set_membership import SetMembershipTester
-from utils.adaptive_tolerance import AdaptiveTolerance, ToleranceManager
+from utils.adaptive_tolerance import ToleranceManager
 from tests.unit.test_certificate_validation_accuracy import CertificateValidationTester
 
 
@@ -164,7 +161,6 @@ class ValidationPipelineIntegrationTests(unittest.TestCase):
                     "initial_set": ["x**2 + y**2 <= 0.25"],
                     "unsafe_set": ["x**2 + y**2 >= 4.0"],
                 }
-                variables = ["x", "y"]
                 certificate = "x**2 + y**2 - 1.0"
             else:
                 system = {
@@ -172,7 +168,6 @@ class ValidationPipelineIntegrationTests(unittest.TestCase):
                     "initial_set": ["x**2 + y**2 + z**2 <= 0.25"],
                     "unsafe_set": ["x**2 + y**2 + z**2 >= 4.0"],
                 }
-                variables = ["x", "y", "z"]
                 certificate = "x**2 + y**2 + z**2 - 1.0"
 
             start_time = time.time()
@@ -232,7 +227,6 @@ class ValidationPipelineIntegrationTests(unittest.TestCase):
             "initial_set": ["x**2 + y**2 <= 0.25"],
             "unsafe_set": ["x**2 + y**2 >= 4.0"],
         }
-        variables = ["x", "y"]
 
         # This certificate should work for the nonlinear system
         certificate = "x**2 + y**2 - 1.0"

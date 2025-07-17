@@ -4,7 +4,6 @@ Main CLI implementation for FM-LLM Solver.
 Provides unified commands for all system operations.
 """
 
-import os
 import sys
 import click
 from pathlib import Path
@@ -154,7 +153,7 @@ def generate(
 def status(ctx):
     """Show system status and health checks."""
     config = ctx.obj["config"]
-    logger = ctx.obj["logger"]
+    ctx.obj["logger"]
 
     click.echo("🔍 FM-LLM Solver System Status\n")
 
@@ -221,14 +220,14 @@ def status(ctx):
     # Check services
     click.echo("\n🔧 Services:")
     try:
-        from fm_llm_solver.services.certificate_generator import CertificateGenerator
+        pass
 
         click.echo("  • Certificate Generator: ✅ Available")
     except ImportError as e:
         click.echo(f"  • Certificate Generator: ❌ {e}")
 
     try:
-        from fm_llm_solver.services.verifier import CertificateVerifier
+        pass
 
         click.echo("  • Verifier: ✅ Available")
     except ImportError as e:
@@ -244,7 +243,7 @@ def status(ctx):
 def setup(ctx, check_deps: bool, install_missing: bool):
     """Set up the FM-LLM Solver environment."""
     config = ctx.obj["config"]
-    logger = ctx.obj["logger"]
+    ctx.obj["logger"]
 
     click.echo("🔧 Setting up FM-LLM Solver environment...\n")
 

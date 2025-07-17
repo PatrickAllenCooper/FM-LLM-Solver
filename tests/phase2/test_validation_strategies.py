@@ -4,7 +4,6 @@ Tests for Phase 2 Validation Strategies and Orchestrator
 """
 
 import unittest
-import numpy as np
 import sys
 import os
 

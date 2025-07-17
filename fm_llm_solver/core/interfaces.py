@@ -36,12 +36,10 @@ class Generator(ABC):
         Returns:
             GenerationResult containing the certificate or error
         """
-        pass
 
     @abstractmethod
     def is_ready(self) -> bool:
         """Check if the generator is ready to use."""
-        pass
 
 
 class Verifier(ABC):
@@ -67,12 +65,10 @@ class Verifier(ABC):
         Returns:
             VerificationResult with detailed check results
         """
-        pass
 
     @abstractmethod
     def supports_method(self, method: VerificationMethod) -> bool:
         """Check if the verifier supports a given method."""
-        pass
 
 
 class KnowledgeStore(ABC):
@@ -93,7 +89,6 @@ class KnowledgeStore(ABC):
         Returns:
             List of relevant documents
         """
-        pass
 
     @abstractmethod
     def add_document(
@@ -110,24 +105,20 @@ class KnowledgeStore(ABC):
         Returns:
             Document ID
         """
-        pass
 
     @abstractmethod
     def delete_document(self, doc_id: str) -> bool:
         """Delete a document by ID."""
-        pass
 
     @abstractmethod
     def update_document(
         self, doc_id: str, content: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None
     ) -> bool:
         """Update an existing document."""
-        pass
 
     @abstractmethod
     def get_stats(self) -> Dict[str, Any]:
         """Get knowledge base statistics."""
-        pass
 
 
 class ModelProvider(ABC):
@@ -136,24 +127,20 @@ class ModelProvider(ABC):
     @abstractmethod
     def load_model(self, config: ModelConfig) -> Any:
         """Load a language model."""
-        pass
 
     @abstractmethod
     def generate_text(
         self, prompt: str, max_tokens: int = 1024, temperature: float = 0.7, **kwargs
     ) -> str:
         """Generate text from the model."""
-        pass
 
     @abstractmethod
     def get_embedding(self, text: str) -> List[float]:
         """Get text embedding from the model."""
-        pass
 
     @abstractmethod
     def unload_model(self) -> None:
         """Unload the model to free resources."""
-        pass
 
 
 class Parser(ABC):
@@ -162,17 +149,14 @@ class Parser(ABC):
     @abstractmethod
     def parse_system(self, text: str) -> SystemDescription:
         """Parse a system description from text."""
-        pass
 
     @abstractmethod
     def parse_certificate(self, text: str, variables: List[str]) -> BarrierCertificate:
         """Parse a barrier certificate from text."""
-        pass
 
     @abstractmethod
     def extract_variables(self, dynamics: Dict[str, str]) -> List[str]:
         """Extract variable names from dynamics."""
-        pass
 
 
 class Trainer(ABC):
@@ -194,12 +178,10 @@ class Trainer(ABC):
         Returns:
             Training metrics and results
         """
-        pass
 
     @abstractmethod
     def evaluate(self, model_path: str, eval_dataset_path: str, **kwargs) -> Dict[str, Any]:
         """Evaluate a trained model."""
-        pass
 
 
 class Monitor(ABC):
@@ -208,19 +190,16 @@ class Monitor(ABC):
     @abstractmethod
     def log_query(self, query_log: Any) -> None:
         """Log a query."""
-        pass
 
     @abstractmethod
     def get_metrics(
         self, time_range: Optional[Tuple[str, str]] = None, user_id: Optional[str] = None
     ) -> Dict[str, Any]:
         """Get system metrics."""
-        pass
 
     @abstractmethod
     def get_health_status(self) -> Dict[str, Any]:
         """Get system health status."""
-        pass
 
 
 class Cache(ABC):
@@ -229,19 +208,15 @@ class Cache(ABC):
     @abstractmethod
     def get(self, key: str) -> Optional[Any]:
         """Get value from cache."""
-        pass
 
     @abstractmethod
     def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
         """Set value in cache with optional TTL."""
-        pass
 
     @abstractmethod
     def delete(self, key: str) -> bool:
         """Delete value from cache."""
-        pass
 
     @abstractmethod
     def clear(self) -> bool:
         """Clear all cache entries."""
-        pass

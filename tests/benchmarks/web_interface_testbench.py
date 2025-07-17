@@ -13,7 +13,6 @@ Date: 2024
 License: Academic Use
 """
 
-import os
 import sys
 import json
 import time
@@ -22,11 +21,8 @@ import traceback
 import numpy as np
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, asdict
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from contextlib import contextmanager
-import unittest
 from unittest.mock import Mock, patch
 
 # Add project root to path
@@ -41,9 +37,7 @@ from web_interface.verification_service import VerificationService
 from web_interface.conversation_service import ConversationService
 
 # Test data and utilities
-import random
-import string
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig
 
 # Configure logging for testbench
 logging.basicConfig(
@@ -1160,7 +1154,7 @@ def main():
             )
 
         # Generate report
-        report = testbench.generate_report(args.output)
+        testbench.generate_report(args.output)
 
         if args.output:
             logger.info(f"Detailed report saved to: {args.output}")
