@@ -37,10 +37,10 @@ class ModelProvider(Enum):
     ANTHROPIC = "anthropic"
     LLAMA = "llama"
     CUSTOM = "custom"
-    
+
     # Code generation model providers
     DEEPSEEK = "deepseek"
-    STARCODER = "starcoder" 
+    STARCODER = "starcoder"
     CODELLAMA = "codellama"
     CODESTRAL = "codestral"
     OPENCODER = "opencoder"

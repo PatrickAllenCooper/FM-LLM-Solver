@@ -98,9 +98,7 @@ class TransformersModelProvider(BaseModelProvider):
             # Load tokenizer
             self.logger.info(f"Loading tokenizer: {config.name}")
             self.tokenizer = AutoTokenizer.from_pretrained(
-                config.name, 
-                trust_remote_code=trust_remote_code, 
-                use_fast=True
+                config.name, trust_remote_code=trust_remote_code, use_fast=True
             )
 
             # Set pad token if not present
@@ -163,13 +161,12 @@ class TransformersModelProvider(BaseModelProvider):
                     do_sample=temperature > 0,
                     pad_token_id=self.tokenizer.pad_token_id,
                     eos_token_id=self.tokenizer.eos_token_id,
-                    **kwargs
+                    **kwargs,
                 )
 
             # Decode output
             generated_text = self.tokenizer.decode(
-                outputs[0][inputs.input_ids.shape[1]:], 
-                skip_special_tokens=True
+                outputs[0][inputs.input_ids.shape[1] :], skip_special_tokens=True
             )
 
             return generated_text
@@ -209,7 +206,7 @@ class StarCoderProvider(TransformersModelProvider):
     def __init__(self):
         super().__init__()
         self.logger.info("Initialized StarCoder provider")
-        
+
     def load_model(self, config: ModelConfig) -> None:
         """Load StarCoder model with specific configurations."""
         # StarCoder models don't need trust_remote_code
@@ -223,7 +220,7 @@ class CodeLlamaProvider(TransformersModelProvider):
     def __init__(self):
         super().__init__()
         self.logger.info("Initialized CodeLlama provider")
-        
+
     def load_model(self, config: ModelConfig) -> None:
         """Load CodeLlama model with specific configurations."""
         # CodeLlama models don't need trust_remote_code
@@ -245,7 +242,7 @@ class OpenCoderProvider(TransformersModelProvider):
     def __init__(self):
         super().__init__()
         self.logger.info("Initialized OpenCoder provider")
-        
+
     def load_model(self, config: ModelConfig) -> None:
         """Load OpenCoder model with specific configurations."""
         # OpenCoder models don't need trust_remote_code
@@ -259,7 +256,7 @@ class CodeGemmaProvider(TransformersModelProvider):
     def __init__(self):
         super().__init__()
         self.logger.info("Initialized CodeGemma provider")
-        
+
     def load_model(self, config: ModelConfig) -> None:
         """Load CodeGemma model with specific configurations."""
         # CodeGemma models don't need trust_remote_code
@@ -291,11 +288,11 @@ class OpenAIProvider(BaseModelProvider):
         try:
             # Import here to make it optional
             import openai  # type: ignore
-            
+
             # This would require proper OpenAI API integration
             # For now, return a placeholder
             return f"OpenAI generated response for: {prompt[:50]}..."
-            
+
         except ImportError:
             raise ModelError("OpenAI package not installed")
         except Exception as e:
@@ -306,11 +303,11 @@ class OpenAIProvider(BaseModelProvider):
         try:
             # Import here to make it optional
             import openai  # type: ignore
-            
+
             # This would require proper OpenAI API integration
             # For now, return a placeholder
             return [0.0] * 1536  # OpenAI embedding dimension
-            
+
         except ImportError:
             raise ModelError("OpenAI package not installed")
         except Exception as e:
@@ -333,7 +330,7 @@ class ModelProviderFactory:
             Model provider instance
         """
         provider_lower = provider.lower()
-        
+
         if provider_lower == "qwen":
             return QwenProvider()
         elif provider_lower == "deepseek":
@@ -357,8 +354,14 @@ class ModelProviderFactory:
     def list_providers() -> list:
         """List available providers."""
         return [
-            "qwen", "deepseek", "starcoder", "codellama", 
-            "codestral", "opencoder", "codegemma", "openai"
+            "qwen",
+            "deepseek",
+            "starcoder",
+            "codellama",
+            "codestral",
+            "opencoder",
+            "codegemma",
+            "openai",
         ]
 
     @staticmethod
@@ -369,50 +372,50 @@ class ModelProviderFactory:
                 "description": "Qwen family code generation models",
                 "supports_quantization": True,
                 "trust_remote_code": True,
-                "context_lengths": [32000, 128000]
+                "context_lengths": [32000, 128000],
             },
             "deepseek": {
                 "description": "DeepSeek Coder V2 models with MoE architecture",
                 "supports_quantization": True,
                 "trust_remote_code": True,
-                "context_lengths": [128000]
+                "context_lengths": [128000],
             },
             "starcoder": {
                 "description": "StarCoder family models for code completion",
                 "supports_quantization": True,
                 "trust_remote_code": False,
-                "context_lengths": [16000]
+                "context_lengths": [16000],
             },
             "codellama": {
                 "description": "Meta's CodeLlama models for code generation",
                 "supports_quantization": True,
                 "trust_remote_code": False,
-                "context_lengths": [16000]
+                "context_lengths": [16000],
             },
             "codestral": {
                 "description": "Mistral's Codestral models for multi-language coding",
                 "supports_quantization": True,
                 "trust_remote_code": True,
-                "context_lengths": [32000]
+                "context_lengths": [32000],
             },
             "opencoder": {
                 "description": "Open reproducible code generation models",
                 "supports_quantization": True,
                 "trust_remote_code": False,
-                "context_lengths": [16000]
+                "context_lengths": [16000],
             },
             "codegemma": {
                 "description": "Google's CodeGemma models for code tasks",
                 "supports_quantization": True,
                 "trust_remote_code": False,
-                "context_lengths": [8000]
+                "context_lengths": [8000],
             },
             "openai": {
                 "description": "OpenAI API models",
                 "supports_quantization": False,
                 "trust_remote_code": False,
-                "context_lengths": [4000, 8000, 16000, 32000]
-            }
+                "context_lengths": [4000, 8000, 16000, 32000],
+            },
         }
-        
+
         return provider_info.get(provider.lower(), {})

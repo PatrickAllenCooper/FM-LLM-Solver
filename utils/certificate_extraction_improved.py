@@ -431,14 +431,24 @@ def _clean_expression(expr: str) -> str:
     # Clean LaTeX
     expr = _clean_latex_expression(expr)
     
+    # Convert unicode math symbols
+    expr = _convert_unicode_math(expr)
+    
     # Convert common notations
     expr = expr.replace('^', '**')
+    
+    # Add missing multiplication symbols
+    expr = _add_multiplication_symbols(expr)
     
     # Remove trailing punctuation
     expr = expr.rstrip('.,;:')
     
-    # Normalize whitespace
+    # Normalize whitespace and standardize spacing
     expr = re.sub(r'\s+', ' ', expr).strip()
+    expr = re.sub(r'\s*\*\s*', '*', expr)  # No spaces around *
+    expr = re.sub(r'\s*\+\s*', ' + ', expr)  # Spaces around +
+    expr = re.sub(r'\s*-\s*', ' - ', expr)  # Spaces around -
+    expr = expr.strip()  # Remove leading/trailing spaces
     
     return expr
 
@@ -457,6 +467,25 @@ def _clean_latex_expression(expr: str) -> str:
     
     # Remove LaTeX commands
     expr = re.sub(r'\\[a-zA-Z]+', '', expr)
+    
+    return expr
+
+
+def _add_multiplication_symbols(expr: str) -> str:
+    """Add missing multiplication symbols between numbers and variables"""
+    import re
+    
+    # Add * between number and variable (e.g., "2x" -> "2*x")
+    expr = re.sub(r'(\d)([a-zA-Z])', r'\1*\2', expr)
+    
+    # Add * between variable and number (e.g., "x2" -> "x*2")  
+    expr = re.sub(r'([a-zA-Z])(\d)', r'\1*\2', expr)
+    
+    # Add * between closing parenthesis and variable (e.g., ")x" -> ")*x")
+    expr = re.sub(r'\)([a-zA-Z])', r')*\1', expr)
+    
+    # Add * between variable and opening parenthesis (e.g., "x(" -> "x*(")
+    expr = re.sub(r'([a-zA-Z])\(', r'\1*(', expr)
     
     return expr
 
