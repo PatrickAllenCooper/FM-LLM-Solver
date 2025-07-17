@@ -1,0 +1,85 @@
+name: Auto-merge
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: write
+  pull-requests: write
+  checks: read
+
+jobs:
+  auto-merge:
+    name: Auto-merge approved PRs
+    runs-on: ubuntu-latest
+    if: |
+      github.actor == 'dependabot[bot]' || 
+      github.actor == 'github-actions[bot]' ||
+      contains(github.event.pull_request.labels.*.name, 'auto-merge')
+    
+    steps:
+      - name: Check if PR is ready for auto-merge
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            
+            // Skip if PR is draft or has conflicts
+            if (pr.draft || pr.mergeable === false) {
+              console.log('PR is draft or has conflicts, skipping auto-merge');
+              return;
+            }
+            
+            // Get status checks
+            const { data: checkRuns } = await github.rest.checks.listForRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: pr.head.sha
+            });
+            
+            const { data: statusChecks } = await github.rest.repos.getCombinedStatusForRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: pr.head.sha
+            });
+            
+            // Check if all required checks are passing
+            const allChecksPassing = statusChecks.state === 'success' && 
+              checkRuns.check_runs.every(check => 
+                check.status === 'completed' && check.conclusion === 'success'
+              );
+            
+            if (!allChecksPassing) {
+              console.log('Not all checks are passing, waiting...');
+              return;
+            }
+            
+            // Auto-approve dependabot PRs
+            if (github.actor === 'dependabot[bot]') {
+              try {
+                await github.rest.pulls.createReview({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: pr.number,
+                  event: 'APPROVE'
+                });
+                console.log('Auto-approved dependabot PR');
+              } catch (error) {
+                console.log('Failed to approve PR:', error);
+              }
+            }
+            
+            // Enable auto-merge
+            try {
+              await github.rest.pulls.merge({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr.number,
+                commit_title: `${pr.title} (#${pr.number})`,
+                merge_method: 'squash'
+              });
+              console.log('Successfully auto-merged PR');
+            } catch (error) {
+              console.log('Failed to merge PR:', error);
+            } 

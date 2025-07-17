@@ -1,0 +1,21 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Discussions
+    url: https://github.com/PatrickAllenCooper/FM-LLM-Solver/discussions
+    about: Ask questions, share ideas, or discuss the project with the community
+  
+  - name: 📖 Documentation
+    url: https://github.com/PatrickAllenCooper/FM-LLM-Solver/blob/main/README.md
+    about: Read the project documentation and guides
+  
+  - name: 🚀 Quick Start Guide
+    url: https://github.com/PatrickAllenCooper/FM-LLM-Solver/blob/main/QUICK_START_GUIDE.md
+    about: Get started with FM-LLM-Solver in 30 seconds
+  
+  - name: 🔒 Security Vulnerabilities
+    url: https://github.com/PatrickAllenCooper/FM-LLM-Solver/security/advisories/new
+    about: Report security vulnerabilities privately through GitHub Security Advisories
+  
+  - name: 📧 Direct Contact
+    url: mailto:patrick.cooper@colorado.edu
+    about: Contact the maintainer directly for sensitive issues or collaboration inquiries 

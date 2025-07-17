@@ -1,0 +1,277 @@
+name: Security
+
+on:
+  schedule:
+    # Run security scans daily at 3 AM UTC
+    - cron: '0 3 * * *'
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  # Dependency vulnerability scanning
+  dependency-scan:
+    name: Dependency Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install safety bandit semgrep
+          pip install -r requirements.txt
+      
+      - name: Run Safety check
+        run: |
+          safety check --json --output safety-report.json || true
+          safety check --short-report
+      
+      - name: Upload Safety results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: safety-report
+          path: safety-report.json
+
+  # Static code analysis for security issues
+  static-analysis:
+    name: Static Security Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: Install Bandit
+        run: pip install bandit[toml]
+      
+      - name: Run Bandit security analysis
+        run: |
+          bandit -r fm_llm_solver/ -f json -o bandit-report.json || true
+          bandit -r fm_llm_solver/ -f txt
+      
+      - name: Upload Bandit results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bandit-report
+          path: bandit-report.json
+
+  # Container security scanning
+  container-scan:
+    name: Container Security Scan
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Build Docker image for scanning
+        run: |
+          docker build -t fm-llm-solver:security-scan .
+      
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'fm-llm-solver:security-scan'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+      
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  # Secret scanning
+  secret-scan:
+    name: Secret Scanning
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for comprehensive scanning
+      
+      - name: Install TruffleHog
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/trufflesecurity/trufflehog/main/scripts/install.sh | sh -s -- -b /usr/local/bin
+      
+      - name: Run TruffleHog secret scan
+        run: |
+          trufflehog git file://. --json > trufflehog-report.json || true
+          echo "Secret scan completed"
+      
+      - name: Check for secrets (fail if found)
+        run: |
+          if [ -s trufflehog-report.json ] && [ "$(cat trufflehog-report.json | wc -l)" -gt 0 ]; then
+            echo "⚠️ Potential secrets found!"
+            cat trufflehog-report.json
+            exit 1
+          else
+            echo "✅ No secrets detected"
+          fi
+      
+      - name: Upload secret scan results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: secret-scan-report
+          path: trufflehog-report.json
+
+  # License compliance check
+  license-check:
+    name: License Compliance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pip-licenses licensecheck
+          pip install -r requirements.txt
+      
+      - name: Check licenses
+        run: |
+          # Generate license report
+          pip-licenses --format=json --output-file=licenses.json
+          pip-licenses --format=plain-vertical
+          
+          # Check for problematic licenses
+          echo "Checking for problematic licenses..."
+          if pip-licenses | grep -E "(GPL|AGPL|SSPL|BUSL)" && [ "$?" -eq 0 ]; then
+            echo "⚠️ Found potentially problematic licenses"
+            exit 1
+          else
+            echo "✅ License check passed"
+          fi
+      
+      - name: Upload license report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: license-report
+          path: licenses.json
+
+  # Security summary report
+  security-summary:
+    name: Security Summary
+    runs-on: ubuntu-latest
+    needs: [dependency-scan, static-analysis, container-scan, secret-scan, license-check]
+    if: always()
+    steps:
+      - name: Download all reports
+        uses: actions/download-artifact@v4
+        with:
+          path: security-reports
+      
+      - name: Generate security summary
+        run: |
+          echo "# Security Scan Summary" > security-summary.md
+          echo "Generated on: $(date)" >> security-summary.md
+          echo "" >> security-summary.md
+          
+          echo "## Scan Results" >> security-summary.md
+          echo "| Scan Type | Status |" >> security-summary.md
+          echo "|-----------|--------|" >> security-summary.md
+          echo "| Dependency Scan | ${{ needs.dependency-scan.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> security-summary.md
+          echo "| Static Analysis | ${{ needs.static-analysis.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> security-summary.md
+          echo "| Container Scan | ${{ needs.container-scan.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> security-summary.md
+          echo "| Secret Scan | ${{ needs.secret-scan.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> security-summary.md
+          echo "| License Check | ${{ needs.license-check.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> security-summary.md
+          echo "" >> security-summary.md
+          
+          if [[ "${{ needs.dependency-scan.result }}" == "failure" || 
+                "${{ needs.static-analysis.result }}" == "failure" || 
+                "${{ needs.container-scan.result }}" == "failure" || 
+                "${{ needs.secret-scan.result }}" == "failure" || 
+                "${{ needs.license-check.result }}" == "failure" ]]; then
+            echo "## ⚠️ Action Required" >> security-summary.md
+            echo "One or more security scans have failed. Please review the detailed reports and address any issues." >> security-summary.md
+          else
+            echo "## ✅ All Security Checks Passed" >> security-summary.md
+            echo "All security scans completed successfully. No immediate action required." >> security-summary.md
+          fi
+          
+          cat security-summary.md
+      
+      - name: Upload security summary
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-summary
+          path: security-summary.md
+
+  # Security notification (for scheduled runs)
+  notify-security:
+    name: Security Notification
+    runs-on: ubuntu-latest
+    needs: [security-summary]
+    if: github.event_name == 'schedule' && failure()
+    steps:
+      - name: Create security issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `🔒 Daily Security Scan Alert - ${new Date().toISOString().split('T')[0]}`;
+            const body = `
+            ## Security Scan Alert
+            
+            The daily security scan has detected potential issues that require attention.
+            
+            **Scan Date:** ${new Date().toISOString()}
+            **Workflow Run:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            
+            ### Action Required
+            1. Review the security scan results in the workflow artifacts
+            2. Address any vulnerabilities or security issues found
+            3. Update dependencies if necessary
+            4. Re-run security scans to verify fixes
+            
+            ### Reports Available
+            - Dependency vulnerability scan (Safety)
+            - Static code analysis (Bandit)
+            - Container security scan (Trivy)
+            - Secret detection scan (TruffleHog)
+            - License compliance check
+            
+            This issue will be automatically closed when the security issues are resolved.
+            `;
+            
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'security,automated',
+              state: 'open'
+            });
+            
+            // Only create new issue if no open security issue exists
+            if (issues.length === 0) {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: title,
+                body: body,
+                labels: ['security', 'automated', 'priority/high']
+              });
+            } 
