@@ -84,12 +84,9 @@ jobs:
       run: |
         black --check --diff fm_llm_solver/ tests/
 
-    - name: Run linting
+    - name: Run critical linting checks
       run: |
-        # Check for critical errors only (runtime failures)
         flake8 fm_llm_solver/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
-        # Run full check but don't fail build (for informational purposes)
-        flake8 fm_llm_solver/ tests/ --count --exit-zero --max-complexity=10 --max-line-length=100 --statistics
 
     - name: Run type checking
       if: matrix.python-version != '3.8'  # Skip mypy on Python 3.8 due to compatibility issues
@@ -143,7 +140,7 @@ jobs:
         output: 'trivy-results.sarif'
 
     - name: Upload Trivy scan results to GitHub Security tab
-      uses: github/codeql-action/upload-sarif@v2
+      uses: github/codeql-action/upload-sarif@v3
       if: always()
       with:
         sarif_file: 'trivy-results.sarif'
@@ -358,7 +355,7 @@ jobs:
         k6 run --out json=results.json tests/performance/load-test.js
 
     - name: Upload performance results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: performance-results
         path: results.json 
