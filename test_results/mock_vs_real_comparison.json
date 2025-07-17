@@ -1,0 +1,169 @@
+{
+  "mock_results": {
+    "test_type": "MOCK",
+    "total_tests": 3,
+    "passed_tests": 3,
+    "success_rate": 1.0,
+    "extraction_rate": 1.0,
+    "template_rejection_rate": 0.0,
+    "results": [
+      {
+        "name": "clean_mock_1",
+        "output_length": 67,
+        "extracted": "x**2 + y**2 - 1.0",
+        "extraction_success": true,
+        "is_template": false,
+        "cleaned": "x**2 + y**2 - 1.0",
+        "expected": "x**2 + y**2 - 1.0",
+        "test_passed": true,
+        "challenges": []
+      },
+      {
+        "name": "clean_mock_2",
+        "output_length": 26,
+        "extracted": "x**2 + y**2 - 1.5",
+        "extraction_success": true,
+        "is_template": false,
+        "cleaned": "x**2 + y**2 - 1.5",
+        "expected": "x**2 + y**2 - 1.5",
+        "test_passed": true,
+        "challenges": []
+      },
+      {
+        "name": "clean_mock_3",
+        "output_length": 49,
+        "extracted": "2*x**2 + 2*y**2 - 3",
+        "extraction_success": true,
+        "is_template": false,
+        "cleaned": "2*x**2 + 2*y**2 - 3",
+        "expected": "2*x**2 + 2*y**2 - 3.0",
+        "test_passed": true,
+        "challenges": []
+      }
+    ]
+  },
+  "real_results": {
+    "test_type": "REAL LLM",
+    "total_tests": 7,
+    "passed_tests": 5,
+    "success_rate": 0.7142857142857143,
+    "extraction_rate": 0.2857142857142857,
+    "template_rejection_rate": 0.7142857142857143,
+    "results": [
+      {
+        "name": "real_qwen_messy",
+        "output_length": 327,
+        "extracted": "0.8*x**2 + 1.2*y**2 - 0.75",
+        "extraction_success": true,
+        "is_template": false,
+        "cleaned": "0.8*x**2 + 1.2*y**2 - 0.75",
+        "expected": "0.8*x**2 + 1.2*y**2 - 0.75",
+        "test_passed": true,
+        "challenges": [
+          "LaTeX notation",
+          "Explanatory text",
+          "Mathematical symbols"
+        ]
+      },
+      {
+        "name": "real_chatgpt_style",
+        "output_length": 274,
+        "extracted": null,
+        "extraction_success": false,
+        "is_template": true,
+        "cleaned": null,
+        "expected": "x**2 + y**2 - 1.0",
+        "test_passed": false,
+        "challenges": [
+          "Code blocks",
+          "Unicode symbols",
+          "Step-by-step format"
+        ]
+      },
+      {
+        "name": "real_claude_academic",
+        "output_length": 430,
+        "extracted": "x**2 + y**2 - c",
+        "extraction_success": true,
+        "is_template": false,
+        "cleaned": "x**2 + y**2 - c",
+        "expected": "x**2 + y**2 - 1.2",
+        "test_passed": true,
+        "challenges": [
+          "Mathematical notation",
+          "Academic writing",
+          "Variable definitions"
+        ]
+      },
+      {
+        "name": "real_llm_with_templates",
+        "output_length": 266,
+        "extracted": null,
+        "extraction_success": false,
+        "is_template": true,
+        "cleaned": null,
+        "expected": null,
+        "test_passed": true,
+        "challenges": [
+          "Template with variables",
+          "Two-step process",
+          "Parameter specification"
+        ]
+      },
+      {
+        "name": "real_llm_incomplete",
+        "output_length": 275,
+        "extracted": null,
+        "extraction_success": false,
+        "is_template": true,
+        "cleaned": null,
+        "expected": null,
+        "test_passed": true,
+        "challenges": [
+          "Incomplete output",
+          "Cut-off text",
+          "Parameter placeholders"
+        ]
+      },
+      {
+        "name": "real_llm_multiple_candidates",
+        "output_length": 259,
+        "extracted": null,
+        "extraction_success": false,
+        "is_template": true,
+        "cleaned": null,
+        "expected": "x**2 + y**2 - 1.5",
+        "test_passed": false,
+        "challenges": [
+          "Multiple options",
+          "Subscripts",
+          "Recommendation logic"
+        ]
+      },
+      {
+        "name": "real_llm_with_errors",
+        "output_length": 274,
+        "extracted": null,
+        "extraction_success": false,
+        "is_template": true,
+        "cleaned": null,
+        "expected": null,
+        "test_passed": true,
+        "challenges": [
+          "Text corruption",
+          "Incomplete thoughts",
+          "Mid-sentence cutoffs"
+        ]
+      }
+    ]
+  },
+  "performance_gap": 0.2857142857142857,
+  "real_challenges": [
+    "Step-by-step format",
+    "Multiple options",
+    "Recommendation logic",
+    "Unicode symbols",
+    "Subscripts",
+    "Code blocks"
+  ]
+}

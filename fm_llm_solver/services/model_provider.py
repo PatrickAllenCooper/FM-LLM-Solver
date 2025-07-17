@@ -152,11 +152,16 @@ class QwenProvider(BaseModelProvider):
             import torch
             
             # Tokenize input
+            # Use reasonable max_length, ensuring we have space for generation
+            max_total_length = getattr(self.config, 'max_length', getattr(self.config, 'max_tokens', 4096))
+            max_input_length = max(512, max_total_length - max_tokens)  # Ensure at least 512 for input
+            
             inputs = self.tokenizer(
                 prompt,
                 return_tensors="pt",
                 truncation=True,
-                max_length=self.config.max_length - max_tokens
+                max_length=max_input_length,
+                padding=False
             )
             
             # Move to device
@@ -164,14 +169,20 @@ class QwenProvider(BaseModelProvider):
             
             # Generate
             with torch.no_grad():
+                # Ensure we have valid input
+                if inputs['input_ids'].shape[1] == 0:
+                    raise ModelError("Empty input after tokenization")
+                
                 outputs = self.model.generate(
-                    **inputs,
+                    input_ids=inputs['input_ids'],
+                    attention_mask=inputs.get('attention_mask'),
                     max_new_tokens=max_tokens,
-                    temperature=temperature,
+                    temperature=temperature if temperature > 0 else 0.7,
                     top_p=top_p,
                     do_sample=temperature > 0,
                     pad_token_id=self.tokenizer.pad_token_id,
                     eos_token_id=self.tokenizer.eos_token_id,
+                    use_cache=True,
                     **kwargs
                 )
             

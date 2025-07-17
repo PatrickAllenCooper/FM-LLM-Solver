@@ -13,6 +13,71 @@ from typing import Optional, Tuple, List
 logger = logging.getLogger(__name__)
 
 
+def convert_unicode_math_to_ascii(text: str) -> str:
+    """
+    Convert Unicode mathematical notation to ASCII equivalents.
+    Handles superscripts, subscripts, and other mathematical symbols.
+    """
+    if not text:
+        return text
+    
+    # Unicode superscripts to ** notation
+    superscript_map = {
+        '²': '**2', '³': '**3', '⁴': '**4', '⁵': '**5', '⁶': '**6', '⁷': '**7', '⁸': '**8', '⁹': '**9',
+        '¹': '**1', '⁰': '**0',
+        # Superscript letters (common in mathematical notation)
+        'ᵃ': '**a', 'ᵇ': '**b', 'ᶜ': '**c', 'ᵈ': '**d', 'ᵉ': '**e', 'ᶠ': '**f', 'ᵍ': '**g', 'ʰ': '**h',
+        'ⁱ': '**i', 'ʲ': '**j', 'ᵏ': '**k', 'ˡ': '**l', 'ᵐ': '**m', 'ⁿ': '**n', 'ᵒ': '**o', 'ᵖ': '**p',
+        'ʳ': '**r', 'ˢ': '**s', 'ᵗ': '**t', 'ᵘ': '**u', 'ᵛ': '**v', 'ʷ': '**w', 'ˣ': '**x', 'ʸ': '**y', 'ᶻ': '**z'
+    }
+    
+    # Unicode subscripts (convert to underscore notation)
+    subscript_map = {
+        '₀': '_0', '₁': '_1', '₂': '_2', '₃': '_3', '₄': '_4', '₅': '_5', '₆': '_6', '₇': '_7', '₈': '_8', '₉': '_9',
+        'ₐ': '_a', 'ₑ': '_e', 'ᵢ': '_i', 'ₒ': '_o', 'ᵤ': '_u', 'ᵥ': '_v', 'ₓ': '_x'
+    }
+    
+    # Mathematical operators and symbols
+    math_symbol_map = {
+        '×': '*',      # multiplication sign
+        '·': '*',      # middle dot (multiplication)
+        '÷': '/',      # division sign
+        '±': '+',      # plus-minus (keep as plus for simplicity)
+        '∓': '-',      # minus-plus (keep as minus for simplicity)
+        '−': '-',      # minus sign (Unicode)
+        '⋅': '*',      # dot operator
+        '∘': '*',      # ring operator
+        '∗': '*',      # asterisk operator
+        '∙': '*',      # bullet operator
+        # Greek letters commonly used as constants
+        'α': 'alpha', 'β': 'beta', 'γ': 'gamma', 'δ': 'delta', 'ε': 'epsilon',
+        'λ': 'lambda', 'μ': 'mu', 'π': 'pi', 'ρ': 'rho', 'σ': 'sigma', 'τ': 'tau', 'φ': 'phi', 'ψ': 'psi', 'ω': 'omega',
+        'Α': 'Alpha', 'Β': 'Beta', 'Γ': 'Gamma', 'Δ': 'Delta', 'Λ': 'Lambda', 'Π': 'Pi', 'Σ': 'Sigma', 'Ω': 'Omega'
+    }
+    
+    # Apply all conversions
+    converted = text
+    
+    # Convert superscripts
+    for unicode_char, ascii_equiv in superscript_map.items():
+        converted = converted.replace(unicode_char, ascii_equiv)
+    
+    # Convert subscripts (but be careful not to break existing underscores)
+    for unicode_char, ascii_equiv in subscript_map.items():
+        converted = converted.replace(unicode_char, ascii_equiv)
+    
+    # Convert mathematical symbols
+    for unicode_char, ascii_equiv in math_symbol_map.items():
+        converted = converted.replace(unicode_char, ascii_equiv)
+    
+    # Handle special cases for exponentiation
+    # Convert x^2 style to x**2 if not already converted
+    converted = re.sub(r'\^(\d+)', r'**\1', converted)
+    
+    logger.debug(f"Unicode conversion: '{text}' -> '{converted}'")
+    return converted
+
+
 def extract_certificate_from_llm_output(llm_text: str, variables: List[str]) -> Tuple[Optional[str], bool]:
     """
     Extract barrier certificate B(x) string from LLM output.
@@ -46,6 +111,8 @@ def extract_certificate_from_llm_output(llm_text: str, variables: List[str]) -> 
     if match:
         candidate_expr = match.group(1).strip()
         logger.info(f"Found delimited certificate: B(...) = {candidate_expr}")
+        # Convert Unicode before validation
+        candidate_expr = convert_unicode_math_to_ascii(candidate_expr)
         cleaned_expr = clean_and_validate_expression(candidate_expr, variables)
         if cleaned_expr:
             logger.info(f"Extracted and validated B(x) from delimited block: {cleaned_expr}")
@@ -72,6 +139,12 @@ def extract_certificate_from_llm_output(llm_text: str, variables: List[str]) -> 
 
     # Check for mathematical notation variations
     math_notation_patterns = [
+        # LaTeX display math: \[ B(x,y) = expression \]
+        r'\\?\[\s*B\s*\([^)]*\)\s*=\s*([^\\]+?)\s*\\?\]',
+        # LaTeX inline math: \( B(x,y) = expression \)
+        r'\\?\(\s*B\s*\([^)]*\)\s*=\s*([^\\]+?)\s*\\?\)',
+        # LaTeX dollar signs: $B(x,y) = expression$
+        r'\$\s*B\s*\([^)]*\)\s*=\s*([^$]+?)\s*\$',
         # B: ℝ² → ℝ defined by B(x,y) := expression
         r'B\s*:\s*ℝ[²2]\s*→\s*ℝ\s+defined\s+by\s+B\s*\([^)]*\)\s*:=\s*([^\n]+)',
         # B(x,y) := expression
@@ -203,6 +276,9 @@ def clean_and_validate_expression(candidate_str: str, system_variables_str_list:
     
     candidate_str = str(candidate_str).strip()
     
+    # FIRST: Convert Unicode mathematical notation to ASCII
+    candidate_str = convert_unicode_math_to_ascii(candidate_str)
+    
     # Handle specific patterns that might cause issues
     
     # 1. Remove B(x) = prefix if it exists (to avoid interpreting B and x as variables)
@@ -248,10 +324,14 @@ def clean_and_validate_expression(candidate_str: str, system_variables_str_list:
             return None
 
     # 4. Standard cleaning (LaTeX, descriptive text, trailing punctuation)
-    cleaned_str = re.sub(r'\\[\(\)]', '', candidate_str)  
+    cleaned_str = re.sub(r'\\[\(\)\[\]]', '', candidate_str)  # Remove LaTeX brackets
     cleaned_str = re.sub(r'\\[\{\}]', '', cleaned_str)
     cleaned_str = cleaned_str.replace('\\cdot', '*')
+    cleaned_str = cleaned_str.replace('\\times', '*')
     cleaned_str = cleaned_str.replace('^', '**')
+    # Handle LaTeX specific cleaning
+    cleaned_str = re.sub(r'\\\[|\\\]', '', cleaned_str)  # Remove \[ and \]
+    cleaned_str = re.sub(r'\\\(|\\\)', '', cleaned_str)  # Remove \( and \)
     
     descriptive_match = re.match(r"(.*?)(?:\s+(?:where|for|such that|on|ensuring|if|assuming|denotes|represents)\s+[a-zA-Z].*)", cleaned_str, re.DOTALL | re.IGNORECASE)
     if descriptive_match:

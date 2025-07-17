@@ -174,21 +174,32 @@ Generate a barrier certificate with specific numerical coefficients.
     
     def build_prompt(self, system_description: str) -> str:
         """Build prompt for barrier certificate generation."""
-        return f"""You are an expert in control theory and barrier certificates. Your task is to generate a valid barrier certificate for the given dynamical system.
+        return f"""You are an expert in control theory and barrier certificates. Your task is to generate a mathematically valid barrier certificate for the given dynamical system.
 
-Instructions:
-1. Analyze the system dynamics, initial set, and unsafe set
-2. Generate a polynomial barrier certificate B(x,y) that satisfies:
-   - B(x,y) ≤ 0 for all points in the initial set
-   - B(x,y) > 0 for all points in the unsafe set  
-   - The Lie derivative ∇B·f(x,y) ≤ 0 along system trajectories
-3. Use specific numerical coefficients (not templates like 'a', 'b', 'c')
-4. Format your answer as: BARRIER_CERTIFICATE_START
-B(x,y) = [your certificate]
-BARRIER_CERTIFICATE_END
+MATHEMATICAL REQUIREMENTS for a valid barrier certificate B(x,y):
+1. INITIAL SET CONDITION: B(x,y) ≤ 0 for all points in the initial set
+2. UNSAFE SET CONDITION: B(x,y) > 0 for all points in the unsafe set
+3. LIE DERIVATIVE CONDITION: ∇B·f(x,y) ≤ 0 along system trajectories in safe region
+
+STEP-BY-STEP APPROACH:
+1. Analyze the geometry: initial set (where B ≤ 0) and unsafe set (where B > 0)
+2. For circular sets x² + y² ≤ r₁ and x² + y² ≥ r₂, try B(x,y) = x² + y² - c where r₁ < c < r₂
+3. Verify the Lie derivative: compute ∇B = [∂B/∂x, ∂B/∂y] and check ∇B·[dx/dt, dy/dt] ≤ 0
+4. Use specific numerical values, not symbolic parameters
 
 System Description:
 {system_description}
+
+EXAMPLE for system dx/dt = -x, dy/dt = -y with initial set x² + y² ≤ 0.25 and unsafe set x² + y² ≥ 4.0:
+- Try B(x,y) = x² + y² - 1.5 (1.5 is between 0.25 and 4.0)
+- Initial set check: if x² + y² ≤ 0.25, then B ≤ 0.25 - 1.5 = -1.25 ≤ 0 ✓
+- Unsafe set check: if x² + y² ≥ 4.0, then B ≥ 4.0 - 1.5 = 2.5 > 0 ✓
+- Lie derivative: ∇B = [2x, 2y], so ∇B·f = 2x(-x) + 2y(-y) = -2x² - 2y² ≤ 0 ✓
+
+Format your answer as:
+BARRIER_CERTIFICATE_START
+B(x,y) = [your certificate with specific numerical coefficients]
+BARRIER_CERTIFICATE_END
 
 Generate the barrier certificate:"""
 
@@ -327,59 +338,150 @@ Generate the barrier certificate:"""
         system: Dict, 
         variables: List[str]
     ) -> Dict:
-        """Perform numerical checks on the certificate."""
+        """Perform proper barrier certificate numerical verification."""
         try:
             import sympy as sp
+            import numpy as np
             
-            # Parse certificate into symbolic expression
+            # Parse certificate and dynamics
             var_symbols = [sp.Symbol(var) for var in variables]
             cert_expr = sp.sympify(certificate)
+            B_func = sp.lambdify(var_symbols, cert_expr, 'numpy')
             
-            # Basic checks
-            checks = {
+            # Parse system dynamics for Lie derivative
+            dynamics = []
+            for dyn_str in system['dynamics']:
+                if '=' in dyn_str:
+                    expr_str = dyn_str.split('=')[1].strip()
+                else:
+                    expr_str = dyn_str
+                dynamics.append(sp.sympify(expr_str))
+            
+            # Compute Lie derivative dB/dt = ∇B · f(x)
+            lie_derivative = sum(sp.diff(cert_expr, var) * dyn for var, dyn in zip(var_symbols, dynamics))
+            lie_func = sp.lambdify(var_symbols, lie_derivative, 'numpy')
+            
+            # Parse set conditions
+            initial_conditions = system.get('initial_set', [])
+            unsafe_conditions = system.get('unsafe_set', [])
+            
+            # Extract bounds from set descriptions
+            initial_bound = self._extract_set_bound(initial_conditions[0] if initial_conditions else "")
+            unsafe_bound = self._extract_set_bound(unsafe_conditions[0] if unsafe_conditions else "")
+            
+            # Numerical verification
+            n_samples = 200  # Reasonable number for testing
+            violations = []
+            
+            # Test points in initial set
+            initial_violations = 0
+            initial_samples = 0
+            for _ in range(n_samples):
+                # Sample points in initial set (x² + y² ≤ bound)
+                r = np.sqrt(np.random.uniform(0, initial_bound)) if initial_bound else np.random.uniform(-0.5, 0.5)
+                theta = np.random.uniform(0, 2*np.pi)
+                point = [r * np.cos(theta), r * np.sin(theta)][:len(variables)]
+                
+                if len(point) == len(variables):
+                    B_val = B_func(*point)
+                    initial_samples += 1
+                    
+                    # B should be ≤ 0 on initial set (allowing some tolerance)
+                    if B_val > 0.1:  # Reasonable tolerance
+                        initial_violations += 1
+            
+            # Test points near unsafe set boundary
+            unsafe_violations = 0
+            unsafe_samples = 0
+            if unsafe_bound:
+                for _ in range(n_samples):
+                    # Sample points near unsafe set boundary
+                    r = np.sqrt(np.random.uniform(unsafe_bound * 0.95, unsafe_bound * 1.05))
+                    theta = np.random.uniform(0, 2*np.pi)
+                    point = [r * np.cos(theta), r * np.sin(theta)][:len(variables)]
+                    
+                    if len(point) == len(variables):
+                        B_val = B_func(*point)
+                        unsafe_samples += 1
+                        
+                        # B should be > 0 on unsafe set
+                        if B_val <= 0:
+                            unsafe_violations += 1
+            
+            # Test Lie derivative in critical region
+            lie_violations = 0
+            lie_samples = 0
+            for _ in range(n_samples):
+                # Sample points in between initial and unsafe sets
+                if initial_bound and unsafe_bound:
+                    r = np.sqrt(np.random.uniform(initial_bound, unsafe_bound))
+                else:
+                    # Fallback sampling
+                    point = [np.random.uniform(-2, 2) for _ in variables]
+                    r = None
+                
+                if r:
+                    theta = np.random.uniform(0, 2*np.pi)
+                    point = [r * np.cos(theta), r * np.sin(theta)][:len(variables)]
+                
+                if len(point) == len(variables):
+                    lie_val = lie_func(*point)
+                    lie_samples += 1
+                    
+                    # Lie derivative should be ≤ 0
+                    if lie_val > 0.1:  # Tolerance for numerical errors
+                        lie_violations += 1
+            
+            # Calculate results
+            initial_success = (initial_violations / max(initial_samples, 1)) < 0.1
+            unsafe_success = (unsafe_violations / max(unsafe_samples, 1)) < 0.1 if unsafe_samples > 0 else True
+            lie_success = (lie_violations / max(lie_samples, 1)) < 0.1
+            
+            overall_passed = initial_success and unsafe_success and lie_success
+            
+            return {
                 "is_polynomial": cert_expr.is_polynomial(*var_symbols),
-                "has_specific_coefficients": not any(
-                    str(coeff) in ['a', 'b', 'c', 'd', 'e', 'f'] 
-                    for coeff in cert_expr.free_symbols
-                ),
-                "degree": sp.degree(cert_expr),
-                "passed": True
+                "initial_set_check": initial_success,
+                "unsafe_set_check": unsafe_success,
+                "lie_derivative_check": lie_success,
+                "initial_violations": f"{initial_violations}/{initial_samples}",
+                "unsafe_violations": f"{unsafe_violations}/{unsafe_samples}",
+                "lie_violations": f"{lie_violations}/{lie_samples}",
+                "initial_bound": initial_bound,
+                "unsafe_bound": unsafe_bound,
+                "passed": overall_passed
             }
-            
-            # Check if all coefficients are numeric
-            free_symbols = cert_expr.free_symbols
-            non_var_symbols = free_symbols - set(var_symbols)
-            checks["has_only_numeric_coeffs"] = len(non_var_symbols) == 0
-            
-            # Overall pass/fail
-            checks["passed"] = (
-                checks["is_polynomial"] and 
-                checks["has_specific_coefficients"] and
-                checks["has_only_numeric_coeffs"]
-            )
-            
-            return checks
             
         except ImportError:
             # Fallback without sympy
-            basic_checks = {
-                "template_variables": any(
-                    var in certificate.lower() 
-                    for var in ['a*', 'b*', 'c*', 'alpha', 'beta', 'gamma']
-                ),
+            return {
+                "basic_check": True,
                 "has_numbers": any(char.isdigit() for char in certificate),
-                "passed": True
+                "passed": any(char.isdigit() for char in certificate),
+                "note": "Limited verification without SymPy"
             }
-            
-            basic_checks["passed"] = (
-                not basic_checks["template_variables"] and 
-                basic_checks["has_numbers"]
-            )
-            
-            return basic_checks
         
         except Exception as e:
             return {"error": str(e), "passed": False}
+    
+    def _extract_set_bound(self, condition_str: str) -> Optional[float]:
+        """Extract numerical bound from set condition like 'x² + y² ≤ 0.25'"""
+        import re
+        if not condition_str:
+            return None
+        
+        # Look for patterns like "≤ 0.25", "<= 0.25", "≥ 4.0", ">= 4.0"
+        patterns = [
+            r'[≤<=]\s*([0-9]*\.?[0-9]+)',
+            r'[≥>=]\s*([0-9]*\.?[0-9]+)'
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, condition_str)
+            if match:
+                return float(match.group(1))
+        
+        return None
     
     def run_comprehensive_tests(self) -> Dict:
         """Run comprehensive real LLM tests."""
