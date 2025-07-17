@@ -1,0 +1,53 @@
+{
+  "timestamp": "2025-07-16 19:40:20",
+  "total_models": 5,
+  "successful_models": 3,
+  "success_rate": 0.6,
+  "results": [
+    {
+      "model_id": "qwen2.5-coder-0.5b-instruct",
+      "model_name": "Qwen2.5-Coder (0.5B)",
+      "success": true,
+      "load_time": 2.5607590675354004,
+      "generation_time": 3.20646071434021,
+      "certificate": "x^2 + y^2 > 4",
+      "error": null
+    },
+    {
+      "model_id": "qwen2.5-coder-1.5b-instruct",
+      "model_name": "Qwen2.5-Coder (1.5B)",
+      "success": true,
+      "load_time": 2.3465709686279297,
+      "generation_time": 4.254260540008545,
+      "certificate": "x^2 + y^2 > 4)",
+      "error": null
+    },
+    {
+      "model_id": "opencoder-1.5b",
+      "model_name": "OpenCoder (1.5B)",
+      "success": false,
+      "load_time": 0.0,
+      "generation_time": 0.0,
+      "certificate": null,
+      "error": "Failed to load model: The repository infly/OpenCoder-1.5B-Instruct contains custom code which must be executed to correctly load the model. You can inspect the repository content at https://hf.co/infly/OpenCoder-1.5B-Instruct .\n You can inspect the repository content at https://hf.co/infly/OpenCoder-1.5B-Instruct.\nPlease pass the argument `trust_remote_code=True` to allow custom code to be run."
+    },
+    {
+      "model_id": "qwen2.5-coder-3b-instruct",
+      "model_name": "Qwen2.5-Coder (3B)",
+      "success": true,
+      "load_time": 113.70260405540466,
+      "generation_time": 5.43951416015625,
+      "certificate": "x**2 + y**2)",
+      "error": null
+    },
+    {
+      "model_id": "qwen2.5-coder-7b-instruct",
+      "model_name": "Qwen2.5-Coder (7B)",
+      "success": false,
+      "load_time": 0.0,
+      "generation_time": 0.0,
+      "certificate": null,
+      "error": "Failed to load model: CUDA out of memory. Tried to allocate 1.02 GiB. GPU 0 has a total capacity of 7.75 GiB of which 800.62 MiB is free. Including non-PyTorch memory, this process has 6.68 GiB memory in use. Of the allocated memory 6.34 GiB is allocated by PyTorch, and 190.66 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)"
+    }
+  ]
+}

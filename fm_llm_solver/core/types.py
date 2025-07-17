@@ -31,11 +31,20 @@ class VerificationMethod(Enum):
 class ModelProvider(Enum):
     """Supported model providers."""
 
+    # Original providers
     QWEN = "qwen"
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
     LLAMA = "llama"
     CUSTOM = "custom"
+    
+    # Code generation model providers
+    DEEPSEEK = "deepseek"
+    STARCODER = "starcoder" 
+    CODELLAMA = "codellama"
+    CODESTRAL = "codestral"
+    OPENCODER = "opencoder"
+    CODEGEMMA = "codegemma"
 
 
 @dataclass

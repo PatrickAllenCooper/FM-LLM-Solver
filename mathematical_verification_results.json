@@ -1,0 +1,140 @@
+{
+  "timestamp": "2025-07-16 19:42:17",
+  "mathematical_verification": true,
+  "models_tested": 3,
+  "models_passed": 2,
+  "average_score": 0.5,
+  "results": [
+    {
+      "model_id": "qwen2.5-coder-0.5b-instruct",
+      "model_name": "Qwen2.5-Coder (0.5B)",
+      "success": false,
+      "mathematical_score": 0.0,
+      "certificates": [
+        {
+          "prompt": "Basic Linear System",
+          "expression": null,
+          "validation": {
+            "valid": false,
+            "score": 0.0
+          },
+          "raw_output": " (without the mathematical expression and the return statement)\n\nI'm sorry, but I can't assist with ..."
+        },
+        {
+          "prompt": "Nonlinear System",
+          "expression": "x**2 + y**2 - 1) / (x**2 + y**2 + 1",
+          "validation": {
+            "valid": false,
+            "score": 0.0,
+            "tests_passed": 0,
+            "total_tests": 6,
+            "details": [
+              "Point (0,0): Evaluation failed",
+              "Point (1,1): Evaluation failed",
+              "Point (2,2): Evaluation failed",
+              "Point (3,0): Evaluation failed",
+              "Point (0,3): Evaluation failed",
+              "Point (-2,-2): Evaluation failed"
+            ]
+          },
+          "raw_output": " \nV(x,y) = (x^2 + y^2 - 1) / (x^2 + y^2 + 1)\n\nThe barrier function V(x,y) is defined as:\nV(x,y) = (x..."
+        }
+      ],
+      "error": null
+    },
+    {
+      "model_id": "qwen2.5-coder-1.5b-instruct",
+      "model_name": "Qwen2.5-Coder (1.5B)",
+      "success": true,
+      "mathematical_score": 1.0,
+      "certificates": [
+        {
+          "prompt": "Basic Linear System",
+          "expression": "x**2 + y**2 - 4",
+          "validation": {
+            "valid": true,
+            "score": 1.0,
+            "tests_passed": 6,
+            "total_tests": 6,
+            "details": [
+              "Point (0,0): \u2705 Safe region, V=-4.00",
+              "Point (1,1): \u2705 Safe region, V=-2.00",
+              "Point (2,2): \u2705 Unsafe region, V=4.00",
+              "Point (3,0): \u2705 Unsafe region, V=5.00",
+              "Point (0,3): \u2705 Unsafe region, V=5.00",
+              "Point (-2,-2): \u2705 Unsafe region, V=4.00"
+            ]
+          },
+          "raw_output": " that represents the barrier certificate.\n\nV(x,y) = x^2 + y^2 - 4\nTo generate a barrier certificate ..."
+        },
+        {
+          "prompt": "Nonlinear System",
+          "expression": "x**2 + y**2 - 1",
+          "validation": {
+            "valid": true,
+            "score": 1.0,
+            "tests_passed": 6,
+            "total_tests": 6,
+            "details": [
+              "Point (0,0): \u2705 Safe region, V=-1.00",
+              "Point (1,1): \u2705 Unsafe region, V=1.00",
+              "Point (2,2): \u2705 Unsafe region, V=7.00",
+              "Point (3,0): \u2705 Unsafe region, V=8.00",
+              "Point (0,3): \u2705 Unsafe region, V=8.00",
+              "Point (-2,-2): \u2705 Unsafe region, V=7.00"
+            ]
+          },
+          "raw_output": "  \nV(x,y) = max(0, x^2 + y^2 - 1)\n\nThe barrier certificate should be in LaTeX format. The barrier fu..."
+        }
+      ],
+      "error": null
+    },
+    {
+      "model_id": "qwen2.5-coder-3b-instruct",
+      "model_name": "Qwen2.5-Coder (3B)",
+      "success": true,
+      "mathematical_score": 0.5,
+      "certificates": [
+        {
+          "prompt": "Basic Linear System",
+          "expression": "x + y \\) and \\( y' = -x + y \\) remains within the safe region defined by \\( x**2 + y**2 \\leq 4 \\",
+          "validation": {
+            "valid": false,
+            "score": 0.0,
+            "tests_passed": 0,
+            "total_tests": 6,
+            "details": [
+              "Point (0,0): Evaluation failed",
+              "Point (1,1): Evaluation failed",
+              "Point (2,2): Evaluation failed",
+              "Point (3,0): Evaluation failed",
+              "Point (0,3): Evaluation failed",
+              "Point (-2,-2): Evaluation failed"
+            ]
+          },
+          "raw_output": " To ensure that the system \\( x' = x + y \\) and \\( y' = -x + y \\) remains within the safe region def..."
+        },
+        {
+          "prompt": "Nonlinear System",
+          "expression": "x**2 + y**2 - 1",
+          "validation": {
+            "valid": true,
+            "score": 1.0,
+            "tests_passed": 6,
+            "total_tests": 6,
+            "details": [
+              "Point (0,0): \u2705 Safe region, V=-1.00",
+              "Point (1,1): \u2705 Unsafe region, V=1.00",
+              "Point (2,2): \u2705 Unsafe region, V=7.00",
+              "Point (3,0): \u2705 Unsafe region, V=8.00",
+              "Point (0,3): \u2705 Unsafe region, V=8.00",
+              "Point (-2,-2): \u2705 Unsafe region, V=7.00"
+            ]
+          },
+          "raw_output": "  \nV(x,y) = x^2 + y^2 - 1\n```Barrier Certificate:**\n\nThe barrier function \\( V(x, y) \\) is given by:..."
+        }
+      ],
+      "error": null
+    }
+  ]
+}
