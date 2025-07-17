@@ -4,26 +4,30 @@ Utility functions for FM-LLM Solver web interface.
 Provides authentication, rate limiting, input validation, and other helper functions.
 """
 
-import re
-import secrets
 import functools
-from datetime import datetime, timedelta
-from typing import Dict, Any, Optional, Callable
-
-from flask import request, jsonify, current_app, session, Flask
-from flask_login import current_user
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
-from flask_cors import CORS
 import hashlib
 import hmac
-import bleach
-from urllib.parse import urlparse
 import ipaddress
+import re
+import secrets
+from datetime import datetime, timedelta
+from typing import Any, Callable, Dict, Optional
+from urllib.parse import urlparse
 
-from fm_llm_solver.core.logging import get_logger
-from fm_llm_solver.core.exceptions import ValidationError, SecurityError, AuthenticationError
+import bleach
+from flask import Flask, current_app, jsonify, request, session
+from flask_cors import CORS
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from flask_login import current_user
+
 from fm_llm_solver.core.cache_manager import get_cache_manager
+from fm_llm_solver.core.exceptions import (
+    AuthenticationError,
+    SecurityError,
+    ValidationError,
+)
+from fm_llm_solver.core.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -74,13 +78,20 @@ def rate_limit(max_requests: int = 50, window_seconds: int = 86400):
                 logger.warning(
                     f"Rate limit exceeded for {client_id}: {current_requests}/{effective_max_requests}"
                 )
-                return jsonify({"error": "Rate limit exceeded", "retry_after": window_seconds}), 429
+                return (
+                    jsonify(
+                        {"error": "Rate limit exceeded", "retry_after": window_seconds}
+                    ),
+                    429,
+                )
 
             # Record request
             _rate_limit_store[client_id]["requests"].append(now)
 
             # Record in user model if authenticated
-            if current_user.is_authenticated and hasattr(current_user, "record_request"):
+            if current_user.is_authenticated and hasattr(
+                current_user, "record_request"
+            ):
                 current_user.record_request()
 
             return f(*args, **kwargs)
@@ -171,7 +182,9 @@ def require_csrf(f: Callable) -> Callable:
     @functools.wraps(f)
     def decorated_function(*args, **kwargs):
         if request.method == "POST":
-            token = request.form.get("csrf_token") or request.headers.get("X-CSRF-Token")
+            token = request.form.get("csrf_token") or request.headers.get(
+                "X-CSRF-Token"
+            )
             if not token or not validate_csrf_token(token):
                 logger.warning(f"CSRF token validation failed for {request.endpoint}")
                 return jsonify({"error": "CSRF token invalid"}), 403
@@ -263,7 +276,9 @@ def parse_domain_bounds(bounds_str: str) -> Optional[Dict[str, tuple]]:
         try:
             bounds[var] = (float(min_val), float(max_val))
         except ValueError:
-            logger.warning(f"Failed to parse bounds for variable {var}: {min_val}, {max_val}")
+            logger.warning(
+                f"Failed to parse bounds for variable {var}: {min_val}, {max_val}"
+            )
             continue
 
     return bounds if bounds else None
@@ -307,7 +322,9 @@ class APIResponse:
         return response
 
     @staticmethod
-    def error(message: str, code: str = "GENERAL_ERROR", details: Any = None) -> Dict[str, Any]:
+    def error(
+        message: str, code: str = "GENERAL_ERROR", details: Any = None
+    ) -> Dict[str, Any]:
         """Create error response."""
         response = {"success": False, "error": {"message": message, "code": code}}
         if details is not None:
@@ -351,7 +368,9 @@ def setup_security_headers(app: Flask) -> None:
 
         # Force HTTPS (in production)
         if app.config.get("ENV") == "production":
-            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+            response.headers["Strict-Transport-Security"] = (
+                "max-age=31536000; includeSubDomains"
+            )
 
         # Content Security Policy
         csp = [
@@ -369,7 +388,9 @@ def setup_security_headers(app: Flask) -> None:
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
 
         # Permissions Policy
-        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        response.headers["Permissions-Policy"] = (
+            "camera=(), microphone=(), geolocation=()"
+        )
 
         return response
 
@@ -378,7 +399,9 @@ def setup_rate_limiting(app: Flask) -> Limiter:
     """Setup rate limiting for the Flask app."""
     # Get rate limit configuration
     config = getattr(app, "fm_config", {})
-    default_limit = config.get("security", {}).get("rate_limit", {}).get("default", "100/day")
+    default_limit = (
+        config.get("security", {}).get("rate_limit", {}).get("default", "100/day")
+    )
 
     limiter = Limiter(
         app,
@@ -394,13 +417,20 @@ def setup_rate_limiting(app: Flask) -> Limiter:
 def setup_cors(app: Flask) -> None:
     """Setup CORS for the Flask app."""
     config = getattr(app, "fm_config", {})
-    cors_config = config.get("web_interface", {}).get("cors_origins", ["http://localhost:3000"])
+    cors_config = config.get("web_interface", {}).get(
+        "cors_origins", ["http://localhost:3000"]
+    )
 
     CORS(
         app,
         origins=cors_config,
         methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        allow_headers=["Content-Type", "Authorization", "X-Requested-With", "X-CSRF-Token"],
+        allow_headers=[
+            "Content-Type",
+            "Authorization",
+            "X-Requested-With",
+            "X-CSRF-Token",
+        ],
         supports_credentials=True,
     )
 
@@ -516,7 +546,9 @@ def validate_api_key(api_key: str) -> Optional[dict]:
         # Verify signature
         secret = current_app.config.get("SECRET_KEY", "fallback-secret")
         payload = f"{user_id}:{scope}:{timestamp}"
-        expected_signature = hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
+        expected_signature = hmac.new(
+            secret.encode(), payload.encode(), hashlib.sha256
+        ).hexdigest()
 
         if not hmac.compare_digest(signature, expected_signature):
             return None
@@ -553,7 +585,9 @@ def require_valid_origin(f: Callable) -> Callable:
         if origin:
             if origin not in allowed_origins:
                 logger.warning(f"Request from disallowed origin: {origin}")
-                raise SecurityError("Invalid origin", violation_type="origin_validation")
+                raise SecurityError(
+                    "Invalid origin", violation_type="origin_validation"
+                )
 
         # Check referer for additional validation
         if referer:
@@ -632,7 +666,9 @@ def log_security_event(event_type: str, severity: str = "medium", **kwargs) -> N
     if current_user.is_authenticated:
         event_data["user_id"] = current_user.id
 
-    logger.warning(f"Security event: {event_type}", extra={"security_event": event_data})
+    logger.warning(
+        f"Security event: {event_type}", extra={"security_event": event_data}
+    )
 
 
 def get_client_ip() -> str:
@@ -663,16 +699,23 @@ def handle_error_response(error: Exception) -> tuple:
         return jsonify(APIResponse.error(str(error), "AUTHENTICATION_ERROR")), 401
     elif isinstance(error, SecurityError):
         log_security_event("security_violation", severity="high", error=str(error))
-        return jsonify(APIResponse.error("Security violation detected", "SECURITY_ERROR")), 403
+        return (
+            jsonify(APIResponse.error("Security violation detected", "SECURITY_ERROR")),
+            403,
+        )
     else:
         logger.error(f"Unhandled error: {error}")
-        return jsonify(APIResponse.error("Internal server error", "INTERNAL_ERROR")), 500
+        return (
+            jsonify(APIResponse.error("Internal server error", "INTERNAL_ERROR")),
+            500,
+        )
 
 
 def encrypt_sensitive_data(data: str, key: Optional[str] = None) -> str:
     """Encrypt sensitive data for storage."""
-    from cryptography.fernet import Fernet
     import base64
+
+    from cryptography.fernet import Fernet
 
     if key is None:
         key = current_app.config.get("ENCRYPTION_KEY")
@@ -693,8 +736,9 @@ def encrypt_sensitive_data(data: str, key: Optional[str] = None) -> str:
 
 def decrypt_sensitive_data(encrypted_data: str, key: Optional[str] = None) -> str:
     """Decrypt sensitive data."""
-    from cryptography.fernet import Fernet
     import base64
+
+    from cryptography.fernet import Fernet
 
     if key is None:
         key = current_app.config.get("ENCRYPTION_KEY")

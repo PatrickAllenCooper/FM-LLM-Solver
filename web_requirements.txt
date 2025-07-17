@@ -4,13 +4,46 @@
 # Core Flask dependencies
 Flask>=2.3.0
 Flask-SQLAlchemy>=3.0.0
+Flask-Login>=0.6.0
+Flask-WTF>=1.1.0
+WTForms>=3.0.0
 
 # Database support
 SQLAlchemy>=1.4.0
+psycopg2-binary>=2.9.0
 
-# Optional: Production deployment
-# gunicorn>=20.1.0
-# gevent>=22.0.0
+# Security and authentication
+Werkzeug>=2.3.0
+bcrypt>=4.0.0
+cryptography>=41.0.0
+
+# Forms and validation  
+email-validator>=2.0.0
+
+# Session management
+Flask-Session>=0.5.0
+redis>=4.5.0
+
+# JSON Web Tokens (for API authentication)
+PyJWT>=2.8.0
+
+# Password strength validation
+password-strength>=0.0.3
+
+# Date and time utilities
+python-dateutil>=2.8.0
+
+# Testing dependencies
+pytest>=7.4.0
+pytest-flask>=1.2.0
+pytest-mock>=3.11.0
+
+# Production deployment (optional)
+gunicorn>=20.1.0
+gevent>=22.0.0
+
+# Monitoring and metrics
+prometheus-client>=0.17.0
 
 # Note: Other dependencies (torch, transformers, etc.) should be installed
 # according to the main project requirements as they are shared components. 

@@ -3,24 +3,27 @@ Performance Profiler for Barrier Certificate Validation (Phase 1 Day 8)
 Analyzes performance bottlenecks and generates optimization recommendations
 """
 
-import time
 import cProfile
-import pstats
+import gc
 import json
 import os
+import pstats
 import sys
-from typing import Dict, List, Any
-from dataclasses import dataclass, asdict
-from datetime import datetime
+import time
 import tracemalloc
-import gc
+from dataclasses import asdict, dataclass
+from datetime import datetime
+from typing import Any, Dict, List
 
 # Add project root to path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+sys.path.append(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+)
 
-from utils.level_set_tracker import BarrierCertificateValidator
-from evaluation.verify_certificate import verify_barrier_certificate
 from omegaconf import DictConfig
+
+from evaluation.verify_certificate import verify_barrier_certificate
+from utils.level_set_tracker import BarrierCertificateValidator
 
 
 @dataclass
@@ -91,9 +94,12 @@ class BarrierCertificateProfiler:
             call_counts[func_name] = cc  # call count
 
         # Identify bottlenecks (top 10 time consumers)
-        sorted_funcs = sorted(function_times.items(), key=lambda x: x[1], reverse=True)[:10]
+        sorted_funcs = sorted(function_times.items(), key=lambda x: x[1], reverse=True)[
+            :10
+        ]
         bottlenecks = [
-            f"{name}: {time:.3f}s ({call_counts.get(name, 0)} calls)" for name, time in sorted_funcs
+            f"{name}: {time:.3f}s ({call_counts.get(name, 0)} calls)"
+            for name, time in sorted_funcs
         ]
 
         # Generate recommendations
@@ -157,7 +163,9 @@ class BarrierCertificateProfiler:
 
         # Sampling recommendations
         if "generate_samples" in str(function_times):
-            sample_time = sum(t for f, t in function_times.items() if "generate_samples" in f)
+            sample_time = sum(
+                t for f, t in function_times.items() if "generate_samples" in f
+            )
             if sample_time > 0.2 * total_time:
                 recommendations.append(
                     "Sampling takes significant time. Consider using quasi-random sequences "
@@ -313,7 +321,9 @@ class BarrierCertificateProfiler:
                 bottleneck_counts[func_name] = bottleneck_counts.get(func_name, 0) + 1
 
         # Return functions that appear in multiple tests
-        common = [(name, count) for name, count in bottleneck_counts.items() if count > 1]
+        common = [
+            (name, count) for name, count in bottleneck_counts.items() if count > 1
+        ]
         common.sort(key=lambda x: x[1], reverse=True)
 
         return [f"{name} (appears in {count} tests)" for name, count in common[:5]]
@@ -352,7 +362,9 @@ class BarrierCertificateProfiler:
 
             for result in self.results:
                 f.write(f"Test: {result.test_name}\n")
-                f.write(f"Time: {result.total_time:.3f}s | Memory: {result.memory_peak:.1f}MB\n")
+                f.write(
+                    f"Time: {result.total_time:.3f}s | Memory: {result.memory_peak:.1f}MB\n"
+                )
                 f.write("Top bottlenecks:\n")
                 for i, bottleneck in enumerate(result.bottlenecks[:3]):
                     f.write(f"  {i+1}. {bottleneck}\n")
@@ -392,7 +404,9 @@ def compare_validators():
 
     # Profile new validator
     print("\nProfiling new BarrierCertificateValidator...")
-    new_result = profiler.profile_validation(certificate, system_info, config, "new_validator")
+    new_result = profiler.profile_validation(
+        certificate, system_info, config, "new_validator"
+    )
 
     # Profile old validator (if available)
     print("\nProfiling old verify_barrier_certificate...")
@@ -413,7 +427,11 @@ def compare_validators():
     print("=" * 50)
     print(f"New validator time: {new_result.total_time:.3f}s")
     print(f"Old validator time: {old_time:.3f}s")
-    print(f"Speedup: {old_time/new_result.total_time:.2f}x" if new_result.total_time > 0 else "N/A")
+    print(
+        f"Speedup: {old_time/new_result.total_time:.2f}x"
+        if new_result.total_time > 0
+        else "N/A"
+    )
     print(f"Memory difference: {new_result.memory_peak:.1f}MB (new)")
 
     profiler.generate_report()
@@ -423,10 +441,16 @@ def main():
     """Main entry point for profiler"""
     import argparse
 
-    parser = argparse.ArgumentParser(description="Profile barrier certificate validation")
-    parser.add_argument("--benchmark", action="store_true", help="Run full benchmark suite")
+    parser = argparse.ArgumentParser(
+        description="Profile barrier certificate validation"
+    )
     parser.add_argument(
-        "--compare", action="store_true", help="Compare different validator implementations"
+        "--benchmark", action="store_true", help="Run full benchmark suite"
+    )
+    parser.add_argument(
+        "--compare",
+        action="store_true",
+        help="Compare different validator implementations",
     )
     parser.add_argument(
         "--output", default="profiling_results", help="Output directory for results"

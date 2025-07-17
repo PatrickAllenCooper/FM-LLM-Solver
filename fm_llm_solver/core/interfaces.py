@@ -5,16 +5,16 @@ Defines contracts that concrete implementations must follow.
 """
 
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from fm_llm_solver.core.types import (
-    SystemDescription,
     BarrierCertificate,
     GenerationResult,
-    VerificationResult,
-    RAGDocument,
     ModelConfig,
+    RAGDocument,
+    SystemDescription,
     VerificationMethod,
+    VerificationResult,
 )
 
 
@@ -23,7 +23,10 @@ class Generator(ABC):
 
     @abstractmethod
     def generate(
-        self, system: SystemDescription, context: Optional[List[RAGDocument]] = None, **kwargs
+        self,
+        system: SystemDescription,
+        context: Optional[List[RAGDocument]] = None,
+        **kwargs,
     ) -> GenerationResult:
         """
         Generate a barrier certificate for the given system.
@@ -92,7 +95,10 @@ class KnowledgeStore(ABC):
 
     @abstractmethod
     def add_document(
-        self, content: str, metadata: Dict[str, Any], embedding: Optional[List[float]] = None
+        self,
+        content: str,
+        metadata: Dict[str, Any],
+        embedding: Optional[List[float]] = None,
     ) -> str:
         """
         Add a document to the knowledge base.
@@ -112,7 +118,10 @@ class KnowledgeStore(ABC):
 
     @abstractmethod
     def update_document(
-        self, doc_id: str, content: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None
+        self,
+        doc_id: str,
+        content: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> bool:
         """Update an existing document."""
 
@@ -180,7 +189,9 @@ class Trainer(ABC):
         """
 
     @abstractmethod
-    def evaluate(self, model_path: str, eval_dataset_path: str, **kwargs) -> Dict[str, Any]:
+    def evaluate(
+        self, model_path: str, eval_dataset_path: str, **kwargs
+    ) -> Dict[str, Any]:
         """Evaluate a trained model."""
 
 
@@ -193,7 +204,9 @@ class Monitor(ABC):
 
     @abstractmethod
     def get_metrics(
-        self, time_range: Optional[Tuple[str, str]] = None, user_id: Optional[str] = None
+        self,
+        time_range: Optional[Tuple[str, str]] = None,
+        user_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Get system metrics."""
 

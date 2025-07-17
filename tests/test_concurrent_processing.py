@@ -4,18 +4,19 @@ Concurrent Processing Tests
 Tests for parallel execution, thread safety, and GPU utilization
 """
 
-import sys
-import os
-import time
 import concurrent.futures
 import multiprocessing
+import os
+import sys
 import threading
+import time
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from utils.certificate_extraction import extract_certificate_from_llm_output
-from tests.unit.test_certificate_validation_accuracy import CertificateValidationTester
 import torch
+
+from tests.unit.test_certificate_validation_accuracy import CertificateValidationTester
+from utils.certificate_extraction import extract_certificate_from_llm_output
 
 
 # Move multiprocessing function outside of class for Windows compatibility
@@ -24,15 +25,19 @@ def validate_certificate_mp(args):
     llm_output, system = args
 
     # Import inside function to avoid pickling issues
+    from tests.unit.test_certificate_validation_accuracy import (
+        CertificateValidationTester,
+    )
     from utils.certificate_extraction import extract_certificate_from_llm_output
-    from tests.unit.test_certificate_validation_accuracy import CertificateValidationTester
 
     result = extract_certificate_from_llm_output(llm_output, ["x", "y"])
     cert = result[0] if isinstance(result, tuple) else result
 
     if cert:
         tester = CertificateValidationTester()
-        validation = tester.validate_certificate_mathematically(cert, system, n_samples=5)
+        validation = tester.validate_certificate_mathematically(
+            cert, system, n_samples=5
+        )
         return {"certificate": cert, "valid": validation["valid"]}
     return None
 
@@ -62,7 +67,9 @@ class TestConcurrentProcessing:
             if cert:
                 # Validate
                 tester = CertificateValidationTester()
-                validation = tester.validate_certificate_mathematically(cert, system, n_samples=10)
+                validation = tester.validate_certificate_mathematically(
+                    cert, system, n_samples=10
+                )
                 return {
                     "certificate": cert,
                     "valid": validation["valid"],
@@ -83,7 +90,9 @@ class TestConcurrentProcessing:
         print("\nParallel processing (threads)...")
         start_time = time.time()
         with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
-            parallel_results = list(executor.map(process_certificate, test_certificates))
+            parallel_results = list(
+                executor.map(process_certificate, test_certificates)
+            )
         parallel_time = time.time() - start_time
 
         print(f"\nSequential time: {sequential_time:.2f}s")
@@ -94,7 +103,9 @@ class TestConcurrentProcessing:
         assert len(sequential_results) == len(parallel_results)
         for i, (seq, par) in enumerate(zip(sequential_results, parallel_results)):
             if seq and par:
-                assert seq["certificate"] == par["certificate"], f"Result mismatch at index {i}"
+                assert (
+                    seq["certificate"] == par["certificate"]
+                ), f"Result mismatch at index {i}"
 
     def test_process_pool_processing(self):
         """Test processing with process pool"""
@@ -107,7 +118,9 @@ class TestConcurrentProcessing:
             "unsafe_set": ["x**2 + y**2 >= 4.0"],
         }
 
-        test_data = [(f"B(x,y) = x**2 + y**2 - {0.5 + i*0.1}", system) for i in range(10)]
+        test_data = [
+            (f"B(x,y) = x**2 + y**2 - {0.5 + i*0.1}", system) for i in range(10)
+        ]
 
         # Process pool execution
         print("Processing with process pool...")
@@ -195,8 +208,8 @@ class TestConcurrentProcessing:
         """Test concurrent file I/O operations"""
         print("\nTesting concurrent file operations...")
 
-        import tempfile
         import json
+        import tempfile
 
         # Create temporary directory
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -288,7 +301,9 @@ class TestConcurrentProcessing:
 
         print("Testing unsafe concurrent access...")
         for _ in range(num_threads):
-            t = threading.Thread(target=increment_counter, args=(iterations_per_thread,))
+            t = threading.Thread(
+                target=increment_counter, args=(iterations_per_thread,)
+            )
             threads.append(t)
             t.start()
 
@@ -305,7 +320,9 @@ class TestConcurrentProcessing:
 
         print("\nTesting safe concurrent access...")
         for _ in range(num_threads):
-            t = threading.Thread(target=safe_increment_counter, args=(iterations_per_thread,))
+            t = threading.Thread(
+                target=safe_increment_counter, args=(iterations_per_thread,)
+            )
             threads.append(t)
             t.start()
 
@@ -332,7 +349,9 @@ class TestConcurrentProcessing:
 
         def validate_concurrent(cert_expr):
             """Validate certificate and store result safely"""
-            result = tester.validate_certificate_mathematically(cert_expr, system, n_samples=5)
+            result = tester.validate_certificate_mathematically(
+                cert_expr, system, n_samples=5
+            )
             with result_lock:
                 results.append(result)
 

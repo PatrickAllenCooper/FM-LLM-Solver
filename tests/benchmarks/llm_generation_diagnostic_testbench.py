@@ -12,22 +12,24 @@ This testbench diagnoses and fixes the specific LLM generation issues:
 Run with: python tests/llm_generation_diagnostic_testbench.py
 """
 
+import json
+import logging
 import os
 import sys
-import json
-import time
-import logging
 import threading
+import time
 
 # Add project root to path
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, PROJECT_ROOT)
 
+from inference.generate_certificate import format_prompt_with_context
 from utils.config_loader import load_config
 from web_interface.certificate_generator import CertificateGenerator
-from inference.generate_certificate import format_prompt_with_context
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 
@@ -200,7 +202,9 @@ class LLMGenerationDiagnosticTestbench:
 
         # Current prompt (problematic)
         logger.info("📊 Analyzing current prompt structure...")
-        current_prompt = format_prompt_with_context(system_desc, "", "unified", domain_bounds)
+        current_prompt = format_prompt_with_context(
+            system_desc, "", "unified", domain_bounds
+        )
         logger.info(f"📏 Current prompt length: {len(current_prompt)} chars")
 
         # Count specific elements in current prompt
@@ -234,7 +238,10 @@ class LLMGenerationDiagnosticTestbench:
         domain_text = ""
         if domain_bounds:
             domain_desc = ", ".join(
-                [f"{var} ∈ [{bounds[0]}, {bounds[1]}]" for var, bounds in domain_bounds.items()]
+                [
+                    f"{var} ∈ [{bounds[0]}, {bounds[1]}]"
+                    for var, bounds in domain_bounds.items()
+                ]
             )
             domain_text = f"Domain: {domain_desc}\n"
 
@@ -252,7 +259,10 @@ B(x, y) = [/INST]"""
         domain_text = ""
         if domain_bounds:
             domain_desc = ", ".join(
-                [f"{var} ∈ [{bounds[0]}, {bounds[1]}]" for var, bounds in domain_bounds.items()]
+                [
+                    f"{var} ∈ [{bounds[0]}, {bounds[1]}]"
+                    for var, bounds in domain_bounds.items()
+                ]
             )
             domain_text = f"Domain: {domain_desc}\n"
 
@@ -275,7 +285,10 @@ B(x, y) = [/INST]"""
         domain_text = ""
         if domain_bounds:
             domain_desc = ", ".join(
-                [f"{var} ∈ [{bounds[0]}, {bounds[1]}]" for var, bounds in domain_bounds.items()]
+                [
+                    f"{var} ∈ [{bounds[0]}, {bounds[1]}]"
+                    for var, bounds in domain_bounds.items()
+                ]
             )
             domain_text = f"Domain: {domain_desc}\n"
 
@@ -342,7 +355,9 @@ def main():
     with open("llm_generation_diagnostics.json", "w") as f:
         json.dump(results, f, indent=2)
 
-    logger.info("✅ Diagnosis complete! Results saved to llm_generation_diagnostics.json")
+    logger.info(
+        "✅ Diagnosis complete! Results saved to llm_generation_diagnostics.json"
+    )
     logger.info("🚀 Ready to implement fixes to the certificate generation system")
     logger.info("\n📊 SUMMARY:")
     if result:

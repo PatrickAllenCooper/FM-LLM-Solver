@@ -5,14 +5,14 @@ Provides Redis integration, cache invalidation, performance optimization,
 and multiple cache backends with fallback mechanisms.
 """
 
+import hashlib
 import pickle
 import time
-import hashlib
 from abc import ABC, abstractmethod
-from functools import wraps
-from typing import Any, Dict, List, Optional, Callable
 from dataclasses import dataclass, field
 from enum import Enum
+from functools import wraps
+from typing import Any, Callable, Dict, List, Optional
 
 try:
     import redis
@@ -23,8 +23,8 @@ except ImportError:
     HAS_REDIS = False
 
 from .config_manager import ConfigurationManager
-from .logging_manager import get_logger
 from .exceptions import CacheError
+from .logging_manager import get_logger
 
 
 class CacheBackend(Enum):
@@ -165,7 +165,11 @@ class MemoryCache(CacheBackendInterface):
 
             # Create cache entry
             entry = CacheEntry(
-                key=key, value=value, created_at=time.time(), expires_at=expires_at, size=size
+                key=key,
+                value=value,
+                created_at=time.time(),
+                expires_at=expires_at,
+                size=size,
             )
 
             # Check if we need to evict entries
@@ -540,7 +544,11 @@ class CacheManager:
         return self.cache_backend.get(key)
 
     def set(
-        self, key: str, value: Any, ttl: Optional[int] = None, tags: Optional[List[str]] = None
+        self,
+        key: str,
+        value: Any,
+        ttl: Optional[int] = None,
+        tags: Optional[List[str]] = None,
     ) -> bool:
         """Set value in cache with optional tags."""
         success = self.cache_backend.set(key, value, ttl)
@@ -584,7 +592,9 @@ class CacheManager:
         # Remove tag tracking
         del self.invalidation_tags[tag]
 
-        self.logger.info(f"Invalidated {invalidated_count} cache entries with tag '{tag}'")
+        self.logger.info(
+            f"Invalidated {invalidated_count} cache entries with tag '{tag}'"
+        )
         return invalidated_count
 
     def invalidate_by_pattern(self, pattern: str) -> int:
@@ -601,7 +611,9 @@ class CacheManager:
         )
         return invalidated_count
 
-    def warm_cache(self, warm_func: Callable, keys: List[str], ttl: Optional[int] = None) -> int:
+    def warm_cache(
+        self, warm_func: Callable, keys: List[str], ttl: Optional[int] = None
+    ) -> int:
         """Warm cache with precomputed values."""
         warmed_count = 0
 

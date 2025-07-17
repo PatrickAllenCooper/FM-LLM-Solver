@@ -9,12 +9,12 @@ Fixes verification issues by:
 4. Improving SOS solver configuration
 """
 
-import sys
-import time
 import json
 import logging
+import sys
+import time
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Any, Dict, List, Optional
 
 # Add project root to path
 PROJECT_ROOT = Path(__file__).parent.parent.absolute()
@@ -142,11 +142,17 @@ Unsafe Set: x**2 + y**2 >= 4.0"""
                 if result and isinstance(result, dict):
                     # Score based on success, speed, and reliability
                     success_score = 1.0 if result.get("overall_success", False) else 0.0
-                    speed_score = max(0, 1.0 - verification_time / 10.0)  # Penalty after 10s
+                    speed_score = max(
+                        0, 1.0 - verification_time / 10.0
+                    )  # Penalty after 10s
 
                     # Check individual components
-                    numerical_score = 0.3 if result.get("numerical_passed", False) else 0.0
-                    symbolic_score = 0.3 if result.get("symbolic_passed", False) else 0.0
+                    numerical_score = (
+                        0.3 if result.get("numerical_passed", False) else 0.0
+                    )
+                    symbolic_score = (
+                        0.3 if result.get("symbolic_passed", False) else 0.0
+                    )
                     sos_score = 0.3 if result.get("sos_passed", False) else 0.0
 
                     total_score = (

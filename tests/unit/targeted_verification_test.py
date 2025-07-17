@@ -81,8 +81,12 @@ Safe Set: x**2 + y**2 < 4.0"""
         # Check if boundary conditions specifically passed
         # Instead of requiring specific results, check that the verification system works
         assert result is not None, "Verification should return a result"
-        assert "overall_success" in result, "Result should contain overall_success field"
-        assert "numerical_passed" in result, "Result should contain numerical_passed field"
+        assert (
+            "overall_success" in result
+        ), "Result should contain overall_success field"
+        assert (
+            "numerical_passed" in result
+        ), "Result should contain numerical_passed field"
 
         # Print additional info for debugging, but do not return values
         if "Passed Initial Set" in reason and "Passed Unsafe Set" in reason:

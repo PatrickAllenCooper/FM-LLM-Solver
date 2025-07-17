@@ -4,13 +4,13 @@ Boundary Condition Tests
 Tests for edge cases and boundary values in certificate validation
 """
 
-import sys
 import os
+import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from utils.certificate_extraction import extract_certificate_from_llm_output
 from tests.unit.test_certificate_validation_accuracy import CertificateValidationTester
+from utils.certificate_extraction import extract_certificate_from_llm_output
 
 
 class TestBoundaryConditions:
@@ -29,8 +29,16 @@ class TestBoundaryConditions:
 
         boundary_cases = [
             # Certificates exactly at boundaries
-            ("x**2 + y**2 - 0.25", "At initial set boundary", False),  # B=0 at initial boundary
-            ("x**2 + y**2 - 4.0", "At unsafe set boundary", False),  # B=0 at unsafe boundary
+            (
+                "x**2 + y**2 - 0.25",
+                "At initial set boundary",
+                False,
+            ),  # B=0 at initial boundary
+            (
+                "x**2 + y**2 - 4.0",
+                "At unsafe set boundary",
+                False,
+            ),  # B=0 at unsafe boundary
             # Just inside/outside boundaries
             ("x**2 + y**2 - 0.24", "Just inside initial boundary", False),
             ("x**2 + y**2 - 0.26", "Just outside initial boundary", False),
@@ -44,9 +52,13 @@ class TestBoundaryConditions:
 
         print("Testing boundary conditions...")
         for cert, description, expected_valid in boundary_cases:
-            result = tester.validate_certificate_mathematically(cert, system, n_samples=20)
+            result = tester.validate_certificate_mathematically(
+                cert, system, n_samples=20
+            )
             actual_valid = result["valid"]
-            print(f"{description}: {'PASS' if actual_valid == expected_valid else 'FAIL'}")
+            print(
+                f"{description}: {'PASS' if actual_valid == expected_valid else 'FAIL'}"
+            )
             if actual_valid != expected_valid:
                 print(f"  Expected: {expected_valid}, Got: {actual_valid}")
                 if result.get("violations"):
@@ -136,8 +148,12 @@ class TestBoundaryConditions:
         print("\nTesting numerical precision...")
         for cert, description in precision_cases:
             try:
-                extracted = extract_certificate_from_llm_output(f"B(x,y) = {cert}", ["x", "y"])
-                extracted_cert = extracted[0] if isinstance(extracted, tuple) else extracted
+                extracted = extract_certificate_from_llm_output(
+                    f"B(x,y) = {cert}", ["x", "y"]
+                )
+                extracted_cert = (
+                    extracted[0] if isinstance(extracted, tuple) else extracted
+                )
                 if extracted_cert:
                     result = tester.validate_certificate_mathematically(
                         extracted_cert, system, n_samples=5
@@ -178,7 +194,9 @@ class TestBoundaryConditions:
                     f"{description}: {'Correctly rejected' if not extracted else 'Extracted (check validation)'}"
                 )
             else:
-                print(f"{description}: {'Extracted' if extracted else 'Failed to extract'}")
+                print(
+                    f"{description}: {'Extracted' if extracted else 'Failed to extract'}"
+                )
 
     def test_safety_margin_boundaries(self):
         """Test safety margin edge cases"""
@@ -201,11 +219,17 @@ class TestBoundaryConditions:
 
         print("\nTesting safety margin boundaries...")
         for cert, margin_percent in margin_cases:
-            result = tester.validate_certificate_mathematically(cert, system, n_samples=10)
-            print(f"{margin_percent}% margin: {'Valid' if result['valid'] else 'Invalid'}")
+            result = tester.validate_certificate_mathematically(
+                cert, system, n_samples=10
+            )
+            print(
+                f"{margin_percent}% margin: {'Valid' if result['valid'] else 'Invalid'}"
+            )
             if not result["valid"] and result.get("violations"):
                 # Check if it's a safety margin violation
-                safety_violations = [v for v in result["violations"] if "Safety margin" in v]
+                safety_violations = [
+                    v for v in result["violations"] if "Safety margin" in v
+                ]
                 if safety_violations:
                     print(f"  {safety_violations[0]}")
 

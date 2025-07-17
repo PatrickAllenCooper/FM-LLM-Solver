@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 """Edge case tests for certificate validation"""
 
-import sys
 import os
+import sys
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+sys.path.append(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+)
+
+import sympy
 
 from utils.certificate_extraction import extract_certificate_from_llm_output
-import sympy
 
 
 def test_edge_cases():
@@ -54,7 +57,12 @@ def test_edge_cases():
             "Parentheses",
         ),
         # Scientific notation
-        ("B(x,y) = x**2 + y**2 - 1e-3", ["x", "y"], "x**2 + y**2 - 0.001", "Scientific notation"),
+        (
+            "B(x,y) = x**2 + y**2 - 1e-3",
+            ["x", "y"],
+            "x**2 + y**2 - 0.001",
+            "Scientific notation",
+        ),
         # Unicode and special characters (should fail)
         ("B(x,y) = x² + y² - 1", ["x", "y"], None, "Unicode exponents"),
     ]

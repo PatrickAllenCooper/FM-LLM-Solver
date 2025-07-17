@@ -4,36 +4,37 @@ Unit tests for FM-LLM Solver core components.
 Tests configuration, logging, exceptions, and types.
 """
 
+import json
+
 import pytest
 import yaml
-import json
 
 from fm_llm_solver.core.config import (
     Config,
-    load_config,
-    validate_config,
     apply_env_overrides,
     convert_env_value,
+    load_config,
+    validate_config,
 )
 from fm_llm_solver.core.exceptions import (
-    FMLLMSolverError,
-    ValidationError,
-    ModelError,
     AuthenticationError,
-)
-from fm_llm_solver.core.types import (
-    SystemType,
-    SystemDescription,
-    BarrierCertificate,
-    DomainBounds,
-    VerificationResult,
-    VerificationCheck,
-    GenerationResult,
+    FMLLMSolverError,
+    ModelError,
+    ValidationError,
 )
 from fm_llm_solver.core.logging import (
+    StructuredFormatter,
     configure_logging,
     get_logger,
-    StructuredFormatter,
+)
+from fm_llm_solver.core.types import (
+    BarrierCertificate,
+    DomainBounds,
+    GenerationResult,
+    SystemDescription,
+    SystemType,
+    VerificationCheck,
+    VerificationResult,
 )
 
 
@@ -121,7 +122,9 @@ class TestExceptions:
 
     def test_base_exception(self):
         """Test base exception functionality."""
-        error = FMLLMSolverError("Test error", error_code="TEST_ERROR", details={"key": "value"})
+        error = FMLLMSolverError(
+            "Test error", error_code="TEST_ERROR", details={"key": "value"}
+        )
 
         assert str(error) == "Test error"
         assert error.error_code == "TEST_ERROR"
@@ -192,7 +195,9 @@ class TestTypes:
     def test_barrier_certificate(self):
         """Test BarrierCertificate."""
         cert = BarrierCertificate(
-            expression="x**2 + y**2 - 1", variables=["x", "y"], certificate_type="standard"
+            expression="x**2 + y**2 - 1",
+            variables=["x", "y"],
+            certificate_type="standard",
         )
 
         assert str(cert) == "x**2 + y**2 - 1"
@@ -220,7 +225,10 @@ class TestTypes:
         cert = BarrierCertificate("x**2 + y**2", ["x", "y"])
 
         result = GenerationResult(
-            certificate=cert, confidence=0.85, generation_time=2.5, model_name="test-model"
+            certificate=cert,
+            confidence=0.85,
+            generation_time=2.5,
+            model_name="test-model",
         )
 
         assert result.success is True
@@ -240,7 +248,9 @@ class TestLogging:
         """Test logging configuration."""
         log_dir = tmp_path / "logs"
 
-        configure_logging(level="DEBUG", log_dir=str(log_dir), console=True, structured=False)
+        configure_logging(
+            level="DEBUG", log_dir=str(log_dir), console=True, structured=False
+        )
 
         # Check log files created
         assert log_dir.exists()

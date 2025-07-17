@@ -10,31 +10,30 @@ from pathlib import Path
 from typing import Optional
 
 from flask import Flask, g, request
-from flask_sqlalchemy import SQLAlchemy
-from flask_login import LoginManager
+from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-from flask_cors import CORS
+from flask_login import LoginManager
 from flask_migrate import Migrate
+from flask_sqlalchemy import SQLAlchemy
 
-from fm_llm_solver.core.config_manager import ConfigurationManager
-from fm_llm_solver.core.logging_manager import get_logging_manager, get_logger
-from fm_llm_solver.core.database_manager import get_database_manager
 from fm_llm_solver.core.async_manager import AsyncManager
-from fm_llm_solver.core.memory_manager import MemoryManager
 from fm_llm_solver.core.cache_manager import CacheManager
+from fm_llm_solver.core.config_manager import ConfigurationManager
+from fm_llm_solver.core.database_manager import get_database_manager
+from fm_llm_solver.core.logging_manager import get_logger, get_logging_manager
+from fm_llm_solver.core.memory_manager import MemoryManager
 from fm_llm_solver.core.monitoring import MonitoringManager
 from fm_llm_solver.services.certificate_generator import CertificateGenerator
-from fm_llm_solver.services.verifier import CertificateVerifier
 from fm_llm_solver.services.knowledge_base import KnowledgeBase
 from fm_llm_solver.services.model_provider import QwenProvider
+from fm_llm_solver.services.verifier import CertificateVerifier
 from fm_llm_solver.web.models import User
 from fm_llm_solver.web.utils import (
-    setup_security_headers,
-    setup_rate_limiting,
     setup_cors,
+    setup_rate_limiting,
+    setup_security_headers,
 )
-
 
 # Initialize extensions
 db = SQLAlchemy()
@@ -43,7 +42,9 @@ limiter = Limiter(key_func=get_remote_address)
 migrate = Migrate()
 
 
-def create_app(config_path: Optional[str] = None, test_config: Optional[dict] = None) -> Flask:
+def create_app(
+    config_path: Optional[str] = None, test_config: Optional[dict] = None
+) -> Flask:
     """
     Create and configure the Flask application.
 
@@ -115,7 +116,9 @@ def config_to_flask(config: dict, config_manager: ConfigurationManager) -> dict:
         "SQLALCHEMY_DATABASE_URI": db_url,
         "SQLALCHEMY_TRACK_MODIFICATIONS": False,
         # Session
-        "SECRET_KEY": os.environ.get("SECRET_KEY", "dev-secret-key-change-in-production"),
+        "SECRET_KEY": os.environ.get(
+            "SECRET_KEY", "dev-secret-key-change-in-production"
+        ),
         "PERMANENT_SESSION_LIFETIME": 86400,  # 24 hours
         "SESSION_COOKIE_SECURE": config_manager.environment.value == "production",
         "SESSION_COOKIE_HTTPONLY": True,
@@ -440,7 +443,9 @@ def register_cli_commands(app: Flask) -> None:
                 print(f"  RSS: {memory_report['memory_stats']['rss_mb']:.1f} MB")
                 print(f"  Percentage: {memory_report['memory_stats']['percent']:.1f}%")
                 print(f"  GC Objects: {memory_report['memory_stats']['gc_objects']:,}")
-                print(f"  Pressure Level: {memory_report['pressure_info']['pressure_level']}")
+                print(
+                    f"  Pressure Level: {memory_report['pressure_info']['pressure_level']}"
+                )
                 print()
 
             # Async manager statistics

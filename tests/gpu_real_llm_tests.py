@@ -8,29 +8,35 @@ to validate filtering, parsing, and numerical checking on real model outputs.
 Hardware Requirements: NVIDIA GPU with 6+ GB VRAM
 """
 
-import sys
 import json
-import time
 import logging
-import numpy as np
+import sys
+import time
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Dict, List, Optional
-from dataclasses import dataclass, asdict
+
+import numpy as np
 import torch
 
 # Add project root to path
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from fm_llm_solver.services.model_provider import QwenProvider
 from fm_llm_solver.core.types import ModelConfig, ModelProvider
-from utils.certificate_extraction import extract_certificate_from_llm_output, is_template_expression
-from utils.certificate_extraction import clean_and_validate_expression
+from fm_llm_solver.services.model_provider import QwenProvider
 from fm_llm_solver.services.verifier import CertificateVerifier
+from utils.certificate_extraction import (
+    clean_and_validate_expression,
+    extract_certificate_from_llm_output,
+    is_template_expression,
+)
 from utils.config_loader import load_config
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 
@@ -104,7 +110,9 @@ class RealLLMTestSuite:
         load_time = time.time() - start_time
 
         logger.info(f"✅ Model loaded in {load_time:.1f} seconds")
-        logger.info(f"🔥 GPU memory allocated: {torch.cuda.memory_allocated() / 1e9:.2f} GB")
+        logger.info(
+            f"🔥 GPU memory allocated: {torch.cuda.memory_allocated() / 1e9:.2f} GB"
+        )
 
     def get_test_systems(self) -> List[Dict]:
         """Get test systems for real LLM testing."""
@@ -224,7 +232,9 @@ Generate the barrier certificate:"""
                 raise RuntimeError("Model provider not initialized")
 
             start_time = time.time()
-            raw_output = self.provider.generate_text(prompt=prompt, max_tokens=256, temperature=0.1)
+            raw_output = self.provider.generate_text(
+                prompt=prompt, max_tokens=256, temperature=0.1
+            )
             generation_time = time.time() - start_time
 
             # Record GPU memory after generation
@@ -254,9 +264,13 @@ Generate the barrier certificate:"""
 
         # Test certificate extraction from real output
         try:
-            extracted_result = extract_certificate_from_llm_output(raw_output, system["variables"])
+            extracted_result = extract_certificate_from_llm_output(
+                raw_output, system["variables"]
+            )
             extracted_cert = (
-                extracted_result[0] if isinstance(extracted_result, tuple) else extracted_result
+                extracted_result[0]
+                if isinstance(extracted_result, tuple)
+                else extracted_result
             )
             extraction_success = extracted_cert is not None
 
@@ -275,7 +289,9 @@ Generate the barrier certificate:"""
         cleaned_cert = None
         if extracted_cert and not is_template:
             try:
-                cleaned_cert = clean_and_validate_expression(extracted_cert, system["variables"])
+                cleaned_cert = clean_and_validate_expression(
+                    extracted_cert, system["variables"]
+                )
                 logger.info(f"🧹 Cleaned certificate: '{cleaned_cert}'")
             except Exception as e:
                 logger.warning(f"⚠️ Certificate cleaning failed: {e}")
@@ -288,9 +304,16 @@ Generate the barrier certificate:"""
             try:
                 # Create mock system for verification
                 mock_system = {
-                    "dynamics": system["description"].split("\n")[0].split(": ")[1].split(", "),
-                    "initial_set": [system["description"].split("Initial set: ")[1].split("\n")[0]],
-                    "unsafe_set": [system["description"].split("Unsafe set: ")[1].split("\n")[0]],
+                    "dynamics": system["description"]
+                    .split("\n")[0]
+                    .split(": ")[1]
+                    .split(", "),
+                    "initial_set": [
+                        system["description"].split("Initial set: ")[1].split("\n")[0]
+                    ],
+                    "unsafe_set": [
+                        system["description"].split("Unsafe set: ")[1].split("\n")[0]
+                    ],
                 }
 
                 # Perform basic numerical checks
@@ -331,7 +354,9 @@ Generate the barrier certificate:"""
             gpu_memory_used=gpu_memory_used,
         )
 
-        logger.info(f"🎯 Overall success: {'✅ PASS' if overall_success else '❌ FAIL'}")
+        logger.info(
+            f"🎯 Overall success: {'✅ PASS' if overall_success else '❌ FAIL'}"
+        )
         return result
 
     def _perform_numerical_checks(
@@ -339,8 +364,8 @@ Generate the barrier certificate:"""
     ) -> Dict:
         """Perform proper barrier certificate numerical verification."""
         try:
-            import sympy as sp
             import numpy as np
+            import sympy as sp
 
             # Parse certificate and dynamics
             var_symbols = [sp.Symbol(var) for var in variables]
@@ -404,7 +429,9 @@ Generate the barrier certificate:"""
             if unsafe_bound:
                 for _ in range(n_samples):
                     # Sample points near unsafe set boundary
-                    r = np.sqrt(np.random.uniform(unsafe_bound * 0.95, unsafe_bound * 1.05))
+                    r = np.sqrt(
+                        np.random.uniform(unsafe_bound * 0.95, unsafe_bound * 1.05)
+                    )
                     theta = np.random.uniform(0, 2 * np.pi)
                     point = [r * np.cos(theta), r * np.sin(theta)][: len(variables)]
 
@@ -443,7 +470,9 @@ Generate the barrier certificate:"""
             # Calculate results
             initial_success = (initial_violations / max(initial_samples, 1)) < 0.1
             unsafe_success = (
-                (unsafe_violations / max(unsafe_samples, 1)) < 0.1 if unsafe_samples > 0 else True
+                (unsafe_violations / max(unsafe_samples, 1)) < 0.1
+                if unsafe_samples > 0
+                else True
             )
             lie_success = (lie_violations / max(lie_samples, 1)) < 0.1
 
@@ -520,9 +549,13 @@ Generate the barrier certificate:"""
         logger.info(f"   Successful generations: {analysis['successful_generations']}")
         logger.info(f"   Successful extractions: {analysis['successful_extractions']}")
         logger.info(f"   Non-template certificates: {analysis['non_template_certs']}")
-        logger.info(f"   Numerical checks passed: {analysis['numerical_checks_passed']}")
+        logger.info(
+            f"   Numerical checks passed: {analysis['numerical_checks_passed']}"
+        )
         logger.info(f"   Overall success rate: {analysis['overall_success_rate']:.1%}")
-        logger.info(f"   Average generation time: {analysis['avg_generation_time']:.2f}s")
+        logger.info(
+            f"   Average generation time: {analysis['avg_generation_time']:.2f}s"
+        )
         logger.info(f"   Total GPU time: {total_time:.1f}s")
 
         return analysis
@@ -536,7 +569,9 @@ Generate the barrier certificate:"""
         numerical_checks_passed = sum(1 for r in results if r.numerical_checks_passed)
         overall_successes = sum(1 for r in results if r.overall_success)
 
-        avg_generation_time = np.mean([r.generation_time for r in results if r.generation_time > 0])
+        avg_generation_time = np.mean(
+            [r.generation_time for r in results if r.generation_time > 0]
+        )
         total_gpu_memory = sum(r.gpu_memory_used or 0 for r in results)
 
         return {
@@ -553,12 +588,16 @@ Generate the barrier certificate:"""
                 successful_extractions / total_tests if total_tests > 0 else 0
             ),
             "template_rejection_rate": (
-                (total_tests - non_template_certs) / total_tests if total_tests > 0 else 0
+                (total_tests - non_template_certs) / total_tests
+                if total_tests > 0
+                else 0
             ),
             "numerical_success_rate": (
                 numerical_checks_passed / total_tests if total_tests > 0 else 0
             ),
-            "overall_success_rate": overall_successes / total_tests if total_tests > 0 else 0,
+            "overall_success_rate": (
+                overall_successes / total_tests if total_tests > 0 else 0
+            ),
             "avg_generation_time": avg_generation_time,
             "total_gpu_memory_used": total_gpu_memory,
             "results": [asdict(r) for r in results],

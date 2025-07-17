@@ -4,11 +4,11 @@ Production Pipeline Test Suite
 Tests the complete certificate validation pipeline for production readiness
 """
 
-import os
-import sys
 import json
-import time
+import os
 import subprocess
+import sys
+import time
 from pathlib import Path
 
 # Add project root to path
@@ -24,7 +24,11 @@ def run_test(test_name: str, command: str) -> dict:
     start_time = time.time()
     try:
         result = subprocess.run(
-            command, shell=True, capture_output=True, text=True, timeout=300  # 5 minute timeout
+            command,
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=300,  # 5 minute timeout
         )
         duration = time.time() - start_time
 
@@ -86,24 +90,35 @@ def main():
     )
 
     # Test 2: GPU Integration (if available)
-    test_results.append(run_test("GPU Integration Test", "python tests/test_gpu_integration.py"))
+    test_results.append(
+        run_test("GPU Integration Test", "python tests/test_gpu_integration.py")
+    )
 
     # Test 3: Certificate Pipeline Test
     test_results.append(
-        run_test("Certificate Pipeline Integration", "python tests/test_certificate_pipeline.py")
+        run_test(
+            "Certificate Pipeline Integration",
+            "python tests/test_certificate_pipeline.py",
+        )
     )
 
     # Test 4: Adaptive Testing
-    test_results.append(run_test("Adaptive Test Suite", "python tests/test_adaptive_suite.py"))
+    test_results.append(
+        run_test("Adaptive Test Suite", "python tests/test_adaptive_suite.py")
+    )
 
     # Test 5: Test Runner
     test_results.append(run_test("Test Runner", "python tests/run_tests.py"))
 
     # Test 6: Edge Cases
-    test_results.append(run_test("Edge Case Testing", "python tests/unit/test_edge_cases.py"))
+    test_results.append(
+        run_test("Edge Case Testing", "python tests/unit/test_edge_cases.py")
+    )
 
     # Test 7: Performance Benchmarks
-    test_results.append(run_test("Performance Benchmarks", "python tests/test_performance.py"))
+    test_results.append(
+        run_test("Performance Benchmarks", "python tests/test_performance.py")
+    )
 
     # Summary
     print("\n" + "=" * 60)
@@ -152,7 +167,9 @@ def main():
 
     if passed_tests == total_tests:
         print("PRODUCTION READY: All tests passed!")
-        print("\nThe certificate validation pipeline is ready for production deployment.")
+        print(
+            "\nThe certificate validation pipeline is ready for production deployment."
+        )
         print("Key achievements:")
         print("- 100% accuracy in certificate extraction")
         print("- 100% accuracy in certificate validation")

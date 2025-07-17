@@ -6,17 +6,17 @@ Handles verification of barrier certificates using multiple methods.
 
 import time
 
+from fm_llm_solver.core.config import Config
+from fm_llm_solver.core.exceptions import VerificationError
 from fm_llm_solver.core.interfaces import Verifier
+from fm_llm_solver.core.logging import get_logger, log_performance
 from fm_llm_solver.core.types import (
-    SystemDescription,
     BarrierCertificate,
-    VerificationResult,
+    SystemDescription,
     VerificationCheck,
     VerificationMethod,
+    VerificationResult,
 )
-from fm_llm_solver.core.exceptions import VerificationError
-from fm_llm_solver.core.logging import get_logger, log_performance
-from fm_llm_solver.core.config import Config
 
 
 class CertificateVerifier(Verifier):
@@ -85,7 +85,9 @@ class CertificateVerifier(Verifier):
 
             for verification_method in methods_to_run:
                 if not self.supports_method(verification_method):
-                    self.logger.warning(f"Method {verification_method.value} not supported")
+                    self.logger.warning(
+                        f"Method {verification_method.value} not supported"
+                    )
                     continue
 
                 try:

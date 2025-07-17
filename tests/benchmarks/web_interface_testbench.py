@@ -13,31 +13,32 @@ Date: 2024
 License: Academic Use
 """
 
-import sys
 import json
-import time
 import logging
+import sys
+import time
 import traceback
-import numpy as np
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Any
-from dataclasses import dataclass, asdict
+from typing import Any, Dict, List, Optional
 from unittest.mock import Mock, patch
+
+import numpy as np
 
 # Add project root to path
 SCRIPT_DIR = Path(__file__).parent.absolute()
 PROJECT_ROOT = SCRIPT_DIR.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
+# Test data and utilities
+from omegaconf import DictConfig
+
 # Import web interface components
 from utils.config_loader import load_config
 from web_interface.certificate_generator import CertificateGenerator
-from web_interface.verification_service import VerificationService
 from web_interface.conversation_service import ConversationService
-
-# Test data and utilities
-from omegaconf import DictConfig
+from web_interface.verification_service import VerificationService
 
 # Configure logging for testbench
 logging.basicConfig(
@@ -158,7 +159,11 @@ Safe Set: x**2 + y**2 < 4.0""",
                 "bounds": {"x": [-1, 3], "y": [-2, 1]},
                 "description": "Asymmetric domain bounds",
             },
-            {"name": "empty_bounds", "bounds": {}, "description": "No domain bounds specified"},
+            {
+                "name": "empty_bounds",
+                "bounds": {},
+                "description": "No domain bounds specified",
+            },
             {
                 "name": "invalid_bounds",
                 "bounds": {"x": [2, -1], "y": [1, 1]},  # min > max
@@ -312,7 +317,9 @@ class CertificateGeneratorTestSuite(ComponentTestSuite):
                     continue  # Skip intentionally malformed inputs for this test
 
                 result = self.generator.generate_certificate(
-                    system["description"], model_key, rag_k=0  # Disable RAG for basic testing
+                    system["description"],
+                    model_key,
+                    rag_k=0,  # Disable RAG for basic testing
                 )
 
                 results[system["name"]] = {
@@ -323,15 +330,21 @@ class CertificateGeneratorTestSuite(ComponentTestSuite):
                     "prompt_length": result.get("prompt_length", 0),
                 }
 
-            successful_generations = sum(1 for r in results.values() if r["generation_success"])
-            certificate_extractions = sum(1 for r in results.values() if r["certificate_extracted"])
+            successful_generations = sum(
+                1 for r in results.values() if r["generation_success"]
+            )
+            certificate_extractions = sum(
+                1 for r in results.values() if r["certificate_extracted"]
+            )
 
             return {
                 "success": successful_generations > 0,
                 "total_systems": len(results),
                 "successful_generations": successful_generations,
                 "successful_extractions": certificate_extractions,
-                "extraction_rate": certificate_extractions / len(results) if results else 0,
+                "extraction_rate": (
+                    certificate_extractions / len(results) if results else 0
+                ),
                 "results": results,
             }
 
@@ -367,11 +380,15 @@ class CertificateGeneratorTestSuite(ComponentTestSuite):
 
                 results[bounds_case["name"]] = {
                     "success": result["success"],
-                    "bounds_passed": bounds_case["bounds"] == result.get("domain_bounds"),
+                    "bounds_passed": bounds_case["bounds"]
+                    == result.get("domain_bounds"),
                     "certificate": result["certificate"],
                 }
 
-            return {"success": all(r["success"] for r in results.values()), "results": results}
+            return {
+                "success": all(r["success"] for r in results.values()),
+                "results": results,
+            }
 
         return self.run_test("domain_bounds_integration", _test)
 
@@ -415,7 +432,9 @@ class CertificateGeneratorTestSuite(ComponentTestSuite):
 
             return {
                 "success": all(r["success"] for r in results.values()),
-                "context_retrieval_working": any(r["context_chunks"] > 0 for r in results.values()),
+                "context_retrieval_working": any(
+                    r["context_chunks"] > 0 for r in results.values()
+                ),
                 "context_scaling_properly": context_increasing,
                 "results": results,
             }
@@ -466,7 +485,9 @@ class VerificationServiceTestSuite(ComponentTestSuite):
             results = {}
 
             for system in test_systems:
-                parsed = self.verification_service.parse_system_description(system["description"])
+                parsed = self.verification_service.parse_system_description(
+                    system["description"]
+                )
 
                 results[system["name"]] = {
                     "parsing_success": len(parsed.get("variables", [])) > 0,
@@ -476,7 +497,9 @@ class VerificationServiceTestSuite(ComponentTestSuite):
                     "parsed_data": parsed,
                 }
 
-            successful_parsing = sum(1 for r in results.values() if r["parsing_success"])
+            successful_parsing = sum(
+                1 for r in results.values() if r["parsing_success"]
+            )
 
             return {
                 "success": successful_parsing > 0,
@@ -499,7 +522,10 @@ class VerificationServiceTestSuite(ComponentTestSuite):
             results = {}
 
             for system in test_systems:
-                if system["known_certificate"] is None or system["complexity"] == "error":
+                if (
+                    system["known_certificate"] is None
+                    or system["complexity"] == "error"
+                ):
                     continue
 
                 verification_result = self.verification_service.verify_certificate(
@@ -516,9 +542,14 @@ class VerificationServiceTestSuite(ComponentTestSuite):
                 }
 
             if not results:
-                return {"success": False, "error": "No systems with known certificates to test"}
+                return {
+                    "success": False,
+                    "error": "No systems with known certificates to test",
+                }
 
-            successful_verifications = sum(1 for r in results.values() if r["overall_success"])
+            successful_verifications = sum(
+                1 for r in results.values() if r["overall_success"]
+            )
 
             return {
                 "success": successful_verifications > 0,
@@ -559,7 +590,9 @@ class VerificationServiceTestSuite(ComponentTestSuite):
                 }
 
             successful_bounds = sum(
-                1 for r in results.values() if r["bounds_created"] and r["all_variables_bounded"]
+                1
+                for r in results.values()
+                if r["bounds_created"] and r["all_variables_bounded"]
             )
 
             return {
@@ -640,7 +673,9 @@ class ConversationServiceTestSuite(ComponentTestSuite):
                     "extracted_content": extracted,
                 }
 
-            correct_predictions = sum(1 for r in results.values() if r["correct_prediction"])
+            correct_predictions = sum(
+                1 for r in results.values() if r["correct_prediction"]
+            )
 
             return {
                 "success": correct_predictions == len(results),
@@ -682,19 +717,26 @@ class ConversationServiceTestSuite(ComponentTestSuite):
                 )
 
                 results[f"message_{i}"] = {
-                    "bounds_extracted": extracted_bounds is not None and len(extracted_bounds) > 0,
+                    "bounds_extracted": extracted_bounds is not None
+                    and len(extracted_bounds) > 0,
                     "x_bound_correct": (
-                        extracted_bounds.get("x") == [-2, 2] if extracted_bounds else False
+                        extracted_bounds.get("x") == [-2, 2]
+                        if extracted_bounds
+                        else False
                     ),
                     "y_bound_correct": (
-                        extracted_bounds.get("y") == [-1, 1] if extracted_bounds else False
+                        extracted_bounds.get("y") == [-1, 1]
+                        if extracted_bounds
+                        else False
                     ),
                     "extracted_bounds": extracted_bounds,
                     "original_message": message,
                 }
 
             successful_extractions = sum(
-                1 for r in results.values() if r["bounds_extracted"] and r["x_bound_correct"]
+                1
+                for r in results.values()
+                if r["bounds_extracted"] and r["x_bound_correct"]
             )
 
             return {
@@ -774,10 +816,13 @@ class IntegrationTestSuite(ComponentTestSuite):
 
                 results[system["name"]] = {
                     "generation_success": generation_result["success"],
-                    "certificate_extracted": generation_result["certificate"] is not None,
+                    "certificate_extracted": generation_result["certificate"]
+                    is not None,
                     "verification_attempted": verification_result is not None,
                     "verification_success": (
-                        verification_result["overall_success"] if verification_result else False
+                        verification_result["overall_success"]
+                        if verification_result
+                        else False
                     ),
                     "workflow_complete": (
                         generation_result["success"]
@@ -786,7 +831,9 @@ class IntegrationTestSuite(ComponentTestSuite):
                     ),
                 }
 
-            completed_workflows = sum(1 for r in results.values() if r["workflow_complete"])
+            completed_workflows = sum(
+                1 for r in results.values() if r["workflow_complete"]
+            )
 
             return {
                 "success": completed_workflows > 0,
@@ -886,7 +933,9 @@ class WebInterfaceTestbench:
 
         for i in range(iterations):
             start_time = time.time()
-            result = generator.generate_certificate(test_system["description"], model_key, rag_k=1)
+            result = generator.generate_certificate(
+                test_system["description"], model_key, rag_k=1
+            )
             duration = time.time() - start_time
             durations.append(duration)
 
@@ -920,7 +969,9 @@ class WebInterfaceTestbench:
         component_stats = {}
         for component in self.test_suites.keys():
             component_results = [
-                r for r in self.results if r.component.lower().replace("testsuite", "") == component
+                r
+                for r in self.results
+                if r.component.lower().replace("testsuite", "") == component
             ]
             if component_results:
                 component_stats[component] = {
@@ -966,7 +1017,9 @@ class WebInterfaceTestbench:
 
     def run_quality_improvement_cycle(self, max_iterations: int = 5) -> Dict[str, Any]:
         """Run iterative quality improvement cycle."""
-        logger.info(f"Starting quality improvement cycle (max {max_iterations} iterations)")
+        logger.info(
+            f"Starting quality improvement cycle (max {max_iterations} iterations)"
+        )
 
         improvement_history = []
         baseline_score = None
@@ -1000,12 +1053,16 @@ class WebInterfaceTestbench:
                 logger.info(f"Baseline score: {baseline_score:.2%}")
             else:
                 improvement = current_score - baseline_score
-                logger.info(f"Current score: {current_score:.2%} (change: {improvement:+.2%})")
+                logger.info(
+                    f"Current score: {current_score:.2%} (change: {improvement:+.2%})"
+                )
 
             # Analyze failures and suggest improvements
             failed_results = [r for r in all_results if r.status != "PASS"]
             if failed_results:
-                suggestions = self._analyze_failures_and_suggest_improvements(failed_results)
+                suggestions = self._analyze_failures_and_suggest_improvements(
+                    failed_results
+                )
                 iteration_data["improvement_suggestions"] = suggestions
 
                 # Apply automatic fixes if possible
@@ -1046,10 +1103,14 @@ class WebInterfaceTestbench:
 
             # Analyze common error patterns
             if any("model" in msg.lower() for msg in error_messages):
-                suggestions.append(f"Consider adjusting model configuration for {component}")
+                suggestions.append(
+                    f"Consider adjusting model configuration for {component}"
+                )
 
             if any("timeout" in msg.lower() for msg in error_messages):
-                suggestions.append(f"Increase timeout values for {component} operations")
+                suggestions.append(
+                    f"Increase timeout values for {component} operations"
+                )
 
             if any("memory" in msg.lower() for msg in error_messages):
                 suggestions.append(
@@ -1074,7 +1135,9 @@ class WebInterfaceTestbench:
                 applied_fixes.append(f"Would increase timeout for {result.test_name}")
 
             if result.error_message and "memory" in result.error_message.lower():
-                applied_fixes.append(f"Would enable memory optimization for {result.test_name}")
+                applied_fixes.append(
+                    f"Would enable memory optimization for {result.test_name}"
+                )
 
         return applied_fixes
 
@@ -1083,7 +1146,9 @@ def main():
     """Main entry point for the testbench."""
     import argparse
 
-    parser = argparse.ArgumentParser(description="FM-LLM Solver Web Interface Testbench")
+    parser = argparse.ArgumentParser(
+        description="FM-LLM Solver Web Interface Testbench"
+    )
     parser.add_argument("--config", type=str, help="Path to configuration file")
     parser.add_argument(
         "--component",
@@ -1096,11 +1161,20 @@ def main():
         ],
         help="Run tests for specific component only",
     )
-    parser.add_argument("--benchmark", action="store_true", help="Run performance benchmark")
-    parser.add_argument("--iterations", type=int, default=10, help="Number of benchmark iterations")
-    parser.add_argument("--improve", action="store_true", help="Run quality improvement cycle")
     parser.add_argument(
-        "--max-improve-iterations", type=int, default=5, help="Maximum improvement iterations"
+        "--benchmark", action="store_true", help="Run performance benchmark"
+    )
+    parser.add_argument(
+        "--iterations", type=int, default=10, help="Number of benchmark iterations"
+    )
+    parser.add_argument(
+        "--improve", action="store_true", help="Run quality improvement cycle"
+    )
+    parser.add_argument(
+        "--max-improve-iterations",
+        type=int,
+        default=5,
+        help="Maximum improvement iterations",
     )
     parser.add_argument("--output", type=str, help="Output file for test report")
     parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
@@ -1137,7 +1211,9 @@ def main():
                 args.max_improve_iterations
             )
             logger.info("Quality Improvement Results:")
-            logger.info(f"  Baseline Score: {improvement_results['baseline_score']:.1%}")
+            logger.info(
+                f"  Baseline Score: {improvement_results['baseline_score']:.1%}"
+            )
             logger.info(f"  Final Score: {improvement_results['final_score']:.1%}")
             logger.info(f"  Improvement: {improvement_results['improvement']:+.1%}")
 
@@ -1148,7 +1224,9 @@ def main():
                 len([r for r in component_results if r.status == "PASS"])
                 for component_results in results.values()
             )
-            total_tests = sum(len(component_results) for component_results in results.values())
+            total_tests = sum(
+                len(component_results) for component_results in results.values()
+            )
             logger.info(
                 f"Overall Results: {total_passed}/{total_tests} tests passed ({total_passed/total_tests:.1%})"
             )

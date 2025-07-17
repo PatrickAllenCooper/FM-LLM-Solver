@@ -4,16 +4,17 @@ Theory Compliance Tests for Barrier Certificates
 Tests that the implementation follows correct mathematical theory
 """
 
-import unittest
-import sympy as sp
-import sys
 import os
+import sys
+import unittest
+
+import sympy as sp
 
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from utils.level_set_tracker import LevelSetTracker
 from tests.unit.test_certificate_validation_accuracy import CertificateValidationTester
+from utils.level_set_tracker import LevelSetTracker
 
 
 class TheoryComplianceTests(unittest.TestCase):
@@ -36,19 +37,27 @@ class TheoryComplianceTests(unittest.TestCase):
         valid_cert = "x**2 + y**2 - 1.0"  # B = 0 at r = 1
         result = self.validator.validate_certificate_mathematically(valid_cert, system)
         self.assertTrue(
-            result["valid"], f"Valid certificate rejected: {result.get('violations', [])}"
+            result["valid"],
+            f"Valid certificate rejected: {result.get('violations', [])}",
         )
 
         # Invalid certificate - no separation
         invalid_cert = "x**2 + y**2"  # B > 0 everywhere
-        result = self.validator.validate_certificate_mathematically(invalid_cert, system)
-        self.assertFalse(result["valid"], "Certificate with no separation should be invalid")
+        result = self.validator.validate_certificate_mathematically(
+            invalid_cert, system
+        )
+        self.assertFalse(
+            result["valid"], "Certificate with no separation should be invalid"
+        )
 
         # Invalid certificate - B = 0 inside initial set
         invalid_cert = "x**2 + y**2 - 0.1"  # B = 0 at r = 0.316 < 0.5
-        result = self.validator.validate_certificate_mathematically(invalid_cert, system)
+        result = self.validator.validate_certificate_mathematically(
+            invalid_cert, system
+        )
         self.assertFalse(
-            result["valid"], "Certificate with B = 0 inside initial set should be invalid"
+            result["valid"],
+            "Certificate with B = 0 inside initial set should be invalid",
         )
 
     def test_initial_set_condition(self):
@@ -121,7 +130,9 @@ class TheoryComplianceTests(unittest.TestCase):
         # Should be -2*x**2 - 2*y**2
         expected = -2 * x**2 - 2 * y**2
         self.assertEqual(
-            lie_simplified, expected, f"Lie derivative should be {expected}, got {lie_simplified}"
+            lie_simplified,
+            expected,
+            f"Lie derivative should be {expected}, got {lie_simplified}",
         )
 
         # Verify it's negative in the critical region
@@ -153,21 +164,25 @@ class TheoryComplianceTests(unittest.TestCase):
         edge_cert1 = "x**2 + y**2 - 0.25"
         result = self.validator.validate_certificate_mathematically(edge_cert1, system)
         self.assertFalse(
-            result["valid"], "Certificate with B = 0 at initial boundary should be invalid"
+            result["valid"],
+            "Certificate with B = 0 at initial boundary should be invalid",
         )
 
         # Edge case 2: B = 0 exactly at unsafe set boundary
         edge_cert2 = "x**2 + y**2 - 4.0"
         result = self.validator.validate_certificate_mathematically(edge_cert2, system)
         self.assertFalse(
-            result["valid"], "Certificate with B = 0 at unsafe boundary should be invalid"
+            result["valid"],
+            "Certificate with B = 0 at unsafe boundary should be invalid",
         )
 
         # Edge case 3: Very small separation
         edge_cert3 = "x**2 + y**2 - 0.26"  # Just barely outside initial set
         result = self.validator.validate_certificate_mathematically(edge_cert3, system)
         # Should be invalid due to insufficient separation margin
-        self.assertFalse(result["valid"], "Certificate with tiny separation should be invalid")
+        self.assertFalse(
+            result["valid"], "Certificate with tiny separation should be invalid"
+        )
 
     def test_3d_system(self):
         """Test that 3D systems work correctly"""
@@ -181,7 +196,8 @@ class TheoryComplianceTests(unittest.TestCase):
         cert3d = "x**2 + y**2 + z**2 - 1.0"
         result = self.validator.validate_certificate_mathematically(cert3d, system)
         self.assertTrue(
-            result["valid"], f"Valid 3D certificate rejected: {result.get('violations', [])}"
+            result["valid"],
+            f"Valid 3D certificate rejected: {result.get('violations', [])}",
         )
 
         # Check level sets
@@ -206,7 +222,9 @@ class TheoryComplianceTests(unittest.TestCase):
 
         # The Lie derivative is 2x(-x + x³) + 2y(-y) = -2x² + 2x⁴ - 2y²
         # This is negative when x² + y² < 1, which includes our critical region
-        self.assertTrue(result["valid"], "Certificate should be valid for nonlinear system")
+        self.assertTrue(
+            result["valid"], "Certificate should be valid for nonlinear system"
+        )
 
     def test_different_certificate_forms(self):
         """Test various mathematical forms of certificates"""
@@ -224,7 +242,9 @@ class TheoryComplianceTests(unittest.TestCase):
         # With coefficients
         cert_coeff = "1.0*x**2 + 1.0*y**2 - 1.0"
         result = self.validator.validate_certificate_mathematically(cert_coeff, system)
-        self.assertTrue(result["valid"], "Certificate with explicit coefficients should be valid")
+        self.assertTrue(
+            result["valid"], "Certificate with explicit coefficients should be valid"
+        )
 
     def test_known_good_certificates(self):
         """Test a comprehensive set of known-good certificates"""
@@ -257,7 +277,9 @@ class TheoryComplianceTests(unittest.TestCase):
         for test_case in test_cases:
             system = test_case["system"]
             for cert, expected, desc in test_case["certificates"]:
-                result = self.validator.validate_certificate_mathematically(cert, system)
+                result = self.validator.validate_certificate_mathematically(
+                    cert, system
+                )
                 self.assertEqual(
                     result["valid"],
                     expected,
@@ -285,7 +307,8 @@ class TheoryComplianceTests(unittest.TestCase):
         for cert, reason in bad_certificates:
             result = self.validator.validate_certificate_mathematically(cert, system)
             self.assertFalse(
-                result["valid"], f"Bad certificate should be rejected ({reason}): {cert}"
+                result["valid"],
+                f"Bad certificate should be rejected ({reason}): {cert}",
             )
 
 
@@ -305,7 +328,9 @@ class TestLevelSetComputations(unittest.TestCase):
 
         # Check all samples are inside the set
         for x, y in samples:
-            self.assertLessEqual(x**2 + y**2, 1.0 + 1e-6, f"Sample ({x}, {y}) outside initial set")
+            self.assertLessEqual(
+                x**2 + y**2, 1.0 + 1e-6, f"Sample ({x}, {y}) outside initial set"
+            )
 
     def test_level_set_accuracy(self):
         """Test accuracy of level set computation"""
@@ -335,7 +360,9 @@ def run_theory_compliance_tests():
 
     # Add all test cases
     suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TheoryComplianceTests))
-    suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TestLevelSetComputations))
+    suite.addTests(
+        unittest.TestLoader().loadTestsFromTestCase(TestLevelSetComputations)
+    )
 
     # Run tests
     runner = unittest.TextTestRunner(verbosity=2)

@@ -13,4 +13,4 @@ accessible user experience.
 """
 
 __version__ = "1.0.0"
-__author__ = "FM-LLM Solver Team" 
+__author__ = "FM-LLM Solver Team"

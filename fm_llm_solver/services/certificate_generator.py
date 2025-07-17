@@ -5,18 +5,23 @@ Handles generation of barrier certificates using LLMs with RAG.
 """
 
 import time
-from typing import Optional, List
+from typing import List, Optional
 
-from fm_llm_solver.core.interfaces import Generator, KnowledgeStore, ModelProvider, Cache
+from fm_llm_solver.core.config import Config
+from fm_llm_solver.core.exceptions import GenerationError, ModelError
+from fm_llm_solver.core.interfaces import (
+    Cache,
+    Generator,
+    KnowledgeStore,
+    ModelProvider,
+)
+from fm_llm_solver.core.logging import get_logger, log_performance
 from fm_llm_solver.core.types import (
-    SystemDescription,
     BarrierCertificate,
     GenerationResult,
     RAGDocument,
+    SystemDescription,
 )
-from fm_llm_solver.core.exceptions import GenerationError, ModelError
-from fm_llm_solver.core.logging import get_logger, log_performance
-from fm_llm_solver.core.config import Config
 from fm_llm_solver.services.parser import SystemParser
 from fm_llm_solver.services.prompt_builder import PromptBuilder
 
@@ -63,11 +68,16 @@ class CertificateGenerator(Generator):
             self.logger.info("Model loaded successfully")
         except Exception as e:
             self.logger.error(f"Failed to load model: {e}")
-            raise ModelError(f"Failed to load model: {e}", model_name=self.config.model.name)
+            raise ModelError(
+                f"Failed to load model: {e}", model_name=self.config.model.name
+            )
 
     @log_performance(get_logger(__name__), "certificate_generation")
     def generate(
-        self, system: SystemDescription, context: Optional[List[RAGDocument]] = None, **kwargs
+        self,
+        system: SystemDescription,
+        context: Optional[List[RAGDocument]] = None,
+        **kwargs,
     ) -> GenerationResult:
         """
         Generate a barrier certificate for the given system.
@@ -136,7 +146,9 @@ class CertificateGenerator(Generator):
             if self.cache and result.success:
                 self.cache.set(cache_key, result.__dict__, ttl=3600)
 
-            self.logger.info(f"Certificate generated successfully in {result.generation_time:.2f}s")
+            self.logger.info(
+                f"Certificate generated successfully in {result.generation_time:.2f}s"
+            )
             return result
 
         except GenerationError:
@@ -167,7 +179,9 @@ class CertificateGenerator(Generator):
             )
 
             # Filter by minimum score
-            documents = [doc for doc in documents if doc.score >= self.config.rag.min_score]
+            documents = [
+                doc for doc in documents if doc.score >= self.config.rag.min_score
+            ]
 
             self.logger.info(f"Retrieved {len(documents)} relevant documents")
             return documents

@@ -3,10 +3,10 @@
 Test the improved generation system with mathematical guidance
 """
 
+import logging
 import os
 import sys
 import time
-import logging
 
 # Add project root to path
 PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
@@ -29,7 +29,9 @@ def test_improved_generation():
     domain_bounds = {"x": [-3, 3], "y": [-3, 3]}
 
     logger.info(f"📋 System: {system_desc}")
-    logger.info("🎯 Expected improvement: Better constant selection (between 0.25 and 4.0)")
+    logger.info(
+        "🎯 Expected improvement: Better constant selection (between 0.25 and 4.0)"
+    )
 
     try:
         config = load_config()
@@ -70,9 +72,13 @@ def test_improved_generation():
                                 f"✅ EXCELLENT: Constant {constant} is in optimal range [0.25, 4.0]"
                             )
                             if abs(constant - 2.125) < 1.0:  # Close to midpoint
-                                logger.info("🎯 PERFECT: Constant is near optimal midpoint!")
+                                logger.info(
+                                    "🎯 PERFECT: Constant is near optimal midpoint!"
+                                )
                         else:
-                            logger.warning(f"⚠️  Constant {constant} is outside optimal range")
+                            logger.warning(
+                                f"⚠️  Constant {constant} is outside optimal range"
+                            )
 
                 except Exception as e:
                     logger.warning(f"Could not parse constant: {e}")

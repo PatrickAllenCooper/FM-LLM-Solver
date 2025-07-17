@@ -4,13 +4,13 @@ Comprehensive Error Handling Tests
 Tests for robustness and graceful failure modes
 """
 
-import sys
 import os
+import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from utils.certificate_extraction import extract_certificate_from_llm_output
 from tests.unit.test_certificate_validation_accuracy import CertificateValidationTester
+from utils.certificate_extraction import extract_certificate_from_llm_output
 
 
 class TestErrorHandling:
@@ -51,7 +51,9 @@ class TestErrorHandling:
                 result = extract_certificate_from_llm_output(input_val, variables)
                 extracted = result[0] if isinstance(result, tuple) else result
                 # Should return None for invalid inputs
-                assert extracted is None, f"{description} should return None, got {extracted}"
+                assert (
+                    extracted is None
+                ), f"{description} should return None, got {extracted}"
             except Exception as e:
                 # Some inputs might raise exceptions, which is acceptable
                 print(f"  Exception (acceptable): {type(e).__name__}")
@@ -157,7 +159,9 @@ class TestErrorHandling:
 
         def validate_concurrent(cert, index):
             try:
-                result = tester.validate_certificate_mathematically(cert, system, n_samples=10)
+                result = tester.validate_certificate_mathematically(
+                    cert, system, n_samples=10
+                )
                 results.append((index, result))
             except Exception as e:
                 errors.append((index, str(e)))

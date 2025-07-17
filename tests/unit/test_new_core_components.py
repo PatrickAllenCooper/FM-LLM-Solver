@@ -3,15 +3,17 @@ Comprehensive unit tests for new core components of FM-LLM-Solver.
 """
 
 import os
-import pytest
 import tempfile
-from unittest.mock import Mock, patch
 from pathlib import Path
+from unittest.mock import Mock, patch
+
+import pytest
+
+from fm_llm_solver.core.cache_manager import CacheManager
 
 # Import the components we're testing
 from fm_llm_solver.core.config_manager import ConfigurationManager
 from fm_llm_solver.core.database_manager import DatabaseManager
-from fm_llm_solver.core.cache_manager import CacheManager
 
 
 class TestConfigurationManager:

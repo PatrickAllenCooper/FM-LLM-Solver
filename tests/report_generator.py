@@ -3,11 +3,11 @@ HTML Report Generator for Phase 1 Test Results
 Generates beautiful, interactive HTML reports with metrics and visualizations
 """
 
-import json
-import os
-from typing import Dict, List, Any
 import base64
 import io
+import json
+import os
+from typing import Any, Dict, List
 
 # Try to import matplotlib for charts
 try:
@@ -357,13 +357,19 @@ class HTMLReportGenerator:
                 if result.get("correct")
                 else "error" if result.get("correct") is None else "fail"
             )
-            status_text = "PASS" if status == "pass" else "ERROR" if status == "error" else "FAIL"
+            status_text = (
+                "PASS" if status == "pass" else "ERROR" if status == "error" else "FAIL"
+            )
 
             level_sets = ""
             if result.get("level_sets_computed"):
                 c1 = result["level_sets_computed"].get("c1", "N/A")
                 c2 = result["level_sets_computed"].get("c2", "N/A")
-                level_sets = f"c₁={c1:.3f}, c₂={c2:.3f}" if isinstance(c1, (int, float)) else "N/A"
+                level_sets = (
+                    f"c₁={c1:.3f}, c₂={c2:.3f}"
+                    if isinstance(c1, (int, float))
+                    else "N/A"
+                )
 
             time_str = (
                 f"{result.get('new_validator_time', 0):.3f}"
@@ -398,7 +404,9 @@ class HTMLReportGenerator:
 """
 
         # Add failed tests summary if any
-        failed_tests = [r for r in self.results.get("results", []) if r.get("correct") == False]
+        failed_tests = [
+            r for r in self.results.get("results", []) if r.get("correct") == False
+        ]
         if failed_tests:
             html += """
         <div class="results-table">
@@ -479,7 +487,11 @@ class HTMLReportGenerator:
         }
 
         # Average execution time
-        times = [r.get("new_validator_time", 0) for r in results if r.get("new_validator_time")]
+        times = [
+            r.get("new_validator_time", 0)
+            for r in results
+            if r.get("new_validator_time")
+        ]
         if times:
             metrics["avg_execution_time"] = sum(times) / len(times)
 
@@ -502,7 +514,9 @@ def main():
     """Main entry point for report generation"""
     import argparse
 
-    parser = argparse.ArgumentParser(description="Generate HTML report from test results")
+    parser = argparse.ArgumentParser(
+        description="Generate HTML report from test results"
+    )
     parser.add_argument("results_file", help="JSON file containing test results")
     parser.add_argument(
         "-o", "--output", default="phase1_report.html", help="Output HTML file name"
@@ -523,9 +537,15 @@ def main():
     metrics = generator.generate_metrics_summary()
     print("\nTest Metrics Summary:")
     print(f"  Total Tests: {metrics['total_tests']}")
-    print(f"  Passed: {metrics['passed']} ({metrics['passed']/metrics['total_tests']*100:.1f}%)")
-    print(f"  Failed: {metrics['failed']} ({metrics['failed']/metrics['total_tests']*100:.1f}%)")
-    print(f"  Errors: {metrics['errors']} ({metrics['errors']/metrics['total_tests']*100:.1f}%)")
+    print(
+        f"  Passed: {metrics['passed']} ({metrics['passed']/metrics['total_tests']*100:.1f}%)"
+    )
+    print(
+        f"  Failed: {metrics['failed']} ({metrics['failed']/metrics['total_tests']*100:.1f}%)"
+    )
+    print(
+        f"  Errors: {metrics['errors']} ({metrics['errors']/metrics['total_tests']*100:.1f}%)"
+    )
     print(f"  Avg Execution Time: {metrics['avg_execution_time']:.3f}s")
     print(f"  Validator Agreement: {metrics['validator_agreement_rate']:.1f}%")
     print(f"  Level Set Accuracy: {metrics['level_set_accuracy']:.1f}%")

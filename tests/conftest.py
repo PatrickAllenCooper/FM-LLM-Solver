@@ -5,24 +5,26 @@ This file contains common fixtures, test utilities, and configuration
 that can be used across all test modules.
 """
 
+import logging
 import os
 import sys
-import pytest
 import tempfile
-import logging
 from pathlib import Path
 from unittest.mock import Mock, patch
+
+import pytest
 
 # Add the project root to the Python path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
+from fm_llm_solver.core.cache_manager import CacheManager
+
 # Import our modules
 from fm_llm_solver.core.config_manager import ConfigurationManager
 from fm_llm_solver.core.database_manager import DatabaseManager
-from fm_llm_solver.core.logging_manager import LoggingManager
 from fm_llm_solver.core.error_handler import ErrorHandler
-from fm_llm_solver.core.cache_manager import CacheManager
+from fm_llm_solver.core.logging_manager import LoggingManager
 from fm_llm_solver.core.monitoring import MonitoringManager
 
 
@@ -281,7 +283,11 @@ def sample_certificate():
     """Sample certificate for testing."""
     return {
         "certificate": "V(x, y) = x^2 + y^2 + 1",
-        "verification_result": {"is_valid": True, "method": "numerical", "confidence": 0.95},
+        "verification_result": {
+            "is_valid": True,
+            "method": "numerical",
+            "confidence": 0.95,
+        },
         "metadata": {
             "generation_time": 1.23,
             "model_used": "test-model",
@@ -302,8 +308,12 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "smoke: marks tests as smoke tests")
     config.addinivalue_line("markers", "web: marks tests related to web interface")
     config.addinivalue_line("markers", "api: marks tests related to API endpoints")
-    config.addinivalue_line("markers", "database: marks tests related to database functionality")
-    config.addinivalue_line("markers", "cache: marks tests related to caching functionality")
+    config.addinivalue_line(
+        "markers", "database: marks tests related to database functionality"
+    )
+    config.addinivalue_line(
+        "markers", "cache: marks tests related to caching functionality"
+    )
 
 
 # Test collection configuration
@@ -386,5 +396,9 @@ def create_test_certificate():
         "certificate": "V(x) = x^2 + 1",
         "variables": ["x"],
         "constraints": ["x >= 0"],
-        "verification_result": {"is_valid": True, "method": "symbolic", "confidence": 1.0},
+        "verification_result": {
+            "is_valid": True,
+            "method": "symbolic",
+            "confidence": 1.0,
+        },
     }

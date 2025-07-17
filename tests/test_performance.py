@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """Performance benchmarks for certificate validation pipeline"""
 
-import sys
 import os
-import time
 import statistics
+import sys
+import time
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from utils.certificate_extraction import extract_certificate_from_llm_output
 from tests.unit.test_certificate_validation_accuracy import CertificateValidationTester
+from utils.certificate_extraction import extract_certificate_from_llm_output
 
 
 def benchmark_extraction():
@@ -17,7 +17,10 @@ def benchmark_extraction():
     print("Benchmarking certificate extraction...")
 
     test_inputs = [
-        ("BARRIER_CERTIFICATE_START\nx**2 + y**2 - 1.5\nBARRIER_CERTIFICATE_END", ["x", "y"]),
+        (
+            "BARRIER_CERTIFICATE_START\nx**2 + y**2 - 1.5\nBARRIER_CERTIFICATE_END",
+            ["x", "y"],
+        ),
         ("B(x,y) = x**2 + y**2 - 1.0", ["x", "y"]),
         ("Certificate: x**2 + y**2 + z**2 - 2.0", ["x", "y", "z"]),
         ("The barrier certificate is B(x,y) = 2*x**2 + 3*y**2 - 1.5", ["x", "y"]),

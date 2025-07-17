@@ -17,8 +17,9 @@ SCRIPT_DIR = Path(__file__).parent.absolute()
 PROJECT_ROOT = SCRIPT_DIR.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from knowledge_base.document_classifier import BarrierCertificateClassifier
 from omegaconf import OmegaConf
+
+from knowledge_base.document_classifier import BarrierCertificateClassifier
 
 
 def create_test_config():
@@ -195,8 +196,8 @@ def test_filter_modes():
     cfg_exclude.knowledge_base.classification.stochastic_filter.mode = "exclude"
     classifier_exclude = BarrierCertificateClassifier(cfg_exclude)
 
-    should_include_exclude, reason_exclude, _ = classifier_exclude.should_include_document(
-        test_text, "test_exclude"
+    should_include_exclude, reason_exclude, _ = (
+        classifier_exclude.should_include_document(test_text, "test_exclude")
     )
 
     # Test include mode
@@ -204,8 +205,8 @@ def test_filter_modes():
     cfg_include.knowledge_base.classification.stochastic_filter.mode = "include"
     classifier_include = BarrierCertificateClassifier(cfg_include)
 
-    should_include_include, reason_include, _ = classifier_include.should_include_document(
-        test_text, "test_include"
+    should_include_include, reason_include, _ = (
+        classifier_include.should_include_document(test_text, "test_include")
     )
 
     print(f"Exclude mode: Include={should_include_exclude}, Reason='{reason_exclude}'")
@@ -263,20 +264,26 @@ def test_confidence_threshold():
 
     # High threshold
     cfg_high = create_test_config()
-    cfg_high.knowledge_base.classification.stochastic_filter.stochastic_confidence_threshold = 0.8
+    cfg_high.knowledge_base.classification.stochastic_filter.stochastic_confidence_threshold = (
+        0.8
+    )
     classifier_high = BarrierCertificateClassifier(cfg_high)
 
     # Low threshold
     cfg_low = create_test_config()
-    cfg_low.knowledge_base.classification.stochastic_filter.stochastic_confidence_threshold = 0.2
+    cfg_low.knowledge_base.classification.stochastic_filter.stochastic_confidence_threshold = (
+        0.2
+    )
     classifier_low = BarrierCertificateClassifier(cfg_low)
 
-    test_text = (
-        "Random stochastic noise uncertainty."  # 3 keywords, should be classified as stochastic
-    )
+    test_text = "Random stochastic noise uncertainty."  # 3 keywords, should be classified as stochastic
 
-    _, conf_high, _ = classifier_high.classify_stochastic_content(test_text, "conf_test_high")
-    _, conf_low, _ = classifier_low.classify_stochastic_content(test_text, "conf_test_low")
+    _, conf_high, _ = classifier_high.classify_stochastic_content(
+        test_text, "conf_test_high"
+    )
+    _, conf_low, _ = classifier_low.classify_stochastic_content(
+        test_text, "conf_test_low"
+    )
 
     print(f"High threshold classifier confidence: {conf_high:.3f}")
     print(f"Low threshold classifier confidence: {conf_low:.3f}")

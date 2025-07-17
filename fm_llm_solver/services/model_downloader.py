@@ -4,17 +4,17 @@ Model downloader service for FM-LLM Solver.
 Handles downloading and caching of code generation models with progress tracking.
 """
 
-import os
-import json
-import shutil
 import hashlib
-from pathlib import Path
-from typing import Dict, List, Optional, Callable, Any
+import json
+import os
+import shutil
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional
 
-from fm_llm_solver.core.logging import get_logger
 from fm_llm_solver.core.exceptions import ModelError
+from fm_llm_solver.core.logging import get_logger
 
 
 @dataclass
@@ -55,7 +55,9 @@ class ModelDownloader:
         # Progress callback
         self.progress_callback: Optional[Callable[[str, float], None]] = None
 
-        self.logger.info(f"Model downloader initialized with cache dir: {self.cache_dir}")
+        self.logger.info(
+            f"Model downloader initialized with cache dir: {self.cache_dir}"
+        )
 
     def _load_cache_info(self) -> None:
         """Load cached download information."""
@@ -64,8 +66,12 @@ class ModelDownloader:
                 with open(self.cache_info_file, "r") as f:
                     data = json.load(f)
 
-                self.download_info = {k: ModelDownloadInfo(**v) for k, v in data.items()}
-                self.logger.info(f"Loaded {len(self.download_info)} cached model entries")
+                self.download_info = {
+                    k: ModelDownloadInfo(**v) for k, v in data.items()
+                }
+                self.logger.info(
+                    f"Loaded {len(self.download_info)} cached model entries"
+                )
             except Exception as e:
                 self.logger.warning(f"Failed to load cache info: {e}")
                 self.download_info = {}
@@ -83,7 +89,9 @@ class ModelDownloader:
                     "download_url": v.download_url,
                     "cache_path": v.cache_path,
                     "downloaded": v.downloaded,
-                    "download_time": v.download_time.isoformat() if v.download_time else None,
+                    "download_time": (
+                        v.download_time.isoformat() if v.download_time else None
+                    ),
                     "checksum": v.checksum,
                 }
                 for k, v in self.download_info.items()
@@ -285,7 +293,9 @@ class ModelDownloader:
 
         # Sort models by download time (oldest first)
         downloaded_models = [
-            info for info in self.download_info.values() if info.downloaded and info.download_time
+            info
+            for info in self.download_info.values()
+            if info.downloaded and info.download_time
         ]
 
         downloaded_models.sort(key=lambda x: x.download_time or datetime.min)
@@ -330,13 +340,17 @@ class ModelDownloader:
                         safetensors_files = list(cache_path.glob("*.safetensors"))
                         model_files = list(cache_path.glob("pytorch_model-*.bin"))
                         if not safetensors_files and not model_files:
-                            self.logger.warning(f"No model weights found in {cache_path}")
+                            self.logger.warning(
+                                f"No model weights found in {cache_path}"
+                            )
                             return False
                     elif expected_file == "tokenizer.json":
                         # Some models might not have tokenizer.json
                         tokenizer_config = cache_path / "tokenizer_config.json"
                         if not tokenizer_config.exists():
-                            self.logger.warning(f"No tokenizer files found in {cache_path}")
+                            self.logger.warning(
+                                f"No tokenizer files found in {cache_path}"
+                            )
                     else:
                         self.logger.warning(
                             f"Missing expected file {expected_file} in {cache_path}"
@@ -360,9 +374,13 @@ class ModelDownloader:
                 "display_name": info.display_name,
                 "downloaded": info.downloaded,
                 "cache_path": info.cache_path,
-                "download_time": info.download_time.isoformat() if info.download_time else None,
+                "download_time": (
+                    info.download_time.isoformat() if info.download_time else None
+                ),
                 "size_gb": info.size_gb,
-                "verified": self.verify_model_integrity(model_id) if info.downloaded else False,
+                "verified": (
+                    self.verify_model_integrity(model_id) if info.downloaded else False
+                ),
             }
 
         return status

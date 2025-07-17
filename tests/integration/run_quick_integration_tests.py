@@ -16,9 +16,10 @@ def main():
     try:
         # Import lightweight components
         print("📋 Testing component imports...")
+        from unittest.mock import Mock
+
         from utils.config_loader import load_config
         from web_interface.verification_service import VerificationService
-        from unittest.mock import Mock
 
         # Test 1: Configuration Loading
         print("🔧 Testing configuration loading...")
@@ -79,18 +80,25 @@ BARRIER_CERTIFICATE_END"""
 
                 extracted = cert_gen.extract_certificate_from_output(test_output)
                 extraction_success = extracted is not None
-                print(f"   ✅ Certificate extraction: {'PASS' if extraction_success else 'FAIL'}")
+                print(
+                    f"   ✅ Certificate extraction: {'PASS' if extraction_success else 'FAIL'}"
+                )
 
                 # Test template detection
                 template_output = """BARRIER_CERTIFICATE_START
 B(x, y) = ax**2 + bxy + cy**2 + dx + ey + f
 BARRIER_CERTIFICATE_END"""
 
-                template_extracted = cert_gen.extract_certificate_from_output(template_output)
-                template_rejected = template_extracted is None or cert_gen._is_template_expression(
-                    template_extracted
+                template_extracted = cert_gen.extract_certificate_from_output(
+                    template_output
                 )
-                print(f"   ✅ Template rejection: {'PASS' if template_rejected else 'FAIL'}")
+                template_rejected = (
+                    template_extracted is None
+                    or cert_gen._is_template_expression(template_extracted)
+                )
+                print(
+                    f"   ✅ Template rejection: {'PASS' if template_rejected else 'FAIL'}"
+                )
 
             except Exception as e:
                 extraction_success = False
@@ -112,9 +120,13 @@ BARRIER_CERTIFICATE_END"""
             )
 
             verification_success = (
-                result is not None and isinstance(result, dict) and "overall_success" in result
+                result is not None
+                and isinstance(result, dict)
+                and "overall_success" in result
             )
-            print(f"   ✅ Verification workflow: {'PASS' if verification_success else 'FAIL'}")
+            print(
+                f"   ✅ Verification workflow: {'PASS' if verification_success else 'FAIL'}"
+            )
 
         except Exception as e:
             verification_success = False

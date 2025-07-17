@@ -9,30 +9,29 @@ import asyncio
 import os
 from contextlib import asynccontextmanager, contextmanager
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union, AsyncGenerator
+from typing import Any, AsyncGenerator, Dict, List, Optional, Union
 
 try:
     import psycopg2
-    from psycopg2 import pool
-    from sqlalchemy import (
-        create_engine,
-        text,
-        MetaData,
-    )
-    from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-    from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
-    from sqlalchemy.pool import QueuePool
     from alembic import command
     from alembic.config import Config
+    from psycopg2 import pool
+    from sqlalchemy import MetaData, create_engine, text
+    from sqlalchemy.ext.asyncio import (
+        AsyncSession,
+        async_sessionmaker,
+        create_async_engine,
+    )
+    from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+    from sqlalchemy.pool import QueuePool
 
     HAS_POSTGRES = True
 except ImportError:
     HAS_POSTGRES = False
 
 from .config_manager import ConfigurationManager
-from .logging_manager import get_logger
 from .exceptions import DatabaseError
-
+from .logging_manager import get_logger
 
 # Define Base class only if SQLAlchemy is available
 if HAS_POSTGRES:
@@ -61,7 +60,9 @@ class DatabaseManager:
     """
 
     def __init__(
-        self, config_manager: Optional[ConfigurationManager] = None, db_name: str = "primary"
+        self,
+        config_manager: Optional[ConfigurationManager] = None,
+        db_name: str = "primary",
     ):
         """
         Initialize database manager.
@@ -168,7 +169,9 @@ class DatabaseManager:
             return
 
         if not HAS_POSTGRES:
-            self.logger.warning("PostgreSQL dependencies not installed, using fallback mode")
+            self.logger.warning(
+                "PostgreSQL dependencies not installed, using fallback mode"
+            )
             self._initialized = True
             return
 
@@ -205,12 +208,16 @@ class DatabaseManager:
 
         # Async engine
         self._async_engine = create_async_engine(
-            self.async_connection_string, echo=self.db_config.get("echo", False), **pool_config
+            self.async_connection_string,
+            echo=self.db_config.get("echo", False),
+            **pool_config,
         )
 
         # Sync engine
         self._sync_engine = create_engine(
-            self.connection_string, echo=self.db_config.get("echo", False), **pool_config
+            self.connection_string,
+            echo=self.db_config.get("echo", False),
+            **pool_config,
         )
 
         # Session makers

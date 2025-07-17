@@ -5,14 +5,14 @@ Provides Prometheus metrics, health checks, performance monitoring,
 and system observability features.
 """
 
-import time
 import threading
-from datetime import datetime, timedelta
-from typing import Dict, Any, List, Optional, Callable
-from dataclasses import dataclass, field
-from contextlib import contextmanager
+import time
 from collections import defaultdict, deque
+from contextlib import contextmanager
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
 from enum import Enum
+from typing import Any, Callable, Dict, List, Optional
 
 try:
     import psutil
@@ -23,23 +23,23 @@ except ImportError:
 
 try:
     from prometheus_client import (
-        Counter,
-        Histogram,
-        Gauge,
-        Info,
-        CollectorRegistry,
-        generate_latest,
         CONTENT_TYPE_LATEST,
+        CollectorRegistry,
+        Counter,
+        Gauge,
+        Histogram,
+        Info,
+        generate_latest,
     )
 
     HAS_PROMETHEUS = True
 except ImportError:
     HAS_PROMETHEUS = False
 
-from .config_manager import ConfigurationManager
-from .logging_manager import get_logger
-from .database_manager import get_database_manager
 from .cache_manager import get_cache_manager
+from .config_manager import ConfigurationManager
+from .database_manager import get_database_manager
+from .logging_manager import get_logger
 
 
 class HealthStatus(Enum):
@@ -110,7 +110,9 @@ class MetricsCollector:
             self._setup_prometheus_metrics()
 
         # Performance tracking
-        self.request_durations: Dict[str, deque] = defaultdict(lambda: deque(maxlen=100))
+        self.request_durations: Dict[str, deque] = defaultdict(
+            lambda: deque(maxlen=100)
+        )
         self.error_counts: Dict[str, int] = defaultdict(int)
 
         # System monitoring
@@ -217,7 +219,9 @@ class MetricsCollector:
         )
 
         # Application info
-        self.app_info = Info("fm_llm_app_info", "Application information", registry=self.registry)
+        self.app_info = Info(
+            "fm_llm_app_info", "Application information", registry=self.registry
+        )
 
         # Set application info
         try:
@@ -232,16 +236,18 @@ class MetricsCollector:
         except Exception as e:
             self.logger.warning(f"Failed to set app info: {e}")
 
-    def record_http_request(self, method: str, endpoint: str, status_code: int, duration: float):
+    def record_http_request(
+        self, method: str, endpoint: str, status_code: int, duration: float
+    ):
         """Record HTTP request metrics."""
         if HAS_PROMETHEUS:
             self.http_requests_total.labels(
                 method=method, endpoint=endpoint, status_code=str(status_code)
             ).inc()
 
-            self.http_request_duration_seconds.labels(method=method, endpoint=endpoint).observe(
-                duration
-            )
+            self.http_request_duration_seconds.labels(
+                method=method, endpoint=endpoint
+            ).observe(duration)
 
         # Store in custom metrics
         self.request_durations[endpoint].append(duration)
@@ -250,7 +256,11 @@ class MetricsCollector:
             self.error_counts[f"{method}:{endpoint}"] += 1
 
     def record_model_operation(
-        self, operation: str, model_name: str, status: str, duration: Optional[float] = None
+        self,
+        operation: str,
+        model_name: str,
+        status: str,
+        duration: Optional[float] = None,
     ):
         """Record model operation metrics."""
         if HAS_PROMETHEUS:
@@ -295,7 +305,9 @@ class MetricsCollector:
         if HAS_PROMETHEUS:
             self.active_users.set(count)
 
-    def record_custom_metric(self, name: str, value: float, tags: Optional[Dict[str, str]] = None):
+    def record_custom_metric(
+        self, name: str, value: float, tags: Optional[Dict[str, str]] = None
+    ):
         """Record custom metric."""
         metric = PerformanceMetric(
             name=name, value=value, timestamp=datetime.utcnow(), tags=tags or {}
@@ -306,7 +318,9 @@ class MetricsCollector:
 
         # Keep only last 24 hours of custom metrics
         cutoff = datetime.utcnow() - timedelta(hours=24)
-        self.custom_metrics[name] = [m for m in self.custom_metrics[name] if m.timestamp > cutoff]
+        self.custom_metrics[name] = [
+            m for m in self.custom_metrics[name] if m.timestamp > cutoff
+        ]
 
     def update_system_metrics(self):
         """Update system resource metrics."""
@@ -477,7 +491,10 @@ class HealthMonitor:
                 return {
                     "status": status,
                     "warnings": warnings,
-                    "details": {"cpu_percent": cpu_percent, "memory_percent": memory.percent},
+                    "details": {
+                        "cpu_percent": cpu_percent,
+                        "memory_percent": memory.percent,
+                    },
                 }
             except Exception as e:
                 return {"status": HealthStatus.UNHEALTHY, "error": str(e)}
@@ -491,16 +508,22 @@ class HealthMonitor:
             }
 
         # Register health checks
-        self.register_health_check("database", database_health_check, interval=30, critical=True)
+        self.register_health_check(
+            "database", database_health_check, interval=30, critical=True
+        )
 
-        self.register_health_check("cache", cache_health_check, interval=60, critical=False)
+        self.register_health_check(
+            "cache", cache_health_check, interval=60, critical=False
+        )
 
         if HAS_PSUTIL:
             self.register_health_check(
                 "system_resources", system_resources_check, interval=30, critical=False
             )
 
-        self.register_health_check("basic", basic_health_check, interval=30, critical=True)
+        self.register_health_check(
+            "basic", basic_health_check, interval=30, critical=True
+        )
 
     def register_health_check(
         self,
@@ -512,7 +535,11 @@ class HealthMonitor:
     ):
         """Register a health check."""
         health_check = HealthCheck(
-            name=name, check_func=check_func, interval=interval, timeout=timeout, critical=critical
+            name=name,
+            check_func=check_func,
+            interval=interval,
+            timeout=timeout,
+            critical=critical,
         )
 
         self.health_checks[name] = health_check
@@ -521,7 +548,10 @@ class HealthMonitor:
     def run_health_check(self, name: str) -> Dict[str, Any]:
         """Run a specific health check."""
         if name not in self.health_checks:
-            return {"status": HealthStatus.UNKNOWN, "error": f"Health check not found: {name}"}
+            return {
+                "status": HealthStatus.UNKNOWN,
+                "error": f"Health check not found: {name}",
+            }
 
         health_check = self.health_checks[name]
         start_time = time.time()
@@ -597,7 +627,10 @@ class HealthMonitor:
                     critical_failures.append(name)
                 elif overall_status == HealthStatus.HEALTHY:
                     overall_status = HealthStatus.DEGRADED
-            elif status == HealthStatus.DEGRADED and overall_status == HealthStatus.HEALTHY:
+            elif (
+                status == HealthStatus.DEGRADED
+                and overall_status == HealthStatus.HEALTHY
+            ):
                 overall_status = HealthStatus.DEGRADED
 
         return {
@@ -626,7 +659,10 @@ class HealthMonitor:
 
         for name, health_check in self.health_checks.items():
             if health_check.last_check:
-                if latest_check_time is None or health_check.last_check > latest_check_time:
+                if (
+                    latest_check_time is None
+                    or health_check.last_check > latest_check_time
+                ):
                     latest_check_time = health_check.last_check
 
                 if health_check.last_status == HealthStatus.HEALTHY:
@@ -646,7 +682,9 @@ class HealthMonitor:
         summary["healthy_checks"] = healthy_count
         summary["degraded_checks"] = degraded_count
         summary["unhealthy_checks"] = unhealthy_count
-        summary["last_check_time"] = latest_check_time.isoformat() if latest_check_time else None
+        summary["last_check_time"] = (
+            latest_check_time.isoformat() if latest_check_time else None
+        )
 
         # Determine overall status
         if unhealthy_count > 0:
@@ -691,7 +729,9 @@ class MonitoringManager:
             return
 
         self.monitoring_active = True
-        self.monitoring_thread = threading.Thread(target=self._monitoring_loop, daemon=True)
+        self.monitoring_thread = threading.Thread(
+            target=self._monitoring_loop, daemon=True
+        )
         self.monitoring_thread.start()
         self.logger.info("Background monitoring started")
 
@@ -728,7 +768,9 @@ class MonitoringManager:
                 time.sleep(30)  # Wait longer on error
 
     @contextmanager
-    def measure_operation(self, operation_name: str, tags: Optional[Dict[str, str]] = None):
+    def measure_operation(
+        self, operation_name: str, tags: Optional[Dict[str, str]] = None
+    ):
         """Context manager to measure operation duration."""
         start_time = time.time()
         try:

@@ -4,12 +4,13 @@ Configuration management for FM-LLM Solver.
 Handles loading, validation, and access to configuration settings.
 """
 
+import json
 import os
 from pathlib import Path
-from typing import Dict, Any, Optional, List, Union
+from typing import Any, Dict, List, Optional, Union
+
 import yaml
-from pydantic import BaseModel, Field, field_validator, ConfigDict
-import json
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from fm_llm_solver.core.exceptions import ConfigurationError
 
@@ -17,7 +18,9 @@ from fm_llm_solver.core.exceptions import ConfigurationError
 class PathConfig(BaseModel):
     """Path configuration."""
 
-    kb_output_dir: str = Field(default="kb_data", description="Knowledge base output directory")
+    kb_output_dir: str = Field(
+        default="kb_data", description="Knowledge base output directory"
+    )
     fetched_papers_dir: str = Field(
         default="data/fetched_papers", description="Fetched papers directory"
     )
@@ -39,14 +42,22 @@ class ModelConfig(BaseModel):
 
     provider: str = Field(default="qwen", description="Model provider")
     name: str = Field(default="Qwen/Qwen2.5-14B-Instruct", description="Model name")
-    use_finetuned: bool = Field(default=True, description="Use fine-tuned model if available")
-    quantization: Optional[str] = Field(default=None, description="Quantization type (4bit, 8bit)")
+    use_finetuned: bool = Field(
+        default=True, description="Use fine-tuned model if available"
+    )
+    quantization: Optional[str] = Field(
+        default=None, description="Quantization type (4bit, 8bit)"
+    )
     device: str = Field(default="cuda", description="Device to use")
     device_map: str = Field(default="auto", description="Device mapping strategy")
     torch_dtype: str = Field(default="auto", description="Torch data type")
     use_flash_attention: bool = Field(default=True, description="Use flash attention")
-    use_gradient_checkpointing: bool = Field(default=True, description="Use gradient checkpointing")
-    temperature: float = Field(default=0.7, ge=0.0, le=2.0, description="Generation temperature")
+    use_gradient_checkpointing: bool = Field(
+        default=True, description="Use gradient checkpointing"
+    )
+    temperature: float = Field(
+        default=0.7, ge=0.0, le=2.0, description="Generation temperature"
+    )
     max_new_tokens: int = Field(default=1024, ge=1, description="Maximum new tokens")
     top_p: float = Field(default=0.9, ge=0.0, le=1.0, description="Top-p sampling")
 
@@ -63,12 +74,18 @@ class RAGConfig(BaseModel):
     """RAG configuration."""
 
     enabled: bool = Field(default=True, description="Enable RAG")
-    k_retrieved: int = Field(default=3, ge=1, description="Number of documents to retrieve")
-    chunk_size: int = Field(default=1000, ge=100, description="Chunk size for documents")
+    k_retrieved: int = Field(
+        default=3, ge=1, description="Number of documents to retrieve"
+    )
+    chunk_size: int = Field(
+        default=1000, ge=100, description="Chunk size for documents"
+    )
     chunk_overlap: int = Field(default=200, ge=0, description="Chunk overlap")
     embedding_model: str = Field(default="sentence-transformers/all-MiniLM-L6-v2")
     rerank: bool = Field(default=False, description="Enable reranking")
-    min_score: float = Field(default=0.5, ge=0.0, le=1.0, description="Minimum similarity score")
+    min_score: float = Field(
+        default=0.5, ge=0.0, le=1.0, description="Minimum similarity score"
+    )
 
 
 class TrainingConfig(BaseModel):
@@ -117,8 +134,12 @@ class SOSVerificationConfig(BaseModel):
 class VerificationConfig(BaseModel):
     """Verification configuration."""
 
-    numerical: NumericalVerificationConfig = Field(default_factory=NumericalVerificationConfig)
-    symbolic: SymbolicVerificationConfig = Field(default_factory=SymbolicVerificationConfig)
+    numerical: NumericalVerificationConfig = Field(
+        default_factory=NumericalVerificationConfig
+    )
+    symbolic: SymbolicVerificationConfig = Field(
+        default_factory=SymbolicVerificationConfig
+    )
     sos: SOSVerificationConfig = Field(default_factory=SOSVerificationConfig)
     methods: List[str] = Field(default=["numerical", "symbolic"])
 
@@ -234,7 +255,8 @@ class Config(BaseModel):
 
 
 def load_config(
-    config_path: Optional[Union[str, Path]] = None, overrides: Optional[Dict[str, Any]] = None
+    config_path: Optional[Union[str, Path]] = None,
+    overrides: Optional[Dict[str, Any]] = None,
 ) -> Config:
     """
     Load configuration from file and environment.
@@ -265,7 +287,9 @@ def load_config(
                 elif config_path.suffix == ".json":
                     config_dict = json.load(f)
                 else:
-                    raise ConfigurationError(f"Unsupported config format: {config_path.suffix}")
+                    raise ConfigurationError(
+                        f"Unsupported config format: {config_path.suffix}"
+                    )
         except Exception as e:
             raise ConfigurationError(f"Failed to load config from {config_path}: {e}")
 

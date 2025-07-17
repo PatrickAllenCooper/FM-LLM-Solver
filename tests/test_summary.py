@@ -6,9 +6,9 @@ Test Summary - Clean overview of testing status
 Provides a simple, clean summary of all test results and system status.
 """
 
+import json
 import os
 import sys
-import json
 from pathlib import Path
 from typing import Dict
 
@@ -38,6 +38,7 @@ def load_test_results() -> Dict:
 def check_system_status() -> Dict:
     """Check current system status"""
     import platform
+
     import psutil
 
     status = {
@@ -56,7 +57,9 @@ def check_system_status() -> Dict:
         if torch.cuda.is_available():
             status["gpu_available"] = True
             status["gpu_name"] = torch.cuda.get_device_name(0)
-            status["gpu_memory_gb"] = torch.cuda.get_device_properties(0).total_memory / (1024**3)
+            status["gpu_memory_gb"] = torch.cuda.get_device_properties(
+                0
+            ).total_memory / (1024**3)
     except ImportError:
         pass
 
@@ -97,7 +100,11 @@ def generate_summary() -> str:
 
             if "success_rate" in result:
                 rate = result["success_rate"]
-                status = "✅ PASS" if rate >= 0.8 else "⚠️ PARTIAL" if rate >= 0.6 else "❌ FAIL"
+                status = (
+                    "✅ PASS"
+                    if rate >= 0.8
+                    else "⚠️ PARTIAL" if rate >= 0.6 else "❌ FAIL"
+                )
                 summary.append(f"  {test_name}: {status} ({rate:.1%})")
 
             if "total_tests" in result and "passed_tests" in result:
@@ -138,7 +145,9 @@ def generate_summary() -> str:
         if system_status["gpu_available"]
         else "  • CPU-only mode available"
     )
-    summary.append("  • Run comprehensive tests with: python tests/unified_test_suite.py")
+    summary.append(
+        "  • Run comprehensive tests with: python tests/unified_test_suite.py"
+    )
 
     return "\n".join(summary)
 

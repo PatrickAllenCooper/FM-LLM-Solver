@@ -10,24 +10,25 @@ Deep analysis of every web interface element:
 5. Cross-component consistency verification
 """
 
-import sys
-import time
 import json
 import logging
-import numpy as np
+import sys
+import time
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Dict, List, Any, Optional
-from dataclasses import dataclass, asdict
+from typing import Any, Dict, List, Optional
 from unittest.mock import Mock
+
+import numpy as np
 
 # Add project root to path
 PROJECT_ROOT = Path(__file__).parent.parent.absolute()
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from utils.config_loader import load_config
-from web_interface.verification_service import VerificationService
-from web_interface.certificate_generator import CertificateGenerator
 from inference.generate_certificate import format_prompt_with_context
+from utils.config_loader import load_config
+from web_interface.certificate_generator import CertificateGenerator
+from web_interface.verification_service import VerificationService
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +99,9 @@ class ComprehensiveWebInterfaceInterrogator:
             # Create minimal mock to test parsing without loading full models
             mock_config = Mock()
             mock_config.fine_tuning = Mock()
-            mock_config.fine_tuning.base_model_name = "Qwen/Qwen2.5-7B-Instruct"  # Actual model
+            mock_config.fine_tuning.base_model_name = (
+                "Qwen/Qwen2.5-7B-Instruct"  # Actual model
+            )
             mock_config.paths = Mock()
             mock_config.paths.ft_output_dir = "/mock/path"
             mock_config.knowledge_base = Mock()
@@ -108,7 +111,9 @@ class ComprehensiveWebInterfaceInterrogator:
             mock_config.inference.temperature = 0.1
             mock_config.inference.top_p = 0.9
 
-            self.certificate_generator = CertificateGenerator.__new__(CertificateGenerator)
+            self.certificate_generator = CertificateGenerator.__new__(
+                CertificateGenerator
+            )
             self.certificate_generator.config = mock_config
             self.certificate_generator.models = {}
             self.certificate_generator.knowledge_bases = {}
@@ -202,7 +207,9 @@ Unsafe Set: x >= 1 or y >= 1""",
                 # Calculate consistency score
                 expected_result = cert_info["theoretical_result"]
                 results = [
-                    r for r in [sos_result, numerical_result, symbolic_result] if r is not None
+                    r
+                    for r in [sos_result, numerical_result, symbolic_result]
+                    if r is not None
                 ]
 
                 if len(results) > 1:
@@ -250,12 +257,18 @@ Unsafe Set: x >= 1 or y >= 1""",
                 )
 
                 status = (
-                    "✅" if consistency_score >= 0.8 else "⚠️" if consistency_score >= 0.5 else "❌"
+                    "✅"
+                    if consistency_score >= 0.8
+                    else "⚠️" if consistency_score >= 0.5 else "❌"
                 )
-                logger.info(f"   {status} {cert_info['name']}: Consistency {consistency_score:.1%}")
+                logger.info(
+                    f"   {status} {cert_info['name']}: Consistency {consistency_score:.1%}"
+                )
 
             except Exception as e:
-                logger.error(f"   ❌ {cert_info['name']}: Verification failed - {str(e)}")
+                logger.error(
+                    f"   ❌ {cert_info['name']}: Verification failed - {str(e)}"
+                )
                 consistency_results.append(
                     VerificationConsistencyResult(
                         certificate=cert_info["certificate"],
@@ -307,7 +320,10 @@ Domain: x ∈ [-3, 3], y ∈ [-3, 3]""",
 
                 # Test prompt generation
                 prompt = format_prompt_with_context(
-                    system_info["description"], context, barrier_type, system_info["domain_bounds"]
+                    system_info["description"],
+                    context,
+                    barrier_type,
+                    system_info["domain_bounds"],
                 )
 
                 # Analyze Qwen-specific optimizations
@@ -353,7 +369,9 @@ Domain: x ∈ [-3, 3], y ∈ [-3, 3]""",
                 )
 
             except Exception as e:
-                logger.error(f"   ❌ {system_info['name']}: Prompt analysis failed - {str(e)}")
+                logger.error(
+                    f"   ❌ {system_info['name']}: Prompt analysis failed - {str(e)}"
+                )
 
         return analyses
 
@@ -433,8 +451,8 @@ BARRIER_CERTIFICATE_END""",
                 # Test template detection
                 template_detected = False
                 if extracted:
-                    template_detected = self.certificate_generator._is_template_expression(
-                        extracted
+                    template_detected = (
+                        self.certificate_generator._is_template_expression(extracted)
                     )
                     if template_detected:
                         extracted = None  # Should be rejected
@@ -468,7 +486,9 @@ BARRIER_CERTIFICATE_END""",
 
                         variables = [sympy.Symbol("x"), sympy.Symbol("y")]
                         local_dict = {var.name: var for var in variables}
-                        symbolic_expr = sympy.parse_expr(extracted, local_dict=local_dict)
+                        symbolic_expr = sympy.parse_expr(
+                            extracted, local_dict=local_dict
+                        )
                         symbolic_representation = str(symbolic_expr)
                     except Exception as e:
                         syntax_errors.append(f"Symbolic parsing error: {str(e)}")
@@ -494,9 +514,13 @@ BARRIER_CERTIFICATE_END""",
                 )
 
                 status = (
-                    "✅" if confidence_score >= 0.8 else "⚠️" if confidence_score >= 0.5 else "❌"
+                    "✅"
+                    if confidence_score >= 0.8
+                    else "⚠️" if confidence_score >= 0.5 else "❌"
                 )
-                logger.info(f"   {status} {test['name']}: Confidence {confidence_score:.1%}")
+                logger.info(
+                    f"   {status} {test['name']}: Confidence {confidence_score:.1%}"
+                )
 
             except Exception as e:
                 logger.error(f"   ❌ {test['name']}: Parsing test failed - {str(e)}")
@@ -528,8 +552,12 @@ Unsafe Set: x**2 + y**2 >= 4.0"""
 
         try:
             # Test 1: System parsing consistency
-            parsed_system1 = self.verification_service.parse_system_description(test_system)
-            parsed_system2 = self.verification_service.parse_system_description(test_system)
+            parsed_system1 = self.verification_service.parse_system_description(
+                test_system
+            )
+            parsed_system2 = self.verification_service.parse_system_description(
+                test_system
+            )
 
             parsing_consistent = parsed_system1.get("variables") == parsed_system2.get(
                 "variables"
@@ -545,8 +573,12 @@ Unsafe Set: x**2 + y**2 >= 4.0"""
 
             # Test 3: Certificate cleaning consistency
             test_cert_dirty = "x**2 + y**2 \\]"
-            cleaned1 = self.verification_service._clean_certificate_string(test_cert_dirty)
-            cleaned2 = self.verification_service._clean_certificate_string(test_cert_dirty)
+            cleaned1 = self.verification_service._clean_certificate_string(
+                test_cert_dirty
+            )
+            cleaned2 = self.verification_service._clean_certificate_string(
+                test_cert_dirty
+            )
 
             cleaning_consistent = cleaned1 == cleaned2
             consistency_checks["certificate_cleaning"] = cleaning_consistent
@@ -565,9 +597,13 @@ Unsafe Set: x**2 + y**2 >= 4.0"""
             )
 
             # Check if main results are consistent (allowing for numerical sampling variation)
-            verification_consistent = verification1.get("overall_success") == verification2.get(
+            verification_consistent = verification1.get(
                 "overall_success"
-            ) and verification1.get("sos_passed") == verification2.get("sos_passed")
+            ) == verification2.get("overall_success") and verification1.get(
+                "sos_passed"
+            ) == verification2.get(
+                "sos_passed"
+            )
             consistency_checks["verification_determinism"] = verification_consistent
 
             # Test 5: Certificate generator parsing consistency
@@ -576,8 +612,12 @@ Unsafe Set: x**2 + y**2 >= 4.0"""
 B(x, y) = x**2 + y**2
 BARRIER_CERTIFICATE_END"""
 
-            extracted1 = self.certificate_generator.extract_certificate_from_output(test_output)
-            extracted2 = self.certificate_generator.extract_certificate_from_output(test_output)
+            extracted1 = self.certificate_generator.extract_certificate_from_output(
+                test_output
+            )
+            extracted2 = self.certificate_generator.extract_certificate_from_output(
+                test_output
+            )
 
             extraction_consistent = extracted1 == extracted2
             consistency_checks["certificate_extraction"] = extraction_consistent
@@ -641,14 +681,20 @@ BARRIER_CERTIFICATE_END"""
             report["summary"]["verification_consistency"] = {
                 "average_consistency": avg_consistency,
                 "tests_run": len(verification_results),
-                "high_consistency_count": sum(1 for s in consistency_scores if s >= 0.8),
+                "high_consistency_count": sum(
+                    1 for s in consistency_scores if s >= 0.8
+                ),
             }
 
         # Analyze LLM prompting
         llm_analysis = self.results["llm_prompt_analysis"]
         if llm_analysis:
-            total_optimizations = sum(len(a.qwen_specific_optimizations) for a in llm_analysis)
-            avg_optimizations = total_optimizations / len(llm_analysis) if llm_analysis else 0
+            total_optimizations = sum(
+                len(a.qwen_specific_optimizations) for a in llm_analysis
+            )
+            avg_optimizations = (
+                total_optimizations / len(llm_analysis) if llm_analysis else 0
+            )
             report["summary"]["llm_prompting"] = {
                 "average_qwen_optimizations": avg_optimizations,
                 "prompt_analyses_run": len(llm_analysis),
@@ -671,24 +717,34 @@ BARRIER_CERTIFICATE_END"""
         # Analyze cross-component consistency
         cross_component = self.results["cross_component_consistency"]
         if cross_component:
-            consistent_components = sum(1 for v in cross_component.values() if v is True)
-            total_components = len([v for v in cross_component.values() if isinstance(v, bool)])
+            consistent_components = sum(
+                1 for v in cross_component.values() if v is True
+            )
+            total_components = len(
+                [v for v in cross_component.values() if isinstance(v, bool)]
+            )
             report["summary"]["cross_component_consistency"] = {
                 "consistent_components": consistent_components,
                 "total_components": total_components,
                 "consistency_rate": (
-                    consistent_components / total_components if total_components > 0 else 0
+                    consistent_components / total_components
+                    if total_components > 0
+                    else 0
                 ),
             }
 
         # Generate overall assessment
         scores = []
         if "verification_consistency" in report["summary"]:
-            scores.append(report["summary"]["verification_consistency"]["average_consistency"])
+            scores.append(
+                report["summary"]["verification_consistency"]["average_consistency"]
+            )
         if "parsing_accuracy" in report["summary"]:
             scores.append(report["summary"]["parsing_accuracy"]["average_confidence"])
         if "cross_component_consistency" in report["summary"]:
-            scores.append(report["summary"]["cross_component_consistency"]["consistency_rate"])
+            scores.append(
+                report["summary"]["cross_component_consistency"]["consistency_rate"]
+            )
 
         overall_score = np.mean(scores) if scores else 0.0
 
@@ -745,11 +801,15 @@ def main():
         if "verification_consistency" in summary:
             vc = summary["verification_consistency"]
             print(f"\n🔍 Verification Consistency: {vc['average_consistency']:.1%}")
-            print(f"   High consistency: {vc['high_consistency_count']}/{vc['tests_run']} tests")
+            print(
+                f"   High consistency: {vc['high_consistency_count']}/{vc['tests_run']} tests"
+            )
 
         if "llm_prompting" in summary:
             lp = summary["llm_prompting"]
-            print(f"\n🤖 LLM Prompting: {lp['average_qwen_optimizations']:.1f} avg optimizations")
+            print(
+                f"\n🤖 LLM Prompting: {lp['average_qwen_optimizations']:.1f} avg optimizations"
+            )
             print(
                 f"   Domain bounds integration: {lp['domain_bounds_integration']}/{lp['prompt_analyses_run']} prompts"
             )
@@ -757,7 +817,9 @@ def main():
         if "parsing_accuracy" in summary:
             pa = summary["parsing_accuracy"]
             print(f"\n📝 Parsing Accuracy: {pa['average_confidence']:.1%}")
-            print(f"   High confidence: {pa['high_confidence_count']}/{pa['tests_run']} tests")
+            print(
+                f"   High confidence: {pa['high_confidence_count']}/{pa['tests_run']} tests"
+            )
 
         if "cross_component_consistency" in summary:
             cc = summary["cross_component_consistency"]

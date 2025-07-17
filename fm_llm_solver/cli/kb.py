@@ -4,10 +4,11 @@ Knowledge base CLI commands for FM-LLM Solver.
 Replaces the scattered scripts in scripts/knowledge_base/ with a unified interface.
 """
 
-import click
 import time
 from pathlib import Path
 from typing import Optional
+
+import click
 
 from fm_llm_solver.core.logging import get_logger
 
@@ -18,8 +19,12 @@ def kb():
 
 
 @kb.command()
-@click.option("--pdf-dir", type=click.Path(exists=True), help="Directory containing PDF files")
-@click.option("--output-dir", type=click.Path(), help="Output directory for knowledge base")
+@click.option(
+    "--pdf-dir", type=click.Path(exists=True), help="Directory containing PDF files"
+)
+@click.option(
+    "--output-dir", type=click.Path(), help="Output directory for knowledge base"
+)
 @click.option("--force", is_flag=True, help="Force rebuild even if KB exists")
 @click.option("--batch-size", default=3, help="Number of PDFs to process in each batch")
 @click.option("--use-mathpix", is_flag=True, help="Use Mathpix for PDF processing")
@@ -89,7 +94,9 @@ def build(
         # Show stats
         kb_files = list(output_dir.glob("*.faiss"))
         total_size = sum(f.stat().st_size for f in kb_files) / (1024**2)
-        click.echo(f"📊 Created {len(kb_files)} index files ({total_size:.1f} MB total)")
+        click.echo(
+            f"📊 Created {len(kb_files)} index files ({total_size:.1f} MB total)"
+        )
 
     except Exception as e:
         logger.error(f"Knowledge base build failed: {e}")
@@ -156,8 +163,12 @@ def _build_open_source(pdf_files, output_dir, batch_size, cpu_only, logger):
                 doc.close()
 
                 if text.strip():
-                    documents.append({"content": text, "metadata": {"source": pdf_file.name}})
-                    logger.debug(f"Extracted text from {pdf_file.name} ({len(text)} chars)")
+                    documents.append(
+                        {"content": text, "metadata": {"source": pdf_file.name}}
+                    )
+                    logger.debug(
+                        f"Extracted text from {pdf_file.name} ({len(text)} chars)"
+                    )
 
             except Exception as e:
                 logger.warning(f"Failed to process {pdf_file.name}: {e}")
@@ -235,7 +246,9 @@ def _build_open_source(pdf_files, output_dir, batch_size, cpu_only, logger):
 
 
 @kb.command()
-@click.option("--kb-path", type=click.Path(exists=True), help="Path to knowledge base directory")
+@click.option(
+    "--kb-path", type=click.Path(exists=True), help="Path to knowledge base directory"
+)
 @click.pass_context
 def info(ctx, kb_path: Optional[str]):
     """Show knowledge base information."""
@@ -293,7 +306,9 @@ def info(ctx, kb_path: Optional[str]):
 @kb.command()
 @click.argument("query")
 @click.option("--k", default=5, help="Number of results to return")
-@click.option("--kb-path", type=click.Path(exists=True), help="Path to knowledge base directory")
+@click.option(
+    "--kb-path", type=click.Path(exists=True), help="Path to knowledge base directory"
+)
 @click.pass_context
 def search(ctx, query: str, k: int, kb_path: Optional[str]):
     """Search the knowledge base for relevant documents."""
@@ -308,8 +323,9 @@ def search(ctx, query: str, k: int, kb_path: Optional[str]):
 
     try:
         # Load index and metadata
-        import faiss
         import json
+
+        import faiss
         from sentence_transformers import SentenceTransformer
 
         index_path = kb_path / "knowledge_base.faiss"
@@ -361,7 +377,9 @@ def search(ctx, query: str, k: int, kb_path: Optional[str]):
 
 
 @kb.command()
-@click.option("--kb-path", type=click.Path(exists=True), help="Path to knowledge base directory")
+@click.option(
+    "--kb-path", type=click.Path(exists=True), help="Path to knowledge base directory"
+)
 @click.confirmation_option(prompt="Are you sure you want to delete the knowledge base?")
 @click.pass_context
 def clean(ctx, kb_path: Optional[str]):

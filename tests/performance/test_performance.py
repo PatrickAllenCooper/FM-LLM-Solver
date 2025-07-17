@@ -4,10 +4,11 @@ Performance tests for FM-LLM-Solver components.
 Tests system performance under load and measures response times.
 """
 
-import time
-import pytest
 import concurrent.futures
+import time
 from unittest.mock import Mock, patch
+
+import pytest
 
 from fm_llm_solver.core.cache_manager import CacheManager
 from fm_llm_solver.core.monitoring import MonitoringManager
@@ -72,7 +73,9 @@ class TestPerformance:
         start_time = time.time()
         with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
             futures = [executor.submit(cache_operations, i) for i in range(10)]
-            results = [future.result() for future in concurrent.futures.as_completed(futures)]
+            results = [
+                future.result() for future in concurrent.futures.as_completed(futures)
+            ]
 
         total_time = time.time() - start_time
 
@@ -103,7 +106,9 @@ class TestPerformance:
         metrics = monitoring_manager.get_metrics()
         retrieval_time = time.time() - start_time
 
-        assert retrieval_time < 0.5, f"Metric retrieval took too long: {retrieval_time}s"
+        assert (
+            retrieval_time < 0.5
+        ), f"Metric retrieval took too long: {retrieval_time}s"
         assert len(metrics) > 0
 
     @pytest.mark.slow
@@ -143,8 +148,9 @@ class TestPerformance:
 
     def test_memory_usage(self, performance_config_manager):
         """Test memory usage under load."""
-        import psutil
         import os
+
+        import psutil
 
         process = psutil.Process(os.getpid())
         initial_memory = process.memory_info().rss
@@ -226,7 +232,10 @@ class TestLoadTesting:
             start_time = time.time()
             with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
                 futures = [executor.submit(generate_certificate, i) for i in range(20)]
-                results = [future.result() for future in concurrent.futures.as_completed(futures)]
+                results = [
+                    future.result()
+                    for future in concurrent.futures.as_completed(futures)
+                ]
 
             total_time = time.time() - start_time
 
@@ -237,12 +246,15 @@ class TestLoadTesting:
             assert total_time < 10.0, f"Load test took too long: {total_time}s"
 
     @pytest.mark.slow
-    @pytest.mark.skipif(not pytest.importorskip("requests"), reason="requests not available")
+    @pytest.mark.skipif(
+        not pytest.importorskip("requests"), reason="requests not available"
+    )
     def test_web_interface_load(self, load_test_config):
         """Test web interface under load."""
-        import requests
-        from threading import Thread
         import queue
+        from threading import Thread
+
+        import requests
 
         # This test assumes the web interface is running
         # In a real scenario, you'd start the app in test mode
@@ -266,7 +278,9 @@ class TestLoadTesting:
                     }
                 )
             except Exception as e:
-                results_queue.put({"request_id": request_id, "error": str(e), "success": False})
+                results_queue.put(
+                    {"request_id": request_id, "error": str(e), "success": False}
+                )
 
         # Skip if web interface is not running
         try:
@@ -308,7 +322,9 @@ class TestLoadTesting:
 
         # Performance assertions
         assert success_rate > 0.95, f"Success rate too low: {success_rate}"
-        assert avg_response_time < 1.0, f"Average response time too high: {avg_response_time}s"
+        assert (
+            avg_response_time < 1.0
+        ), f"Average response time too high: {avg_response_time}s"
         assert total_time < 20.0, f"Load test took too long: {total_time}s"
 
 

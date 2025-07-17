@@ -4,11 +4,11 @@ Expanded Test Suite Runner
 Runs all comprehensive tests for production readiness
 """
 
-import sys
-import os
-import time
-import subprocess
 import json
+import os
+import subprocess
+import sys
+import time
 from datetime import datetime
 
 
@@ -142,9 +142,7 @@ def main():
         print(f"{result['description']:<40} {status:>6} ({result['duration']:>6.2f}s)")
 
     # Save results to file
-    results_file = (
-        f"test_results/expanded_test_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-    )
+    results_file = f"test_results/expanded_test_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
     os.makedirs("test_results", exist_ok=True)
 
     with open(results_file, "w") as f:

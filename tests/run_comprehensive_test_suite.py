@@ -4,12 +4,12 @@ Comprehensive test suite runner with GPU acceleration.
 Implements the testing flywheel for robust certificate generation and validation.
 """
 
+import json
+import logging
 import os
+import subprocess
 import sys
 import time
-import logging
-import json
-import subprocess
 from pathlib import Path
 from typing import Dict
 
@@ -68,11 +68,17 @@ class ComprehensiveTestRunner:
                 "stderr": result.stderr,
                 "test_results": test_results,
                 "total_tests": len([r for r in test_results if "PASSED" in r]),
-                "failed_tests": len([r for r in test_results if "FAILED" in r or "ERROR" in r]),
+                "failed_tests": len(
+                    [r for r in test_results if "FAILED" in r or "ERROR" in r]
+                ),
             }
 
         except subprocess.TimeoutExpired:
-            return {"success": False, "error": "Unit tests timed out", "return_code": -1}
+            return {
+                "success": False,
+                "error": "Unit tests timed out",
+                "return_code": -1,
+            }
         except Exception as e:
             return {"success": False, "error": str(e), "return_code": -1}
 
@@ -103,7 +109,11 @@ class ComprehensiveTestRunner:
         logger.info("🚀 Running GPU-accelerated tests...")
 
         if not self.gpu_available:
-            return {"success": False, "error": "GPU not available", "gpu_available": False}
+            return {
+                "success": False,
+                "error": "GPU not available",
+                "gpu_available": False,
+            }
 
         try:
             # Import and run GPU tests
@@ -121,7 +131,11 @@ class ComprehensiveTestRunner:
             }
 
         except Exception as e:
-            return {"success": False, "error": str(e), "gpu_available": self.gpu_available}
+            return {
+                "success": False,
+                "error": str(e),
+                "gpu_available": self.gpu_available,
+            }
 
     def run_integration_tests(self) -> Dict:
         """Run integration tests"""
@@ -144,7 +158,11 @@ class ComprehensiveTestRunner:
             }
 
         except subprocess.TimeoutExpired:
-            return {"success": False, "error": "Integration tests timed out", "return_code": -1}
+            return {
+                "success": False,
+                "error": "Integration tests timed out",
+                "return_code": -1,
+            }
         except Exception as e:
             return {"success": False, "error": str(e), "return_code": -1}
 
@@ -217,9 +235,13 @@ class ComprehensiveTestRunner:
 
             robustness_results = []
             for i, test_input in enumerate(test_inputs):
-                extracted_result = extract_certificate_from_llm_output(test_input, test_variables)
+                extracted_result = extract_certificate_from_llm_output(
+                    test_input, test_variables
+                )
                 extracted = (
-                    extracted_result[0] if isinstance(extracted_result, tuple) else extracted_result
+                    extracted_result[0]
+                    if isinstance(extracted_result, tuple)
+                    else extracted_result
                 )
                 is_template = is_template_expression(extracted) if extracted else True
 
@@ -234,11 +256,16 @@ class ComprehensiveTestRunner:
                 )
 
             # Calculate success metrics
-            successful_extractions = sum(1 for r in robustness_results if r["extraction_success"])
-            template_rejections = sum(1 for r in robustness_results if r["template_rejected"])
+            successful_extractions = sum(
+                1 for r in robustness_results if r["extraction_success"]
+            )
+            template_rejections = sum(
+                1 for r in robustness_results if r["template_rejected"]
+            )
 
             return {
-                "success": successful_extractions >= 3,  # At least 3 successful extractions
+                "success": successful_extractions
+                >= 3,  # At least 3 successful extractions
                 "total_tests": len(robustness_results),
                 "successful_extractions": successful_extractions,
                 "template_rejections": template_rejections,
@@ -284,17 +311,21 @@ class ComprehensiveTestRunner:
             "total_categories": total_categories,
             "test_categories": test_categories,
             "summary": {
-                "unit_tests_passed": test_categories["unit_tests"].get("success", False),
+                "unit_tests_passed": test_categories["unit_tests"].get(
+                    "success", False
+                ),
                 "pipeline_tests_passed": test_categories["certificate_pipeline"].get(
                     "success", False
                 ),
-                "gpu_tests_passed": test_categories["gpu_accelerated"].get("success", False),
+                "gpu_tests_passed": test_categories["gpu_accelerated"].get(
+                    "success", False
+                ),
                 "integration_tests_passed": test_categories["integration_tests"].get(
                     "success", False
                 ),
-                "performance_tests_passed": test_categories["performance_benchmarks"].get(
-                    "success", False
-                ),
+                "performance_tests_passed": test_categories[
+                    "performance_benchmarks"
+                ].get("success", False),
                 "robustness_tests_passed": test_categories["robustness_tests"].get(
                     "success", False
                 ),
@@ -304,7 +335,9 @@ class ComprehensiveTestRunner:
         return comprehensive_results
 
     def save_comprehensive_results(
-        self, results: Dict, output_path: str = "test_results/comprehensive_test_results.json"
+        self,
+        results: Dict,
+        output_path: str = "test_results/comprehensive_test_results.json",
     ):
         """Save comprehensive test results"""
         os.makedirs(os.path.dirname(output_path), exist_ok=True)

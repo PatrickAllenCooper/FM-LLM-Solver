@@ -71,7 +71,9 @@ Unsafe Set: x**2 + y**2 >= 4.0"""
             print("\n🏆 COMPLETE SUCCESS: Certificate verification PASSED!")
             print("✅ The systematic rejection issue has been RESOLVED!")
         else:
-            print(f"\n⚠️ PARTIAL SUCCESS: Overall verification result: {overall_success}")
+            print(
+                f"\n⚠️ PARTIAL SUCCESS: Overall verification result: {overall_success}"
+            )
             print("📊 Note: The verification system is working correctly")
 
         # Show detailed feedback
@@ -83,7 +85,9 @@ Unsafe Set: x**2 + y**2 >= 4.0"""
 
         # Instead of requiring overall_success, check that the verification system works
         assert result is not None, "Verification should return a result"
-        assert "overall_success" in result, "Result should contain overall_success field"
+        assert (
+            "overall_success" in result
+        ), "Result should contain overall_success field"
         print("✅ Verification system is working correctly")
     except Exception as e:
         assert False, f"Test failed with error: {e}"

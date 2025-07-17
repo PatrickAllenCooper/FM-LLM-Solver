@@ -10,15 +10,15 @@ A comprehensive testing framework that:
 - Runs efficiently with proper resource management
 """
 
+import json
+import logging
 import os
+import platform
 import sys
 import time
-import logging
-import json
-import platform
-from pathlib import Path
-from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 # Add project root to path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -83,9 +83,7 @@ class UnifiedTestSuite:
 
         # Platform info
         platform_name = platform.system()
-        python_version = (
-            f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
-        )
+        python_version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
 
         # CPU info
         cpu_cores = os.cpu_count() or 1
@@ -109,7 +107,9 @@ class UnifiedTestSuite:
             if torch.cuda.is_available():
                 gpu_available = True
                 gpu_name = torch.cuda.get_device_name(0)
-                gpu_memory = torch.cuda.get_device_properties(0).total_memory / (1024**3)  # GB
+                gpu_memory = torch.cuda.get_device_properties(0).total_memory / (
+                    1024**3
+                )  # GB
                 logger.info(f"🚀 GPU detected: {gpu_name} ({gpu_memory:.1f} GB)")
             else:
                 logger.info("⚠️ No GPU detected, using CPU")
@@ -127,7 +127,9 @@ class UnifiedTestSuite:
         )
 
         logger.info(f"📋 Environment: {env.platform} Python {env.python_version}")
-        logger.info(f"💻 CPU Cores: {env.cpu_cores}, Memory: {env.available_memory:.1f} GB")
+        logger.info(
+            f"💻 CPU Cores: {env.cpu_cores}, Memory: {env.available_memory:.1f} GB"
+        )
 
         return env
 
@@ -307,7 +309,9 @@ class UnifiedTestSuite:
         """Test configuration loading"""
         try:
             config = load_config()
-            return True, {"config_keys": list(config.keys()) if isinstance(config, dict) else []}
+            return True, {
+                "config_keys": list(config.keys()) if isinstance(config, dict) else []
+            }
         except Exception as e:
             return False, {"error": str(e)}
 
@@ -322,9 +326,7 @@ class UnifiedTestSuite:
     def _test_certificate_extraction(self) -> tuple[bool, Dict]:
         """Test certificate extraction functionality"""
         try:
-            from utils.certificate_extraction import (
-                extract_certificate_from_llm_output,
-            )
+            from utils.certificate_extraction import extract_certificate_from_llm_output
 
             # Test cases
             test_cases = [
@@ -367,14 +369,19 @@ class UnifiedTestSuite:
         try:
             from utils.numerical_checks import (
                 NumericalCheckConfig,
-                ViolationInfo,
                 NumericalCheckResult,
+                ViolationInfo,
             )
 
             # Test data structure creation
-            config = NumericalCheckConfig(n_samples=100, tolerance=1e-6, max_iter=100, pop_size=50)
+            config = NumericalCheckConfig(
+                n_samples=100, tolerance=1e-6, max_iter=100, pop_size=50
+            )
             violation = ViolationInfo(
-                point={"x": 0.1, "y": 0.1}, violation_type="test", value=0.5, expected="≤ 0"
+                point={"x": 0.1, "y": 0.1},
+                violation_type="test",
+                value=0.5,
+                expected="≤ 0",
             )
             result = NumericalCheckResult(
                 passed=True,
@@ -384,7 +391,11 @@ class UnifiedTestSuite:
                 samples_checked={"total": 100},
             )
 
-            return True, {"config_created": True, "violation_created": True, "result_created": True}
+            return True, {
+                "config_created": True,
+                "violation_created": True,
+                "result_created": True,
+            }
         except Exception as e:
             return False, {"error": str(e)}
 
@@ -405,21 +416,31 @@ class UnifiedTestSuite:
         try:
             # Test the full pipeline: extraction -> cleaning -> validation
             from utils.certificate_extraction import (
-                extract_certificate_from_llm_output,
                 clean_and_validate_expression,
+                extract_certificate_from_llm_output,
             )
 
-            test_input = "BARRIER_CERTIFICATE_START\nx**2 + y**2 - 1.5\nBARRIER_CERTIFICATE_END"
+            test_input = (
+                "BARRIER_CERTIFICATE_START\nx**2 + y**2 - 1.5\nBARRIER_CERTIFICATE_END"
+            )
             variables = ["x", "y"]
 
             # Extract
-            extracted_result = extract_certificate_from_llm_output(test_input, variables)
+            extracted_result = extract_certificate_from_llm_output(
+                test_input, variables
+            )
             extracted = (
-                extracted_result[0] if isinstance(extracted_result, tuple) else extracted_result
+                extracted_result[0]
+                if isinstance(extracted_result, tuple)
+                else extracted_result
             )
 
             # Clean and validate
-            cleaned = clean_and_validate_expression(extracted, variables) if extracted else None
+            cleaned = (
+                clean_and_validate_expression(extracted, variables)
+                if extracted
+                else None
+            )
 
             success = extracted is not None and cleaned is not None
 
@@ -519,7 +540,9 @@ class UnifiedTestSuite:
                     results.append(
                         {
                             "input": (
-                                test_input[:50] + "..." if len(test_input) > 50 else test_input
+                                test_input[:50] + "..."
+                                if len(test_input) > 50
+                                else test_input
                             ),
                             "success": result[0] is not None,
                             "extracted": result[0] if result[0] else None,
@@ -529,7 +552,9 @@ class UnifiedTestSuite:
                     results.append(
                         {
                             "input": (
-                                test_input[:50] + "..." if len(test_input) > 50 else test_input
+                                test_input[:50] + "..."
+                                if len(test_input) > 50
+                                else test_input
                             ),
                             "success": False,
                             "error": str(e),
@@ -561,7 +586,8 @@ class UnifiedTestSuite:
 
             return True, {
                 "generation_time": duration,
-                "performance_acceptable": duration < 1.0,  # Should complete within 1 second
+                "performance_acceptable": duration
+                < 1.0,  # Should complete within 1 second
             }
         except Exception as e:
             return False, {"error": str(e)}
@@ -578,7 +604,8 @@ class UnifiedTestSuite:
 
             return True, {
                 "verification_time": duration,
-                "speed_acceptable": duration < 0.5,  # Should complete within 0.5 seconds
+                "speed_acceptable": duration
+                < 0.5,  # Should complete within 0.5 seconds
             }
         except Exception as e:
             return False, {"error": str(e)}
@@ -602,7 +629,9 @@ class UnifiedTestSuite:
 
             final_memory = process.memory_info().rss / 1024**2  # MB
 
-            memory_efficiency = (peak_memory - initial_memory) < 100  # Should use less than 100MB
+            memory_efficiency = (
+                peak_memory - initial_memory
+            ) < 100  # Should use less than 100MB
 
             return True, {
                 "initial_memory_mb": initial_memory,
@@ -695,7 +724,11 @@ class UnifiedTestSuite:
                     result = extract_certificate_from_llm_output(test_input, variables)
                     results.append(
                         {
-                            "case": test_input[:30] + "..." if len(test_input) > 30 else test_input,
+                            "case": (
+                                test_input[:30] + "..."
+                                if len(test_input) > 30
+                                else test_input
+                            ),
                             "handled": True,
                             "result": result[0] if result[0] else "None",
                         }
@@ -703,7 +736,11 @@ class UnifiedTestSuite:
                 except Exception as e:
                     results.append(
                         {
-                            "case": test_input[:30] + "..." if len(test_input) > 30 else test_input,
+                            "case": (
+                                test_input[:30] + "..."
+                                if len(test_input) > 30
+                                else test_input
+                            ),
                             "handled": False,
                             "error": str(e),
                         }
@@ -739,7 +776,8 @@ class UnifiedTestSuite:
             return True, {
                 "large_input_handled": True,
                 "processing_time": duration,
-                "time_acceptable": duration < 5.0,  # Should handle large input within 5 seconds
+                "time_acceptable": duration
+                < 5.0,  # Should handle large input within 5 seconds
             }
         except Exception as e:
             return False, {"error": str(e)}
@@ -759,7 +797,10 @@ class UnifiedTestSuite:
             basic_tests = [
                 ("import_utils", lambda: __import__("utils")),
                 ("import_config", lambda: __import__("utils.config_loader")),
-                ("import_extraction", lambda: __import__("utils.certificate_extraction")),
+                (
+                    "import_extraction",
+                    lambda: __import__("utils.certificate_extraction"),
+                ),
             ]
 
             successful_imports = 0
@@ -810,23 +851,35 @@ class UnifiedTestSuite:
         summary = {
             "unit_tests": {
                 "total": len([r for r in all_results if r.category == "unit"]),
-                "passed": len([r for r in all_results if r.category == "unit" and r.success]),
+                "passed": len(
+                    [r for r in all_results if r.category == "unit" and r.success]
+                ),
             },
             "integration_tests": {
                 "total": len([r for r in all_results if r.category == "integration"]),
                 "passed": len(
-                    [r for r in all_results if r.category == "integration" and r.success]
+                    [
+                        r
+                        for r in all_results
+                        if r.category == "integration" and r.success
+                    ]
                 ),
             },
             "performance_tests": {
                 "total": len([r for r in all_results if r.category == "performance"]),
                 "passed": len(
-                    [r for r in all_results if r.category == "performance" and r.success]
+                    [
+                        r
+                        for r in all_results
+                        if r.category == "performance" and r.success
+                    ]
                 ),
             },
             "robustness_tests": {
                 "total": len([r for r in all_results if r.category == "robustness"]),
-                "passed": len([r for r in all_results if r.category == "robustness" and r.success]),
+                "passed": len(
+                    [r for r in all_results if r.category == "robustness" and r.success]
+                ),
             },
         }
 
@@ -842,7 +895,9 @@ class UnifiedTestSuite:
         )
 
     def save_results(
-        self, results: TestSuiteResult, output_path: str = "test_results/unified_test_results.json"
+        self,
+        results: TestSuiteResult,
+        output_path: str = "test_results/unified_test_results.json",
     ):
         """Save test results to file"""
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
@@ -900,13 +955,21 @@ class UnifiedTestSuite:
 
         # Category breakdown
         for category in ["unit", "integration", "performance", "robustness"]:
-            category_results = [r for r in results.test_results if r.category == category]
+            category_results = [
+                r for r in results.test_results if r.category == category
+            ]
             if category_results:
                 passed = sum(1 for r in category_results if r.success)
                 total = len(category_results)
                 rate = passed / total if total > 0 else 0
-                status = "✅ PASS" if rate >= 0.8 else "⚠️ PARTIAL" if rate >= 0.6 else "❌ FAIL"
-                report.append(f"{category.title()} Tests: {status} ({passed}/{total}, {rate:.1%})")
+                status = (
+                    "✅ PASS"
+                    if rate >= 0.8
+                    else "⚠️ PARTIAL" if rate >= 0.6 else "❌ FAIL"
+                )
+                report.append(
+                    f"{category.title()} Tests: {status} ({passed}/{total}, {rate:.1%})"
+                )
 
         report.append("")
         report.append("📊 DETAILED RESULTS")
@@ -930,7 +993,9 @@ class UnifiedTestSuite:
             report.append("⚡ Performance Highlights:")
             for test in performance_tests:
                 if "time" in test.details:
-                    report.append(f"  • {test.name}: {test.details.get('time', 'N/A')}s")
+                    report.append(
+                        f"  • {test.name}: {test.details.get('time', 'N/A')}s"
+                    )
 
         return "\n".join(report)
 

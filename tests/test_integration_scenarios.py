@@ -4,14 +4,14 @@ Integration Test Scenarios
 End-to-end tests simulating real-world usage patterns
 """
 
-import sys
 import os
+import sys
 import time
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from utils.certificate_extraction import extract_certificate_from_llm_output
 from tests.unit.test_certificate_validation_accuracy import CertificateValidationTester
+from utils.certificate_extraction import extract_certificate_from_llm_output
 
 
 class TestIntegrationScenarios:
@@ -186,7 +186,9 @@ class TestIntegrationScenarios:
 
         for sys in test_systems:
             # Extract certificate
-            cert_result = extract_certificate_from_llm_output(sys["llm_output"], ["x", "y"])
+            cert_result = extract_certificate_from_llm_output(
+                sys["llm_output"], ["x", "y"]
+            )
             cert = cert_result[0] if isinstance(cert_result, tuple) else cert_result
 
             if cert:
@@ -275,7 +277,9 @@ class TestIntegrationScenarios:
             print(f"\nTesting {case['description']}...")
             try:
                 # Try extraction
-                cert_result = extract_certificate_from_llm_output(case["llm_output"], ["x", "y"])
+                cert_result = extract_certificate_from_llm_output(
+                    case["llm_output"], ["x", "y"]
+                )
                 cert = cert_result[0] if isinstance(cert_result, tuple) else cert_result
 
                 if cert:
@@ -284,7 +288,9 @@ class TestIntegrationScenarios:
                         cert, case["system"], n_samples=5
                     )
                     if not validation["valid"]:
-                        print(f"  Validation failed: {validation.get('error', 'Invalid')}")
+                        print(
+                            f"  Validation failed: {validation.get('error', 'Invalid')}"
+                        )
                     else:
                         print("  Unexpectedly valid")
                 else:

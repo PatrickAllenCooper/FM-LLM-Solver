@@ -6,14 +6,14 @@ Now that we know all components can import successfully, these tests
 actually exercise the functionality to ensure end-to-end workflows work.
 """
 
-import sys
 import json
-import time
 import logging
+import sys
+import time
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Any
-from dataclasses import dataclass, asdict
+from typing import Any, Dict, List, Optional
 from unittest.mock import Mock, patch
 
 # Add project root to path
@@ -22,7 +22,9 @@ PROJECT_ROOT = SCRIPT_DIR.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 
@@ -223,7 +225,9 @@ Domain: x ∈ [-3, 3], y ∈ [-2, 2]""",
 
         for test_case in test_cases:
             try:
-                parsed = verification_service.parse_system_description(test_case["description"])
+                parsed = verification_service.parse_system_description(
+                    test_case["description"]
+                )
                 bounds = verification_service.create_sampling_bounds(parsed)
 
                 results[test_case["name"]] = {
@@ -237,9 +241,14 @@ Domain: x ∈ [-3, 3], y ∈ [-2, 2]""",
                 }
 
             except Exception as e:
-                results[test_case["name"]] = {"parsed_successfully": False, "error": str(e)}
+                results[test_case["name"]] = {
+                    "parsed_successfully": False,
+                    "error": str(e),
+                }
 
-        successful_parsing = sum(1 for r in results.values() if r.get("parsed_successfully", False))
+        successful_parsing = sum(
+            1 for r in results.values() if r.get("parsed_successfully", False)
+        )
 
         return {
             "success": successful_parsing >= 2,  # At least 2 out of 3 should work
@@ -301,11 +310,15 @@ BARRIER_CERTIFICATE_END""",
             results[test["name"]] = {
                 "extraction_successful": extracted is not None,
                 "extracted_certificate": extracted,
-                "is_template": cert_gen._is_template_expression(extracted) if extracted else None,
+                "is_template": (
+                    cert_gen._is_template_expression(extracted) if extracted else None
+                ),
             }
 
         # Should extract 3 out of 4 (template should be rejected)
-        successful_extractions = sum(1 for r in results.values() if r["extraction_successful"])
+        successful_extractions = sum(
+            1 for r in results.values() if r["extraction_successful"]
+        )
 
         return {
             "success": successful_extractions >= 2,
@@ -318,7 +331,10 @@ BARRIER_CERTIFICATE_END""",
             "suggestions": (
                 []
                 if successful_extractions >= 2
-                else ["Improve certificate extraction patterns", "Enhance template detection"]
+                else [
+                    "Improve certificate extraction patterns",
+                    "Enhance template detection",
+                ]
             ),
         }
 
@@ -408,11 +424,19 @@ Unsafe Set: x**2 + y**2 >= 2.0"""
                 "success": verification_ran and has_results,
                 "verification_completed": verification_ran,
                 "has_structured_results": has_results,
-                "overall_success": result.get("overall_success", False) if has_results else None,
-                "verification_time": result.get("verification_time", 0) if has_results else None,
+                "overall_success": (
+                    result.get("overall_success", False) if has_results else None
+                ),
+                "verification_time": (
+                    result.get("verification_time", 0) if has_results else None
+                ),
                 "result_summary": {
-                    "numerical": result.get("numerical_passed", False) if has_results else None,
-                    "symbolic": result.get("symbolic_passed", False) if has_results else None,
+                    "numerical": (
+                        result.get("numerical_passed", False) if has_results else None
+                    ),
+                    "symbolic": (
+                        result.get("symbolic_passed", False) if has_results else None
+                    ),
                     "sos": result.get("sos_passed", False) if has_results else None,
                 },
                 "suggestions": [
@@ -462,7 +486,9 @@ Unsafe Set: x + y >= 2.0""",
         for test_case in test_cases:
             try:
                 # Step 1: Parse system
-                parsed_system = verification_service.parse_system_description(test_case["system"])
+                parsed_system = verification_service.parse_system_description(
+                    test_case["system"]
+                )
 
                 # Step 2: Create bounds
                 bounds = verification_service.create_sampling_bounds(parsed_system)
@@ -476,7 +502,10 @@ Unsafe Set: x + y >= 2.0""",
                 verification_result = verification_service.verify_certificate(
                     cleaned_cert,
                     test_case["system"],
-                    param_overrides={"num_samples_lie": 500, "num_samples_boundary": 250},
+                    param_overrides={
+                        "num_samples_lie": 500,
+                        "num_samples_boundary": 250,
+                    },
                 )
 
                 workflow_results[test_case["name"]] = {
@@ -491,7 +520,10 @@ Unsafe Set: x + y >= 2.0""",
                 successful_workflows += 1
 
             except Exception as e:
-                workflow_results[test_case["name"]] = {"workflow_complete": False, "error": str(e)}
+                workflow_results[test_case["name"]] = {
+                    "workflow_complete": False,
+                    "error": str(e),
+                }
 
         return {
             "success": successful_workflows > 0,
@@ -541,7 +573,11 @@ Unsafe Set: x + y >= 2.0""",
             },
             {
                 "name": "incomplete_info",
-                "messages": ["I have a system", "It needs to be safe", "Can you help me?"],
+                "messages": [
+                    "I have a system",
+                    "It needs to be safe",
+                    "Can you help me?",
+                ],
                 "should_extract": False,
             },
         ]
@@ -562,13 +598,17 @@ Unsafe Set: x + y >= 2.0""",
                     mock_conversation.messages.append(mock_msg)
 
                 # Test system description extraction
-                extracted_desc = conversation_service._extract_system_description_from_conversation(
-                    mock_conversation
+                extracted_desc = (
+                    conversation_service._extract_system_description_from_conversation(
+                        mock_conversation
+                    )
                 )
 
                 # Test domain bounds extraction
-                extracted_bounds = conversation_service._extract_domain_bounds_from_conversation(
-                    mock_conversation
+                extracted_bounds = (
+                    conversation_service._extract_domain_bounds_from_conversation(
+                        mock_conversation
+                    )
                 )
 
                 has_extraction = extracted_desc is not None
@@ -593,7 +633,8 @@ Unsafe Set: x + y >= 2.0""",
                 }
 
         return {
-            "success": successful_extractions >= 2,  # At least 2/3 should work correctly
+            "success": successful_extractions
+            >= 2,  # At least 2/3 should work correctly
             "total_scenarios": len(scenarios),
             "correct_predictions": successful_extractions,
             "extraction_accuracy": successful_extractions / len(scenarios),
@@ -632,7 +673,9 @@ Unsafe Set: x + y >= 2.0""",
             if "verification" in self.components:
                 test_system = """System Dynamics: dx/dt = -x, dy/dt = -y
 Initial Set: x**2 + y**2 <= 0.5"""
-                parsed = self.components["verification"].parse_system_description(test_system)
+                parsed = self.components["verification"].parse_system_description(
+                    test_system
+                )
                 workflow_steps["system_parsing"] = len(parsed.get("variables", [])) > 0
 
             # Step 3: Mock certificate generation
@@ -648,7 +691,9 @@ Initial Set: x**2 + y**2 <= 0.5"""
                 verification_service = self.components["verification"]
 
                 # Just test the setup, not full verification
-                parsed_again = verification_service.parse_system_description(test_system)
+                parsed_again = verification_service.parse_system_description(
+                    test_system
+                )
                 bounds = verification_service.create_sampling_bounds(parsed_again)
                 workflow_steps["certificate_verification"] = len(bounds) > 0
 
@@ -743,7 +788,8 @@ Initial Set: x**2 + y**2 <= 0.5"""
                 error_tests.append(
                     {
                         "test": "empty_output_extraction",
-                        "handled_gracefully": extracted is None,  # Should return None, not crash
+                        "handled_gracefully": extracted
+                        is None,  # Should return None, not crash
                         "result": extracted,
                     }
                 )
@@ -755,7 +801,8 @@ Initial Set: x**2 + y**2 <= 0.5"""
                 error_tests.append(
                     {
                         "test": "malformed_output_extraction",
-                        "handled_gracefully": extracted is None,  # Should return None, not crash
+                        "handled_gracefully": extracted
+                        is None,  # Should return None, not crash
                         "result": extracted,
                     }
                 )
@@ -769,19 +816,26 @@ Initial Set: x**2 + y**2 <= 0.5"""
                     }
                 )
 
-        gracefully_handled = sum(1 for test in error_tests if test.get("handled_gracefully", False))
+        gracefully_handled = sum(
+            1 for test in error_tests if test.get("handled_gracefully", False)
+        )
 
         return {
             "success": gracefully_handled
             >= len(error_tests) * 0.8,  # 80% should handle errors gracefully
             "total_error_tests": len(error_tests),
             "gracefully_handled": gracefully_handled,
-            "error_handling_rate": gracefully_handled / len(error_tests) if error_tests else 0,
+            "error_handling_rate": (
+                gracefully_handled / len(error_tests) if error_tests else 0
+            ),
             "detailed_tests": error_tests,
             "suggestions": (
                 ["Error handling is robust", "Components handle edge cases well"]
                 if gracefully_handled >= len(error_tests) * 0.8
-                else ["Improve error handling for edge cases", "Add more graceful failure modes"]
+                else [
+                    "Improve error handling for edge cases",
+                    "Add more graceful failure modes",
+                ]
             ),
         }
 
@@ -843,7 +897,10 @@ BARRIER_CERTIFICATE_END"""
             "suggestions": (
                 ["Component performance is excellent", "Ready for production workloads"]
                 if all_acceptable
-                else ["Optimize slow components", "Consider caching for frequently used operations"]
+                else [
+                    "Optimize slow components",
+                    "Consider caching for frequently used operations",
+                ]
             ),
         }
 
@@ -893,7 +950,9 @@ BARRIER_CERTIFICATE_END"""
                 unique_suggestions.append(suggestion)
 
         # Determine readiness level
-        readiness_level = self._assess_readiness_level(passed, total_tests, category_stats)
+        readiness_level = self._assess_readiness_level(
+            passed, total_tests, category_stats
+        )
 
         return {
             "summary": {
@@ -911,7 +970,9 @@ BARRIER_CERTIFICATE_END"""
             "timestamp": datetime.now().isoformat(),
         }
 
-    def _assess_readiness_level(self, passed: int, total: int, category_stats: Dict) -> str:
+    def _assess_readiness_level(
+        self, passed: int, total: int, category_stats: Dict
+    ) -> str:
         """Assess overall system readiness level."""
         success_rate = passed / total if total > 0 else 0
 
@@ -926,7 +987,9 @@ BARRIER_CERTIFICATE_END"""
         else:
             return "NEEDS_WORK"
 
-    def _generate_next_steps(self, readiness_level: str, category_stats: Dict) -> List[str]:
+    def _generate_next_steps(
+        self, readiness_level: str, category_stats: Dict
+    ) -> List[str]:
         """Generate specific next steps based on readiness level."""
         steps = []
 
@@ -980,7 +1043,9 @@ def main():
     """Main entry point for advanced integration testing."""
     import argparse
 
-    parser = argparse.ArgumentParser(description="Advanced Integration Tests for Web Interface")
+    parser = argparse.ArgumentParser(
+        description="Advanced Integration Tests for Web Interface"
+    )
     parser.add_argument("--config", type=str, help="Configuration file path")
     parser.add_argument("--output", type=str, help="Output file for detailed results")
     parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
@@ -1037,7 +1102,11 @@ def main():
             print(f"\nDetailed report saved to: {args.output}")
 
         # Return appropriate exit code
-        return 0 if report["readiness_level"] in ["PRODUCTION_READY", "NEAR_PRODUCTION"] else 1
+        return (
+            0
+            if report["readiness_level"] in ["PRODUCTION_READY", "NEAR_PRODUCTION"]
+            else 1
+        )
 
     except KeyboardInterrupt:
         logger.info("Testing interrupted by user")

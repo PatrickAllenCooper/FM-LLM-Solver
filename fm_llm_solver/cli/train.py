@@ -4,11 +4,12 @@ Training CLI commands for FM-LLM Solver.
 Replaces the scattered scripts in fine_tuning/ and scripts/experiments/ with a unified interface.
 """
 
-import click
-import time
 import json
+import time
 from pathlib import Path
 from typing import Optional
+
+import click
 
 from fm_llm_solver.core.logging import get_logger
 
@@ -21,12 +22,16 @@ def train():
 @train.command()
 @click.option("--base-model", help="Base model name (e.g., Qwen/Qwen2.5-7B-Instruct)")
 @click.option("--dataset", type=click.Path(exists=True), help="Training dataset path")
-@click.option("--output-dir", type=click.Path(), help="Output directory for fine-tuned model")
+@click.option(
+    "--output-dir", type=click.Path(), help="Output directory for fine-tuned model"
+)
 @click.option("--epochs", default=3, help="Number of training epochs")
 @click.option("--batch-size", default=4, help="Training batch size")
 @click.option("--learning-rate", default=2e-4, help="Learning rate")
 @click.option("--max-length", default=512, help="Maximum sequence length")
-@click.option("--use-lora", is_flag=True, help="Use LoRA for parameter-efficient fine-tuning")
+@click.option(
+    "--use-lora", is_flag=True, help="Use LoRA for parameter-efficient fine-tuning"
+)
 @click.option("--lora-rank", default=8, help="LoRA rank")
 @click.option("--use-4bit", is_flag=True, help="Use 4-bit quantization")
 @click.option("--dry-run", is_flag=True, help="Show configuration without training")
@@ -144,10 +149,16 @@ def finetune(
 )
 @click.option("--num-examples", default=1000, help="Number of examples to generate")
 @click.option("--output-file", type=click.Path(), help="Output JSONL file")
-@click.option("--kb-path", type=click.Path(exists=True), help="Knowledge base path for context")
+@click.option(
+    "--kb-path", type=click.Path(exists=True), help="Knowledge base path for context"
+)
 @click.pass_context
 def prepare_data(
-    ctx, system_type: str, num_examples: int, output_file: Optional[str], kb_path: Optional[str]
+    ctx,
+    system_type: str,
+    num_examples: int,
+    output_file: Optional[str],
+    kb_path: Optional[str],
 ):
     """Prepare training data for fine-tuning."""
     config = ctx.obj["config"]
@@ -253,12 +264,17 @@ def _generate_synthetic_certificate(system_type: str, seed: int) -> str:
 
 
 @train.command()
-@click.option("--model-path", type=click.Path(exists=True), help="Path to trained model")
+@click.option(
+    "--model-path", type=click.Path(exists=True), help="Path to trained model"
+)
 @click.option("--test-dataset", type=click.Path(exists=True), help="Test dataset path")
 @click.option("--output-file", type=click.Path(), help="Evaluation results file")
 @click.pass_context
 def evaluate(
-    ctx, model_path: Optional[str], test_dataset: Optional[str], output_file: Optional[str]
+    ctx,
+    model_path: Optional[str],
+    test_dataset: Optional[str],
+    output_file: Optional[str],
 ):
     """Evaluate a fine-tuned model."""
     config = ctx.obj["config"]
@@ -326,7 +342,9 @@ def evaluate(
 
 
 @train.command()
-@click.option("--output-dir", type=click.Path(), help="Output directory for experiments")
+@click.option(
+    "--output-dir", type=click.Path(), help="Output directory for experiments"
+)
 @click.option("--models", multiple=True, help="Models to compare")
 @click.option("--datasets", multiple=True, help="Datasets to test on")
 @click.pass_context
@@ -358,19 +376,24 @@ def experiment(ctx, output_dir: Optional[str], models: tuple, datasets: tuple):
         total_experiments = len(models) * len(datasets)
         experiment_count = 0
 
-        with click.progressbar(length=total_experiments, label="Running experiments") as bar:
+        with click.progressbar(
+            length=total_experiments, label="Running experiments"
+        ) as bar:
             for model in models:
                 for dataset_type in datasets:
                     experiment_count += 1
 
                     # Create experiment subdirectory
                     exp_dir = (
-                        output_dir / f"exp_{experiment_count}_{model.split('/')[-1]}_{dataset_type}"
+                        output_dir
+                        / f"exp_{experiment_count}_{model.split('/')[-1]}_{dataset_type}"
                     )
                     exp_dir.mkdir(exist_ok=True)
 
                     # Simulate experiment
-                    logger.info(f"Running experiment {experiment_count}: {model} on {dataset_type}")
+                    logger.info(
+                        f"Running experiment {experiment_count}: {model} on {dataset_type}"
+                    )
                     time.sleep(0.5)  # Simulate experiment time
 
                     # Save experiment config

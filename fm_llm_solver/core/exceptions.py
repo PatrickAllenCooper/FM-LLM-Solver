@@ -4,7 +4,7 @@ Exception hierarchy for FM-LLM Solver.
 Provides structured exception handling throughout the system.
 """
 
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 
 
 class FMLLMSolverError(Exception):
@@ -31,7 +31,11 @@ class FMLLMSolverError(Exception):
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert exception to dictionary for API responses."""
-        return {"error": self.error_code, "message": self.message, "details": self.details}
+        return {
+            "error": self.error_code,
+            "message": self.message,
+            "details": self.details,
+        }
 
 
 class ConfigurationError(FMLLMSolverError):
@@ -128,7 +132,11 @@ class DatabaseError(FMLLMSolverError):
     """Raised when database operations fail."""
 
     def __init__(
-        self, message: str, operation: Optional[str] = None, table: Optional[str] = None, **kwargs
+        self,
+        message: str,
+        operation: Optional[str] = None,
+        table: Optional[str] = None,
+        **kwargs,
     ):
         super().__init__(message, **kwargs)
         if operation:
@@ -260,7 +268,11 @@ class ServiceError(FMLLMSolverError):
     """Raised when a service operation fails."""
 
     def __init__(
-        self, message: str, service: Optional[str] = None, operation: Optional[str] = None, **kwargs
+        self,
+        message: str,
+        service: Optional[str] = None,
+        operation: Optional[str] = None,
+        **kwargs,
     ):
         super().__init__(message, **kwargs)
         if service:

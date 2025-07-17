@@ -7,8 +7,8 @@ A clean, unified interface for running all tests with proper environment detecti
 and GPU acceleration support.
 """
 
-import sys
 import argparse
+import sys
 from pathlib import Path
 
 # Add project root to path
@@ -88,7 +88,10 @@ def run_unified_suite():
 
     try:
         result = subprocess.run(
-            ["python", "tests/unified_test_suite.py"], capture_output=True, text=True, timeout=300
+            ["python", "tests/unified_test_suite.py"],
+            capture_output=True,
+            text=True,
+            timeout=300,
         )
 
         if result.returncode == 0:
@@ -141,7 +144,10 @@ def show_summary():
 
     try:
         result = subprocess.run(
-            ["python", "tests/test_summary.py"], capture_output=True, text=True, timeout=30
+            ["python", "tests/test_summary.py"],
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
 
         print(result.stdout)
@@ -164,7 +170,9 @@ def main():
     print("FM-LLM-Solver Test Runner")
     print("=" * 40)
 
-    if args.quick or not any([args.unit, args.unified, args.gpu, args.summary, args.all]):
+    if args.quick or not any(
+        [args.unit, args.unified, args.gpu, args.summary, args.all]
+    ):
         run_quick_check()
 
     if args.unit or args.all:

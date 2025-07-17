@@ -5,8 +5,8 @@ Handles application monitoring, metrics collection, and health checks.
 """
 
 import time
-from typing import Dict, Any, Optional
 from datetime import datetime
+from typing import Any, Dict, Optional
 
 from fm_llm_solver.core.config import Config
 from fm_llm_solver.core.logging import get_logger
@@ -31,7 +31,9 @@ class MonitoringService:
         self.metrics = {}
         self.start_time = time.time()
 
-    def record_metric(self, name: str, value: float, tags: Optional[Dict[str, str]] = None) -> None:
+    def record_metric(
+        self, name: str, value: float, tags: Optional[Dict[str, str]] = None
+    ) -> None:
         """
         Record a metric value.
 
@@ -43,7 +45,9 @@ class MonitoringService:
         if name not in self.metrics:
             self.metrics[name] = []
 
-        self.metrics[name].append({"value": value, "timestamp": time.time(), "tags": tags or {}})
+        self.metrics[name].append(
+            {"value": value, "timestamp": time.time(), "tags": tags or {}}
+        )
 
     def get_metrics(self) -> Dict[str, Any]:
         """
@@ -119,7 +123,9 @@ class MonitoringService:
         self.record_metric("generation_time", generation_time)
         self.record_metric("generation_success", 1.0 if success else 0.0)
 
-    def record_verification_metrics(self, verification_time: float, success: bool) -> None:
+    def record_verification_metrics(
+        self, verification_time: float, success: bool
+    ) -> None:
         """Record certificate verification metrics."""
         self.record_metric("verification_time", verification_time)
         self.record_metric("verification_success", 1.0 if success else 0.0)

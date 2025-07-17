@@ -11,20 +11,22 @@ These tests verify that all components work together correctly:
 """
 
 import os
-import pytest
 import tempfile
 from pathlib import Path
 from unittest.mock import Mock, patch
 
+import pytest
+
+from fm_llm_solver.core.cache_manager import CacheManager
+
 # Import our components
 from fm_llm_solver.core.config_manager import ConfigurationManager
-from fm_llm_solver.core.logging_manager import LoggingManager
 from fm_llm_solver.core.error_handler import ErrorHandler
-from fm_llm_solver.core.cache_manager import CacheManager
+from fm_llm_solver.core.logging_manager import LoggingManager
 from fm_llm_solver.core.monitoring import MonitoringManager
-from fm_llm_solver.web.app import create_app
 from fm_llm_solver.services.certificate_generator import CertificateGenerator
 from fm_llm_solver.services.parser import Parser
+from fm_llm_solver.web.app import create_app
 
 
 class TestSystemIntegration:
@@ -56,15 +58,26 @@ class TestSystemIntegration:
                 "log_directory": "/tmp/test_logs",
                 "root_level": "INFO",
                 "loggers": {
-                    "api": {"level": "DEBUG", "handlers": ["console"], "json_format": True}
+                    "api": {
+                        "level": "DEBUG",
+                        "handlers": ["console"],
+                        "json_format": True,
+                    }
                 },
             },
             "monitoring": {
                 "enabled": True,
-                "metrics": {"prometheus_enabled": True, "custom_metrics_retention_hours": 24},
+                "metrics": {
+                    "prometheus_enabled": True,
+                    "custom_metrics_retention_hours": 24,
+                },
                 "health_checks": {"enabled": True, "default_interval": 30},
             },
-            "error_handling": {"max_retries": 3, "retry_delay": 1.0, "exponential_backoff": True},
+            "error_handling": {
+                "max_retries": 3,
+                "retry_delay": 1.0,
+                "exponential_backoff": True,
+            },
             "web_interface": {"host": "127.0.0.1", "port": 5000, "debug": True},
         }
 
@@ -121,7 +134,9 @@ class TestSystemIntegration:
         monitoring_manager = MonitoringManager(config_manager)
 
         # Test metric recording
-        monitoring_manager.record_metric("integration_test_metric", 42.0, {"test": "true"})
+        monitoring_manager.record_metric(
+            "integration_test_metric", 42.0, {"test": "true"}
+        )
 
         # Test health check registration
         def test_health_check():
@@ -149,7 +164,9 @@ class TestSystemIntegration:
             return "success"
 
         result = error_handler.handle_error(
-            failing_function, strategy="retry", context={"operation": "integration_test"}
+            failing_function,
+            strategy="retry",
+            context={"operation": "integration_test"},
         )
 
         assert result == "success"
@@ -275,7 +292,9 @@ class TestSystemIntegration:
         duration = end_time - start_time
 
         # Record performance metric
-        monitoring_manager.record_histogram("operation_duration", duration, {"operation": "test"})
+        monitoring_manager.record_histogram(
+            "operation_duration", duration, {"operation": "test"}
+        )
 
         # Check metrics
         metrics = monitoring_manager.get_metrics()

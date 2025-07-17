@@ -4,13 +4,13 @@ Knowledge base service for FM-LLM Solver.
 Handles storage and retrieval of knowledge documents for RAG.
 """
 
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
 
-from fm_llm_solver.core.interfaces import KnowledgeStore
-from fm_llm_solver.core.types import RAGDocument
 from fm_llm_solver.core.config import Config
-from fm_llm_solver.core.logging import get_logger
 from fm_llm_solver.core.exceptions import KnowledgeBaseError
+from fm_llm_solver.core.interfaces import KnowledgeStore
+from fm_llm_solver.core.logging import get_logger
+from fm_llm_solver.core.types import RAGDocument
 
 
 class KnowledgeBase(KnowledgeStore):
@@ -39,9 +39,10 @@ class KnowledgeBase(KnowledgeStore):
     def _load_index(self):
         """Load FAISS index and documents."""
         try:
-            import faiss
             import json
             from pathlib import Path
+
+            import faiss
 
             kb_dir = Path(self.config.paths.kb_output_dir)
             index_path = kb_dir / "knowledge_base.faiss"
@@ -69,7 +70,9 @@ class KnowledgeBase(KnowledgeStore):
             self.logger.info("Knowledge base loaded successfully")
 
         except ImportError:
-            self.logger.error("FAISS not available - install with: pip install faiss-cpu")
+            self.logger.error(
+                "FAISS not available - install with: pip install faiss-cpu"
+            )
             raise KnowledgeBaseError("FAISS not available")
         except Exception as e:
             self.logger.error(f"Failed to load knowledge base: {e}")
@@ -80,7 +83,9 @@ class KnowledgeBase(KnowledgeStore):
         try:
             from sentence_transformers import SentenceTransformer
 
-            model_name = self.metadata.get("model", "sentence-transformers/all-MiniLM-L6-v2")
+            model_name = self.metadata.get(
+                "model", "sentence-transformers/all-MiniLM-L6-v2"
+            )
             self.logger.info(f"Loading embedding model: {model_name}")
 
             self.embedding_model = SentenceTransformer(model_name)
@@ -176,7 +181,9 @@ class KnowledgeBase(KnowledgeStore):
             return results
 
         except Exception as e:
-            self.logger.error(f"FAISS search failed: {e}, falling back to keyword search")
+            self.logger.error(
+                f"FAISS search failed: {e}, falling back to keyword search"
+            )
             return self._keyword_search(query, k, filters)
 
     def _keyword_search(

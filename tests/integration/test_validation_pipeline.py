@@ -4,19 +4,21 @@ Integration Tests for Validation Pipeline
 Tests the complete pipeline from certificate extraction to validation
 """
 
-import unittest
-import sys
 import os
+import sys
 import time
+import unittest
 
 # Add parent directory to path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+sys.path.insert(
+    0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+)
 
+from tests.unit.test_certificate_validation_accuracy import CertificateValidationTester
+from utils.adaptive_tolerance import ToleranceManager
 from utils.certificate_extraction import extract_certificate_from_llm_output
 from utils.level_set_tracker import LevelSetTracker
 from utils.set_membership import SetMembershipTester
-from utils.adaptive_tolerance import ToleranceManager
-from tests.unit.test_certificate_validation_accuracy import CertificateValidationTester
 
 
 class ValidationPipelineIntegrationTests(unittest.TestCase):
@@ -66,7 +68,9 @@ class ValidationPipelineIntegrationTests(unittest.TestCase):
         self.assertTrue(level_info.is_valid)
 
         # Step 3: Validate certificate
-        validation_result = self.validator.validate_certificate_mathematically(extracted[0], system)
+        validation_result = self.validator.validate_certificate_mathematically(
+            extracted[0], system
+        )
 
         self.assertTrue(validation_result["valid"])
         self.assertEqual(len(validation_result.get("violations", [])), 0)
@@ -96,7 +100,9 @@ class ValidationPipelineIntegrationTests(unittest.TestCase):
         self.assertFalse(level_info.is_valid)
 
         # Validate - should fail
-        validation_result = self.validator.validate_certificate_mathematically(extracted[0], system)
+        validation_result = self.validator.validate_certificate_mathematically(
+            extracted[0], system
+        )
         self.assertFalse(validation_result["valid"])
 
     def test_pipeline_with_adaptive_tolerance(self):
@@ -118,7 +124,9 @@ class ValidationPipelineIntegrationTests(unittest.TestCase):
         certificate = "x**2 + y**2 - 1000.0"  # r = 31.6
 
         # Validate with adaptive tolerance
-        validation_result = self.validator.validate_certificate_mathematically(certificate, system)
+        validation_result = self.validator.validate_certificate_mathematically(
+            certificate, system
+        )
 
         self.assertTrue(validation_result["valid"])
 
@@ -144,11 +152,19 @@ class ValidationPipelineIntegrationTests(unittest.TestCase):
         ]
 
         for point, expected_initial, expected_unsafe in test_points:
-            in_initial = self.set_tester.is_in_set(point, system["initial_set"], variables)
-            in_unsafe = self.set_tester.is_in_set(point, system["unsafe_set"], variables)
+            in_initial = self.set_tester.is_in_set(
+                point, system["initial_set"], variables
+            )
+            in_unsafe = self.set_tester.is_in_set(
+                point, system["unsafe_set"], variables
+            )
 
-            self.assertEqual(in_initial, expected_initial, f"Point {point} initial set membership")
-            self.assertEqual(in_unsafe, expected_unsafe, f"Point {point} unsafe set membership")
+            self.assertEqual(
+                in_initial, expected_initial, f"Point {point} initial set membership"
+            )
+            self.assertEqual(
+                in_unsafe, expected_unsafe, f"Point {point} unsafe set membership"
+            )
 
     def test_pipeline_performance(self):
         """Test pipeline performance on various system sizes"""
@@ -179,7 +195,9 @@ class ValidationPipelineIntegrationTests(unittest.TestCase):
 
             elapsed = time.time() - start_time
 
-            results.append({"dimension": dim, "time": elapsed, "valid": validation_result["valid"]})
+            results.append(
+                {"dimension": dim, "time": elapsed, "valid": validation_result["valid"]}
+            )
 
             # Performance requirement: < 1 second
             self.assertLess(elapsed, 1.0, f"{dim}D validation took {elapsed:.3f}s")
@@ -232,7 +250,9 @@ class ValidationPipelineIntegrationTests(unittest.TestCase):
         certificate = "x**2 + y**2 - 1.0"
 
         # Validate
-        validation_result = self.validator.validate_certificate_mathematically(certificate, system)
+        validation_result = self.validator.validate_certificate_mathematically(
+            certificate, system
+        )
 
         # Should be valid (Lie derivative is negative in critical region)
         self.assertTrue(validation_result["valid"])
@@ -308,7 +328,9 @@ class TestPipelineEndToEnd(unittest.TestCase):
 
         # 4. Full validation
         validator = CertificateValidationTester()
-        result = validator.validate_certificate_mathematically(certificate, problem["system"])
+        result = validator.validate_certificate_mathematically(
+            certificate, problem["system"]
+        )
 
         # 5. Check results
         self.assertTrue(result["valid"])
@@ -341,12 +363,16 @@ class TestPipelineEndToEnd(unittest.TestCase):
         llm_response = "B(x,y) = x**2 + y**2 - 1.0"
 
         # Extract
-        extracted = extract_certificate_from_llm_output(llm_response, problem["variables"])
+        extracted = extract_certificate_from_llm_output(
+            llm_response, problem["variables"]
+        )
         certificate = extracted[0]
 
         # Validate - should fail due to positive Lie derivative
         validator = CertificateValidationTester()
-        result = validator.validate_certificate_mathematically(certificate, problem["system"])
+        result = validator.validate_certificate_mathematically(
+            certificate, problem["system"]
+        )
 
         self.assertFalse(result["valid"])
         self.assertGreater(len(result.get("violations", [])), 0)
@@ -362,7 +388,9 @@ def run_integration_tests():
     suite = unittest.TestSuite()
 
     # Add test cases
-    suite.addTests(unittest.TestLoader().loadTestsFromTestCase(ValidationPipelineIntegrationTests))
+    suite.addTests(
+        unittest.TestLoader().loadTestsFromTestCase(ValidationPipelineIntegrationTests)
+    )
     suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TestPipelineEndToEnd))
 
     # Run tests

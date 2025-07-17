@@ -7,12 +7,13 @@ Critical missing test coverage: Complete pipeline workflows from input to output
 Tests the full integration of all components working together.
 """
 
-import pytest
+import json
 import sys
 import tempfile
-import json
 import time
 from pathlib import Path
+
+import pytest
 
 # Add project root to path
 PROJECT_ROOT = Path(__file__).parent.parent.parent
@@ -66,7 +67,9 @@ class TestCompleteWorkflows:
             variables = ["x", "y"]  # Default variables for 2D system
 
             # Call with correct signature: (llm_text, variables) -> (certificate, failed)
-            certificate, failed = extract_certificate_from_llm_output(mock_llm_output, variables)
+            certificate, failed = extract_certificate_from_llm_output(
+                mock_llm_output, variables
+            )
 
             assert not failed, f"Certificate extraction failed: {certificate}"
             assert certificate is not None, "No certificate extracted"
@@ -124,7 +127,9 @@ Unsafe Set: {', '.join(test_system['unsafe_set'])}"""
             with app.test_client() as client:
                 # Step 1: Test main page loads
                 response = client.get("/")
-                assert response.status_code == 200, f"Main page failed: {response.status_code}"
+                assert (
+                    response.status_code == 200
+                ), f"Main page failed: {response.status_code}"
                 print("   ✅ Main page loads successfully")
 
                 # Step 2: Test certificate generation endpoint
@@ -135,7 +140,9 @@ Unsafe Set: {', '.join(test_system['unsafe_set'])}"""
                 }
 
                 response = client.post(
-                    "/generate", data=json.dumps(test_input), content_type="application/json"
+                    "/generate",
+                    data=json.dumps(test_input),
+                    content_type="application/json",
                 )
 
                 # Accept various response codes (may need mock setup)
@@ -300,7 +307,9 @@ Unsafe Set: {', '.join(test_system['unsafe_set'])}"""
         try:
             pass
 
-            test_system = "dx/dt = -x, dy/dt = -y, Initial: x^2+y^2<=0.25, Unsafe: x^2+y^2>=4"
+            test_system = (
+                "dx/dt = -x, dy/dt = -y, Initial: x^2+y^2<=0.25, Unsafe: x^2+y^2>=4"
+            )
 
             # Mock inference result
             mock_inference_result = {
@@ -372,16 +381,22 @@ Unsafe Set: {', '.join(test_system['unsafe_set'])}"""
                     try:
                         self._simulate_verification_failure()
                         recovery_count += 1
-                        print(f"   ✅ {scenario['name']}: Verification error handled gracefully")
+                        print(
+                            f"   ✅ {scenario['name']}: Verification error handled gracefully"
+                        )
                     except Exception as e:
-                        print(f"   ⚠️ {scenario['name']}: Verification error not handled: {e}")
+                        print(
+                            f"   ⚠️ {scenario['name']}: Verification error not handled: {e}"
+                        )
 
             except Exception as e:
                 print(f"   ⚠️ {scenario['name']}: Unexpected error: {e}")
 
         recovery_rate = recovery_count / len(error_scenarios)
         assert recovery_rate >= 0.5, f"Poor error recovery rate: {recovery_rate:.1%}"
-        print(f"   🎉 Error recovery test PASSED: {recovery_rate:.1%} scenarios handled")
+        print(
+            f"   🎉 Error recovery test PASSED: {recovery_rate:.1%} scenarios handled"
+        )
 
     def _process_invalid_input(self, invalid_input):
         """Helper method to test invalid input handling"""

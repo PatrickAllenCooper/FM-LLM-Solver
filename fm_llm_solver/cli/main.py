@@ -5,16 +5,19 @@ Provides unified commands for all system operations.
 """
 
 import sys
-import click
 from pathlib import Path
 from typing import Optional
+
+import click
 
 from fm_llm_solver.core.config import load_config
 from fm_llm_solver.core.logging import configure_logging, get_logger
 
 
 @click.group()
-@click.option("--config", "-c", type=click.Path(exists=True), help="Configuration file path")
+@click.option(
+    "--config", "-c", type=click.Path(exists=True), help="Configuration file path"
+)
 @click.option("--verbose", "-v", is_flag=True, help="Enable verbose logging")
 @click.option("--debug", is_flag=True, help="Enable debug logging")
 @click.pass_context
@@ -28,9 +31,15 @@ def cli(ctx, config: Optional[str], verbose: bool, debug: bool):
         ctx.obj["config"] = load_config(config)
 
         # Configure logging
-        log_level = "DEBUG" if debug else ("INFO" if verbose else ctx.obj["config"].logging.level)
+        log_level = (
+            "DEBUG"
+            if debug
+            else ("INFO" if verbose else ctx.obj["config"].logging.level)
+        )
         configure_logging(
-            level=log_level, console=True, structured=ctx.obj["config"].logging.structured
+            level=log_level,
+            console=True,
+            structured=ctx.obj["config"].logging.structured,
         )
 
         ctx.obj["logger"] = get_logger("cli")
@@ -40,13 +49,14 @@ def cli(ctx, config: Optional[str], verbose: bool, debug: bool):
         sys.exit(1)
 
 
+from .config import config
+from .deploy import deploy
+from .experiment import experiment
+
 # Import command groups
 from .kb import kb
 from .train import train
 from .web import web
-from .experiment import experiment
-from .deploy import deploy
-from .config import config
 
 # Register command groups
 cli.add_command(kb)
@@ -65,7 +75,12 @@ cli.add_command(config)
 @click.option("--verify", is_flag=True, help="Verify the generated certificate")
 @click.pass_context
 def generate(
-    ctx, system_description: str, model: str, rag_k: int, output: Optional[str], verify: bool
+    ctx,
+    system_description: str,
+    model: str,
+    rag_k: int,
+    output: Optional[str],
+    verify: bool,
 ):
     """Generate a barrier certificate for a given system description."""
     config = ctx.obj["config"]
@@ -76,8 +91,8 @@ def generate(
     try:
         # Initialize services
         from fm_llm_solver.services.certificate_generator import CertificateGenerator
-        from fm_llm_solver.services.model_provider import ModelProviderFactory
         from fm_llm_solver.services.knowledge_base import KnowledgeBase
+        from fm_llm_solver.services.model_provider import ModelProviderFactory
 
         # Create model provider
         model_provider = ModelProviderFactory.create(
@@ -208,7 +223,9 @@ def status(ctx):
         model_cache = Path.home() / ".cache" / "huggingface" / "transformers"
         if model_cache.exists():
             model_dirs = [
-                d for d in model_cache.iterdir() if d.is_dir() and "qwen" in d.name.lower()
+                d
+                for d in model_cache.iterdir()
+                if d.is_dir() and "qwen" in d.name.lower()
             ]
             if model_dirs:
                 click.echo(f"  • Cached models: ✅ Found {len(model_dirs)} Qwen models")
@@ -290,11 +307,15 @@ def setup(ctx, check_deps: bool, install_missing: bool):
                 missing_packages.append(package)
 
         if missing_packages and install_missing:
-            click.echo(f"\n📥 Installing missing packages: {', '.join(missing_packages)}")
+            click.echo(
+                f"\n📥 Installing missing packages: {', '.join(missing_packages)}"
+            )
             import subprocess
 
             try:
-                subprocess.check_call([sys.executable, "-m", "pip", "install"] + missing_packages)
+                subprocess.check_call(
+                    [sys.executable, "-m", "pip", "install"] + missing_packages
+                )
                 click.echo("✅ Packages installed successfully!")
             except subprocess.CalledProcessError as e:
                 click.echo(f"❌ Failed to install packages: {e}")

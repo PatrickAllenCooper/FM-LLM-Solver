@@ -3,17 +3,20 @@
 Test certificate validation accuracy with correct barrier certificate theory
 """
 
-import logging
-import sys
-import os
-import time
 import json
+import logging
+import os
+import sys
+import time
+from typing import Dict, List
+
 import numpy as np
 import sympy
-from typing import List, Dict
 
 # Add parent directory to path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+sys.path.insert(
+    0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+)
 
 from utils.certificate_extraction import extract_certificate_from_llm_output
 from utils.level_set_tracker import LevelSetTracker
@@ -53,7 +56,17 @@ class CertificateValidationTester:
                     "x**2 + y**2",  # Invalid: B > 0 everywhere
                     "x**2 + y**2 - 5.0",  # Invalid: B < 0 on unsafe set
                 ],
-                "expected_valid": [True, True, True, True, False, False, False, False, False],
+                "expected_valid": [
+                    True,
+                    True,
+                    True,
+                    True,
+                    False,
+                    False,
+                    False,
+                    False,
+                    False,
+                ],
             }
         )
 
@@ -69,7 +82,11 @@ class CertificateValidationTester:
                     "x**2 + y**2 - 0.5",
                     "x**2 + y**2 - 0.3",
                 ],
-                "expected_valid": [True, True, False],  # Adjusted based on correct theory
+                "expected_valid": [
+                    True,
+                    True,
+                    False,
+                ],  # Adjusted based on correct theory
             }
         )
 
@@ -152,7 +169,9 @@ class CertificateValidationTester:
                     dynamics.append(sympy.parse_expr(dyn))
 
             # Calculate Lie derivative
-            lie_derivative = sum(sympy.diff(B, var) * f for var, f in zip(vars_sympy, dynamics))
+            lie_derivative = sum(
+                sympy.diff(B, var) * f for var, f in zip(vars_sympy, dynamics)
+            )
 
             # Convert expressions to numpy functions
             B_func = sympy.lambdify(vars_sympy, B, "numpy")
@@ -208,7 +227,9 @@ class CertificateValidationTester:
             )
 
             for _ in range(n_samples * 10):
-                point = tuple(np.random.uniform(bounds[v][0], bounds[v][1]) for v in variables)
+                point = tuple(
+                    np.random.uniform(bounds[v][0], bounds[v][1]) for v in variables
+                )
                 B_val = B_func(*point)
 
                 # Check if in critical region [c1, c2]
@@ -292,7 +313,9 @@ class CertificateValidationTester:
                     test_case["input"], test_case["variables"]
                 )
                 extracted = (
-                    extracted_result[0] if isinstance(extracted_result, tuple) else extracted_result
+                    extracted_result[0]
+                    if isinstance(extracted_result, tuple)
+                    else extracted_result
                 )
 
                 # Check if extraction matches expected
@@ -357,7 +380,9 @@ class CertificateValidationTester:
                 expected_valid = system["expected_valid"][i]
 
                 # Validate certificate mathematically
-                validation_result = self.validate_certificate_mathematically(certificate, system)
+                validation_result = self.validate_certificate_mathematically(
+                    certificate, system
+                )
 
                 # Check if validation matches expectation
                 actual_valid = validation_result.get("valid", False)
@@ -377,7 +402,9 @@ class CertificateValidationTester:
                 )
 
             # Calculate accuracy for this system
-            correct_validations = sum(1 for r in system_results if r["validation_correct"])
+            correct_validations = sum(
+                1 for r in system_results if r["validation_correct"]
+            )
             system_accuracy = correct_validations / len(system_results)
 
             all_results.append(
@@ -428,14 +455,20 @@ class CertificateValidationTester:
         for i, llm_output in enumerate(llm_outputs):
             try:
                 # Extract certificate
-                extracted_result = extract_certificate_from_llm_output(llm_output, ["x", "y"])
+                extracted_result = extract_certificate_from_llm_output(
+                    llm_output, ["x", "y"]
+                )
                 extracted = (
-                    extracted_result[0] if isinstance(extracted_result, tuple) else extracted_result
+                    extracted_result[0]
+                    if isinstance(extracted_result, tuple)
+                    else extracted_result
                 )
 
                 if extracted:
                     # Validate certificate
-                    validation_result = self.validate_certificate_mathematically(extracted, system)
+                    validation_result = self.validate_certificate_mathematically(
+                        extracted, system
+                    )
                     actual_valid = validation_result.get("valid", False)
                 else:
                     actual_valid = False
@@ -449,7 +482,9 @@ class CertificateValidationTester:
                 results.append(
                     {
                         "llm_output": (
-                            llm_output[:50] + "..." if len(llm_output) > 50 else llm_output
+                            llm_output[:50] + "..."
+                            if len(llm_output) > 50
+                            else llm_output
                         ),
                         "extracted": extracted,
                         "expected_valid": expected_valid,
@@ -467,7 +502,9 @@ class CertificateValidationTester:
                 results.append(
                     {
                         "llm_output": (
-                            llm_output[:50] + "..." if len(llm_output) > 50 else llm_output
+                            llm_output[:50] + "..."
+                            if len(llm_output) > 50
+                            else llm_output
                         ),
                         "extracted": None,
                         "expected_valid": expected_results[i],
@@ -522,7 +559,9 @@ class CertificateValidationTester:
         return comprehensive_results
 
     def save_accuracy_results(
-        self, results: Dict, output_path: str = "test_results/certificate_accuracy_results.json"
+        self,
+        results: Dict,
+        output_path: str = "test_results/certificate_accuracy_results.json",
     ):
         """Save accuracy test results"""
         os.makedirs(os.path.dirname(output_path), exist_ok=True)

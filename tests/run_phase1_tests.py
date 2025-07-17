@@ -4,27 +4,30 @@ Automated Test Runner for Phase 1 Barrier Certificate Validation
 Runs all Phase 1 tests and generates comprehensive reports
 """
 
-import sys
-import os
-import time
-import json
 import argparse
+import json
+import os
+import sys
+import time
+import traceback
 from datetime import datetime
 from typing import Dict
-import traceback
 
 # Add project root to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Import test modules
 from test_harness import BarrierCertificateTestHarness
+
+from tests.integration.test_validation_pipeline import (
+    ValidationPipelineIntegrationTests,
+)
 from tests.test_theory_compliance import run_theory_compliance_tests
-from tests.integration.test_validation_pipeline import ValidationPipelineIntegrationTests
 from tests.unit.test_extraction_edge_cases import (
     TestDecimalExtraction,
-    TestTemplateDetection,
-    TestFormatSupport,
     TestEdgeCases,
+    TestFormatSupport,
+    TestTemplateDetection,
 )
 
 
@@ -89,7 +92,10 @@ class Phase1TestRunner:
         try:
             print("Running theory compliance tests...")
             theory_passed, theory_details = run_theory_compliance_tests()
-            unit_results["theory_compliance"] = {"passed": theory_passed, "details": theory_details}
+            unit_results["theory_compliance"] = {
+                "passed": theory_passed,
+                "details": theory_details,
+            }
             self.print_status(
                 "Theory Compliance",
                 "PASS" if theory_passed else "FAIL",
@@ -131,7 +137,9 @@ class Phase1TestRunner:
                     "details": {"passed": passed, "failed": failed},
                 }
                 self.print_status(
-                    test_name, "PASS" if failed == 0 else "FAIL", f"{passed}/{passed+failed} passed"
+                    test_name,
+                    "PASS" if failed == 0 else "FAIL",
+                    f"{passed}/{passed+failed} passed",
                 )
 
             except Exception as e:
@@ -179,7 +187,11 @@ class Phase1TestRunner:
 
             integration_results["validation_pipeline"] = {
                 "passed": failed == 0,
-                "details": {"passed": passed, "failed": failed, "total": len(test_methods)},
+                "details": {
+                    "passed": passed,
+                    "failed": failed,
+                    "total": len(test_methods),
+                },
             }
 
             self.print_status(
@@ -189,7 +201,10 @@ class Phase1TestRunner:
             )
 
         except Exception as e:
-            integration_results["validation_pipeline"] = {"passed": False, "error": str(e)}
+            integration_results["validation_pipeline"] = {
+                "passed": False,
+                "error": str(e),
+            }
             self.print_status("Validation Pipeline", "FAIL", f"Error: {str(e)[:50]}...")
 
         return integration_results
@@ -260,8 +275,9 @@ class Phase1TestRunner:
 
         try:
             # Test validation speed on a simple case
-            from utils.level_set_tracker import BarrierCertificateValidator
             from omegaconf import DictConfig
+
+            from utils.level_set_tracker import BarrierCertificateValidator
 
             print("Testing validation performance...")
 
@@ -290,7 +306,9 @@ class Phase1TestRunner:
             times = []
             for i in range(3):
                 start = time.time()
-                validator = BarrierCertificateValidator(certificate, system_info, config)
+                validator = BarrierCertificateValidator(
+                    certificate, system_info, config
+                )
                 validator.validate()
                 elapsed = time.time() - start
                 times.append(elapsed)
@@ -323,7 +341,9 @@ class Phase1TestRunner:
             f.write("PHASE 1 TEST SUMMARY REPORT\n")
             f.write("=" * 80 + "\n")
             f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-            f.write(f"Total Duration: {self.end_time - self.start_time:.2f} seconds\n\n")
+            f.write(
+                f"Total Duration: {self.end_time - self.start_time:.2f} seconds\n\n"
+            )
 
             # Overall summary
             all_passed = all(
@@ -420,12 +440,18 @@ class Phase1TestRunner:
 
 def main():
     """Main entry point"""
-    parser = argparse.ArgumentParser(description="Run Phase 1 barrier certificate tests")
-    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
+    parser = argparse.ArgumentParser(
+        description="Run Phase 1 barrier certificate tests"
+    )
+    parser.add_argument(
+        "-v", "--verbose", action="store_true", help="Enable verbose output"
+    )
     parser.add_argument(
         "-o", "--output", default="test_results", help="Output directory for results"
     )
-    parser.add_argument("--no-color", action="store_true", help="Disable colored output")
+    parser.add_argument(
+        "--no-color", action="store_true", help="Disable colored output"
+    )
 
     args = parser.parse_args()
 

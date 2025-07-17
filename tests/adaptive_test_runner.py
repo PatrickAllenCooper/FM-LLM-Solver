@@ -12,14 +12,14 @@ Usage:
     python tests/adaptive_test_runner.py --verbose
 """
 
-import sys
-import time
+import argparse
 import json
 import subprocess
-import argparse
+import sys
+import time
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Set
-from datetime import datetime
 
 # Add project root to path
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -34,7 +34,9 @@ class AdaptiveTestRunner:
     def __init__(self, force_environment: Optional[str] = None):
         """Initialize the adaptive test runner."""
         self.detector = get_environment_detector()
-        self.environment_type = force_environment or self.detector.get_environment_type()
+        self.environment_type = (
+            force_environment or self.detector.get_environment_type()
+        )
         self.capabilities = self.detector.get_testing_capabilities()
 
         # Override capabilities if environment is forced
@@ -63,7 +65,9 @@ class AdaptiveTestRunner:
                     "recommended_test_scope": "essential",
                     "max_parallel_jobs": min(self.capabilities["max_parallel_jobs"], 4),
                     "can_run_load_tests": False,
-                    "timeout_multiplier": max(self.capabilities["timeout_multiplier"], 2.0),
+                    "timeout_multiplier": max(
+                        self.capabilities["timeout_multiplier"], 2.0
+                    ),
                 }
             )
         elif env_type == "desktop":
@@ -71,7 +75,9 @@ class AdaptiveTestRunner:
                 {
                     "recommended_test_scope": "comprehensive",
                     "can_run_load_tests": True,
-                    "timeout_multiplier": min(self.capabilities["timeout_multiplier"], 1.5),
+                    "timeout_multiplier": min(
+                        self.capabilities["timeout_multiplier"], 1.5
+                    ),
                 }
             )
         elif env_type == "deployed":
@@ -79,7 +85,9 @@ class AdaptiveTestRunner:
                 {
                     "recommended_test_scope": "production",
                     "max_parallel_jobs": min(self.capabilities["max_parallel_jobs"], 2),
-                    "timeout_multiplier": max(self.capabilities["timeout_multiplier"], 2.0),
+                    "timeout_multiplier": max(
+                        self.capabilities["timeout_multiplier"], 2.0
+                    ),
                 }
             )
 
@@ -116,7 +124,9 @@ class AdaptiveTestRunner:
             print(f"\n🧪 Running {category} tests...")
 
             category_results = self._run_test_category(
-                category, test_strategy["parallel_jobs"], test_strategy["timeout_multiplier"]
+                category,
+                test_strategy["parallel_jobs"],
+                test_strategy["timeout_multiplier"],
             )
 
             self.results["test_results"][category] = category_results
@@ -129,13 +139,17 @@ class AdaptiveTestRunner:
             # Display results
             if total > 0:
                 success_rate = (passed / total) * 100
-                status = "✅" if success_rate >= 90 else "⚠️" if success_rate >= 70 else "❌"
+                status = (
+                    "✅" if success_rate >= 90 else "⚠️" if success_rate >= 70 else "❌"
+                )
                 print(f"  {status} {category}: {passed}/{total} ({success_rate:.1f}%)")
 
                 if category_results.get("duration"):
                     print(f"    Duration: {category_results['duration']:.2f}s")
                 if category_results.get("warnings"):
-                    for warning in category_results["warnings"][:3]:  # Show first 3 warnings
+                    for warning in category_results["warnings"][
+                        :3
+                    ]:  # Show first 3 warnings
                         print(f"    ⚠️ {warning}")
             else:
                 print(f"  ❌ {category}: No tests run")
@@ -213,7 +227,9 @@ class AdaptiveTestRunner:
             if category == "unit_tests":
                 return self._run_unit_tests(parallel_jobs, timeout_multiplier)
             elif category == "core_integration":
-                return self._run_core_integration_tests(parallel_jobs, timeout_multiplier)
+                return self._run_core_integration_tests(
+                    parallel_jobs, timeout_multiplier
+                )
             elif category == "integration_tests":
                 return self._run_integration_tests(parallel_jobs, timeout_multiplier)
             elif category == "security_tests":
@@ -267,7 +283,9 @@ class AdaptiveTestRunner:
 
         return self._execute_pytest_command(cmd, "unit_tests")
 
-    def _run_core_integration_tests(self, parallel_jobs: int, timeout_multiplier: float) -> Dict:
+    def _run_core_integration_tests(
+        self, parallel_jobs: int, timeout_multiplier: float
+    ) -> Dict:
         """Run core integration tests (subset of full integration)."""
         # Focus on essential integrations only
         test_files = [
@@ -287,7 +305,9 @@ class AdaptiveTestRunner:
 
         return self._execute_pytest_command(cmd, "core_integration")
 
-    def _run_integration_tests(self, parallel_jobs: int, timeout_multiplier: float) -> Dict:
+    def _run_integration_tests(
+        self, parallel_jobs: int, timeout_multiplier: float
+    ) -> Dict:
         """Run full integration tests."""
         cmd = [
             sys.executable,
@@ -325,7 +345,8 @@ class AdaptiveTestRunner:
             "passed": pytest_result.get("passed", 0)
             + (1 if audit_result.get("passed", 0) > 0 else 0),
             "total": pytest_result.get("total", 0) + 1,
-            "duration": pytest_result.get("duration", 0) + audit_result.get("duration", 0),
+            "duration": pytest_result.get("duration", 0)
+            + audit_result.get("duration", 0),
             "details": {"pytest": pytest_result, "audit": audit_result},
         }
 
@@ -381,7 +402,9 @@ class AdaptiveTestRunner:
 
         # Check if K6 is available
         try:
-            subprocess.run(["k6", "version"], capture_output=True, check=True, timeout=10)
+            subprocess.run(
+                ["k6", "version"], capture_output=True, check=True, timeout=10
+            )
         except (subprocess.CalledProcessError, FileNotFoundError):
             return {"passed": 0, "total": 1, "error": "K6 not installed"}
 
@@ -408,7 +431,12 @@ class AdaptiveTestRunner:
             if result.returncode == 0:
                 return {"passed": 1, "total": 1, "duration": duration}
             else:
-                return {"passed": 0, "total": 1, "duration": duration, "error": result.stderr}
+                return {
+                    "passed": 0,
+                    "total": 1,
+                    "duration": duration,
+                    "error": result.stderr,
+                }
 
         except subprocess.TimeoutExpired:
             return {"passed": 0, "total": 1, "error": "Load test timed out"}
@@ -416,9 +444,15 @@ class AdaptiveTestRunner:
     def _run_deployment_tests(self, timeout_multiplier: float) -> Dict:
         """Run deployment tests."""
         if Path("deployment/test_deployment.py").exists():
-            return self._execute_script("deployment/test_deployment.py", timeout_multiplier * 300)
+            return self._execute_script(
+                "deployment/test_deployment.py", timeout_multiplier * 300
+            )
         else:
-            return {"passed": 0, "total": 1, "error": "Deployment test script not found"}
+            return {
+                "passed": 0,
+                "total": 1,
+                "error": "Deployment test script not found",
+            }
 
     def _run_monitoring_tests(self, timeout_multiplier: float) -> Dict:
         """Run monitoring tests."""
@@ -451,7 +485,9 @@ class AdaptiveTestRunner:
     def _run_security_audit(self, timeout_multiplier: float) -> Dict:
         """Run security audit script."""
         if Path("scripts/security_audit.py").exists():
-            return self._execute_script("scripts/security_audit.py", timeout_multiplier * 300)
+            return self._execute_script(
+                "scripts/security_audit.py", timeout_multiplier * 300
+            )
         else:
             return {"passed": 0, "total": 1, "error": "Security audit script not found"}
 
@@ -524,7 +560,12 @@ class AdaptiveTestRunner:
                 "error": "Script timed out",
             }
         except Exception as e:
-            return {"passed": 0, "total": 1, "duration": time.time() - start_time, "error": str(e)}
+            return {
+                "passed": 0,
+                "total": 1,
+                "duration": time.time() - start_time,
+                "error": str(e),
+            }
 
     def _parse_pytest_output(
         self, result: subprocess.CompletedProcess, duration: float, test_name: str
@@ -617,7 +658,9 @@ class AdaptiveTestRunner:
         recommendations = []
 
         if success_rate < 85:
-            recommendations.append("Consider running tests individually to isolate failures")
+            recommendations.append(
+                "Consider running tests individually to isolate failures"
+            )
             recommendations.append("Check system dependencies and environment setup")
 
         if self.environment_type == "macbook" and duration > 300:
@@ -625,7 +668,10 @@ class AdaptiveTestRunner:
                 "Tests are running slowly on MacBook - consider running on desktop for development"
             )
 
-        if self.environment_type == "desktop" and not self.capabilities["can_run_gpu_tests"]:
+        if (
+            self.environment_type == "desktop"
+            and not self.capabilities["can_run_gpu_tests"]
+        ):
             recommendations.append(
                 "GPU not detected on desktop - install CUDA drivers for better performance"
             )
@@ -637,13 +683,21 @@ class AdaptiveTestRunner:
 
         # Environment-specific recommendations
         if self.environment_type == "macbook":
-            recommendations.append("Use 'essential' scope for faster development cycles")
-            recommendations.append("Run comprehensive tests on desktop before committing")
+            recommendations.append(
+                "Use 'essential' scope for faster development cycles"
+            )
+            recommendations.append(
+                "Run comprehensive tests on desktop before committing"
+            )
         elif self.environment_type == "desktop":
-            recommendations.append("Take advantage of GPU acceleration for ML model tests")
+            recommendations.append(
+                "Take advantage of GPU acceleration for ML model tests"
+            )
             recommendations.append("Run full test suite before deployment")
         else:  # deployed
-            recommendations.append("Focus on monitoring and security tests in production")
+            recommendations.append(
+                "Focus on monitoring and security tests in production"
+            )
             recommendations.append("Use minimal test scope for quick health checks")
 
         self.results["recommendations"] = recommendations
@@ -676,7 +730,9 @@ class AdaptiveTestRunner:
 
         # Save detailed results
         report_file = (
-            PROJECT_ROOT / "test_results" / f"adaptive_test_report_{int(time.time())}.json"
+            PROJECT_ROOT
+            / "test_results"
+            / f"adaptive_test_report_{int(time.time())}.json"
         )
         report_file.parent.mkdir(exist_ok=True)
 
@@ -695,7 +751,9 @@ def main():
         help="Force specific environment type",
     )
     parser.add_argument(
-        "--scope", choices=["essential", "comprehensive", "production"], help="Override test scope"
+        "--scope",
+        choices=["essential", "comprehensive", "production"],
+        help="Override test scope",
     )
     parser.add_argument("--include", nargs="+", help="Include specific test categories")
     parser.add_argument("--exclude", nargs="+", help="Exclude specific test categories")

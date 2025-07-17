@@ -6,12 +6,12 @@ Provides SQLAlchemy models for user management, query logging, and results stora
 
 import json
 from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
 from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
-from werkzeug.security import generate_password_hash, check_password_hash
+from flask_sqlalchemy import SQLAlchemy
+from werkzeug.security import check_password_hash, generate_password_hash
 
 from fm_llm_solver.core.logging import get_logger
 
@@ -28,7 +28,9 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False, index=True)
     email = db.Column(db.String(120), unique=True, nullable=False, index=True)
     password_hash = db.Column(db.String(255), nullable=False)
-    role = db.Column(db.String(20), default="user", nullable=False)  # user, premium, admin
+    role = db.Column(
+        db.String(20), default="user", nullable=False
+    )  # user, premium, admin
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     last_login = db.Column(db.DateTime)
@@ -123,7 +125,9 @@ class QueryLog(db.Model):
         db.String(20), default="pending", nullable=False
     )  # pending, processing, completed, failed
     error_message = db.Column(db.Text)
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    timestamp = db.Column(
+        db.DateTime, default=datetime.utcnow, nullable=False, index=True
+    )
     processing_start = db.Column(db.DateTime)
     processing_end = db.Column(db.DateTime)
 
@@ -132,11 +136,16 @@ class QueryLog(db.Model):
     decision_timestamp = db.Column(db.DateTime)
 
     # Linked conversation
-    conversation_id = db.Column(db.Integer, db.ForeignKey("conversations.id"), nullable=True)
+    conversation_id = db.Column(
+        db.Integer, db.ForeignKey("conversations.id"), nullable=True
+    )
 
     # Relationships
     verification_results = db.relationship(
-        "VerificationResult", backref="query", lazy="dynamic", cascade="all, delete-orphan"
+        "VerificationResult",
+        backref="query",
+        lazy="dynamic",
+        cascade="all, delete-orphan",
     )
 
     def set_domain_bounds_dict(self, bounds: Dict[str, Any]) -> None:
@@ -156,12 +165,22 @@ class QueryLog(db.Model):
     def get_verification_summary_dict(self) -> Dict[str, bool]:
         """Get verification summary as dictionary."""
         if not self.verification_summary:
-            return {"numerical": False, "symbolic": False, "sos": False, "overall": False}
+            return {
+                "numerical": False,
+                "symbolic": False,
+                "sos": False,
+                "overall": False,
+            }
         try:
             return json.loads(self.verification_summary)
         except (json.JSONDecodeError, TypeError):
             logger.warning(f"Failed to parse verification summary for query {self.id}")
-            return {"numerical": False, "symbolic": False, "sos": False, "overall": False}
+            return {
+                "numerical": False,
+                "symbolic": False,
+                "sos": False,
+                "overall": False,
+            }
 
     def get_context_chunks_list(self) -> list:
         """Get context chunks as list."""
@@ -274,7 +293,10 @@ class Conversation(db.Model):
     ) -> "ConversationMessage":
         """Add a message to the conversation."""
         message = ConversationMessage(
-            conversation_id=self.id, role=role, content=content, message_type=message_type
+            conversation_id=self.id,
+            role=role,
+            content=content,
+            message_type=message_type,
         )
         db.session.add(message)
         self.updated_at = datetime.utcnow()
@@ -302,7 +324,9 @@ class ConversationMessage(db.Model):
     __tablename__ = "conversation_messages"
 
     id = db.Column(db.Integer, primary_key=True)
-    conversation_id = db.Column(db.Integer, db.ForeignKey("conversations.id"), nullable=False)
+    conversation_id = db.Column(
+        db.Integer, db.ForeignKey("conversations.id"), nullable=False
+    )
 
     # Message content
     role = db.Column(db.String(20), nullable=False)  # user, assistant, system
@@ -312,7 +336,9 @@ class ConversationMessage(db.Model):
     )  # chat, system_description, domain_bounds
 
     # Timing
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    timestamp = db.Column(
+        db.DateTime, default=datetime.utcnow, nullable=False, index=True
+    )
 
     def __repr__(self) -> str:
         return f"<ConversationMessage {self.id}: {self.role}>"
@@ -333,6 +359,8 @@ def init_db(app: Flask) -> SQLAlchemy:
             admin.set_password("admin123")  # Change in production!
             db.session.add(admin)
             db.session.commit()
-            logger.info("Created default admin user (username: admin, password: admin123)")
+            logger.info(
+                "Created default admin user (username: admin, password: admin123)"
+            )
 
     return db

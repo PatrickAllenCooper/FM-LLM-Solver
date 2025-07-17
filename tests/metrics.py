@@ -4,11 +4,12 @@ Computes precision, recall, F1 scores and other validation metrics
 """
 
 import json
-import numpy as np
-from typing import Dict, List, Optional, Any
-from dataclasses import dataclass, asdict
-from datetime import datetime
 import os
+from dataclasses import asdict, dataclass
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+import numpy as np
 
 
 @dataclass
@@ -64,7 +65,9 @@ class ValidationMetrics:
 
         # F1 Score: 2 * (precision * recall) / (precision + recall)
         if self.precision + self.recall > 0:
-            self.f1_score = 2 * (self.precision * self.recall) / (self.precision + self.recall)
+            self.f1_score = (
+                2 * (self.precision * self.recall) / (self.precision + self.recall)
+            )
         else:
             self.f1_score = 0.0
 
@@ -164,7 +167,10 @@ class MetricsCalculator:
                 c2_expected = expected_ls.get("c2")
                 c2_computed = computed_ls.get("c2")
 
-                if all(x is not None for x in [c1_expected, c1_computed, c2_expected, c2_computed]):
+                if all(
+                    x is not None
+                    for x in [c1_expected, c1_computed, c2_expected, c2_computed]
+                ):
                     c1_error = abs(c1_expected - c1_computed)
                     c2_error = abs(c2_expected - c2_computed)
 
@@ -258,12 +264,16 @@ class MetricsCalculator:
         # Performance Metrics
         report.append("Performance Metrics:")
         report.append(f"  Avg Validation Time: {self.metrics.avg_validation_time:.3f}s")
-        report.append(f"  Total Time:          {self.metrics.total_validation_time:.1f}s")
+        report.append(
+            f"  Total Time:          {self.metrics.total_validation_time:.1f}s"
+        )
         report.append("")
 
         # Agreement Metrics
         report.append("Validator Agreement:")
-        report.append(f"  Agreement Rate:      {self.metrics.validator_agreement_rate:.3f}")
+        report.append(
+            f"  Agreement Rate:      {self.metrics.validator_agreement_rate:.3f}"
+        )
 
         return "\n".join(report)
 
@@ -299,14 +309,14 @@ class MetricsCalculator:
 
         # Analyze patterns
         if failures["false_negatives"]:
-            failures["patterns"]["false_negative_rate"] = len(failures["false_negatives"]) / len(
-                self.results
-            )
+            failures["patterns"]["false_negative_rate"] = len(
+                failures["false_negatives"]
+            ) / len(self.results)
 
         if failures["false_positives"]:
-            failures["patterns"]["false_positive_rate"] = len(failures["false_positives"]) / len(
-                self.results
-            )
+            failures["patterns"]["false_positive_rate"] = len(
+                failures["false_positives"]
+            ) / len(self.results)
 
         return failures
 
@@ -400,7 +410,9 @@ def main():
     if args.compare:
         # Compare multiple validators
         labels = (
-            args.labels if args.labels else [f"Validator {i+1}" for i in range(len(args.compare))]
+            args.labels
+            if args.labels
+            else [f"Validator {i+1}" for i in range(len(args.compare))]
         )
         compare_validator_metrics(args.compare, labels)
     else:

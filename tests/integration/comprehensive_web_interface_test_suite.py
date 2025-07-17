@@ -14,14 +14,15 @@ Tests every aspect of the web interface to ensure rock-solid reliability:
 This suite maximizes successful barrier certificate generation through rigorous testing.
 """
 
-import sys
-import time
 import json
 import logging
+import sys
+import time
 import traceback
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Dict, List, Any, Optional
-from dataclasses import dataclass, asdict
+from typing import Any, Dict, List, Optional
+
 import numpy as np
 
 # Add project root to path
@@ -32,15 +33,18 @@ sys.path.insert(0, str(PROJECT_ROOT))
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
-    handlers=[logging.StreamHandler(), logging.FileHandler("comprehensive_web_test.log")],
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler("comprehensive_web_test.log"),
+    ],
 )
 logger = logging.getLogger(__name__)
 
 # Import web interface components
 from utils.config_loader import load_config
-from web_interface.verification_service import VerificationService
 from web_interface.certificate_generator import CertificateGenerator
 from web_interface.conversation_service import ConversationService
+from web_interface.verification_service import VerificationService
 
 
 @dataclass
@@ -335,7 +339,9 @@ Unsafe Set: x**4 + y**4 >= 1.0""",
         verification_results["tests_run"] += len(parsing_test_cases)
         verification_results["tests_passed"] += parsing_passed
 
-        success_rate = verification_results["tests_passed"] / verification_results["tests_run"]
+        success_rate = (
+            verification_results["tests_passed"] / verification_results["tests_run"]
+        )
         print(f"\n📊 Verification Service: {success_rate:.1%} success rate")
 
         return verification_results
@@ -421,16 +427,22 @@ Unsafe Set: x**4 + y**4 >= 1.0""",
                 "total_time": total_time,
                 "generation_time": generation_time,
                 "verification_time": verification_time,
-                "samples_per_second": 75.0 / verification_time if verification_time > 0 else 0,
+                "samples_per_second": (
+                    75.0 / verification_time if verification_time > 0 else 0
+                ),
             }
 
-            success = overall_success if test_case.should_succeed else not overall_success
+            success = (
+                overall_success if test_case.should_succeed else not overall_success
+            )
 
             status = "✅ PASS" if success else "❌ FAIL"
             print(
                 f"   {status} - Overall: {overall_success}, Numerical: {numerical_passed}, SOS: {sos_passed}"
             )
-            print(f"   ⏱️ Times: Gen={generation_time:.2f}s, Ver={verification_time:.2f}s")
+            print(
+                f"   ⏱️ Times: Gen={generation_time:.2f}s, Ver={verification_time:.2f}s"
+            )
 
             return TestResult(
                 test_name=test_case.name,
@@ -483,7 +495,12 @@ Unsafe Set: x**2 + y**2 >= 4.0""",
             },
         }
 
-        error_results = {"tests_run": 0, "graceful_failures": 0, "crashes": 0, "details": {}}
+        error_results = {
+            "tests_run": 0,
+            "graceful_failures": 0,
+            "crashes": 0,
+            "details": {},
+        }
 
         for test_name, test_config in error_tests.items():
             print(f"📋 Testing: {test_name}")
@@ -493,7 +510,8 @@ Unsafe Set: x**2 + y**2 >= 4.0""",
                 if "system" in test_config:
                     # Test verification with invalid input
                     result = self.verification_service.verify_certificate(
-                        test_config.get("certificate", "x**2 + y**2"), test_config["system"]
+                        test_config.get("certificate", "x**2 + y**2"),
+                        test_config["system"],
                     )
 
                     if result.get("overall_success") == False:
@@ -669,7 +687,9 @@ Unsafe Set: x**2 + y**2 >= 4.0"""
             ),
             "llm_components": llm_available,
             "performance": (
-                "good" if performance_results.get("scalability") == "good" else "needs_attention"
+                "good"
+                if performance_results.get("scalability") == "good"
+                else "needs_attention"
             ),
         }
 
@@ -708,7 +728,9 @@ Unsafe Set: x**2 + y**2 >= 4.0"""
                 "error_handling": error_results,
                 "test_cases": [asdict(r) for r in self.test_results],
             },
-            "recommendations": self._generate_recommendations(component_health, success_rate),
+            "recommendations": self._generate_recommendations(
+                component_health, success_rate
+            ),
         }
 
         # Display summary
@@ -739,7 +761,9 @@ Unsafe Set: x**2 + y**2 >= 4.0"""
 
         return report
 
-    def _generate_recommendations(self, component_health: Dict, success_rate: float) -> List[str]:
+    def _generate_recommendations(
+        self, component_health: Dict, success_rate: float
+    ) -> List[str]:
         """Generate recommendations based on test results."""
         recommendations = []
 
@@ -767,10 +791,14 @@ Unsafe Set: x**2 + y**2 >= 4.0"""
             )
 
         if component_health.get("performance") != "good":
-            recommendations.append("Performance optimization needed - consider parameter tuning")
+            recommendations.append(
+                "Performance optimization needed - consider parameter tuning"
+            )
 
         if not recommendations:
-            recommendations.append("System performing well - ready for production deployment")
+            recommendations.append(
+                "System performing well - ready for production deployment"
+            )
 
         return recommendations
 

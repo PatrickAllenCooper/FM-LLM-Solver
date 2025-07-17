@@ -4,15 +4,16 @@ GPU-accelerated certificate generation testing with RTX 3080.
 Tests the entire pipeline with GPU acceleration for faster iteration.
 """
 
+import json
+import logging
 import os
 import sys
 import time
-import logging
-import pytest
-import numpy as np
 from pathlib import Path
 from typing import Dict, List
-import json
+
+import numpy as np
+import pytest
 import torch
 
 # Add project root to path
@@ -125,7 +126,8 @@ class GPUAcceleratedTester:
                         "peak_memory_mb": peak_memory / 1024**2,
                         "final_memory_mb": final_memory / 1024**2,
                         "compute_time": compute_time,
-                        "memory_cleaned": final_memory < start_memory + 1024**2,  # Within 1MB
+                        "memory_cleaned": final_memory
+                        < start_memory + 1024**2,  # Within 1MB
                     }
                 )
 
@@ -217,7 +219,9 @@ class GPUAcceleratedTester:
             start_time = time.time()
 
             # Generate Lie derivative samples
-            lie_samples = torch.randn(num_lie_samples, dimensions, device=self.device) * 2.0
+            lie_samples = (
+                torch.randn(num_lie_samples, dimensions, device=self.device) * 2.0
+            )
 
             # Generate boundary samples
             boundary_samples = (
@@ -296,7 +300,12 @@ class GPUAcceleratedTester:
 
             for i, cert in enumerate(certificates):
                 # Generate samples for this certificate
-                dimensions = cert.count("x") + cert.count("y") + cert.count("z") + cert.count("w")
+                dimensions = (
+                    cert.count("x")
+                    + cert.count("y")
+                    + cert.count("z")
+                    + cert.count("w")
+                )
                 num_samples = 1000
 
                 samples = torch.randn(num_samples, dimensions, device=self.device) * 2.0
@@ -371,18 +380,26 @@ class GPUAcceleratedTester:
         results["batch_tests"] = self.test_gpu_batch_processing()
 
         # Calculate success rate
-        total_tests = len(test_cases) * 2 + 2  # sampling + verification + memory + batch
+        total_tests = (
+            len(test_cases) * 2 + 2
+        )  # sampling + verification + memory + batch
         passed_tests = 0
 
         if results["memory_tests"].get("all_tests_passed", False):
             passed_tests += 1
 
         for sampling_test in results["sampling_tests"]:
-            if sampling_test.get("gpu_available", False) and "error" not in sampling_test:
+            if (
+                sampling_test.get("gpu_available", False)
+                and "error" not in sampling_test
+            ):
                 passed_tests += 1
 
         for verification_test in results["verification_tests"]:
-            if verification_test.get("gpu_available", False) and "error" not in verification_test:
+            if (
+                verification_test.get("gpu_available", False)
+                and "error" not in verification_test
+            ):
                 passed_tests += 1
 
         if (
@@ -393,12 +410,16 @@ class GPUAcceleratedTester:
 
         results["total_tests"] = total_tests
         results["passed_tests"] = passed_tests
-        results["overall_success_rate"] = passed_tests / total_tests if total_tests > 0 else 0.0
+        results["overall_success_rate"] = (
+            passed_tests / total_tests if total_tests > 0 else 0.0
+        )
 
         return results
 
     def save_gpu_test_results(
-        self, results: Dict, output_path: str = "test_results/gpu_accelerated_results.json"
+        self,
+        results: Dict,
+        output_path: str = "test_results/gpu_accelerated_results.json",
     ):
         """Save GPU test results to file"""
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
@@ -465,7 +486,9 @@ def test_comprehensive_gpu_tests(gpu_tester):
 
     assert "device" in results, "Device should be specified"
     assert "gpu_available" in results, "GPU availability should be checked"
-    assert "overall_success_rate" in results, "Overall success rate should be calculated"
+    assert (
+        "overall_success_rate" in results
+    ), "Overall success rate should be calculated"
 
     # Save results
     gpu_tester.save_gpu_test_results(results)
@@ -491,11 +514,15 @@ if __name__ == "__main__":
     print(f"Overall Success Rate: {results['overall_success_rate']:.1%}")
 
     if results["gpu_available"]:
-        print(f"Memory Tests Passed: {results['memory_tests'].get('all_tests_passed', False)}")
+        print(
+            f"Memory Tests Passed: {results['memory_tests'].get('all_tests_passed', False)}"
+        )
 
         # Show sampling speedups
         speedups = [
-            t.get("speedup", 0) for t in results["sampling_tests"] if t.get("gpu_available", False)
+            t.get("speedup", 0)
+            for t in results["sampling_tests"]
+            if t.get("gpu_available", False)
         ]
         if speedups:
             print(f"Average GPU Speedup: {np.mean(speedups):.1f}x")

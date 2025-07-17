@@ -9,15 +9,11 @@ import functools
 import time
 import traceback
 from contextlib import contextmanager
-from typing import Any, Callable, Dict, List, Optional, Type, Generator
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Any, Callable, Dict, Generator, List, Optional, Type
 
-from .exceptions import (
-    FMLLMSolverError,
-    RetryableError,
-    NonRetryableError,
-)
+from .exceptions import FMLLMSolverError, NonRetryableError, RetryableError
 from .logging_manager import get_logger
 
 
@@ -124,7 +120,9 @@ class CircuitBreaker:
             if self.failure_count >= self.config.failure_threshold:
                 self.state = CircuitBreakerState.OPEN
                 self.next_attempt_time = time.time() + self.config.recovery_timeout
-                self.logger.warning(f"Circuit breaker opened after {self.failure_count} failures")
+                self.logger.warning(
+                    f"Circuit breaker opened after {self.failure_count} failures"
+                )
             elif self.state == CircuitBreakerState.HALF_OPEN:
                 self.state = CircuitBreakerState.OPEN
                 self.next_attempt_time = time.time() + self.config.recovery_timeout
@@ -204,7 +202,9 @@ class ErrorHandler:
 
         return result
 
-    def _log_error(self, error: Exception, context: ErrorContext, severity: ErrorSeverity):
+    def _log_error(
+        self, error: Exception, context: ErrorContext, severity: ErrorSeverity
+    ):
         """Log error with context information."""
         log_data = {
             "error_type": type(error).__name__,
@@ -245,9 +245,15 @@ class ErrorHandler:
             if operation_key in self.fallback_handlers:
                 try:
                     fallback_result = self.fallback_handlers[operation_key]()
-                    return {"action": "fallback", "success": True, "result": fallback_result}
+                    return {
+                        "action": "fallback",
+                        "success": True,
+                        "result": fallback_result,
+                    }
                 except Exception as fallback_error:
-                    self.logger.error(f"Fallback failed for {operation_key}: {fallback_error}")
+                    self.logger.error(
+                        f"Fallback failed for {operation_key}: {fallback_error}"
+                    )
                     return {"action": "fallback", "success": False}
             else:
                 return {"action": "fallback", "success": False, "reason": "no_handler"}
@@ -259,16 +265,25 @@ class ErrorHandler:
             if operation_key in self.circuit_breakers:
                 circuit_breaker = self.circuit_breakers[operation_key]
                 circuit_breaker.on_failure(error)
-                return {"action": "circuit_breaker", "state": circuit_breaker.state.value}
+                return {
+                    "action": "circuit_breaker",
+                    "state": circuit_breaker.state.value,
+                }
             else:
-                return {"action": "circuit_breaker", "success": False, "reason": "no_breaker"}
+                return {
+                    "action": "circuit_breaker",
+                    "success": False,
+                    "reason": "no_breaker",
+                }
 
         elif strategy == RecoveryStrategy.FAIL_FAST:
             return {"action": "fail_fast", "should_propagate": True}
 
         return {"action": "unknown"}
 
-    def _graceful_degradation(self, error: Exception, context: ErrorContext) -> Dict[str, Any]:
+    def _graceful_degradation(
+        self, error: Exception, context: ErrorContext
+    ) -> Dict[str, Any]:
         """Implement graceful degradation."""
         # Default graceful degradation strategies
         if "model" in context.component.lower():
@@ -410,7 +425,8 @@ def with_retry(
                 exponential_base=exponential_base,
                 jitter=jitter,
                 retryable_exceptions=retryable_exceptions or [RetryableError],
-                non_retryable_exceptions=non_retryable_exceptions or [NonRetryableError],
+                non_retryable_exceptions=non_retryable_exceptions
+                or [NonRetryableError],
             )
 
             return _retry_with_config(func, config, *args, **kwargs)
@@ -439,15 +455,21 @@ def _retry_with_config(func: Callable, config: RetryConfig, *args, **kwargs):
             if config.retryable_exceptions and not any(
                 isinstance(e, exc_type) for exc_type in config.retryable_exceptions
             ):
-                logger.info(f"Exception {type(e).__name__} not in retryable list, not retrying")
+                logger.info(
+                    f"Exception {type(e).__name__} not in retryable list, not retrying"
+                )
                 raise
 
             if attempt == config.max_retries:
-                logger.error(f"Max retries ({config.max_retries}) exceeded for {func.__name__}")
+                logger.error(
+                    f"Max retries ({config.max_retries}) exceeded for {func.__name__}"
+                )
                 raise
 
             # Calculate delay
-            delay = min(config.base_delay * (config.exponential_base**attempt), config.max_delay)
+            delay = min(
+                config.base_delay * (config.exponential_base**attempt), config.max_delay
+            )
 
             if config.jitter:
                 import random
@@ -467,7 +489,10 @@ def _retry_with_config(func: Callable, config: RetryConfig, *args, **kwargs):
 
 @contextmanager
 def error_boundary(
-    operation: str, component: str, fallback_value: Any = None, suppress_errors: bool = False
+    operation: str,
+    component: str,
+    fallback_value: Any = None,
+    suppress_errors: bool = False,
 ) -> Generator[ErrorContext, None, None]:
     """
     Context manager for error boundary handling.
@@ -484,14 +509,18 @@ def error_boundary(
     try:
         yield context
     except Exception as e:
-        result = error_handler.handle_error(e, context, RecoveryStrategy.GRACEFUL_DEGRADATION)
+        result = error_handler.handle_error(
+            e, context, RecoveryStrategy.GRACEFUL_DEGRADATION
+        )
 
         if suppress_errors:
             return fallback_value
 
         if result.get("action") == "graceful_degradation":
             logger = get_logger(__name__)
-            logger.warning(f"Error boundary activated for {operation}: {result.get('message')}")
+            logger.warning(
+                f"Error boundary activated for {operation}: {result.get('message')}"
+            )
             return fallback_value
 
         raise

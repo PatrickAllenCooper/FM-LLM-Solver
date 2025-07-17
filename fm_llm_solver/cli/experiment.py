@@ -3,6 +3,7 @@ Experiment CLI commands for FM-LLM Solver.
 """
 
 import click
+
 from fm_llm_solver.core.logging import get_logger
 
 
@@ -12,7 +13,9 @@ def experiment():
 
 
 @experiment.command()
-@click.option("--config-file", type=click.Path(exists=True), help="Experiment configuration file")
+@click.option(
+    "--config-file", type=click.Path(exists=True), help="Experiment configuration file"
+)
 @click.pass_context
 def run(ctx, config_file):
     """Run experiments."""

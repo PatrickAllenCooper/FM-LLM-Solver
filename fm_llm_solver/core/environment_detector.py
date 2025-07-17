@@ -11,15 +11,16 @@ Environment Types:
 3. Deployed (production/staging environment)
 """
 
+import logging
 import os
-import sys
 import platform
-import subprocess
-import psutil
 import socket
+import subprocess
+import sys
 from pathlib import Path
 from typing import Dict
-import logging
+
+import psutil
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +44,9 @@ class EnvironmentDetector:
         }
 
         # Determine testing capabilities based on detected environment
-        self.environment_info["testing_capabilities"] = self._determine_testing_capabilities()
+        self.environment_info["testing_capabilities"] = (
+            self._determine_testing_capabilities()
+        )
 
     def _detect_environment_type(self) -> str:
         """
@@ -144,7 +147,9 @@ class EnvironmentDetector:
         try:
             import urllib.request
 
-            urllib.request.urlopen("http://169.254.169.254/latest/meta-data/", timeout=2)
+            urllib.request.urlopen(
+                "http://169.254.169.254/latest/meta-data/", timeout=2
+            )
             return True  # AWS EC2 instance
         except Exception:
             pass
@@ -189,7 +194,10 @@ class EnvironmentDetector:
         # Check for virtualization
         if self._is_virtualized():
             # If virtualized and has specific cloud indicators, likely deployed
-            cloud_files = ["/sys/class/dmi/id/product_name", "/sys/class/dmi/id/sys_vendor"]
+            cloud_files = [
+                "/sys/class/dmi/id/product_name",
+                "/sys/class/dmi/id/sys_vendor",
+            ]
 
             for cloud_file in cloud_files:
                 if os.path.exists(cloud_file):
@@ -249,7 +257,8 @@ class EnvironmentDetector:
             "memory_total_gb": psutil.virtual_memory().total / (1024**3),
             "memory_available_gb": psutil.virtual_memory().available / (1024**3),
             "gpu": self._detect_gpu(),
-            "is_apple_silicon": platform.system() == "Darwin" and platform.machine() == "arm64",
+            "is_apple_silicon": platform.system() == "Darwin"
+            and platform.machine() == "arm64",
         }
 
     def _detect_gpu(self) -> Dict:
@@ -267,7 +276,11 @@ class EnvironmentDetector:
         # Try to detect CUDA GPUs
         try:
             result = subprocess.run(
-                ["nvidia-smi", "--query-gpu=name,memory.total", "--format=csv,noheader,nounits"],
+                [
+                    "nvidia-smi",
+                    "--query-gpu=name,memory.total",
+                    "--format=csv,noheader,nounits",
+                ],
                 capture_output=True,
                 text=True,
                 timeout=10,
@@ -322,7 +335,8 @@ class EnvironmentDetector:
             "is_conda_env": "CONDA_DEFAULT_ENV" in os.environ,
             "is_virtual_env": hasattr(sys, "real_prefix")
             or (hasattr(sys, "base_prefix") and sys.base_prefix != sys.prefix),
-            "environment_name": os.getenv("CONDA_DEFAULT_ENV") or os.getenv("VIRTUAL_ENV"),
+            "environment_name": os.getenv("CONDA_DEFAULT_ENV")
+            or os.getenv("VIRTUAL_ENV"),
             "packages": self._detect_key_packages(),
         }
 
@@ -357,7 +371,9 @@ class EnvironmentDetector:
 
         # Check for Docker
         try:
-            result = subprocess.run(["docker", "--version"], capture_output=True, timeout=5)
+            result = subprocess.run(
+                ["docker", "--version"], capture_output=True, timeout=5
+            )
             packages["docker"] = result.returncode == 0
         except (subprocess.SubprocessError, FileNotFoundError):
             pass
@@ -388,9 +404,9 @@ class EnvironmentDetector:
                 s.connect(("8.8.8.8", 80))
                 local_ip = s.getsockname()[0]
                 network_info["local_ip"] = local_ip
-                network_info["is_localhost"] = local_ip.startswith("127.") or local_ip.startswith(
-                    "192.168."
-                )
+                network_info["is_localhost"] = local_ip.startswith(
+                    "127."
+                ) or local_ip.startswith("192.168.")
         except Exception:
             network_info["local_ip"] = "unknown"
 
@@ -399,7 +415,9 @@ class EnvironmentDetector:
     def _check_external_connectivity(self) -> bool:
         """Check if we have external internet connectivity."""
         try:
-            result = subprocess.run(["ping", "-c", "1", "8.8.8.8"], capture_output=True, timeout=10)
+            result = subprocess.run(
+                ["ping", "-c", "1", "8.8.8.8"], capture_output=True, timeout=10
+            )
             return result.returncode == 0
         except (subprocess.SubprocessError, FileNotFoundError):
             try:
@@ -439,7 +457,8 @@ class EnvironmentDetector:
             "can_run_unit_tests": True,  # Always available
             "can_run_integration_tests": True,  # Always available
             "can_run_performance_tests": True,  # Always available
-            "can_run_gpu_tests": hardware["gpu"]["has_cuda_gpu"] or hardware["gpu"]["has_mps"],
+            "can_run_gpu_tests": hardware["gpu"]["has_cuda_gpu"]
+            or hardware["gpu"]["has_mps"],
             "can_run_load_tests": env_type in ["desktop", "deployed"],
             "can_run_security_tests": True,  # Always available
             "can_run_deployment_tests": software["packages"]["docker"],
@@ -541,7 +560,9 @@ class EnvironmentDetector:
         gpu_desc = "No GPU"
         if hardware["gpu"]["has_cuda_gpu"]:
             gpu_names = ", ".join(hardware["gpu"]["gpu_names"][:2])  # Show first 2 GPUs
-            gpu_desc = f"CUDA GPU: {gpu_names} ({hardware['gpu']['gpu_memory_gb']:.1f}GB)"
+            gpu_desc = (
+                f"CUDA GPU: {gpu_names} ({hardware['gpu']['gpu_memory_gb']:.1f}GB)"
+            )
         elif hardware["gpu"]["has_mps"]:
             gpu_desc = "Apple Metal Performance Shaders"
 

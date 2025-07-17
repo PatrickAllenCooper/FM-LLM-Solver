@@ -4,26 +4,31 @@ Comprehensive certificate pipeline testing with GPU acceleration.
 Tests the entire flow: prompting -> generation -> cleaning -> extraction -> validation
 """
 
+import json
+import logging
 import os
 import sys
 import time
-import logging
-import pytest
 from pathlib import Path
 from typing import Dict, List
-import json
+
+import pytest
 
 # Add project root to path
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from utils.config_loader import load_config
 from utils.certificate_extraction import (
-    extract_certificate_from_llm_output,
     clean_and_validate_expression,
+    extract_certificate_from_llm_output,
     is_template_expression,
 )
-from utils.numerical_checks import NumericalCheckConfig, ViolationInfo, NumericalCheckResult
+from utils.config_loader import load_config
+from utils.numerical_checks import (
+    NumericalCheckConfig,
+    NumericalCheckResult,
+    ViolationInfo,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -179,14 +184,24 @@ This provides the required safety guarantees.""",
             llm_output = self.create_mock_llm_output(test_case, cert)
 
             # Test extraction
-            variables = ["x", "y"] if "z" not in test_case["system"] else ["x", "y", "z"]
-            extracted_result = extract_certificate_from_llm_output(llm_output, variables)
+            variables = (
+                ["x", "y"] if "z" not in test_case["system"] else ["x", "y", "z"]
+            )
+            extracted_result = extract_certificate_from_llm_output(
+                llm_output, variables
+            )
             extracted = (
-                extracted_result[0] if isinstance(extracted_result, tuple) else extracted_result
+                extracted_result[0]
+                if isinstance(extracted_result, tuple)
+                else extracted_result
             )
 
             # Test cleaning and validation
-            cleaned = clean_and_validate_expression(extracted, variables) if extracted else None
+            cleaned = (
+                clean_and_validate_expression(extracted, variables)
+                if extracted
+                else None
+            )
 
             # Test template detection
             is_template = is_template_expression(extracted) if extracted else True
@@ -208,7 +223,9 @@ This provides the required safety guarantees.""",
             "test_case": test_case["name"],
             "results": results,
             "success_rate": sum(
-                1 for r in results if r["extraction_success"] and not r["template_rejected"]
+                1
+                for r in results
+                if r["extraction_success"] and not r["template_rejected"]
             )
             / len(results),
         }
@@ -222,7 +239,9 @@ This provides the required safety guarantees.""",
             "dynamics": test_case["system"],
             "initial_set": test_case["initial_set"],
             "unsafe_set": test_case["unsafe_set"],
-            "variables": ["x", "y"] if "z" not in test_case["system"] else ["x", "y", "z"],
+            "variables": (
+                ["x", "y"] if "z" not in test_case["system"] else ["x", "y", "z"]
+            ),
         }
 
         # Note: create_verification_context requires SystemInfo and VerificationConfig objects
@@ -317,7 +336,9 @@ This provides the required safety guarantees.""",
             # Test verification integration
             if extraction_result["results"]:
                 best_cert = extraction_result["results"][0]["certificate"]
-                verification_result = self.test_verification_integration(test_case, best_cert)
+                verification_result = self.test_verification_integration(
+                    test_case, best_cert
+                )
                 extraction_result["verification"] = verification_result
 
         # Test GPU acceleration
@@ -325,16 +346,22 @@ This provides the required safety guarantees.""",
 
         # Calculate overall success rate
         total_tests = len(test_cases)
-        passed_tests = sum(1 for tc in results["test_cases"] if tc["success_rate"] > 0.8)
+        passed_tests = sum(
+            1 for tc in results["test_cases"] if tc["success_rate"] > 0.8
+        )
 
         results["total_tests"] = total_tests
         results["passed_tests"] = passed_tests
-        results["overall_success_rate"] = passed_tests / total_tests if total_tests > 0 else 0.0
+        results["overall_success_rate"] = (
+            passed_tests / total_tests if total_tests > 0 else 0.0
+        )
 
         return results
 
     def save_test_results(
-        self, results: Dict, output_path: str = "test_results/certificate_pipeline_results.json"
+        self,
+        results: Dict,
+        output_path: str = "test_results/certificate_pipeline_results.json",
     ):
         """Save test results to file"""
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
@@ -362,11 +389,17 @@ def test_certificate_extraction_pipeline(pipeline_tester):
         assert (
             result["success_rate"] > 0.5
         ), f"Extraction success rate too low for {test_case['name']}"
-        assert len(result["results"]) > 0, f"No extraction results for {test_case['name']}"
+        assert (
+            len(result["results"]) > 0
+        ), f"No extraction results for {test_case['name']}"
 
         # Check that at least one extraction was successful
-        successful_extractions = [r for r in result["results"] if r["extraction_success"]]
-        assert len(successful_extractions) > 0, f"No successful extractions for {test_case['name']}"
+        successful_extractions = [
+            r for r in result["results"] if r["extraction_success"]
+        ]
+        assert (
+            len(successful_extractions) > 0
+        ), f"No successful extractions for {test_case['name']}"
 
 
 def test_verification_integration(pipeline_tester):
@@ -386,7 +419,9 @@ def test_gpu_acceleration(pipeline_tester):
     result = pipeline_tester.test_gpu_acceleration()
 
     if result["gpu_available"]:
-        assert "gpu_time" in result or "error" in result, "GPU test should return timing or error"
+        assert (
+            "gpu_time" in result or "error" in result
+        ), "GPU test should return timing or error"
     else:
         assert not result["gpu_available"], "GPU should be marked as unavailable"
 
@@ -397,7 +432,9 @@ def test_comprehensive_pipeline(pipeline_tester):
 
     assert "test_cases" in results, "Test cases should be included"
     assert "gpu_tests" in results, "GPU tests should be included"
-    assert "overall_success_rate" in results, "Overall success rate should be calculated"
+    assert (
+        "overall_success_rate" in results
+    ), "Overall success rate should be calculated"
 
     # Save results
     pipeline_tester.save_test_results(results)

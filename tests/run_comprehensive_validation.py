@@ -7,11 +7,11 @@ external dependencies like pytest. It performs structural validation
 and capability testing.
 """
 
-import sys
 import json
+import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Dict
-from datetime import datetime
 
 # Add project root to path
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -64,8 +64,12 @@ class ComprehensiveValidator:
                 self.results["failed_checks"] += total - passed
 
                 success_rate = (passed / total * 100) if total > 0 else 0
-                status_emoji = "✅" if success_rate >= 90 else "⚠️" if success_rate >= 70 else "❌"
-                print(f"  {status_emoji} {category_name}: {passed}/{total} ({success_rate:.0f}%)")
+                status_emoji = (
+                    "✅" if success_rate >= 90 else "⚠️" if success_rate >= 70 else "❌"
+                )
+                print(
+                    f"  {status_emoji} {category_name}: {passed}/{total} ({success_rate:.0f}%)"
+                )
 
                 # Add failed checks to critical issues
                 for check in category_results.get("failed_checks", []):
@@ -163,7 +167,9 @@ class ComprehensiveValidator:
                         # File has Python code structure
                         continue
             except Exception as e:
-                checks.append((f"File Readable: {py_file.name}", False, f"Cannot read: {e}"))
+                checks.append(
+                    (f"File Readable: {py_file.name}", False, f"Cannot read: {e}")
+                )
                 continue
 
         failed_checks = [check[0] for check in checks if not check[1]]
@@ -188,7 +194,10 @@ class ComprehensiveValidator:
             ("middleware.py", "Security Middleware"),
         ]
 
-        web_dirs = [PROJECT_ROOT / "fm_llm_solver" / "web", PROJECT_ROOT / "web_interface"]
+        web_dirs = [
+            PROJECT_ROOT / "fm_llm_solver" / "web",
+            PROJECT_ROOT / "web_interface",
+        ]
 
         web_dir_found = None
         for web_dir in web_dirs:
@@ -220,7 +229,9 @@ class ComprehensiveValidator:
         routes_found = False
         for routes_dir in routes_locations:
             if routes_dir.exists() and (routes_dir / "main.py").exists():
-                checks.append(("Routes Structure", True, "Routes directory and main.py found"))
+                checks.append(
+                    ("Routes Structure", True, "Routes directory and main.py found")
+                )
                 passed += 1
                 routes_found = True
                 break
@@ -240,7 +251,11 @@ class ComprehensiveValidator:
                 template_files = list(template_dir.rglob("*.html"))
                 if template_files:
                     checks.append(
-                        ("Templates", True, f"Found {len(template_files)} template files")
+                        (
+                            "Templates",
+                            True,
+                            f"Found {len(template_files)} template files",
+                        )
                     )
                     passed += 1
                     templates_found = True
@@ -329,7 +344,11 @@ class ComprehensiveValidator:
                             or "fm-llm" in content
                         ):
                             checks.append(
-                                (f"Entry Points in {setup_name}", True, "Entry points defined")
+                                (
+                                    f"Entry Points in {setup_name}",
+                                    True,
+                                    "Entry points defined",
+                                )
                             )
                             passed += 1
                             entry_points_found = True
@@ -406,7 +425,10 @@ class ComprehensiveValidator:
         # Check KB build scripts
         kb_scripts = [
             ("scripts/knowledge_base/kb_builder.py", "KB Builder Script"),
-            ("scripts/knowledge_base/build_open_source_kb.py", "Open Source KB Builder"),
+            (
+                "scripts/knowledge_base/build_open_source_kb.py",
+                "Open Source KB Builder",
+            ),
         ]
 
         for script_path, script_name in kb_scripts:
@@ -445,7 +467,9 @@ class ComprehensiveValidator:
 
         ft_dir = PROJECT_ROOT / "fine_tuning"
         if ft_dir.exists():
-            checks.append(("Fine-tuning Directory", True, "Fine-tuning directory exists"))
+            checks.append(
+                ("Fine-tuning Directory", True, "Fine-tuning directory exists")
+            )
             passed += 1
 
             for module_file, module_name in ft_modules:
@@ -457,7 +481,9 @@ class ComprehensiveValidator:
                 else:
                     checks.append((check_name, False, "Module missing"))
         else:
-            checks.append(("Fine-tuning Directory", False, "Fine-tuning directory missing"))
+            checks.append(
+                ("Fine-tuning Directory", False, "Fine-tuning directory missing")
+            )
 
         # Check training data files
         data_files = [
@@ -480,11 +506,17 @@ class ComprehensiveValidator:
         # At least some training data should exist
         if data_files_found > 0:
             checks.append(
-                ("Training Data Availability", True, f"{data_files_found} data files found")
+                (
+                    "Training Data Availability",
+                    True,
+                    f"{data_files_found} data files found",
+                )
             )
             passed += 1
         else:
-            checks.append(("Training Data Availability", False, "No training data files found"))
+            checks.append(
+                ("Training Data Availability", False, "No training data files found")
+            )
 
         failed_checks = [check[0] for check in checks if not check[1]]
 
@@ -562,7 +594,10 @@ class ComprehensiveValidator:
         # Check for general security implementation
         if not auth_found:
             # Look for any security-related code in web files
-            web_dirs = [PROJECT_ROOT / "fm_llm_solver" / "web", PROJECT_ROOT / "web_interface"]
+            web_dirs = [
+                PROJECT_ROOT / "fm_llm_solver" / "web",
+                PROJECT_ROOT / "web_interface",
+            ]
 
             security_code_found = False
             for web_dir in web_dirs:
@@ -573,7 +608,13 @@ class ComprehensiveValidator:
                                 content = f.read()
                                 if any(
                                     sec_term in content.lower()
-                                    for sec_term in ["auth", "login", "session", "csr", "security"]
+                                    for sec_term in [
+                                        "auth",
+                                        "login",
+                                        "session",
+                                        "csr",
+                                        "security",
+                                    ]
                                 ):
                                     security_code_found = True
                                     break
@@ -584,12 +625,20 @@ class ComprehensiveValidator:
 
             if security_code_found:
                 checks.append(
-                    ("General Security Implementation", True, "Security code found in web files")
+                    (
+                        "General Security Implementation",
+                        True,
+                        "Security code found in web files",
+                    )
                 )
                 passed += 1
             else:
                 checks.append(
-                    ("General Security Implementation", False, "No security implementation found")
+                    (
+                        "General Security Implementation",
+                        False,
+                        "No security implementation found",
+                    )
                 )
 
         failed_checks = [check[0] for check in checks if not check[1]]
@@ -630,11 +679,17 @@ class ComprehensiveValidator:
 
             k8s_files = list(k8s_dir.glob("*.yaml"))
             if len(k8s_files) >= 5:  # Should have several manifests
-                checks.append(("Kubernetes Manifests", True, f"{len(k8s_files)} manifests found"))
+                checks.append(
+                    ("Kubernetes Manifests", True, f"{len(k8s_files)} manifests found")
+                )
                 passed += 1
             else:
                 checks.append(
-                    ("Kubernetes Manifests", False, f"Only {len(k8s_files)} manifests found")
+                    (
+                        "Kubernetes Manifests",
+                        False,
+                        f"Only {len(k8s_files)} manifests found",
+                    )
                 )
         else:
             checks.append(("Kubernetes Directory", False, "K8s directory missing"))
@@ -642,13 +697,19 @@ class ComprehensiveValidator:
         # Check GitHub Actions
         workflows_dir = PROJECT_ROOT / ".github" / "workflows"
         if workflows_dir.exists():
-            checks.append(("GitHub Actions Directory", True, "Workflows directory exists"))
+            checks.append(
+                ("GitHub Actions Directory", True, "Workflows directory exists")
+            )
             passed += 1
 
             workflow_files = list(workflows_dir.glob("*.yml"))
             if len(workflow_files) >= 3:
                 checks.append(
-                    ("GitHub Actions Workflows", True, f"{len(workflow_files)} workflows found")
+                    (
+                        "GitHub Actions Workflows",
+                        True,
+                        f"{len(workflow_files)} workflows found",
+                    )
                 )
                 passed += 1
             else:
@@ -660,7 +721,9 @@ class ComprehensiveValidator:
                     )
                 )
         else:
-            checks.append(("GitHub Actions Directory", False, "Workflows directory missing"))
+            checks.append(
+                ("GitHub Actions Directory", False, "Workflows directory missing")
+            )
 
         # Check deployment scripts
         deploy_scripts = [
@@ -717,7 +780,11 @@ class ComprehensiveValidator:
             doc_files = list(docs_dir.glob("*.md"))
             if len(doc_files) >= 10:
                 checks.append(
-                    ("Documentation Files", True, f"{len(doc_files)} documentation files found")
+                    (
+                        "Documentation Files",
+                        True,
+                        f"{len(doc_files)} documentation files found",
+                    )
                 )
                 passed += 1
             else:
@@ -835,10 +902,14 @@ class ComprehensiveValidator:
                     continue
 
         if system_support_documented:
-            checks.append(("System Types Documented", True, "All system types documented"))
+            checks.append(
+                ("System Types Documented", True, "All system types documented")
+            )
             passed += 1
         else:
-            checks.append(("System Types Documented", False, "System types not fully documented"))
+            checks.append(
+                ("System Types Documented", False, "System types not fully documented")
+            )
 
         # Check requirement files
         req_files = [
@@ -877,7 +948,10 @@ class ComprehensiveValidator:
         # Check that all critical components exist
         critical_components = [
             (
-                PROJECT_ROOT / "fm_llm_solver" / "services" / "certificate_generator.py",
+                PROJECT_ROOT
+                / "fm_llm_solver"
+                / "services"
+                / "certificate_generator.py",
                 "Certificate Generator",
             ),
             (PROJECT_ROOT / "fm_llm_solver" / "services" / "verifier.py", "Verifier"),
@@ -924,7 +998,10 @@ class ComprehensiveValidator:
 
     def _check_env_config(self) -> bool:
         """Check environment configuration."""
-        env_files = [PROJECT_ROOT / "config" / "env.example", PROJECT_ROOT / ".env.example"]
+        env_files = [
+            PROJECT_ROOT / "config" / "env.example",
+            PROJECT_ROOT / ".env.example",
+        ]
         return any(env_file.exists() for env_file in env_files)
 
     def _check_security_basics(self) -> bool:
@@ -941,7 +1018,10 @@ class ComprehensiveValidator:
         security_indicators.extend(file.exists() for file in security_files)
 
         # Check for security-related code
-        web_dirs = [PROJECT_ROOT / "fm_llm_solver" / "web", PROJECT_ROOT / "web_interface"]
+        web_dirs = [
+            PROJECT_ROOT / "fm_llm_solver" / "web",
+            PROJECT_ROOT / "web_interface",
+        ]
 
         for web_dir in web_dirs:
             if web_dir.exists():
@@ -1022,7 +1102,9 @@ class ComprehensiveValidator:
             for issue in self.results["critical_issues"][:10]:  # Show first 10
                 print(f"  • {issue}")
             if len(self.results["critical_issues"]) > 10:
-                print(f"  ... and {len(self.results['critical_issues']) - 10} more issues")
+                print(
+                    f"  ... and {len(self.results['critical_issues']) - 10} more issues"
+                )
 
         # Production readiness assessment
         print("\n🚀 Production Readiness Assessment:")

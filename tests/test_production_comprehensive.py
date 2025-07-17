@@ -6,10 +6,11 @@ This test suite validates ALL advertised capabilities work correctly.
 Tests are designed to run without requiring external dependencies.
 """
 
-import pytest
 import sys
 from pathlib import Path
 from unittest.mock import Mock, patch
+
+import pytest
 
 # Add project root to path
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -304,13 +305,18 @@ class TestWebInterface:
         with test_app.test_client() as client:
             response = client.get("/")
             assert response.status_code == 200
-            assert b"FM-LLM Solver" in response.data or b"Certificate Generation" in response.data
+            assert (
+                b"FM-LLM Solver" in response.data
+                or b"Certificate Generation" in response.data
+            )
 
     def test_certificate_generation_endpoint(self, test_app):
         """Test certificate generation API endpoint."""
         with test_app.test_client() as client:
             # Mock the certificate generator
-            with patch("fm_llm_solver.web.routes.main.generate_certificate") as mock_gen:
+            with patch(
+                "fm_llm_solver.web.routes.main.generate_certificate"
+            ) as mock_gen:
                 mock_gen.return_value = {
                     "success": True,
                     "certificate": "V(x,y) = x^2 + y^2",
@@ -326,11 +332,17 @@ class TestWebInterface:
                 }
 
                 response = client.post(
-                    "/generate", data=data, content_type="application/x-www-form-urlencoded"
+                    "/generate",
+                    data=data,
+                    content_type="application/x-www-form-urlencoded",
                 )
 
                 # Should handle the request (even if mocked)
-                assert response.status_code in [200, 302, 405]  # Various acceptable responses
+                assert response.status_code in [
+                    200,
+                    302,
+                    405,
+                ]  # Various acceptable responses
 
     def test_history_tracking(self, test_app):
         """Test query history functionality."""
@@ -368,7 +380,11 @@ class TestKnowledgeBase:
 
             mock_config = Mock()
             mock_config.load_config.return_value = {
-                "knowledge_base": {"enabled": True, "index_path": "test_index", "chunk_size": 512}
+                "knowledge_base": {
+                    "enabled": True,
+                    "index_path": "test_index",
+                    "chunk_size": 512,
+                }
             }
 
             kb = KnowledgeBase(mock_config)
@@ -428,8 +444,9 @@ class TestCLITools:
 
     def test_cli_help_system(self):
         """Test CLI help system works."""
-        from fm_llm_solver.cli.main import cli
         import click
+
+        from fm_llm_solver.cli.main import cli
 
         # Test that help can be generated
         ctx = click.Context(cli)
@@ -465,7 +482,11 @@ class TestFineTuning:
         """Test data creation modules can be imported."""
         import importlib.util
 
-        modules = ["create_finetuning_data", "generate_synthetic_data", "create_discrete_time_data"]
+        modules = [
+            "create_finetuning_data",
+            "generate_synthetic_data",
+            "create_discrete_time_data",
+        ]
 
         for module_name in modules:
             module_path = PROJECT_ROOT / "fine_tuning" / f"{module_name}.py"

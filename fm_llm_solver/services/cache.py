@@ -4,9 +4,9 @@ Cache service for FM-LLM Solver.
 Provides caching functionality for improved performance.
 """
 
-from typing import Any, Optional
 import json
 import time
+from typing import Any, Optional
 
 from fm_llm_solver.core.interfaces import Cache
 from fm_llm_solver.core.logging import get_logger

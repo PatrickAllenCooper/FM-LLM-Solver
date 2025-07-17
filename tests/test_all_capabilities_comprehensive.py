@@ -6,11 +6,12 @@ This test suite validates ALL system capabilities by properly mocking
 external dependencies and testing core functionality.
 """
 
-import pytest
+import importlib.util
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock
-import importlib.util
+
+import pytest
 
 # Add project root to path
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -91,7 +92,9 @@ class TestCoreServiceIntegration:
         ]
 
         for module_name in service_modules:
-            module_path = PROJECT_ROOT / "fm_llm_solver" / "services" / f"{module_name}.py"
+            module_path = (
+                PROJECT_ROOT / "fm_llm_solver" / "services" / f"{module_name}.py"
+            )
             assert module_path.exists(), f"Service module {module_name} is missing"
 
     def test_certificate_generation_workflow(self):
@@ -391,7 +394,10 @@ class TestSecurityStructure:
 
         # If not in utils, check for validation in any web file
         if not validation_found:
-            web_dirs = [PROJECT_ROOT / "fm_llm_solver" / "web", PROJECT_ROOT / "web_interface"]
+            web_dirs = [
+                PROJECT_ROOT / "fm_llm_solver" / "web",
+                PROJECT_ROOT / "web_interface",
+            ]
 
             for web_dir in web_dirs:
                 if web_dir.exists():
@@ -439,13 +445,17 @@ class TestDeploymentStructure:
         existing_workflows = [f.name for f in workflow_files]
 
         for essential in essential_workflows:
-            assert essential in existing_workflows, f"Essential workflow {essential} is missing"
+            assert (
+                essential in existing_workflows
+            ), f"Essential workflow {essential} is missing"
 
     def test_configuration_files(self):
         """Test configuration files exist."""
         config_files = ["config/config.yaml", "config.yaml"]
 
-        config_found = any((PROJECT_ROOT / config_file).exists() for config_file in config_files)
+        config_found = any(
+            (PROJECT_ROOT / config_file).exists() for config_file in config_files
+        )
         assert config_found, "No configuration file found"
 
 
@@ -469,11 +479,18 @@ class TestDocumentationStructure:
         assert len(doc_files) >= 10, "Insufficient documentation files"
 
         # Check for important docs
-        important_docs = ["ARCHITECTURE.md", "API_REFERENCE.md", "USER_GUIDE.md", "INSTALLATION.md"]
+        important_docs = [
+            "ARCHITECTURE.md",
+            "API_REFERENCE.md",
+            "USER_GUIDE.md",
+            "INSTALLATION.md",
+        ]
 
         existing_docs = [f.name for f in doc_files]
         for important in important_docs:
-            assert important in existing_docs, f"Important documentation {important} is missing"
+            assert (
+                important in existing_docs
+            ), f"Important documentation {important} is missing"
 
     def test_sphinx_documentation(self):
         """Test Sphinx documentation is configured."""
@@ -532,7 +549,9 @@ class TestSystemIntegration:
                 # Should have configuration for major components
                 expected_sections = ["model", "web", "database", "logging"]
                 for section in expected_sections:
-                    assert section in content.lower(), f"Configuration section {section} missing"
+                    assert (
+                        section in content.lower()
+                    ), f"Configuration section {section} missing"
 
     def test_all_capabilities_integrated(self):
         """Test that all capabilities are properly integrated."""

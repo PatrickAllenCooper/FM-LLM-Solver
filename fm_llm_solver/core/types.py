@@ -5,9 +5,9 @@ Provides strong typing for data structures used throughout the system.
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime
 from enum import Enum
+from typing import Any, Dict, List, Optional, Tuple
 
 
 class SystemType(Enum):
@@ -78,11 +78,17 @@ class SystemDescription:
 
         # System type
         if self.system_type == SystemType.CONTINUOUS:
-            dynamics_str = ", ".join(f"d{var}/dt = {expr}" for var, expr in self.dynamics.items())
+            dynamics_str = ", ".join(
+                f"d{var}/dt = {expr}" for var, expr in self.dynamics.items()
+            )
         elif self.system_type == SystemType.DISCRETE:
-            dynamics_str = ", ".join(f"{var}[k+1] = {expr}" for var, expr in self.dynamics.items())
+            dynamics_str = ", ".join(
+                f"{var}[k+1] = {expr}" for var, expr in self.dynamics.items()
+            )
         else:
-            dynamics_str = ", ".join(f"{var}: {expr}" for var, expr in self.dynamics.items())
+            dynamics_str = ", ".join(
+                f"{var}: {expr}" for var, expr in self.dynamics.items()
+            )
 
         parts.append(f"System Dynamics: {dynamics_str}")
         parts.append(f"Initial Set: {self.initial_set}")
@@ -90,7 +96,8 @@ class SystemDescription:
 
         if self.domain_bounds:
             bounds_str = ", ".join(
-                f"{var} ∈ [{low}, {high}]" for var, (low, high) in self.domain_bounds.bounds.items()
+                f"{var} ∈ [{low}, {high}]"
+                for var, (low, high) in self.domain_bounds.bounds.items()
             )
             parts.append(f"Domain: {bounds_str}")
 

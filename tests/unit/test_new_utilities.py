@@ -5,33 +5,22 @@ This test suite validates that all refactored functionality is working correctly
 and that the new utility modules provide the expected behavior.
 """
 
-import pytest
-import sympy
 from unittest.mock import Mock
 
-# Import the new utility modules
-from utils.verification_helpers import (
-    VerificationConfig,
-    SystemInfo,
-    validate_candidate_expression,
-    build_verification_summaries,
-)
-from utils.numerical_checks import (
-    NumericalCheckConfig,
-    ViolationInfo,
-    NumericalCheckResult,
+import pytest
+import sympy
+
+from utils.certificate_extraction import (
+    clean_and_validate_expression,
+    extract_certificate_from_llm_output,
+    is_template_expression,
 )
 from utils.condition_parser import (
+    clean_condition_string,
+    parse_or_condition,
     parse_set_conditions_simplified,
     parse_single_condition,
-    parse_or_condition,
     validate_condition_structure,
-    clean_condition_string,
-)
-from utils.certificate_extraction import (
-    extract_certificate_from_llm_output,
-    clean_and_validate_expression,
-    is_template_expression,
 )
 from utils.data_formatting import (
     format_instruction_example,
@@ -39,6 +28,19 @@ from utils.data_formatting import (
     format_synthetic_example,
 )
 from utils.experiment_analysis import analyze_certificate_complexity
+from utils.numerical_checks import (
+    NumericalCheckConfig,
+    NumericalCheckResult,
+    ViolationInfo,
+)
+
+# Import the new utility modules
+from utils.verification_helpers import (
+    SystemInfo,
+    VerificationConfig,
+    build_verification_summaries,
+    validate_candidate_expression,
+)
 
 
 class TestVerificationHelpers:
@@ -139,7 +141,9 @@ class TestNumericalChecks:
 
     def test_numerical_check_config_creation(self):
         """Test NumericalCheckConfig data class creation."""
-        config = NumericalCheckConfig(n_samples=100, tolerance=1e-6, max_iter=1000, pop_size=50)
+        config = NumericalCheckConfig(
+            n_samples=100, tolerance=1e-6, max_iter=1000, pop_size=50
+        )
 
         assert config.n_samples == 100
         assert config.tolerance == 1e-6
@@ -147,7 +151,10 @@ class TestNumericalChecks:
     def test_violation_info_creation(self):
         """Test ViolationInfo data class creation."""
         violation = ViolationInfo(
-            point={"x": 1.0, "y": 2.0}, violation_type="initial_set", value=0.5, expected="≤ 0"
+            point={"x": 1.0, "y": 2.0},
+            violation_type="initial_set",
+            value=0.5,
+            expected="≤ 0",
         )
 
         assert violation.point["x"] == 1.0
@@ -213,7 +220,9 @@ class TestConditionParser:
         """Test condition structure validation."""
         assert validate_condition_structure("x >= 0") is True
         assert validate_condition_structure("x >= 0 +") is False  # trailing operator
-        assert validate_condition_structure("x >= 0(") is False  # unbalanced parentheses
+        assert (
+            validate_condition_structure("x >= 0(") is False
+        )  # unbalanced parentheses
         assert validate_condition_structure("") is False
 
     def test_clean_condition_string(self):
@@ -306,7 +315,9 @@ class TestDataFormatting:
         system_description = "dx/dt = -x, dy/dt = -y"
         barrier_certificate = "B(x, y) = x**2 + y**2"
 
-        formatted = format_prompt_completion_example(system_description, barrier_certificate)
+        formatted = format_prompt_completion_example(
+            system_description, barrier_certificate
+        )
 
         assert isinstance(formatted, dict)
         assert "prompt" in formatted

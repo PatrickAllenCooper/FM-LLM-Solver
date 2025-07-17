@@ -4,20 +4,20 @@ Model benchmarking service for code generation models.
 Provides comprehensive performance comparison across multiple coding tasks.
 """
 
-import os
-import json
-import time
 import asyncio
-from typing import Dict, List, Any, Optional, Tuple
-from dataclasses import dataclass, asdict
-from pathlib import Path
-from datetime import datetime
+import json
+import os
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import asdict, dataclass
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
-from fm_llm_solver.core.logging import get_logger
 from fm_llm_solver.core.exceptions import ModelError
-from fm_llm_solver.services.model_provider import ModelProviderFactory
+from fm_llm_solver.core.logging import get_logger
 from fm_llm_solver.services.model_downloader import get_model_downloader
+from fm_llm_solver.services.model_provider import ModelProviderFactory
 
 
 @dataclass
@@ -293,7 +293,8 @@ class ModelBenchmarker:
             elif language == "sql":
                 # Basic syntax check
                 return any(
-                    keyword in code.upper() for keyword in ["SELECT", "INSERT", "UPDATE", "DELETE"]
+                    keyword in code.upper()
+                    for keyword in ["SELECT", "INSERT", "UPDATE", "DELETE"]
                 )
             else:
                 return True  # Assume valid for unknown languages
@@ -311,7 +312,9 @@ class ModelBenchmarker:
         try:
             # Generate code
             generated_output = model_provider.generate_text(
-                prompt=task.prompt, max_tokens=task.max_tokens, temperature=task.temperature
+                prompt=task.prompt,
+                max_tokens=task.max_tokens,
+                temperature=task.temperature,
             )
 
             execution_time = time.time() - start_time
@@ -319,7 +322,9 @@ class ModelBenchmarker:
             # Calculate metrics
             bleu_score = None
             if task.expected_output:
-                bleu_score = self._calculate_bleu_score(task.expected_output, generated_output)
+                bleu_score = self._calculate_bleu_score(
+                    task.expected_output, generated_output
+                )
 
             code_compiles = self._check_code_compilation(
                 generated_output, task.programming_language
@@ -354,7 +359,10 @@ class ModelBenchmarker:
             )
 
     async def benchmark_model(
-        self, model_id: str, model_config: Dict[str, Any], tasks: Optional[List[str]] = None
+        self,
+        model_id: str,
+        model_config: Dict[str, Any],
+        tasks: Optional[List[str]] = None,
     ) -> List[BenchmarkResult]:
         """
         Benchmark a single model on specified tasks.
@@ -401,7 +409,9 @@ class ModelBenchmarker:
             # Run tasks sequentially to avoid memory issues
             for task in tasks_to_run:
                 self.logger.info(f"Running task {task.task_id} for model {model_id}")
-                result = await self._run_single_benchmark(model_id, task, model_provider)
+                result = await self._run_single_benchmark(
+                    model_id, task, model_provider
+                )
                 results.append(result)
 
                 # Small delay between tasks
@@ -417,7 +427,9 @@ class ModelBenchmarker:
         # Cache results
         self._cache_results(model_id, results)
 
-        self.logger.info(f"Completed benchmark for model {model_id}: {len(results)} tasks")
+        self.logger.info(
+            f"Completed benchmark for model {model_id}: {len(results)} tasks"
+        )
         return results
 
     def _cache_results(self, model_id: str, results: List[BenchmarkResult]):
@@ -450,7 +462,9 @@ class ModelBenchmarker:
             with open(cache_file, "r") as f:
                 data = json.load(f)
 
-            results = [BenchmarkResult(**result_data) for result_data in data["results"]]
+            results = [
+                BenchmarkResult(**result_data) for result_data in data["results"]
+            ]
 
             self.logger.info(f"Loaded {len(results)} cached results for {model_id}")
             return results
@@ -459,7 +473,9 @@ class ModelBenchmarker:
             self.logger.warning(f"Failed to load cached results for {model_id}: {e}")
             return None
 
-    def calculate_model_summary(self, results: List[BenchmarkResult]) -> ModelBenchmarkSummary:
+    def calculate_model_summary(
+        self, results: List[BenchmarkResult]
+    ) -> ModelBenchmarkSummary:
         """Calculate summary statistics for a model's benchmark results."""
         if not results:
             raise ValueError("No results provided for summary calculation")
@@ -478,19 +494,23 @@ class ModelBenchmarker:
         total_tokens_generated = 0
 
         if successful_results:
-            average_execution_time = sum(r.execution_time for r in successful_results) / len(
-                successful_results
-            )
+            average_execution_time = sum(
+                r.execution_time for r in successful_results
+            ) / len(successful_results)
             total_tokens_generated = sum(r.tokens_generated for r in successful_results)
 
             # BLEU score average
-            bleu_scores = [r.bleu_score for r in successful_results if r.bleu_score is not None]
+            bleu_scores = [
+                r.bleu_score for r in successful_results if r.bleu_score is not None
+            ]
             if bleu_scores:
                 average_bleu_score = sum(bleu_scores) / len(bleu_scores)
 
             # Code compilation rate
             compile_results = [
-                r.code_compiles for r in successful_results if r.code_compiles is not None
+                r.code_compiles
+                for r in successful_results
+                if r.code_compiles is not None
             ]
             if compile_results:
                 code_compilation_rate = sum(compile_results) / len(compile_results)
@@ -544,7 +564,9 @@ class ModelBenchmarker:
                 summary = self.calculate_model_summary(results)
                 summaries[model_id] = summary
 
-                self.logger.info(f"Model {model_id}: {summary.success_rate:.1%} success rate")
+                self.logger.info(
+                    f"Model {model_id}: {summary.success_rate:.1%} success rate"
+                )
 
             except Exception as e:
                 self.logger.error(f"Benchmark failed for model {model_id}: {e}")
@@ -573,11 +595,15 @@ class ModelBenchmarker:
             return {"error": "No benchmark summaries provided"}
 
         # Sort models by success rate
-        sorted_models = sorted(summaries.items(), key=lambda x: x[1].success_rate, reverse=True)
+        sorted_models = sorted(
+            summaries.items(), key=lambda x: x[1].success_rate, reverse=True
+        )
 
         # Calculate overall statistics
         total_models = len(summaries)
-        avg_success_rate = sum(s.success_rate for s in summaries.values()) / total_models
+        avg_success_rate = (
+            sum(s.success_rate for s in summaries.values()) / total_models
+        )
         avg_execution_time = (
             sum(s.average_execution_time for s in summaries.values()) / total_models
         )
@@ -585,7 +611,9 @@ class ModelBenchmarker:
         # Find best performers
         best_success_rate = sorted_models[0][1] if sorted_models else None
         fastest_model = (
-            min(summaries.items(), key=lambda x: x[1].average_execution_time) if summaries else None
+            min(summaries.items(), key=lambda x: x[1].average_execution_time)
+            if summaries
+            else None
         )
 
         # Generate rankings
@@ -593,9 +621,15 @@ class ModelBenchmarker:
             "by_success_rate": [
                 (model_id, summary.success_rate) for model_id, summary in sorted_models
             ],
-            "by_speed": sorted(summaries.items(), key=lambda x: x[1].average_execution_time),
+            "by_speed": sorted(
+                summaries.items(), key=lambda x: x[1].average_execution_time
+            ),
             "by_code_quality": sorted(
-                [(k, v) for k, v in summaries.items() if v.code_compilation_rate is not None],
+                [
+                    (k, v)
+                    for k, v in summaries.items()
+                    if v.code_compilation_rate is not None
+                ],
                 key=lambda x: x[1].code_compilation_rate or 0,
                 reverse=True,
             ),
@@ -615,7 +649,9 @@ class ModelBenchmarker:
                 "fastest_model": {
                     "model_id": fastest_model[0] if fastest_model else None,
                     "execution_time": (
-                        fastest_model[1].average_execution_time if fastest_model else None
+                        fastest_model[1].average_execution_time
+                        if fastest_model
+                        else None
                     ),
                 },
             },

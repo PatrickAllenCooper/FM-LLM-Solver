@@ -6,15 +6,16 @@ Handles model loading, switching, and state management.
 
 import os
 import threading
-from typing import Optional, Dict, Any, List
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
-from fm_llm_solver.core.logging import get_logger
 from fm_llm_solver.core.exceptions import ModelError
-from fm_llm_solver.services.model_provider import ModelProviderFactory, ModelProvider
+from fm_llm_solver.core.logging import get_logger
+from fm_llm_solver.core.types import ModelConfig
+from fm_llm_solver.core.types import ModelProvider as ModelProviderEnum
 from fm_llm_solver.services.model_downloader import get_model_downloader
-from fm_llm_solver.core.types import ModelConfig, ModelProvider as ModelProviderEnum
+from fm_llm_solver.services.model_provider import ModelProvider, ModelProviderFactory
 from utils.config_loader import load_config
 
 
@@ -58,9 +59,14 @@ class ModelManager:
         try:
             self._config = load_config()
 
-            if "models" in self._config and "available_models" in self._config["models"]:
+            if (
+                "models" in self._config
+                and "available_models" in self._config["models"]
+            ):
                 self._available_models = self._config["models"]["available_models"]
-                self.logger.info(f"Loaded {len(self._available_models)} model configurations")
+                self.logger.info(
+                    f"Loaded {len(self._available_models)} model configurations"
+                )
             else:
                 self.logger.warning("No model configurations found in config")
 
@@ -131,7 +137,9 @@ class ModelManager:
                 model_config = self._available_models[model_id]
                 provider_name = model_config["provider"]
 
-                self.logger.info(f"Loading model {model_id} with provider {provider_name}")
+                self.logger.info(
+                    f"Loading model {model_id} with provider {provider_name}"
+                )
 
                 # Create model configuration object
                 provider_enum = ModelProviderEnum(provider_name.upper())
@@ -145,7 +153,9 @@ class ModelManager:
                 )
 
                 # Create and load model provider
-                self._model_provider = ModelProviderFactory.create(provider_name, model_cfg)
+                self._model_provider = ModelProviderFactory.create(
+                    provider_name, model_cfg
+                )
                 self._model_provider.load_model(model_cfg)
 
                 # Update state
@@ -273,7 +283,9 @@ class ModelManager:
                 self.logger.error(f"Text generation failed: {e}")
                 raise ModelError(f"Text generation failed: {e}")
 
-    def get_model_info(self, model_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    def get_model_info(
+        self, model_id: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
         """
         Get detailed information about a model.
 
@@ -304,7 +316,11 @@ class ModelManager:
     def list_loaded_models(self) -> List[str]:
         """Get list of currently loaded model IDs."""
         with self._lock:
-            return [model_id for model_id, state in self._model_states.items() if state.is_active]
+            return [
+                model_id
+                for model_id, state in self._model_states.items()
+                if state.is_active
+            ]
 
     def get_memory_usage(self) -> Dict[str, Any]:
         """Get memory usage statistics for loaded models."""
@@ -356,7 +372,9 @@ class ModelManager:
                         "display_name": state.display_name,
                         "loaded_at": state.loaded_at.isoformat(),
                         "is_active": state.is_active,
-                        "last_used": state.last_used.isoformat() if state.last_used else None,
+                        "last_used": (
+                            state.last_used.isoformat() if state.last_used else None
+                        ),
                     }
                     for model_id, state in self._model_states.items()
                 },

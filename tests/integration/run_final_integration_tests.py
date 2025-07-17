@@ -16,9 +16,10 @@ def main():
     try:
         # Import lightweight components
         print("📋 Testing component availability...")
+        from unittest.mock import Mock
+
         from utils.config_loader import load_config
         from web_interface.verification_service import VerificationService
-        from unittest.mock import Mock
 
         test_results = {}
 
@@ -86,7 +87,9 @@ Unsafe Set: x >= 1.5"""
 B(x, y) = 0.5*x**2 + 0.3*y**2 + 0.1*x*y - 0.05
 BARRIER_CERTIFICATE_END"""
 
-                specific_extracted = cert_gen.extract_certificate_from_output(specific_cert_output)
+                specific_extracted = cert_gen.extract_certificate_from_output(
+                    specific_cert_output
+                )
                 specific_success = (
                     specific_extracted is not None
                     and not cert_gen._is_template_expression(specific_extracted)
@@ -97,7 +100,9 @@ BARRIER_CERTIFICATE_END"""
 B(x, y) = ax**2 + bxy + cy**2 + dx + ey + f
 BARRIER_CERTIFICATE_END"""
 
-                template_extracted = cert_gen.extract_certificate_from_output(template_output)
+                template_extracted = cert_gen.extract_certificate_from_output(
+                    template_output
+                )
                 template_correctly_rejected = (
                     template_extracted is None
                     or cert_gen._is_template_expression(template_extracted)
@@ -108,13 +113,18 @@ BARRIER_CERTIFICATE_END"""
 B(x, y) = x**2 + y**2
 BARRIER_CERTIFICATE_END"""
 
-                simple_extracted = cert_gen.extract_certificate_from_output(simple_output)
+                simple_extracted = cert_gen.extract_certificate_from_output(
+                    simple_output
+                )
                 simple_correctly_rejected = (
-                    simple_extracted is None or cert_gen._is_template_expression(simple_extracted)
+                    simple_extracted is None
+                    or cert_gen._is_template_expression(simple_extracted)
                 )
 
                 text_processing_success = (
-                    specific_success and template_correctly_rejected and simple_correctly_rejected
+                    specific_success
+                    and template_correctly_rejected
+                    and simple_correctly_rejected
                 )
 
                 test_results["text_processing"] = text_processing_success
@@ -145,7 +155,9 @@ BARRIER_CERTIFICATE_END"""
             )
 
             verification_success = (
-                result is not None and isinstance(result, dict) and "overall_success" in result
+                result is not None
+                and isinstance(result, dict)
+                and "overall_success" in result
             )
 
             test_results["verification"] = verification_success
@@ -154,7 +166,9 @@ BARRIER_CERTIFICATE_END"""
             )
 
             if verification_success:
-                print(f"   📊 Verification completed in {result.get('verification_time', 'N/A')}s")
+                print(
+                    f"   📊 Verification completed in {result.get('verification_time', 'N/A')}s"
+                )
                 if "overall_success" in result:
                     print(f"   📈 Overall success: {result['overall_success']}")
 
@@ -198,7 +212,9 @@ BARRIER_CERTIFICATE_END"""
         ]
 
         for component_name, key in components:
-            status = "✅ WORKING" if test_results.get(key, False) else "❌ NEEDS ATTENTION"
+            status = (
+                "✅ WORKING" if test_results.get(key, False) else "❌ NEEDS ATTENTION"
+            )
             print(f"   {component_name}: {status}")
 
         # Determine final readiness assessment

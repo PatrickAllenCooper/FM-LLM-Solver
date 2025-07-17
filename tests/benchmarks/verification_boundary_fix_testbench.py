@@ -7,10 +7,10 @@ mathematically correct barrier certificates are being systematically rejected
 due to incorrect boundary condition logic.
 """
 
+import logging
 import sys
 from pathlib import Path
-from typing import Dict, List, Any
-import logging
+from typing import Any, Dict, List
 
 # Add project root to path
 PROJECT_ROOT = Path(__file__).parent.parent.absolute()
@@ -94,7 +94,9 @@ Unsafe Set: x**2 + y**2 >= 4.0""",
 
         try:
             # Parse the system first
-            parsed_system = self.verification_service.parse_system_description(test_case["system"])
+            parsed_system = self.verification_service.parse_system_description(
+                test_case["system"]
+            )
             print(f"✅ System parsed: {parsed_system.get('variables')}")
 
             # Create sampling bounds
@@ -106,7 +108,9 @@ Unsafe Set: x**2 + y**2 >= 4.0""",
 
             variables = [sympy.Symbol(var) for var in parsed_system["variables"]]
             local_dict = {var.name: var for var in variables}
-            certificate_expr = sympy.parse_expr(test_case["certificate"], local_dict=local_dict)
+            certificate_expr = sympy.parse_expr(
+                test_case["certificate"], local_dict=local_dict
+            )
             print(f"✅ Certificate parsed: {certificate_expr}")
 
             # Analyze initial set condition theoretically
@@ -121,8 +125,12 @@ Unsafe Set: x**2 + y**2 >= 4.0""",
                 print(f"🎯 At boundary point {test_point}: B = {certificate_value}")
 
                 if certificate_value > 1e-6:
-                    print(f"❌ ISSUE: B = {certificate_value} > 1e-6 (current tolerance)")
-                    print(f"✅ THEORY: B = {certificate_value} ≤ 0.25 (should be valid)")
+                    print(
+                        f"❌ ISSUE: B = {certificate_value} > 1e-6 (current tolerance)"
+                    )
+                    print(
+                        f"✅ THEORY: B = {certificate_value} ≤ 0.25 (should be valid)"
+                    )
 
                     diagnosis["root_cause"] = (
                         "Verification using absolute tolerance instead of set-relative bounds"
@@ -209,17 +217,22 @@ Unsafe Set: x**2 + y**2 >= 4.0""",
                 fix_result["fixed_result"] = simulated_fixed_result
                 fix_result["improvement"] = True
 
-                print("✅ SIMULATED FIX SUCCESS: Certificate should pass with corrected logic")
+                print(
+                    "✅ SIMULATED FIX SUCCESS: Certificate should pass with corrected logic"
+                )
 
             else:
                 # For other test cases, analyze what the correct tolerance should be
                 max_on_initial = test_case["theory"]["initial_set_max"]
-                print(f"🔧 Applying fix: Using initial_set_max = {max_on_initial} as tolerance")
+                print(
+                    f"🔧 Applying fix: Using initial_set_max = {max_on_initial} as tolerance"
+                )
 
                 simulated_fixed_result = {
                     "overall_success": True,
                     "reason": f"Fixed: Using tolerance {max_on_initial}",
-                    "improvement_factor": max_on_initial / 1e-6,  # How much more lenient
+                    "improvement_factor": max_on_initial
+                    / 1e-6,  # How much more lenient
                 }
 
                 fix_result["fixed_result"] = simulated_fixed_result
@@ -309,7 +322,12 @@ This fix is required for any barrier certificate verification to work correctly.
         print("=" * 60)
 
         test_cases = self.create_theoretical_test_cases()
-        results = {"diagnoses": [], "fix_tests": [], "summary": {}, "implementation_guide": ""}
+        results = {
+            "diagnoses": [],
+            "fix_tests": [],
+            "summary": {},
+            "implementation_guide": "",
+        }
 
         # Run diagnosis for each test case
         for test_case in test_cases:
@@ -328,7 +346,9 @@ This fix is required for any barrier certificate verification to work correctly.
             "total_test_cases": total_cases,
             "issues_identified": issues_found,
             "fixes_validated": fixes_successful,
-            "fix_success_rate": fixes_successful / total_cases if total_cases > 0 else 0,
+            "fix_success_rate": (
+                fixes_successful / total_cases if total_cases > 0 else 0
+            ),
             "root_cause_confirmed": issues_found > 0,
             "production_impact": "CRITICAL - All correct certificates rejected",
         }
@@ -366,7 +386,9 @@ def main():
         with open("verification_boundary_fix_diagnosis.json", "w") as f:
             json.dump(results, f, indent=2, default=str)
 
-        print("\n💾 Detailed diagnosis saved to verification_boundary_fix_diagnosis.json")
+        print(
+            "\n💾 Detailed diagnosis saved to verification_boundary_fix_diagnosis.json"
+        )
 
         return 0 if summary["root_cause_confirmed"] else 1
 

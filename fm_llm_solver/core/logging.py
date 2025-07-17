@@ -4,13 +4,13 @@ Logging configuration for FM-LLM Solver.
 Provides structured logging with different levels and formats.
 """
 
+import json
 import logging
 import sys
-from pathlib import Path
-from typing import Optional, Dict, Any
 from datetime import datetime
-import json
 from logging.handlers import RotatingFileHandler
+from pathlib import Path
+from typing import Any, Dict, Optional
 
 
 class StructuredFormatter(logging.Formatter):
@@ -114,7 +114,8 @@ def configure_logging(
             console_handler.setFormatter(StructuredFormatter())
         else:
             console_format = ColoredFormatter(
-                "%(asctime)s - %(name)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+                "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+                datefmt="%Y-%m-%d %H:%M:%S",
             )
             console_handler.setFormatter(console_format)
 
@@ -127,21 +128,26 @@ def configure_logging(
 
         # Main log file
         log_file = log_path / f"fm_llm_solver_{datetime.now().strftime('%Y%m%d')}.log"
-        file_handler = RotatingFileHandler(log_file, maxBytes=max_bytes, backupCount=backup_count)
+        file_handler = RotatingFileHandler(
+            log_file, maxBytes=max_bytes, backupCount=backup_count
+        )
         file_handler.setLevel(logging.DEBUG)  # Log everything to file
 
         if structured:
             file_handler.setFormatter(StructuredFormatter())
         else:
             file_format = logging.Formatter(
-                "%(asctime)s - %(name)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+                "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+                datefmt="%Y-%m-%d %H:%M:%S",
             )
             file_handler.setFormatter(file_format)
 
         root_logger.addHandler(file_handler)
 
         # Error log file
-        error_file = log_path / f"fm_llm_solver_errors_{datetime.now().strftime('%Y%m%d')}.log"
+        error_file = (
+            log_path / f"fm_llm_solver_errors_{datetime.now().strftime('%Y%m%d')}.log"
+        )
         error_handler = RotatingFileHandler(
             error_file, maxBytes=max_bytes, backupCount=backup_count
         )
@@ -241,7 +247,8 @@ def log_api_request(logger: logging.Logger):
         logger: Logger instance
     """
     import functools
-    from flask import request, g
+
+    from flask import g, request
 
     def decorator(func):
         @functools.wraps(func)

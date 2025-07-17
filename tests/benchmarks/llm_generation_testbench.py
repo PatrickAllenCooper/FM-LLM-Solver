@@ -4,24 +4,24 @@ Tests real LLM generation, extraction, parsing, and verification
 using the same code as the web interface.
 """
 
+import json
+import logging
 import os
 import sys
-import json
 import time
-import logging
-from typing import Dict, List, Any, Optional
-from datetime import datetime
-from dataclasses import dataclass, field
 from collections import defaultdict
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
 import numpy as np
 
 # Add parent directory to path for imports
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
+from utils.config_loader import load_config
 from web_interface.certificate_generator import CertificateGenerator
 from web_interface.verification_service import VerificationService
-from utils.config_loader import load_config
-
 
 # Configure logging
 logging.basicConfig(
@@ -171,7 +171,10 @@ class LLMGenerationTestbench:
         )
 
         result = TestResult(
-            test_case=test_case, model_config=model_config, rag_k=rag_k, attempt_number=attempt
+            test_case=test_case,
+            model_config=model_config,
+            rag_k=rag_k,
+            attempt_number=attempt,
         )
 
         try:
@@ -191,7 +194,9 @@ class LLMGenerationTestbench:
             result.certificate = generation_result.get("certificate", None)
 
             if not result.generation_success:
-                result.error = generation_result.get("error", "Unknown generation error")
+                result.error = generation_result.get(
+                    "error", "Unknown generation error"
+                )
                 logger.error(f"Generation failed: {result.error}")
                 return result
 
@@ -199,7 +204,9 @@ class LLMGenerationTestbench:
             result.extraction_success = result.certificate is not None
             if not result.extraction_success:
                 result.error = "Failed to extract valid certificate from LLM output"
-                logger.warning(f"Extraction failed. LLM output: {result.llm_output[:200]}...")
+                logger.warning(
+                    f"Extraction failed. LLM output: {result.llm_output[:200]}..."
+                )
                 return result
 
             logger.info(f"Successfully extracted certificate: {result.certificate}")
@@ -213,7 +220,9 @@ class LLMGenerationTestbench:
 
                 normalized_certificate = re.sub(r"\bx\b", "x_", normalized_certificate)
                 normalized_certificate = re.sub(r"\by\b", "y_", normalized_certificate)
-                logger.info(f"Normalized certificate for verification: {normalized_certificate}")
+                logger.info(
+                    f"Normalized certificate for verification: {normalized_certificate}"
+                )
 
             # Verification phase
             verif_start = time.time()
@@ -257,7 +266,10 @@ class LLMGenerationTestbench:
         return result
 
     def run_test_suite(
-        self, model_configs: List[str] = None, rag_k_values: List[int] = None, max_attempts: int = 3
+        self,
+        model_configs: List[str] = None,
+        rag_k_values: List[int] = None,
+        max_attempts: int = 3,
     ) -> None:
         """Run the complete test suite with specified configurations."""
         if not self.test_cases:
@@ -288,7 +300,9 @@ class LLMGenerationTestbench:
                     # Run test with retries
                     best_result = None
                     for attempt in range(1, max_attempts + 1):
-                        result = self.run_single_test(test_case, model_config, rag_k, attempt)
+                        result = self.run_single_test(
+                            test_case, model_config, rag_k, attempt
+                        )
                         self.results.append(result)
 
                         # Update statistics
@@ -304,7 +318,11 @@ class LLMGenerationTestbench:
 
                         if result.error:
                             self.stats[key]["errors"].append(
-                                {"test": test_case.name, "error": result.error, "attempt": attempt}
+                                {
+                                    "test": test_case.name,
+                                    "error": result.error,
+                                    "attempt": attempt,
+                                }
                             )
 
                         # If we got a successful verification, stop retrying
@@ -333,7 +351,9 @@ class LLMGenerationTestbench:
         successful_generations = sum(1 for r in self.results if r.generation_success)
         successful_extractions = sum(1 for r in self.results if r.extraction_success)
         successful_verifications = sum(
-            1 for r in self.results if r.verification_results.get("overall_success", False)
+            1
+            for r in self.results
+            if r.verification_results.get("overall_success", False)
         )
 
         analysis["summary"] = {
@@ -361,9 +381,15 @@ class LLMGenerationTestbench:
             test_count = len(data["tests"])
             analysis["by_model"][key] = {
                 "total_tests": test_count,
-                "success_rate": data["success_count"] / test_count if test_count > 0 else 0,
-                "avg_generation_time": np.mean([r.generation_time for r in data["tests"]]),
-                "avg_verification_time": np.mean([r.verification_time for r in data["tests"]]),
+                "success_rate": (
+                    data["success_count"] / test_count if test_count > 0 else 0
+                ),
+                "avg_generation_time": np.mean(
+                    [r.generation_time for r in data["tests"]]
+                ),
+                "avg_verification_time": np.mean(
+                    [r.verification_time for r in data["tests"]]
+                ),
             }
 
         # Analysis by test case
@@ -376,7 +402,9 @@ class LLMGenerationTestbench:
 
         for test_name, data in test_case_results.items():
             analysis["by_test_case"][test_name] = {
-                "success_rate": data["successes"] / data["attempts"] if data["attempts"] > 0 else 0,
+                "success_rate": (
+                    data["successes"] / data["attempts"] if data["attempts"] > 0 else 0
+                ),
                 "total_attempts": data["attempts"],
             }
 
@@ -431,7 +459,9 @@ class LLMGenerationTestbench:
                         "attempt": result.attempt_number,
                         "certificate": result.certificate,
                         "error": result.error,
-                        "verification_details": result.verification_results.get("details", {}),
+                        "verification_details": result.verification_results.get(
+                            "details", {}
+                        ),
                     }
                 )
 
@@ -444,9 +474,15 @@ class LLMGenerationTestbench:
         print("TEST SUITE SUMMARY")
         print("=" * 60)
         print(f"Total Tests Run: {analysis['summary']['total_tests']}")
-        print(f"Generation Success Rate: {analysis['summary']['generation_success_rate']:.2%}")
-        print(f"Extraction Success Rate: {analysis['summary']['extraction_success_rate']:.2%}")
-        print(f"Verification Success Rate: {analysis['summary']['verification_success_rate']:.2%}")
+        print(
+            f"Generation Success Rate: {analysis['summary']['generation_success_rate']:.2%}"
+        )
+        print(
+            f"Extraction Success Rate: {analysis['summary']['extraction_success_rate']:.2%}"
+        )
+        print(
+            f"Verification Success Rate: {analysis['summary']['verification_success_rate']:.2%}"
+        )
         print("\nModel Performance:")
         for model, stats in analysis["by_model"].items():
             print(f"  {model}: {stats['success_rate']:.2%} success rate")
@@ -480,13 +516,17 @@ class LLMGenerationTestbench:
         print(f"Generation Success: {result.generation_success}")
         print(f"Extraction Success: {result.extraction_success}")
         print(f"Certificate: {result.certificate}")
-        print(f"Verification: {result.verification_results.get('overall_success', False)}")
+        print(
+            f"Verification: {result.verification_results.get('overall_success', False)}"
+        )
         if result.error:
             print(f"Error: {result.error}")
         print("-" * 60)
         print("LLM Output:")
         print(
-            result.llm_output[:500] + "..." if len(result.llm_output) > 500 else result.llm_output
+            result.llm_output[:500] + "..."
+            if len(result.llm_output) > 500
+            else result.llm_output
         )
 
         return result
@@ -496,12 +536,22 @@ def main():
     """Main entry point for the testbench."""
     import argparse
 
-    parser = argparse.ArgumentParser(description="LLM Generation Testbench for FM-LLM-Solver")
-    parser.add_argument("--config", default="config.yaml", help="Path to configuration file")
+    parser = argparse.ArgumentParser(
+        description="LLM Generation Testbench for FM-LLM-Solver"
+    )
+    parser.add_argument(
+        "--config", default="config.yaml", help="Path to configuration file"
+    )
     parser.add_argument("--models", nargs="+", help="Specific models to test")
-    parser.add_argument("--rag-k", nargs="+", type=int, default=[0, 3], help="RAG k values to test")
-    parser.add_argument("--max-attempts", type=int, default=3, help="Maximum attempts per test")
-    parser.add_argument("--output", default="testbench_report.json", help="Output report file")
+    parser.add_argument(
+        "--rag-k", nargs="+", type=int, default=[0, 3], help="RAG k values to test"
+    )
+    parser.add_argument(
+        "--max-attempts", type=int, default=3, help="Maximum attempts per test"
+    )
+    parser.add_argument(
+        "--output", default="testbench_report.json", help="Output report file"
+    )
     parser.add_argument("--focused", action="store_true", help="Run focused test mode")
     parser.add_argument("--system", help="System description for focused test")
     parser.add_argument("--domain", help="Domain bounds for focused test (JSON format)")
@@ -514,9 +564,7 @@ def main():
     if args.focused:
         # Run focused test
         if not args.system:
-            system = (
-                "Discrete-time system: x[k+1] = 0.9*x[k] + 0.1*y[k], y[k+1] = -0.1*x[k] + 0.8*y[k]"
-            )
+            system = "Discrete-time system: x[k+1] = 0.9*x[k] + 0.1*y[k], y[k+1] = -0.1*x[k] + 0.8*y[k]"
         else:
             system = args.system
 
@@ -531,7 +579,9 @@ def main():
     else:
         # Run full test suite
         testbench.run_test_suite(
-            model_configs=args.models, rag_k_values=args.rag_k, max_attempts=args.max_attempts
+            model_configs=args.models,
+            rag_k_values=args.rag_k,
+            max_attempts=args.max_attempts,
         )
 
         # Generate report

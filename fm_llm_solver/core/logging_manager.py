@@ -149,7 +149,9 @@ class LoggingManager:
                 handler.setFormatter(JSONFormatter())
             else:
                 handler.setFormatter(
-                    logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+                    logging.Formatter(
+                        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+                    )
                 )
 
         elif handler_type == "file":
@@ -185,7 +187,9 @@ class LoggingManager:
                 "json_format": True,
                 "propagate": False,
             }
-            log_dir = Path(self.config_manager.get_logging_config().get("log_directory", "logs"))
+            log_dir = Path(
+                self.config_manager.get_logging_config().get("log_directory", "logs")
+            )
             log_dir.mkdir(exist_ok=True)
             self._configure_logger(name, config, log_dir)
 
@@ -201,12 +205,18 @@ class LoggingManager:
         """Log performance metrics."""
         logger = self.get_logger(logger_name)
 
-        perf_data = {"operation": operation, "duration_seconds": duration, "performance_log": True}
+        perf_data = {
+            "operation": operation,
+            "duration_seconds": duration,
+            "performance_log": True,
+        }
 
         if metadata:
             perf_data.update(metadata)
 
-        logger.info(f"Performance: {operation} completed in {duration:.3f}s", extra=perf_data)
+        logger.info(
+            f"Performance: {operation} completed in {duration:.3f}s", extra=perf_data
+        )
 
     def log_security_event(
         self,
@@ -284,7 +294,9 @@ class LoggingManager:
 
         logger.info(f"API {method} {endpoint} - {status_code}", extra=api_data)
 
-    def create_context_logger(self, name: str, context: Dict[str, Any]) -> "ContextLogger":
+    def create_context_logger(
+        self, name: str, context: Dict[str, Any]
+    ) -> "ContextLogger":
         """Create a context-aware logger."""
         return ContextLogger(self.get_logger(name), context)
 
@@ -374,10 +386,15 @@ def get_logger(name: str) -> logging.Logger:
 
 
 def log_performance(
-    logger_name: str, operation: str, duration: float, metadata: Optional[Dict[str, Any]] = None
+    logger_name: str,
+    operation: str,
+    duration: float,
+    metadata: Optional[Dict[str, Any]] = None,
 ):
     """Log performance metrics."""
-    return get_logging_manager().log_performance(logger_name, operation, duration, metadata)
+    return get_logging_manager().log_performance(
+        logger_name, operation, duration, metadata
+    )
 
 
 def timer(logger_name: str, operation: str, metadata: Optional[Dict[str, Any]] = None):

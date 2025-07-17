@@ -4,21 +4,21 @@ Middleware for FM-LLM Solver web interface.
 Handles request logging, error handling, and security headers.
 """
 
-import uuid
 import time
+import uuid
 from functools import wraps
 
-from flask import Flask, request, g, jsonify
+from flask import Flask, g, jsonify, request
 from werkzeug.exceptions import HTTPException
 
-from fm_llm_solver.core.logging import get_logger
 from fm_llm_solver.core.exceptions import (
-    FMLLMSolverError,
-    ValidationError,
     AuthenticationError,
     AuthorizationError,
+    FMLLMSolverError,
     RateLimitError,
+    ValidationError,
 )
+from fm_llm_solver.core.logging import get_logger
 
 
 def setup_request_logging(app: Flask) -> None:
@@ -76,7 +76,8 @@ def setup_error_handlers(app: Flask) -> None:
     def handle_validation_error(e: ValidationError):
         """Handle validation errors."""
         logger.warning(
-            f"Validation error: {e}", extra={"request_id": getattr(g, "request_id", None)}
+            f"Validation error: {e}",
+            extra={"request_id": getattr(g, "request_id", None)},
         )
         return jsonify(e.to_dict()), 400
 
@@ -84,7 +85,8 @@ def setup_error_handlers(app: Flask) -> None:
     def handle_authentication_error(e: AuthenticationError):
         """Handle authentication errors."""
         logger.warning(
-            f"Authentication error: {e}", extra={"request_id": getattr(g, "request_id", None)}
+            f"Authentication error: {e}",
+            extra={"request_id": getattr(g, "request_id", None)},
         )
         return jsonify(e.to_dict()), 401
 
@@ -92,7 +94,8 @@ def setup_error_handlers(app: Flask) -> None:
     def handle_authorization_error(e: AuthorizationError):
         """Handle authorization errors."""
         logger.warning(
-            f"Authorization error: {e}", extra={"request_id": getattr(g, "request_id", None)}
+            f"Authorization error: {e}",
+            extra={"request_id": getattr(g, "request_id", None)},
         )
         return jsonify(e.to_dict()), 403
 
@@ -100,7 +103,8 @@ def setup_error_handlers(app: Flask) -> None:
     def handle_rate_limit_error(e: RateLimitError):
         """Handle rate limit errors."""
         logger.warning(
-            f"Rate limit error: {e}", extra={"request_id": getattr(g, "request_id", None)}
+            f"Rate limit error: {e}",
+            extra={"request_id": getattr(g, "request_id", None)},
         )
         return jsonify(e.to_dict()), 429
 
@@ -108,15 +112,21 @@ def setup_error_handlers(app: Flask) -> None:
     def handle_application_error(e: FMLLMSolverError):
         """Handle general application errors."""
         logger.error(
-            f"Application error: {e}", extra={"request_id": getattr(g, "request_id", None)}
+            f"Application error: {e}",
+            extra={"request_id": getattr(g, "request_id", None)},
         )
         return jsonify(e.to_dict()), 500
 
     @app.errorhandler(HTTPException)
     def handle_http_exception(e: HTTPException):
         """Handle HTTP exceptions."""
-        logger.warning(f"HTTP exception: {e}", extra={"request_id": getattr(g, "request_id", None)})
-        return jsonify({"error": e.name, "message": e.description, "status_code": e.code}), e.code
+        logger.warning(
+            f"HTTP exception: {e}", extra={"request_id": getattr(g, "request_id", None)}
+        )
+        return (
+            jsonify({"error": e.name, "message": e.description, "status_code": e.code}),
+            e.code,
+        )
 
     @app.errorhandler(Exception)
     def handle_unexpected_error(e: Exception):
@@ -174,7 +184,9 @@ def setup_security_headers(app: Flask) -> None:
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
 
         # Feature Policy
-        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        response.headers["Permissions-Policy"] = (
+            "camera=(), microphone=(), geolocation=()"
+        )
 
         return response
 
@@ -185,7 +197,9 @@ def require_json(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not request.is_json:
-            raise ValidationError("Content-Type must be application/json", field="content-type")
+            raise ValidationError(
+                "Content-Type must be application/json", field="content-type"
+            )
         return f(*args, **kwargs)
 
     return decorated_function

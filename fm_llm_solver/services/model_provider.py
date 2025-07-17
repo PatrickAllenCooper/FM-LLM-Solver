@@ -4,11 +4,12 @@ Model provider service for FM-LLM Solver.
 Handles loading and interfacing with different language models.
 """
 
-from typing import Optional, Any
-from fm_llm_solver.core.interfaces import ModelProvider
-from fm_llm_solver.core.types import ModelConfig
-from fm_llm_solver.core.logging import get_logger
+from typing import Any, Optional
+
 from fm_llm_solver.core.exceptions import ModelError
+from fm_llm_solver.core.interfaces import ModelProvider
+from fm_llm_solver.core.logging import get_logger
+from fm_llm_solver.core.types import ModelConfig
 
 
 class BaseModelProvider(ModelProvider):
@@ -65,7 +66,11 @@ class TransformersModelProvider(BaseModelProvider):
         try:
             # Import here to make it optional
             import torch  # type: ignore
-            from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig  # type: ignore
+            from transformers import (  # type: ignore
+                AutoModelForCausalLM,
+                AutoTokenizer,
+                BitsAndBytesConfig,
+            )
 
             self.config = config
 
@@ -109,7 +114,9 @@ class TransformersModelProvider(BaseModelProvider):
             self.logger.info(f"Loading model: {config.name}")
             model_kwargs = {
                 "trust_remote_code": trust_remote_code,
-                "torch_dtype": torch.float16 if self.device == "cuda" else torch.float32,
+                "torch_dtype": (
+                    torch.float16 if self.device == "cuda" else torch.float32
+                ),
             }
 
             if quantization_config:
@@ -117,7 +124,9 @@ class TransformersModelProvider(BaseModelProvider):
             else:
                 model_kwargs["device_map"] = "auto" if self.device == "cuda" else None
 
-            self.model = AutoModelForCausalLM.from_pretrained(config.name, **model_kwargs)
+            self.model = AutoModelForCausalLM.from_pretrained(
+                config.name, **model_kwargs
+            )
 
             # Move to device if not using device_map
             if not quantization_config and model_kwargs.get("device_map") is None:
@@ -181,7 +190,9 @@ class TransformersModelProvider(BaseModelProvider):
         """Get text embedding from the model."""
         # For code generation models, we typically don't use their embeddings
         # This would require a separate embedding model
-        raise NotImplementedError("Embedding extraction not implemented for code generation models")
+        raise NotImplementedError(
+            "Embedding extraction not implemented for code generation models"
+        )
 
 
 class QwenProvider(TransformersModelProvider):

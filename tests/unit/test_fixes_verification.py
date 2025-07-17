@@ -4,10 +4,10 @@ Quick verification test for the implemented fixes.
 Tests the exact same input that was failing before.
 """
 
+import logging
 import os
 import sys
 import time
-import logging
 
 # Add project root to path
 PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
@@ -76,11 +76,18 @@ def test_fixed_generation():
         success_checks = []
 
         # 1. No placeholder variables
-        has_placeholders = any(p in str(certificate) for p in ["α", "β", "γ", "C", "a", "b", "c"])
+        has_placeholders = any(
+            p in str(certificate) for p in ["α", "β", "γ", "C", "a", "b", "c"]
+        )
         success_checks.append(("No placeholder variables", not has_placeholders))
 
         # 2. Complete generation (no incomplete phrases)
-        incomplete_phrases = ["Therefore, we'll opt", "but this could fail", "However", "we need"]
+        incomplete_phrases = [
+            "Therefore, we'll opt",
+            "but this could fail",
+            "However",
+            "we need",
+        ]
         is_complete = not any(phrase in llm_output for phrase in incomplete_phrases)
         success_checks.append(("Complete generation", is_complete))
 
@@ -113,7 +120,9 @@ def test_fixed_generation():
         if not result.get("success", False) and "Failed to load model" in str(
             result.get("error", "")
         ):
-            logger.info("📊 Note: Model loading failure is expected in test environment")
+            logger.info(
+                "📊 Note: Model loading failure is expected in test environment"
+            )
             logger.info("📊 This is due to missing bitsandbytes dependency")
             logger.info("📊 The certificate generation logic is working correctly")
             # Consider this a successful test if the error handling works

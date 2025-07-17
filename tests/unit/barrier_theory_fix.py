@@ -4,11 +4,12 @@ Barrier Certificate Theory Fix Implementation
 Corrects the fundamental theory violations in the current system
 """
 
+import logging
+from dataclasses import dataclass
+from typing import Dict, List, Tuple
+
 import numpy as np
 import sympy as sp
-from typing import Dict, List, Tuple
-from dataclasses import dataclass
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +84,11 @@ class BarrierCertificateValidator:
 
         # 1. Compute level sets
         levels = self.compute_level_sets(
-            certificate, system["initial_set"], system["unsafe_set"], variables, n_samples
+            certificate,
+            system["initial_set"],
+            system["unsafe_set"],
+            variables,
+            n_samples,
         )
 
         # 2. Check separation condition
@@ -131,7 +136,9 @@ class BarrierCertificateValidator:
         attempts = 0
         while len(samples) < n_samples and attempts < n_samples * 100:
             # Random point in bounds
-            point = tuple(np.random.uniform(bounds[v][0], bounds[v][1]) for v in variables)
+            point = tuple(
+                np.random.uniform(bounds[v][0], bounds[v][1]) for v in variables
+            )
 
             # Check constraints
             point_dict = dict(zip(variables, point))
@@ -191,7 +198,9 @@ class BarrierCertificateValidator:
 
         # Also do random sampling for better coverage
         for _ in range(n_samples // 2):
-            point = tuple(np.random.uniform(bounds[v][0], bounds[v][1]) for v in variables)
+            point = tuple(
+                np.random.uniform(bounds[v][0], bounds[v][1]) for v in variables
+            )
             B_val = B_func(*point)
 
             if levels.initial_max <= B_val <= levels.unsafe_min:

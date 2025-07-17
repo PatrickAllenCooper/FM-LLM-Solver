@@ -7,21 +7,21 @@ object pooling, and memory usage monitoring.
 
 import gc
 import logging
+import os
 import sys
+import threading
 import time
 import weakref
-import threading
 from collections import deque
 from contextlib import contextmanager
 from dataclasses import dataclass
 from functools import wraps
-from typing import Any, Dict, List, Optional, TypeVar, Generic, Callable
+from typing import Any, Callable, Dict, Generic, List, Optional, TypeVar
+
 import psutil
-import os
 
 from .exceptions import MemoryError as CustomMemoryError
 from .monitoring import MonitoringManager
-
 
 T = TypeVar("T")
 
@@ -125,7 +125,8 @@ class ObjectPool(Generic[T]):
                 "created_count": self._created_count,
                 "reused_count": self._reused_count,
                 "in_use_count": len(self._in_use),
-                "hit_rate": self._reused_count / max(self._created_count + self._reused_count, 1),
+                "hit_rate": self._reused_count
+                / max(self._created_count + self._reused_count, 1),
             }
 
     def clear(self):
@@ -137,7 +138,9 @@ class ObjectPool(Generic[T]):
 class MemoryTracker:
     """Track memory usage of specific objects or operations."""
 
-    def __init__(self, name: str, monitoring_manager: Optional[MonitoringManager] = None):
+    def __init__(
+        self, name: str, monitoring_manager: Optional[MonitoringManager] = None
+    ):
         """Initialize memory tracker."""
         self.name = name
         self.monitoring = monitoring_manager
@@ -181,7 +184,9 @@ class MemoryTracker:
             )
 
         self._tracking = False
-        self.logger.debug(f"Stopped memory tracking for {self.name}: {memory_diff:.2f} MB dif")
+        self.logger.debug(
+            f"Stopped memory tracking for {self.name}: {memory_diff:.2f} MB dif"
+        )
 
         return stats
 
@@ -225,18 +230,23 @@ class MemoryTracker:
 
             if self.monitoring:
                 self.monitoring.record_metric(
-                    f"operation_memory_{operation_name}", memory_diff, {"duration": str(duration)}
+                    f"operation_memory_{operation_name}",
+                    memory_diff,
+                    {"duration": str(duration)},
                 )
 
             self.logger.debug(
-                f"Operation {operation_name} used {memory_diff:.2f} MB " f"in {duration:.2f}s"
+                f"Operation {operation_name} used {memory_diff:.2f} MB "
+                f"in {duration:.2f}s"
             )
 
 
 class MemoryManager:
     """Main memory management system."""
 
-    def __init__(self, config_manager, monitoring_manager: Optional[MonitoringManager] = None):
+    def __init__(
+        self, config_manager, monitoring_manager: Optional[MonitoringManager] = None
+    ):
         """Initialize memory manager."""
         self.config_manager = config_manager
         self.monitoring = monitoring_manager
@@ -262,7 +272,9 @@ class MemoryManager:
 
         # Memory thresholds
         self._memory_warning_threshold = memory_config.get("warning_threshold_mb", 1000)
-        self._memory_critical_threshold = memory_config.get("critical_threshold_mb", 2000)
+        self._memory_critical_threshold = memory_config.get(
+            "critical_threshold_mb", 2000
+        )
 
         # Start monitoring if enabled
         if self.monitoring and memory_config.get("enable_monitoring", True):
@@ -355,11 +367,15 @@ class MemoryManager:
         }
 
         if self.monitoring:
-            self.monitoring.record_metric("gc_memory_freed", memory_freed, {"type": "forced"})
+            self.monitoring.record_metric(
+                "gc_memory_freed", memory_freed, {"type": "forced"}
+            )
             self.monitoring.record_metric("gc_duration", duration, {"type": "forced"})
 
         self._last_gc_time = time.time()
-        self.logger.info(f"Forced GC freed {memory_freed:.2f} MB in {duration*1000:.1f} ms")
+        self.logger.info(
+            f"Forced GC freed {memory_freed:.2f} MB in {duration*1000:.1f} ms"
+        )
 
         return gc_stats
 
@@ -415,7 +431,9 @@ class MemoryManager:
         # Force GC if needed
         if pressure_info["should_gc"]:
             gc_stats = self.force_gc()
-            optimization_actions.append({"action": "garbage_collection", "result": gc_stats})
+            optimization_actions.append(
+                {"action": "garbage_collection", "result": gc_stats}
+            )
 
         # Clear object pools if under pressure
         if pressure_info["pressure_level"] in ["warning", "critical"]:
@@ -485,19 +503,27 @@ class MemoryManager:
 
                 # Record metrics
                 if self.monitoring:
-                    self.monitoring.record_metric("memory_rss", stats.rss_mb, {"type": "rss"})
-                    self.monitoring.record_metric("memory_vms", stats.vms_mb, {"type": "vms"})
+                    self.monitoring.record_metric(
+                        "memory_rss", stats.rss_mb, {"type": "rss"}
+                    )
+                    self.monitoring.record_metric(
+                        "memory_vms", stats.vms_mb, {"type": "vms"}
+                    )
                     self.monitoring.record_metric(
                         "memory_percent", stats.percent, {"type": "percent"}
                     )
-                    self.monitoring.record_metric("gc_objects", stats.gc_objects, {"type": "count"})
+                    self.monitoring.record_metric(
+                        "gc_objects", stats.gc_objects, {"type": "count"}
+                    )
 
                 # Check for memory pressure
                 pressure_info = self.check_memory_pressure()
 
                 # Auto-optimize if needed
                 if pressure_info["pressure_level"] == "critical":
-                    self.logger.warning(f"Critical memory pressure detected: {stats.rss_mb:.1f} MB")
+                    self.logger.warning(
+                        f"Critical memory pressure detected: {stats.rss_mb:.1f} MB"
+                    )
                     self.optimize_memory()
                 elif pressure_info["should_gc"]:
                     self.force_gc()
@@ -507,10 +533,14 @@ class MemoryManager:
                     pool_stats = pool.stats()
                     if self.monitoring:
                         self.monitoring.record_metric(
-                            f"object_pool_{name}_size", pool_stats["pool_size"], {"pool": name}
+                            f"object_pool_{name}_size",
+                            pool_stats["pool_size"],
+                            {"pool": name},
                         )
                         self.monitoring.record_metric(
-                            f"object_pool_{name}_hit_rate", pool_stats["hit_rate"], {"pool": name}
+                            f"object_pool_{name}_hit_rate",
+                            pool_stats["hit_rate"],
+                            {"pool": name},
                         )
 
                 time.sleep(self.monitoring_interval)

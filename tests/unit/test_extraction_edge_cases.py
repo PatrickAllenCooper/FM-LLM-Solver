@@ -2,17 +2,20 @@
 Test edge cases for improved certificate extraction (Phase 1 Day 5)
 """
 
-import pytest
-import sys
 import os
+import sys
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+import pytest
+
+sys.path.append(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+)
 
 from utils.certificate_extraction_improved import (
     extract_certificate_from_llm_output,
+    extract_from_ascii_math,
     is_template_expression,
     normalize_expression,
-    extract_from_ascii_math,
 )
 
 
@@ -78,7 +81,9 @@ class TestTemplateDetection:
         ]
 
         for template in templates:
-            assert is_template_expression(template), f"Failed to detect template: {template}"
+            assert is_template_expression(
+                template
+            ), f"Failed to detect template: {template}"
 
     def test_greek_letters(self):
         """Test detection of Greek letter placeholders"""
@@ -90,7 +95,9 @@ class TestTemplateDetection:
         ]
 
         for template in templates:
-            assert is_template_expression(template), f"Failed to detect Greek template: {template}"
+            assert is_template_expression(
+                template
+            ), f"Failed to detect Greek template: {template}"
 
     def test_subscripted_coefficients(self):
         """Test detection of subscripted coefficients"""
@@ -128,7 +135,9 @@ class TestTemplateDetection:
         ]
 
         for cert in valid_certs:
-            assert not is_template_expression(cert), f"Incorrectly marked as template: {cert}"
+            assert not is_template_expression(
+                cert
+            ), f"Incorrectly marked as template: {cert}"
 
 
 class TestFormatSupport:

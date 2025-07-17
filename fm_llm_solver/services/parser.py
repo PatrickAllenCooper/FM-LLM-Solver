@@ -5,14 +5,20 @@ Handles parsing of system descriptions and barrier certificates.
 """
 
 import re
-from typing import List, Dict
+from typing import Dict, List
+
 import sympy as sp
 from sympy.parsing.sympy_parser import parse_expr
 
-from fm_llm_solver.core.interfaces import Parser
-from fm_llm_solver.core.types import SystemDescription, BarrierCertificate, SystemType, DomainBounds
 from fm_llm_solver.core.exceptions import ValidationError
+from fm_llm_solver.core.interfaces import Parser
 from fm_llm_solver.core.logging import get_logger
+from fm_llm_solver.core.types import (
+    BarrierCertificate,
+    DomainBounds,
+    SystemDescription,
+    SystemType,
+)
 
 
 class SystemParser(Parser):
@@ -147,7 +153,10 @@ class SystemParser(Parser):
                 # Look for lines that contain mathematical operators
                 for line in text.split("\n"):
                     if any(op in line for op in ["+", "-", "*", "/", "^", "**"]):
-                        if not any(skip in line.lower() for skip in ["example", "note", "where"]):
+                        if not any(
+                            skip in line.lower()
+                            for skip in ["example", "note", "where"]
+                        ):
                             expression = line.strip()
                             break
 

@@ -4,9 +4,9 @@ Prompt builder for FM-LLM Solver.
 Constructs prompts for LLM generation and verification tasks.
 """
 
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
 
-from fm_llm_solver.core.types import SystemDescription, RAGDocument, SystemType
+from fm_llm_solver.core.types import RAGDocument, SystemDescription, SystemType
 
 
 class PromptBuilder:

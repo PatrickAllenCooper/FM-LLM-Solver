@@ -10,17 +10,20 @@ Mock outputs are clean and predictable, while real LLM outputs have:
 - Template vs specific coefficient ambiguity
 """
 
-import sys
 import logging
+import sys
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Any, Dict, List
 
 # Add project root to path
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from utils.certificate_extraction import extract_certificate_from_llm_output, is_template_expression
-from utils.certificate_extraction import clean_and_validate_expression
+from utils.certificate_extraction import (
+    clean_and_validate_expression,
+    extract_certificate_from_llm_output,
+    is_template_expression,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -72,7 +75,11 @@ This certificate ensures that:
 - For the initial set where x² + y² ≤ 0.25, we have B ≤ 0
 - For the unsafe set where x² + y² ≥ 4.0, we have B > 0""",
                 "expected_extraction": "0.8*x**2 + 1.2*y**2 - 0.75",
-                "challenges": ["LaTeX notation", "Explanatory text", "Mathematical symbols"],
+                "challenges": [
+                    "LaTeX notation",
+                    "Explanatory text",
+                    "Mathematical symbols",
+                ],
             },
             {
                 "name": "real_chatgpt_style",
@@ -107,7 +114,11 @@ where c ∈ (0.25, 4.0). Let me choose c = 1.2 for a good margin:
 
 This satisfies all barrier conditions.""",
                 "expected_extraction": "x**2 + y**2 - 1.2",
-                "challenges": ["Mathematical notation", "Academic writing", "Variable definitions"],
+                "challenges": [
+                    "Mathematical notation",
+                    "Academic writing",
+                    "Variable definitions",
+                ],
             },
             {
                 "name": "real_llm_with_templates",
@@ -138,7 +149,11 @@ where β should be chosen appropriately. A good choice might be β = 0.8, giving
 
 B(x,y) = x² + y² - 0.""",
                 "expected_extraction": None,  # Incomplete/corrupted
-                "challenges": ["Incomplete output", "Cut-off text", "Parameter placeholders"],
+                "challenges": [
+                    "Incomplete output",
+                    "Cut-off text",
+                    "Parameter placeholders",
+                ],
             },
             {
                 "name": "real_llm_multiple_candidates",
@@ -150,7 +165,11 @@ Option 3: B₃(x,y) = 2x² + 2y² - 3.0 (equivalent to Option 2)
 
 I recommend **Option 2**: B(x,y) = x² + y² - 1.5""",
                 "expected_extraction": "x**2 + y**2 - 1.5",
-                "challenges": ["Multiple options", "Subscripts", "Recommendation logic"],
+                "challenges": [
+                    "Multiple options",
+                    "Subscripts",
+                    "Recommendation logic",
+                ],
             },
             {
                 "name": "real_llm_with_errors",
@@ -163,7 +182,11 @@ BARRIER_CERTIFICATE_START
 B(x, y) = x**2 + y**2 - 1.0, but this could fail if x becomes negative. Therefore, we'll opt
 BARRIER_CERTIFICATE_END""",
                 "expected_extraction": None,  # Corrupted/incomplete
-                "challenges": ["Text corruption", "Incomplete thoughts", "Mid-sentence cutoffs"],
+                "challenges": [
+                    "Text corruption",
+                    "Incomplete thoughts",
+                    "Mid-sentence cutoffs",
+                ],
             },
         ]
 
@@ -186,7 +209,9 @@ BARRIER_CERTIFICATE_END""",
                     output, self.test_system["variables"]
                 )
                 extracted = (
-                    extracted_result[0] if isinstance(extracted_result, tuple) else extracted_result
+                    extracted_result[0]
+                    if isinstance(extracted_result, tuple)
+                    else extracted_result
                 )
                 extraction_success = extracted is not None
 
@@ -216,11 +241,15 @@ BARRIER_CERTIFICATE_END""",
             if expected is None:
                 # Should be rejected
                 success = not extraction_success or is_template or cleaned is None
-                logger.info(f"   Expected rejection: {'✅ PASS' if success else '❌ FAIL'}")
+                logger.info(
+                    f"   Expected rejection: {'✅ PASS' if success else '❌ FAIL'}"
+                )
             else:
                 # Should be extracted successfully
                 success = extraction_success and not is_template and cleaned is not None
-                logger.info(f"   Expected success: {'✅ PASS' if success else '❌ FAIL'}")
+                logger.info(
+                    f"   Expected success: {'✅ PASS' if success else '❌ FAIL'}"
+                )
 
             results.append(
                 {
@@ -239,8 +268,12 @@ BARRIER_CERTIFICATE_END""",
         # Calculate metrics
         total_tests = len(results)
         passed_tests = sum(1 for r in results if r["test_passed"])
-        extraction_rate = sum(1 for r in results if r["extraction_success"]) / total_tests
-        template_rejection_rate = sum(1 for r in results if r["is_template"]) / total_tests
+        extraction_rate = (
+            sum(1 for r in results if r["extraction_success"]) / total_tests
+        )
+        template_rejection_rate = (
+            sum(1 for r in results if r["is_template"]) / total_tests
+        )
 
         summary = {
             "test_type": test_type,
@@ -270,7 +303,9 @@ BARRIER_CERTIFICATE_END""",
         mock_results = self.test_extraction_robustness(self.get_mock_outputs(), "MOCK")
 
         # Test realistic LLM outputs
-        real_results = self.test_extraction_robustness(self.get_realistic_llm_outputs(), "REAL LLM")
+        real_results = self.test_extraction_robustness(
+            self.get_realistic_llm_outputs(), "REAL LLM"
+        )
 
         # Compare results
         print("\n" + "=" * 60)
@@ -309,7 +344,8 @@ BARRIER_CERTIFICATE_END""",
         return {
             "mock_results": mock_results,
             "real_results": real_results,
-            "performance_gap": mock_results["success_rate"] - real_results["success_rate"],
+            "performance_gap": mock_results["success_rate"]
+            - real_results["success_rate"],
             "real_challenges": list(set(real_challenges)),
         }
 

@@ -7,13 +7,13 @@ request queuing, and concurrent task execution throughout the system.
 
 import asyncio
 import logging
-import time
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
-from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional
-from queue import Queue, Empty
 import threading
-from functools import wraps, partial
+import time
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from dataclasses import dataclass
+from functools import partial, wraps
+from queue import Empty, Queue
+from typing import Any, Callable, Dict, List, Optional
 
 from .exceptions import PerformanceError
 from .monitoring import MonitoringManager
@@ -48,12 +48,16 @@ class RequestQueue:
         """Initialize the request queue."""
         self.maxsize = maxsize
         self.priority_levels = priority_levels
-        self._queues = [Queue(maxsize=maxsize // priority_levels) for _ in range(priority_levels)]
+        self._queues = [
+            Queue(maxsize=maxsize // priority_levels) for _ in range(priority_levels)
+        ]
         self._lock = threading.Lock()
         self._condition = threading.Condition(self._lock)
         self._closed = False
 
-    def put(self, item: Any, priority: int = 1, timeout: Optional[float] = None) -> bool:
+    def put(
+        self, item: Any, priority: int = 1, timeout: Optional[float] = None
+    ) -> bool:
         """Put item in queue with specified priority (0=highest, 2=lowest)."""
         if self._closed:
             return False
@@ -115,7 +119,9 @@ class RequestQueue:
 class AsyncManager:
     """Main async operations manager."""
 
-    def __init__(self, config_manager, monitoring_manager: Optional[MonitoringManager] = None):
+    def __init__(
+        self, config_manager, monitoring_manager: Optional[MonitoringManager] = None
+    ):
         """Initialize the async manager."""
         self.config_manager = config_manager
         self.monitoring = monitoring_manager
@@ -155,7 +161,9 @@ class AsyncManager:
         self._task_counter += 1
         return f"task_{self._task_counter}_{int(time.time())}"
 
-    def _record_metric(self, metric_name: str, value: float, tags: Optional[Dict[str, str]] = None):
+    def _record_metric(
+        self, metric_name: str, value: float, tags: Optional[Dict[str, str]] = None
+    ):
         """Record performance metric."""
         if self.monitoring:
             self.monitoring.record_metric(metric_name, value, tags or {})
@@ -182,7 +190,9 @@ class AsyncManager:
                 else:
                     # Run sync function in thread pool
                     loop = asyncio.get_event_loop()
-                    task = loop.run_in_executor(self.thread_pool, partial(func, *args, **kwargs))
+                    task = loop.run_in_executor(
+                        self.thread_pool, partial(func, *args, **kwargs)
+                    )
 
                 self._active_tasks[task_id] = task
 
@@ -194,11 +204,14 @@ class AsyncManager:
                 # Update metrics
                 self._metrics["tasks_completed"] += 1
                 self._metrics["average_duration"] = (
-                    self._metrics["average_duration"] * (self._metrics["tasks_completed"] - 1)
+                    self._metrics["average_duration"]
+                    * (self._metrics["tasks_completed"] - 1)
                     + duration
                 ) / self._metrics["tasks_completed"]
 
-                self._record_metric("async_task_duration", duration, {"status": "success"})
+                self._record_metric(
+                    "async_task_duration", duration, {"status": "success"}
+                )
 
                 return TaskResult(
                     task_id=task_id,
@@ -213,14 +226,18 @@ class AsyncManager:
                 duration = time.time() - start_time
                 self._metrics["tasks_failed"] += 1
 
-                self._record_metric("async_task_duration", duration, {"status": "timeout"})
+                self._record_metric(
+                    "async_task_duration", duration, {"status": "timeout"}
+                )
 
                 return TaskResult(
                     task_id=task_id,
                     result=None,
                     success=False,
                     duration=duration,
-                    error=asyncio.TimeoutError(f"Task {task_id} timed out after {timeout}s"),
+                    error=asyncio.TimeoutError(
+                        f"Task {task_id} timed out after {timeout}s"
+                    ),
                 )
 
         except Exception as e:
@@ -239,7 +256,10 @@ class AsyncManager:
                 self._active_tasks.pop(task_id, None)
 
     async def batch_execute(
-        self, tasks: List[Callable], max_concurrent: int = 10, timeout: Optional[float] = None
+        self,
+        tasks: List[Callable],
+        max_concurrent: int = 10,
+        timeout: Optional[float] = None,
     ) -> List[TaskResult]:
         """Execute multiple tasks concurrently with concurrency limit."""
         semaphore = asyncio.Semaphore(max_concurrent)
@@ -282,7 +302,9 @@ class AsyncManager:
     def get_performance_metrics(self) -> Dict[str, Any]:
         """Get performance metrics."""
         queue_size = self.request_queue.qsize()
-        self._metrics["queue_size_max"] = max(self._metrics["queue_size_max"], queue_size)
+        self._metrics["queue_size_max"] = max(
+            self._metrics["queue_size_max"], queue_size
+        )
 
         metrics = self._metrics.copy()
         metrics.update(
@@ -290,7 +312,9 @@ class AsyncManager:
                 "active_tasks": len(self._active_tasks),
                 "queue_size": queue_size,
                 "thread_pool_threads": (
-                    len(self.thread_pool._threads) if hasattr(self.thread_pool, "_threads") else 0
+                    len(self.thread_pool._threads)
+                    if hasattr(self.thread_pool, "_threads")
+                    else 0
                 ),
                 "process_pool_processes": getattr(self.process_pool, "_processes", 0),
             }
@@ -322,7 +346,9 @@ def async_cached(cache_manager, ttl: int = 300, key_func: Optional[Callable] = N
             if key_func:
                 cache_key = key_func(*args, **kwargs)
             else:
-                cache_key = f"{func.__name__}:{hash(str(args) + str(sorted(kwargs.items())))}"
+                cache_key = (
+                    f"{func.__name__}:{hash(str(args) + str(sorted(kwargs.items())))}"
+                )
 
             # Try to get from cache
             cached_result = cache_manager.get(cache_key)
@@ -356,7 +382,9 @@ def rate_limited(max_calls: int, period: float = 60.0):
 
                 # Check rate limit
                 if len(calls) >= max_calls:
-                    raise PerformanceError(f"Rate limit exceeded: {max_calls} calls per {period}s")
+                    raise PerformanceError(
+                        f"Rate limit exceeded: {max_calls} calls per {period}s"
+                    )
 
                 calls.append(now)
 

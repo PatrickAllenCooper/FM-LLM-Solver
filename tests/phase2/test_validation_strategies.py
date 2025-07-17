@@ -3,23 +3,26 @@
 Tests for Phase 2 Validation Strategies and Orchestrator
 """
 
-import unittest
-import sys
 import os
+import sys
+import unittest
 
 # Add parent directory to path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+sys.path.insert(
+    0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+)
 
 from omegaconf import DictConfig
+
+from utils.validation_orchestrator import OrchestratedResult, ValidationOrchestrator
 from utils.validation_strategies import (
-    SamplingValidationStrategy,
-    SymbolicValidationStrategy,
     IntervalValidationStrategy,
+    SamplingValidationStrategy,
     SMTValidationStrategy,
-    ValidationResult,
     StrategyPerformance,
+    SymbolicValidationStrategy,
+    ValidationResult,
 )
-from utils.validation_orchestrator import ValidationOrchestrator, OrchestratedResult
 
 
 class TestValidationStrategies(unittest.TestCase):
@@ -28,7 +31,11 @@ class TestValidationStrategies(unittest.TestCase):
     def setUp(self):
         """Set up test fixtures"""
         self.config = DictConfig(
-            {"num_samples_boundary": 100, "num_samples_lie": 200, "numerical_tolerance": 1e-6}
+            {
+                "num_samples_boundary": 100,
+                "num_samples_lie": 200,
+                "numerical_tolerance": 1e-6,
+            }
         )
 
         self.system_info = {
@@ -154,14 +161,18 @@ class TestValidationOrchestrator(unittest.TestCase):
 
     def test_strategy_selection(self):
         """Test strategy selection"""
-        strategies = self.orchestrator._select_strategies(self.valid_certificate, self.system_info)
+        strategies = self.orchestrator._select_strategies(
+            self.valid_certificate, self.system_info
+        )
 
         self.assertIsInstance(strategies, list)
         self.assertLessEqual(len(strategies), self.orchestrator.max_strategies)
 
         # Check that selected strategies can handle the problem
         for strategy in strategies:
-            self.assertTrue(strategy.can_handle(self.valid_certificate, self.system_info))
+            self.assertTrue(
+                strategy.can_handle(self.valid_certificate, self.system_info)
+            )
 
     def test_orchestrated_validation(self):
         """Test orchestrated validation"""

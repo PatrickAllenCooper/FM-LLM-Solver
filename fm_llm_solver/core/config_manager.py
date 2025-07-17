@@ -5,16 +5,16 @@ Provides unified configuration management with environment-specific settings,
 secret management, and comprehensive validation.
 """
 
-import os
 import json
-from pathlib import Path
-from typing import Dict, Any, Optional, Union, List
+import logging
+import os
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Union
 
-from omegaconf import OmegaConf, DictConfig
+from omegaconf import DictConfig, OmegaConf
 
-import logging
 from fm_llm_solver.core.exceptions import ConfigurationError
 
 
@@ -84,7 +84,9 @@ class ConfigurationManager:
         # Configuration cache
         self._config_cache: Optional[DictConfig] = None
 
-        self.logger.info(f"Configuration manager initialized for {self.environment.value}")
+        self.logger.info(
+            f"Configuration manager initialized for {self.environment.value}"
+        )
 
     def _detect_environment(self) -> Environment:
         """Auto-detect environment from various sources."""
@@ -161,7 +163,9 @@ class ConfigurationManager:
             if use_cache:
                 self._config_cache = final_config
 
-            self.logger.info(f"Configuration loaded successfully for {self.environment.value}")
+            self.logger.info(
+                f"Configuration loaded successfully for {self.environment.value}"
+            )
             return final_config
 
         except Exception as e:
@@ -187,7 +191,9 @@ class ConfigurationManager:
 
     def _load_env_config(self, config_name: str) -> Optional[DictConfig]:
         """Load environment-specific configuration."""
-        env_config_path = self.config_dir / f"{config_name}.{self.environment.value}.yaml"
+        env_config_path = (
+            self.config_dir / f"{config_name}.{self.environment.value}.yaml"
+        )
 
         if env_config_path.exists():
             self.logger.info(f"Loading environment config from {env_config_path}")
@@ -346,7 +352,9 @@ class ConfigurationManager:
 
         for section in required_sections:
             if section not in config:
-                raise ConfigurationError(f"Required configuration section missing: {section}")
+                raise ConfigurationError(
+                    f"Required configuration section missing: {section}"
+                )
 
         # Validate paths exist
         if "paths" in config:
@@ -356,7 +364,9 @@ class ConfigurationManager:
                     try:
                         path_obj.mkdir(parents=True, exist_ok=True)
                     except Exception as e:
-                        self.logger.warning(f"Could not create directory {path_value}: {e}")
+                        self.logger.warning(
+                            f"Could not create directory {path_value}: {e}"
+                        )
 
         self.logger.info("Configuration validation passed")
 
@@ -382,7 +392,11 @@ class ConfigurationManager:
             {
                 "environment": template.environment.value,
                 "deployment": {
-                    "mode": "local" if template.environment == Environment.DEVELOPMENT else "cloud"
+                    "mode": (
+                        "local"
+                        if template.environment == Environment.DEVELOPMENT
+                        else "cloud"
+                    )
                 },
             }
         )
@@ -407,7 +421,9 @@ class ConfigurationManager:
             "available_configs": [
                 f.stem
                 for f in self.config_dir.glob("*.yaml")
-                if not f.stem.endswith((".development", ".testing", ".staging", ".production"))
+                if not f.stem.endswith(
+                    (".development", ".testing", ".staging", ".production")
+                )
             ],
         }
 

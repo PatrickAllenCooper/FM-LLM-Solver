@@ -2,16 +2,17 @@
 Configuration CLI commands for FM-LLM Solver.
 """
 
-import click
 import json
 from pathlib import Path
 
-from fm_llm_solver.core.logging import get_logger
+import click
+
 from fm_llm_solver.core.config_manager import (
     ConfigurationManager,
-    Environment,
     ConfigurationTemplate,
+    Environment,
 )
+from fm_llm_solver.core.logging import get_logger
 
 
 @click.group()
@@ -117,7 +118,9 @@ def init(ctx, environment: str, output_dir: str):
 
 
 @config.command()
-@click.option("--config-file", type=click.Path(exists=True), help="Configuration file to validate")
+@click.option(
+    "--config-file", type=click.Path(exists=True), help="Configuration file to validate"
+)
 @click.option(
     "--environment",
     type=click.Choice(["development", "testing", "staging", "production"]),
@@ -270,7 +273,9 @@ def info(ctx, environment: str):
     required=True,
     help="Target environment",
 )
-@click.option("--config-dir", type=click.Path(), default="config", help="Configuration directory")
+@click.option(
+    "--config-dir", type=click.Path(), default="config", help="Configuration directory"
+)
 @click.pass_context
 def migrate(ctx, source_env: str, target_env: str, config_dir: str):
     """Migrate configuration from one environment to another."""

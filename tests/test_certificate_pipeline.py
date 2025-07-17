@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Certificate Pipeline Integration Test"""
 
-import sys
 import os
+import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 

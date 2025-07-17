@@ -9,13 +9,13 @@ A lightweight testing framework that avoids the freezing issues by:
 4. Progressive complexity levels
 """
 
-import sys
 import json
-import time
 import logging
+import sys
+import time
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Any
-from dataclasses import dataclass, asdict
+from typing import Any, Dict, List, Optional
 from unittest.mock import Mock
 
 # Add project root to path
@@ -24,7 +24,9 @@ PROJECT_ROOT = SCRIPT_DIR.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 
@@ -67,7 +69,9 @@ class SmartTestbench:
                 success = import_func()
                 duration = time.time() - start
                 status[name] = {"success": success, "duration": duration}
-                logger.info(f"✅ {name}: {'OK' if success else 'FAILED'} ({duration:.2f}s)")
+                logger.info(
+                    f"✅ {name}: {'OK' if success else 'FAILED'} ({duration:.2f}s)"
+                )
             except Exception as e:
                 status[name] = {"success": False, "error": str(e)}
                 logger.warning(f"❌ {name}: {str(e)}")
@@ -117,28 +121,41 @@ class SmartTestbench:
         tests = []
 
         # Test 1: Basic system functionality
-        tests.append(self._run_test("system_basics", self._test_system_basics, "system", "MOCK"))
+        tests.append(
+            self._run_test("system_basics", self._test_system_basics, "system", "MOCK")
+        )
 
         # Test 2: Text processing
-        tests.append(self._run_test("text_processing", self._test_text_processing, "utils", "MOCK"))
+        tests.append(
+            self._run_test(
+                "text_processing", self._test_text_processing, "utils", "MOCK"
+            )
+        )
 
         # Test 3: Configuration (if available)
         if self.component_status.get("config", {}).get("success", False):
             tests.append(
-                self._run_test("config_loading", self._test_config_loading, "config", "UNIT")
+                self._run_test(
+                    "config_loading", self._test_config_loading, "config", "UNIT"
+                )
             )
 
         # Test 4: Verification parsing (if available)
         if self.component_status.get("verification", {}).get("success", False):
             tests.append(
                 self._run_test(
-                    "verification_parsing", self._test_verification_parsing, "verification", "UNIT"
+                    "verification_parsing",
+                    self._test_verification_parsing,
+                    "verification",
+                    "UNIT",
                 )
             )
 
         return tests
 
-    def _run_test(self, test_name: str, test_func, component: str, level: str) -> TestResult:
+    def _run_test(
+        self, test_name: str, test_func, component: str, level: str
+    ) -> TestResult:
         """Run a single test with error handling."""
         start_time = time.time()
 
@@ -284,7 +301,9 @@ Initial Set: x**2 + y**2 <= 0.5"""
             suggestions.append("Investigate error causes in failed tests")
 
         if len(working_components) < 2:
-            suggestions.append("Focus on getting basic components working before integration")
+            suggestions.append(
+                "Focus on getting basic components working before integration"
+            )
 
         # Identify heavy components that might need mocking
         if "certificate_gen" in broken_components:
@@ -323,7 +342,9 @@ Initial Set: x**2 + y**2 <= 0.5"""
             steps.append("2. Implement progressive loading for heavy components")
 
         if "certificate_gen" in broken:
-            steps.append("3. Mock the certificate generator to avoid ML model loading timeouts")
+            steps.append(
+                "3. Mock the certificate generator to avoid ML model loading timeouts"
+            )
 
         steps.append("4. Add timeout handling for all component loading")
 
@@ -373,7 +394,9 @@ def main():
         print(f"Errors: {summary['errors']}")
         print(f"Success Rate: {summary['success_rate']:.1%}")
 
-        print(f"\nWorking Components: {', '.join(report['working_components']) or 'None'}")
+        print(
+            f"\nWorking Components: {', '.join(report['working_components']) or 'None'}"
+        )
         print(f"Broken Components: {', '.join(report['broken_components']) or 'None'}")
 
         print("\nSuggestions:")

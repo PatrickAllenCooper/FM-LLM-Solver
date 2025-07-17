@@ -6,8 +6,8 @@ Critical Fixes Test
 Quick test to verify the most critical accuracy issues are addressed.
 """
 
-import sys
 import logging
+import sys
 from pathlib import Path
 
 # Add project root to path
@@ -48,9 +48,13 @@ def test_critical_extraction_fixes():
 
     for i, test in enumerate(critical_tests):
         try:
-            extracted_result = extract_certificate_from_llm_output(test["input"], ["x", "y"])
+            extracted_result = extract_certificate_from_llm_output(
+                test["input"], ["x", "y"]
+            )
             extracted = (
-                extracted_result[0] if isinstance(extracted_result, tuple) else extracted_result
+                extracted_result[0]
+                if isinstance(extracted_result, tuple)
+                else extracted_result
             )
 
             if extracted == test["expected"]:

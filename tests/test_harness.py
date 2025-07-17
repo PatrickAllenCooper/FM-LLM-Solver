@@ -9,22 +9,23 @@ This harness:
 """
 
 import json
-import sys
-import os
-import time
 import logging
-from typing import Dict, List, Any, Optional
-from dataclasses import dataclass, asdict
+import os
+import sys
+import time
+from dataclasses import asdict, dataclass
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 # Add project root to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from utils.level_set_tracker import BarrierCertificateValidator
+import sympy
+from omegaconf import DictConfig
+
 from evaluation.verify_certificate import verify_barrier_certificate
 from evaluation.verify_certificate_fixed import numerical_check_all_conditions_fixed
-from omegaconf import DictConfig
-import sympy
+from utils.level_set_tracker import BarrierCertificateValidator
 
 
 @dataclass
@@ -63,7 +64,9 @@ class TestResult:
 class BarrierCertificateTestHarness:
     """Comprehensive test harness for barrier certificate validation"""
 
-    def __init__(self, ground_truth_file: str = "tests/ground_truth/barrier_certificates.json"):
+    def __init__(
+        self, ground_truth_file: str = "tests/ground_truth/barrier_certificates.json"
+    ):
         self.ground_truth_file = ground_truth_file
         self.test_cases = []
         self.results = []
@@ -77,12 +80,16 @@ class BarrierCertificateTestHarness:
         # Console handler
         ch = logging.StreamHandler()
         ch.setLevel(logging.INFO)
-        formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+        formatter = logging.Formatter(
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        )
         ch.setFormatter(formatter)
         logger.addHandler(ch)
 
         # File handler
-        fh = logging.FileHandler(f'test_harness_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log')
+        fh = logging.FileHandler(
+            f'test_harness_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log'
+        )
         fh.setLevel(logging.DEBUG)
         fh.setFormatter(formatter)
         logger.addHandler(fh)
@@ -186,7 +193,9 @@ class BarrierCertificateTestHarness:
         # Run fixed numerical validator
         self.logger.info("Running fixed numerical validator...")
         try:
-            fixed_result = self._run_fixed_validator(test_case["certificate"], system_info)
+            fixed_result = self._run_fixed_validator(
+                test_case["certificate"], system_info
+            )
             result.fixed_validator_result = fixed_result
 
         except Exception as e:
@@ -244,7 +253,9 @@ class BarrierCertificateTestHarness:
             "is_discrete": system.get("time_type") == "discrete",
         }
 
-    def _run_new_validator(self, certificate: str, system_info: Dict[str, Any]) -> Dict[str, Any]:
+    def _run_new_validator(
+        self, certificate: str, system_info: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Run the new BarrierCertificateValidator"""
         config = DictConfig(
             {
@@ -262,7 +273,9 @@ class BarrierCertificateTestHarness:
 
         return validator.validate()
 
-    def _run_old_validator(self, certificate: str, system_info: Dict[str, Any]) -> Dict[str, Any]:
+    def _run_old_validator(
+        self, certificate: str, system_info: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Run the old verify_barrier_certificate"""
         config = DictConfig(
             {
@@ -276,7 +289,9 @@ class BarrierCertificateTestHarness:
 
         return verify_barrier_certificate(certificate, system_info, config)
 
-    def _run_fixed_validator(self, certificate: str, system_info: Dict[str, Any]) -> bool:
+    def _run_fixed_validator(
+        self, certificate: str, system_info: Dict[str, Any]
+    ) -> bool:
         """Run the fixed numerical validator"""
         # Parse certificate
         variables = system_info["variables"]
@@ -293,9 +308,13 @@ class BarrierCertificateTestHarness:
                 if system_info.get("is_discrete"):
                     # For discrete systems, use ΔB = B(f(x)) - B(x)
                     # This is simplified - would need full implementation
-                    lie_derivative += dB_dvar * sympy.parse_expr(system_info["dynamics"][i])
+                    lie_derivative += dB_dvar * sympy.parse_expr(
+                        system_info["dynamics"][i]
+                    )
                 else:
-                    lie_derivative += dB_dvar * sympy.parse_expr(system_info["dynamics"][i])
+                    lie_derivative += dB_dvar * sympy.parse_expr(
+                        system_info["dynamics"][i]
+                    )
 
             dB_dt_func = sympy.lambdify(var_symbols, lie_derivative, "numpy")
 
@@ -347,8 +366,12 @@ class BarrierCertificateTestHarness:
 
             f.write("SUMMARY\n")
             f.write("-" * 40 + "\n")
-            f.write(f"Passed: {passed}/{len(self.results)} ({100*passed/len(self.results):.1f}%)\n")
-            f.write(f"Failed: {failed}/{len(self.results)} ({100*failed/len(self.results):.1f}%)\n")
+            f.write(
+                f"Passed: {passed}/{len(self.results)} ({100*passed/len(self.results):.1f}%)\n"
+            )
+            f.write(
+                f"Failed: {failed}/{len(self.results)} ({100*failed/len(self.results):.1f}%)\n"
+            )
             f.write(
                 f"Errors: {errors}/{len(self.results)} ({100*errors/len(self.results):.1f}%)\n\n"
             )

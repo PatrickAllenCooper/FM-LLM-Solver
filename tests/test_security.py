@@ -5,6 +5,7 @@ Test security features of FM-LLM Solver web interface.
 
 import os
 import sys
+
 import requests
 
 # Add project root to path
@@ -59,7 +60,9 @@ def test_api_access():
     print("\n=== Testing API Access ===")
 
     # Test without API key
-    response = requests.post(f"{BASE_URL}/api/generate", json={"system_description": "test"})
+    response = requests.post(
+        f"{BASE_URL}/api/generate", json={"system_description": "test"}
+    )
     print(f"✓ API requires authentication: {response.status_code == 401}")
 
     # Test with invalid API key

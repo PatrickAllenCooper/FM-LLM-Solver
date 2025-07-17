@@ -3,20 +3,24 @@ Optimization Targets and Benchmark Suite (Phase 1 Day 9)
 Defines specific optimization goals and benchmarks for barrier certificate validation
 """
 
-import time
 import json
 import os
 import sys
-from typing import Dict, List, Optional, Any
-from dataclasses import dataclass, asdict
+import time
+from dataclasses import asdict, dataclass
 from datetime import datetime
+from typing import Any, Dict, List, Optional
+
 import numpy as np
 
 # Add project root to path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+sys.path.append(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+)
+
+from omegaconf import DictConfig
 
 from utils.level_set_tracker import BarrierCertificateValidator
-from omegaconf import DictConfig
 
 
 @dataclass
@@ -233,19 +237,25 @@ class OptimizationBenchmarkSuite:
         # 5D system
         test_case = {
             "name": "5d_linear",
-            "certificate": " + ".join([f"{var}**2" for var in ["x1", "x2", "x3", "x4", "x5"]])
+            "certificate": " + ".join(
+                [f"{var}**2" for var in ["x1", "x2", "x3", "x4", "x5"]]
+            )
             + " - 3.0",
             "system": {
                 "variables": ["x1", "x2", "x3", "x4", "x5"],
                 "dynamics": [f"-{var}" for var in ["x1", "x2", "x3", "x4", "x5"]],
                 "initial_set_conditions": [
-                    " + ".join([f"{var}**2" for var in ["x1", "x2", "x3", "x4", "x5"]]) + " <= 1.0"
+                    " + ".join([f"{var}**2" for var in ["x1", "x2", "x3", "x4", "x5"]])
+                    + " <= 1.0"
                 ],
                 "unsafe_set_conditions": [
-                    " + ".join([f"{var}**2" for var in ["x1", "x2", "x3", "x4", "x5"]]) + " >= 16.0"
+                    " + ".join([f"{var}**2" for var in ["x1", "x2", "x3", "x4", "x5"]])
+                    + " >= 16.0"
                 ],
                 "safe_set_conditions": [],
-                "sampling_bounds": {var: (-5, 5) for var in ["x1", "x2", "x3", "x4", "x5"]},
+                "sampling_bounds": {
+                    var: (-5, 5) for var in ["x1", "x2", "x3", "x4", "x5"]
+                },
             },
         }
 
@@ -308,7 +318,8 @@ class OptimizationBenchmarkSuite:
         """Benchmark validation accuracy"""
         # Load ground truth test cases
         ground_truth_file = os.path.join(
-            os.path.dirname(os.path.dirname(__file__)), "ground_truth/barrier_certificates.json"
+            os.path.dirname(os.path.dirname(__file__)),
+            "ground_truth/barrier_certificates.json",
         )
 
         if not os.path.exists(ground_truth_file):
@@ -326,11 +337,15 @@ class OptimizationBenchmarkSuite:
                 # Prepare system info
                 system_info = {
                     "variables": test["system"]["variables"],
-                    "dynamics": [d.split("=")[1].strip() for d in test["system"]["dynamics"]],
+                    "dynamics": [
+                        d.split("=")[1].strip() for d in test["system"]["dynamics"]
+                    ],
                     "initial_set_conditions": test["system"]["initial_set"],
                     "unsafe_set_conditions": test["system"]["unsafe_set"],
                     "safe_set_conditions": [],
-                    "sampling_bounds": {var: (-3, 3) for var in test["system"]["variables"]},
+                    "sampling_bounds": {
+                        var: (-3, 3) for var in test["system"]["variables"]
+                    },
                 }
 
                 config = DictConfig(
@@ -343,7 +358,9 @@ class OptimizationBenchmarkSuite:
                     }
                 )
 
-                validator = BarrierCertificateValidator(test["certificate"], system_info, config)
+                validator = BarrierCertificateValidator(
+                    test["certificate"], system_info, config
+                )
                 result = validator.validate()
 
                 if result["is_valid"] == test["expected_valid"]:
@@ -428,7 +445,9 @@ class OptimizationBenchmarkSuite:
                 timestamp=datetime.now(),
             )
 
-            print(f"  {benchmark_name}: {validation_time:.3f}s ({samples_processed} samples)")
+            print(
+                f"  {benchmark_name}: {validation_time:.3f}s ({samples_processed} samples)"
+            )
 
             return benchmark_result
 
@@ -495,7 +514,9 @@ class OptimizationBenchmarkSuite:
                 else "  Current: Not measured"
             )
             if target.improvement_percentage is not None:
-                print(f"  Improvement needed: {100 - target.improvement_percentage:.1f}%")
+                print(
+                    f"  Improvement needed: {100 - target.improvement_percentage:.1f}%"
+                )
 
         print(f"\nDetailed report saved to: {report_file}")
 
@@ -519,7 +540,9 @@ def main():
 
     parser = argparse.ArgumentParser(description="Run optimization benchmarks")
     parser.add_argument(
-        "--output", default="optimization_benchmarks", help="Output directory for results"
+        "--output",
+        default="optimization_benchmarks",
+        help="Output directory for results",
     )
     parser.add_argument(
         "--targets-only",

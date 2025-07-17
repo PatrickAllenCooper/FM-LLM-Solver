@@ -7,13 +7,13 @@ and verification across various certificate types and system complexities.
 Focuses on base LLM performance without fine-tuning.
 """
 
-import sys
-import time
 import json
 import logging
-from pathlib import Path
-from typing import Dict, List, Any, Optional
+import sys
+import time
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 from unittest.mock import Mock
 
 # Add project root to path
@@ -21,10 +21,12 @@ PROJECT_ROOT = Path(__file__).parent.parent.absolute()
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from utils.config_loader import load_config
-from web_interface.verification_service import VerificationService
 from web_interface.certificate_generator import CertificateGenerator
+from web_interface.verification_service import VerificationService
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 
@@ -66,7 +68,9 @@ class BarrierCertificateOptimizationTestbench:
         """Initialize the optimization testbench."""
         self.config = load_config(config_path or "config.yaml")
         self.verification_service = VerificationService(self.config)
-        self.certificate_generator = None  # Will be initialized with mock for base LLM testing
+        self.certificate_generator = (
+            None  # Will be initialized with mock for base LLM testing
+        )
         self.results = []
 
         # Test cases covering various certificate types and complexities
@@ -200,7 +204,9 @@ Unsafe Set: x**2 + y**2 + z**2 >= 100.0""",
             mock_config.knowledge_base = Mock()
             mock_config.knowledge_base.barrier_certificate_type = "unified"
 
-            self.certificate_generator = CertificateGenerator.__new__(CertificateGenerator)
+            self.certificate_generator = CertificateGenerator.__new__(
+                CertificateGenerator
+            )
             self.certificate_generator.config = mock_config
             self.certificate_generator.models = {}
             self.certificate_generator.knowledge_bases = {}
@@ -364,16 +370,22 @@ Domain: x ∈ [-3, 3], y ∈ [-3, 3]""",
 
         for test in parsing_tests:
             try:
-                parsed = self.verification_service.parse_system_description(test["description"])
+                parsed = self.verification_service.parse_system_description(
+                    test["description"]
+                )
                 bounds = self.verification_service.create_sampling_bounds(parsed)
 
                 variables_correct = len(parsed.get("variables", [])) == len(
                     test["expected_variables"]
                 )
-                dynamics_correct = len(parsed.get("dynamics", [])) == test["expected_dynamics"]
+                dynamics_correct = (
+                    len(parsed.get("dynamics", [])) == test["expected_dynamics"]
+                )
                 bounds_created = len(bounds) > 0
 
-                parsing_successful = variables_correct and dynamics_correct and bounds_created
+                parsing_successful = (
+                    variables_correct and dynamics_correct and bounds_created
+                )
 
                 results[test["name"]] = {
                     "parsing_successful": parsing_successful,
@@ -437,7 +449,10 @@ Unsafe Set: x**2 + y**2 >= 1.0""",
                 result = self.verification_service.verify_certificate(
                     test["certificate"],
                     test["system"],
-                    param_overrides={"num_samples_lie": 200, "num_samples_boundary": 100},
+                    param_overrides={
+                        "num_samples_lie": 200,
+                        "num_samples_boundary": 100,
+                    },
                 )
 
                 verification_time = time.time() - start_time
@@ -446,7 +461,8 @@ Unsafe Set: x**2 + y**2 >= 1.0""",
                 if verification_completed:
                     overall_success = result.get("overall_success", False)
                     prediction_correct = (
-                        test["should_pass"] is None or overall_success == test["should_pass"]
+                        test["should_pass"] is None
+                        or overall_success == test["should_pass"]
                     )
 
                     results[test["name"]] = {
@@ -469,7 +485,10 @@ Unsafe Set: x**2 + y**2 >= 1.0""",
                     }
 
             except Exception as e:
-                results[test["name"]] = {"verification_completed": False, "error": str(e)}
+                results[test["name"]] = {
+                    "verification_completed": False,
+                    "error": str(e),
+                }
 
         return {
             "total_tests": len(verification_tests),
@@ -602,7 +621,9 @@ Unsafe Set: x**2 + y**2 >= 1.0""",
         else:
             report.append("   🔧 Priority optimizations needed:")
             lowest_component = min(components.items(), key=lambda x: x[1])
-            report.append(f"      • Focus on {lowest_component[0]} ({lowest_component[1]:.1%})")
+            report.append(
+                f"      • Focus on {lowest_component[0]} ({lowest_component[1]:.1%})"
+            )
             report.append("      • Run targeted optimization iterations")
             report.append("      • Test improvements systematically")
 

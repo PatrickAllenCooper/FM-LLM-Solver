@@ -3,13 +3,14 @@
 Minimal PDF processor test script without torch or complex NumPy dependencies.
 """
 
-import os
-import sys
 import logging
+import os
 import platform
+import sys
 import tempfile
-from pdf2image import convert_from_path
+
 import pytesseract
+from pdf2image import convert_from_path
 
 logging.basicConfig(level=logging.INFO)
 
@@ -17,7 +18,8 @@ logging.basicConfig(level=logging.INFO)
 def detect_hardware_simple():
     """Simplified hardware detection without torch dependencies"""
     return {
-        "is_apple_silicon": platform.system() == "Darwin" and platform.machine() == "arm64",
+        "is_apple_silicon": platform.system() == "Darwin"
+        and platform.machine() == "arm64",
         "cpu_cores": os.cpu_count() or 1,
         "system": platform.system(),
         "machine": platform.machine(),
@@ -26,7 +28,10 @@ def detect_hardware_simple():
 
 def optimize_params(hardware_info):
     """Get optimized parameters for PDF processing"""
-    params = {"dpi": 300, "threads": 1}  # Default DPI for PDF conversion  # Default thread count
+    params = {
+        "dpi": 300,
+        "threads": 1,
+    }  # Default DPI for PDF conversion  # Default thread count
 
     if hardware_info["is_apple_silicon"]:
         logging.info("Apple Silicon detected, optimizing for M-series")
@@ -46,7 +51,9 @@ def process_pdf_simple(pdf_path, params):
     try:
         logging.info(f"Converting PDF to images with DPI={params['dpi']}")
         # Convert PDF pages to images
-        pages = convert_from_path(pdf_path, dpi=params["dpi"], thread_count=params["threads"])
+        pages = convert_from_path(
+            pdf_path, dpi=params["dpi"], thread_count=params["threads"]
+        )
         logging.info(f"Extracted {len(pages)} pages from PDF")
 
         # Process each page
@@ -63,7 +70,9 @@ def process_pdf_simple(pdf_path, params):
                 ocr_config = "--oem 1 --psm 6"
 
                 # Extract text using Tesseract OCR
-                page_text = pytesseract.image_to_string(temp_img_path, config=ocr_config)
+                page_text = pytesseract.image_to_string(
+                    temp_img_path, config=ocr_config
+                )
 
                 # Add to output
                 full_text += f"\n## Page {i+1}\n\n{page_text}\n\n"

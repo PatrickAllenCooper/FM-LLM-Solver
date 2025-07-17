@@ -5,29 +5,25 @@ Handles the primary user-facing web interface for certificate generation.
 """
 
 import json
-import uuid
 import threading
+import uuid
 from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
 from flask import (
     Blueprint,
+    current_app,
+    flash,
+    jsonify,
+    redirect,
     render_template,
     request,
-    jsonify,
-    current_app,
-    redirect,
     url_for,
-    flash,
 )
-from flask_login import login_required, current_user
+from flask_login import current_user, login_required
 
 from fm_llm_solver.core.logging import get_logger
-from fm_llm_solver.web.models import (
-    db,
-    QueryLog,
-    VerificationResult,
-)
+from fm_llm_solver.web.models import QueryLog, VerificationResult, db
 from fm_llm_solver.web.utils import rate_limit, validate_input
 
 main_bp = Blueprint("main", __name__)
@@ -127,7 +123,11 @@ def submit_query():
 
         # Start background task
         task_id = str(uuid.uuid4())
-        background_tasks[task_id] = {"status": "processing", "query_id": query.id, "progress": 0}
+        background_tasks[task_id] = {
+            "status": "processing",
+            "query_id": query.id,
+            "progress": 0,
+        }
 
         # Start processing thread
         task_thread = threading.Thread(
@@ -176,7 +176,11 @@ def get_task_status(task_id: str):
             query = db.session.get(QueryLog, task["query_id"])
             if query:
                 return jsonify(
-                    {"status": "completed", "progress": 100, "query": _serialize_query(query)}
+                    {
+                        "status": "completed",
+                        "progress": 100,
+                        "query": _serialize_query(query),
+                    }
                 )
 
         return jsonify(task)
@@ -203,9 +207,13 @@ def view_query(query_id: int):
             return redirect(url_for("main.index"))
 
         # Get verification results
-        verification = db.session.query(VerificationResult).filter_by(query_id=query_id).first()
+        verification = (
+            db.session.query(VerificationResult).filter_by(query_id=query_id).first()
+        )
 
-        return render_template("query_detail.html", query=query, verification=verification)
+        return render_template(
+            "query_detail.html", query=query, verification=verification
+        )
 
     except Exception as e:
         logger.error(f"Error viewing query {query_id}: {e}")
@@ -286,17 +294,23 @@ def _process_query_background(
             if query:
                 query.llm_output = generation_result.get("llm_output", "")
                 query.generated_certificate = generation_result.get("certificate", "")
-                query.context_chunks = json.dumps(generation_result.get("context_chunks", []))
+                query.context_chunks = json.dumps(
+                    generation_result.get("context_chunks", [])
+                )
 
                 if not generation_result.get("success"):
                     query.status = "failed"
-                    query.error_message = generation_result.get("error", "Generation failed")
+                    query.error_message = generation_result.get(
+                        "error", "Generation failed"
+                    )
                     db.session.commit()
 
                     background_tasks[task_id].update(
                         {
                             "status": "failed",
-                            "error": generation_result.get("error", "Generation failed"),
+                            "error": generation_result.get(
+                                "error", "Generation failed"
+                            ),
                         }
                     )
                     return
@@ -327,7 +341,9 @@ def _process_query_background(
             # Create verification result record
             verification = VerificationResult(
                 query_id=query_id,
-                numerical_check_passed=verification_result.get("numerical_passed", False),
+                numerical_check_passed=verification_result.get(
+                    "numerical_passed", False
+                ),
                 symbolic_check_passed=verification_result.get("symbolic_passed", False),
                 sos_check_passed=verification_result.get("sos_passed", False),
                 verification_details=json.dumps(verification_result.get("details", {})),
@@ -377,7 +393,9 @@ def _process_query_background(
 
 def _serialize_query(query: QueryLog) -> Dict[str, Any]:
     """Serialize a query object for JSON response."""
-    verification_result = db.session.query(VerificationResult).filter_by(query_id=query.id).first()
+    verification_result = (
+        db.session.query(VerificationResult).filter_by(query_id=query.id).first()
+    )
 
     return {
         "id": query.id,
@@ -390,16 +408,24 @@ def _serialize_query(query: QueryLog) -> Dict[str, Any]:
         "verification": (
             {
                 "overall_success": (
-                    verification_result.overall_success if verification_result else False
+                    verification_result.overall_success
+                    if verification_result
+                    else False
                 ),
                 "numerical_passed": (
-                    verification_result.numerical_check_passed if verification_result else False
+                    verification_result.numerical_check_passed
+                    if verification_result
+                    else False
                 ),
                 "symbolic_passed": (
-                    verification_result.symbolic_check_passed if verification_result else False
+                    verification_result.symbolic_check_passed
+                    if verification_result
+                    else False
                 ),
                 "sos_passed": (
-                    verification_result.sos_check_passed if verification_result else False
+                    verification_result.sos_check_passed
+                    if verification_result
+                    else False
                 ),
             }
             if verification_result

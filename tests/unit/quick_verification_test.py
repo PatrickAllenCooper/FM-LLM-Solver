@@ -87,9 +87,13 @@ Unsafe Set: x**2 + y**2 >= 4.0"""
         # The verification system may not generate samples in the safe set for this simple case
         # This is acceptable behavior - the test should complete without crashing
         assert result is not None, "Verification should return a result"
-        assert "overall_success" in result, "Result should contain overall_success field"
+        assert (
+            "overall_success" in result
+        ), "Result should contain overall_success field"
         print("\n✅ Test completed successfully - verification system is working")
-        print(f"📊 Note: Numerical verification result: {'PASS' if numerical else 'FAIL'}")
+        print(
+            f"📊 Note: Numerical verification result: {'PASS' if numerical else 'FAIL'}"
+        )
         print("📊 This is expected behavior for the test case")
 
     except Exception as e:

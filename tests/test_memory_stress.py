@@ -4,16 +4,17 @@ Memory and Stress Tests
 Tests for memory usage, resource limits, and stress conditions
 """
 
-import sys
-import os
-import time
-import psutil
 import gc
+import os
+import sys
+import time
+
+import psutil
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from utils.certificate_extraction import extract_certificate_from_llm_output
 from tests.unit.test_certificate_validation_accuracy import CertificateValidationTester
+from utils.certificate_extraction import extract_certificate_from_llm_output
 
 
 class TestMemoryStress:
@@ -67,7 +68,9 @@ class TestMemoryStress:
         print(f"Growth rate: {growth_rate:.3f} MB/sample")
 
         # Should not grow more than 50MB total
-        assert memory_growth < 50, f"Memory leak detected: {memory_growth:.1f} MB growth"
+        assert (
+            memory_growth < 50
+        ), f"Memory leak detected: {memory_growth:.1f} MB growth"
 
     def test_large_expressions(self):
         """Test handling of very large certificate expressions"""
@@ -78,11 +81,17 @@ class TestMemoryStress:
             # Standard size
             ("x**2 + y**2 - 1.0", "Standard"),
             # Many terms
-            (" + ".join([f"{i}*x**2" for i in range(1, 11)]) + " + y**2 - 1.0", "10 terms"),
+            (
+                " + ".join([f"{i}*x**2" for i in range(1, 11)]) + " + y**2 - 1.0",
+                "10 terms",
+            ),
             # Deep nesting
             ("((((x**2 + y**2) - 0.5) + 0.5) - 0.5) + 0.5 - 1.0", "Deep nesting"),
             # Long variable names (edge case)
-            ("very_long_variable_name_x**2 + very_long_variable_name_y**2 - 1.0", "Long names"),
+            (
+                "very_long_variable_name_x**2 + very_long_variable_name_y**2 - 1.0",
+                "Long names",
+            ),
         ]
 
         for expr, description in test_cases:
@@ -114,7 +123,9 @@ class TestMemoryStress:
                         validation = tester.validate_certificate_mathematically(
                             cert, system, n_samples=5
                         )
-                        print(f"  Validation: {'Valid' if validation['valid'] else 'Invalid'}")
+                        print(
+                            f"  Validation: {'Valid' if validation['valid'] else 'Invalid'}"
+                        )
                 else:
                     print("  Extraction failed")
 
@@ -128,8 +139,8 @@ class TestMemoryStress:
         """Test system under concurrent load"""
         print("\nTesting concurrent stress...")
 
-        import threading
         import queue
+        import threading
 
         # Shared queue for results
         result_queue = queue.Queue()
@@ -174,7 +185,9 @@ class TestMemoryStress:
         start_time = time.time()
         start_mem = self.get_memory_usage()
 
-        print(f"Starting {num_threads} threads, {operations_per_thread} operations each...")
+        print(
+            f"Starting {num_threads} threads, {operations_per_thread} operations each..."
+        )
 
         for i in range(num_threads):
             t = threading.Thread(target=worker, args=(i, operations_per_thread))

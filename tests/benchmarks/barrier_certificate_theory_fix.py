@@ -10,12 +10,12 @@ Fixes the fundamental barrier certificate design by creating certificates that:
 This ensures proper barrier certificate theory compliance.
 """
 
-import sys
-import time
 import json
 import logging
+import sys
+import time
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Any, Dict, List, Optional
 
 # Add project root to path
 PROJECT_ROOT = Path(__file__).parent.parent.absolute()
@@ -120,7 +120,9 @@ Unsafe Set: x**2 + y**2 >= 1.0""",
                 start_time = time.time()
 
                 result = self.verification_service.verify_certificate(
-                    cert_test["certificate"], cert_test["system"], param_overrides=optimal_params
+                    cert_test["certificate"],
+                    cert_test["system"],
+                    param_overrides=optimal_params,
                 )
 
                 verification_time = time.time() - start_time
@@ -150,14 +152,22 @@ Unsafe Set: x**2 + y**2 >= 1.0""",
                     if theory_correct:
                         successful_verifications += 1
                         if overall_success:
-                            logger.info(f"✅ {cert_test['name']}: SUCCESS (as expected)")
+                            logger.info(
+                                f"✅ {cert_test['name']}: SUCCESS (as expected)"
+                            )
                         else:
-                            logger.info(f"✅ {cert_test['name']}: CORRECTLY FAILED (as expected)")
+                            logger.info(
+                                f"✅ {cert_test['name']}: CORRECTLY FAILED (as expected)"
+                            )
                     else:
                         if overall_success:
-                            logger.warning(f"❌ {cert_test['name']}: UNEXPECTED SUCCESS")
+                            logger.warning(
+                                f"❌ {cert_test['name']}: UNEXPECTED SUCCESS"
+                            )
                         else:
-                            logger.warning(f"❌ {cert_test['name']}: UNEXPECTED FAILURE")
+                            logger.warning(
+                                f"❌ {cert_test['name']}: UNEXPECTED FAILURE"
+                            )
 
             except Exception as e:
                 results[cert_test["name"]] = {
@@ -292,7 +302,9 @@ Unsafe Set: x**2 + y**2 >= 1.0""",
 
         report.append("\n   📐 Design Patterns:")
         for pattern, info in guidelines["design_patterns"].items():
-            report.append(f"      • {pattern.replace('_', ' ').title()}: {info['form']}")
+            report.append(
+                f"      • {pattern.replace('_', ' ').title()}: {info['form']}"
+            )
             report.append(f"        Rule: {info['design_rule']}")
 
         # Optimization recommendations
@@ -320,7 +332,9 @@ Unsafe Set: x**2 + y**2 >= 1.0""",
             report.append("\n🤖 CERTIFICATE AUTOMATION READINESS:")
             report.append("   • System understands proper barrier certificate theory")
             report.append("   • Ready for automated certificate suggestion algorithms")
-            report.append("   • Can guide LLM certificate generation with theory constraints")
+            report.append(
+                "   • Can guide LLM certificate generation with theory constraints"
+            )
             report.append("   • Suitable for iterative certificate refinement")
 
         return "\n".join(report)
