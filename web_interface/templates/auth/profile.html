@@ -3,260 +3,840 @@
 {% block title %}Profile - FM-LLM Solver{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="container">
     <div class="row">
-        <div class="col-md-3">
-            <!-- Profile Sidebar -->
-            <div class="card">
-                <div class="card-body text-center">
-                    <div class="avatar-circle mb-3">
-                        <span class="initials">{{ user.username[0].upper() }}</span>
-                    </div>
-                    <h5 class="card-title">{{ user.username }}</h5>
-                    <p class="text-muted">{{ user.email }}</p>
-                    <span class="badge bg-{{ 'success' if user.is_active else 'danger' }}">
-                        {{ 'Active' if user.is_active else 'Inactive' }}
-                    </span>
-                    {% if user.role == 'admin' %}
-                        <span class="badge bg-warning">Admin</span>
-                    {% elif user.role == 'premium' %}
-                        <span class="badge bg-primary">Premium</span>
-                    {% endif %}
+        <div class="col-12">
+            <h1 class="h2 mb-4">
+                <span class="material-icons align-middle me-2">account_circle</span>
+                My Profile
+            </h1>
+        </div>
+    </div>
+    
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
-            </div>
-            
-            <!-- Quick Stats -->
-            <div class="card mt-3">
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    
+    <div class="row">
+        <!-- Profile Navigation -->
+        <div class="col-md-3 mb-4">
+            <div class="card">
                 <div class="card-body">
-                    <h6 class="card-title">Usage Today</h6>
-                    <div class="progress mb-2">
-                        <div class="progress-bar" role="progressbar" 
-                             style="width: {{ (user.daily_request_count / user.daily_request_limit * 100)|int }}%">
-                            {{ user.daily_request_count }} / {{ user.daily_request_limit }}
-                        </div>
+                    <div class="nav flex-column nav-pills" id="profile-tabs" role="tablist" aria-orientation="vertical">
+                        <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#overview" type="button">
+                            <span class="material-icons align-middle me-2">dashboard</span>
+                            Overview
+                        </button>
+                        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#profile-info" type="button">
+                            <span class="material-icons align-middle me-2">person</span>
+                            Profile Information
+                        </button>
+                        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#usage-stats" type="button">
+                            <span class="material-icons align-middle me-2">analytics</span>
+                            Usage Statistics
+                        </button>
+                        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#certificate-history" type="button">
+                            <span class="material-icons align-middle me-2">history</span>
+                            Certificate History
+                        </button>
+                        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#api-access" type="button">
+                            <span class="material-icons align-middle me-2">vpn_key</span>
+                            API Access
+                        </button>
+                        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#settings" type="button">
+                            <span class="material-icons align-middle me-2">settings</span>
+                            Settings
+                        </button>
+                        {% if user.is_admin %}
+                        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#admin-panel" type="button">
+                            <span class="material-icons align-middle me-2">admin_panel_settings</span>
+                            Admin Panel
+                        </button>
+                        {% endif %}
                     </div>
-                    <small class="text-muted">Requests remaining: {{ user.daily_request_limit - user.daily_request_count }}</small>
                 </div>
             </div>
         </div>
         
+        <!-- Profile Content -->
         <div class="col-md-9">
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    {% for category, message in messages %}
-                        <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
-                            {{ message }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            <div class="tab-content">
+                <!-- Overview Tab -->
+                <div class="tab-pane fade show active" id="overview">
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">Welcome back, {{ user.display_name }}!</h5>
+                                    <p class="text-muted">{{ user.role|title }} account • Member since {{ user.created_at.strftime('%B %Y') if user.created_at }}</p>
+                                    
+                                    {% set subscription = user.get_subscription_status() %}
+                                    {% if subscription.active %}
+                                        <span class="badge bg-success">{{ subscription.type|title }} Subscription</span>
+                                        {% if subscription.days_remaining and subscription.days_remaining < 30 %}
+                                            <span class="badge bg-warning">{{ subscription.days_remaining }} days remaining</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="badge bg-secondary">Free Account</span>
+                                    {% endif %}
+                                    
+                                    {% if user.is_verified %}
+                                        <span class="badge bg-primary">
+                                            <span class="material-icons" style="font-size: 16px;">verified</span>
+                                            Verified
+                                        </span>
+                                    {% endif %}
+                                </div>
+                            </div>
                         </div>
-                    {% endfor %}
-                {% endif %}
-            {% endwith %}
-            
-            <!-- Profile Tabs -->
-            <ul class="nav nav-tabs" id="profileTabs" role="tablist">
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link active" id="account-tab" data-bs-toggle="tab" data-bs-target="#account" type="button">
-                        Account Settings
-                    </button>
-                </li>
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="security-tab" data-bs-toggle="tab" data-bs-target="#security" type="button">
-                        Security
-                    </button>
-                </li>
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="api-tab" data-bs-toggle="tab" data-bs-target="#api" type="button">
-                        API Access
-                    </button>
-                </li>
-            </ul>
-            
-            <div class="tab-content" id="profileTabContent">
-                <!-- Account Settings Tab -->
-                <div class="tab-pane fade show active" id="account" role="tabpanel">
+                    </div>
+                    
+                    <!-- Quick Stats -->
+                    <div class="row mb-4">
+                        {% set stats = user.get_usage_stats() %}
+                        <div class="col-md-3 mb-3">
+                            <div class="card bg-primary text-white">
+                                <div class="card-body text-center">
+                                    <h3 class="mb-1">{{ stats.certificates_generated or 0 }}</h3>
+                                    <small>Certificates Generated</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="card bg-success text-white">
+                                <div class="card-body text-center">
+                                    <h3 class="mb-1">{{ stats.successful_verifications or 0 }}</h3>
+                                    <small>Successful Verifications</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="card bg-info text-white">
+                                <div class="card-body text-center">
+                                    <h3 class="mb-1">{{ stats.daily_requests }}</h3>
+                                    <small>Today's Requests</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="card bg-warning text-white">
+                                <div class="card-body text-center">
+                                    <h3 class="mb-1">{{ stats.monthly_requests }}</h3>
+                                    <small>This Month</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Usage Progress -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6 class="card-title">Daily Usage</h6>
+                                    <div class="progress mb-2">
+                                        <div class="progress-bar" style="width: {{ stats.daily_usage_percent }}%"></div>
+                                    </div>
+                                    <small class="text-muted">{{ stats.daily_requests }}/{{ stats.daily_limit }} requests ({{ stats.daily_usage_percent }}%)</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6 class="card-title">Monthly Usage</h6>
+                                    <div class="progress mb-2">
+                                        <div class="progress-bar" style="width: {{ stats.monthly_usage_percent }}%"></div>
+                                    </div>
+                                    <small class="text-muted">{{ stats.monthly_requests }}/{{ stats.monthly_limit }} requests ({{ stats.monthly_usage_percent }}%)</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Recent Activity -->
                     <div class="card">
+                        <div class="card-header">
+                            <h6 class="mb-0">Recent Certificate Generations</h6>
+                        </div>
                         <div class="card-body">
-                            <h5 class="card-title">Account Information</h5>
-                            
-                            <form method="POST" action="{{ url_for('auth.update_profile') }}">
+                            {% if user.queries %}
+                                <div class="table-responsive">
+                                    <table class="table table-sm">
+                                        <thead>
+                                            <tr>
+                                                <th>System</th>
+                                                <th>Model</th>
+                                                <th>Status</th>
+                                                <th>Generated</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for query in user.queries[:5] %}
+                                            <tr>
+                                                <td>
+                                                    {% if query.system_name %}
+                                                        <strong>{{ query.system_name }}</strong><br>
+                                                    {% endif %}
+                                                    <small class="text-muted">{{ (query.system_description[:50] + '...') if query.system_description|length > 50 else query.system_description }}</small>
+                                                </td>
+                                                <td>{{ query.model_name or 'Unknown' }}</td>
+                                                <td>
+                                                    {% if query.status == 'completed' %}
+                                                        <span class="badge bg-success">Completed</span>
+                                                    {% elif query.status == 'failed' %}
+                                                        <span class="badge bg-danger">Failed</span>
+                                                    {% elif query.status == 'verified' %}
+                                                        <span class="badge bg-primary">Verified</span>
+                                                    {% else %}
+                                                        <span class="badge bg-warning">{{ query.status|title }}</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td>{{ query.timestamp.strftime('%m/%d %H:%M') if query.timestamp }}</td>
+                                                <td>
+                                                    <a href="#" class="btn btn-sm btn-outline-primary">View</a>
+                                                    {% if query.generated_certificate %}
+                                                        <a href="#" class="btn btn-sm btn-outline-success">Copy</a>
+                                                    {% endif %}
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div class="text-center">
+                                    <a href="{{ url_for('query_history') }}" class="btn btn-outline-primary">View All History</a>
+                                </div>
+                            {% else %}
+                                <div class="text-center py-4">
+                                    <span class="material-icons text-muted" style="font-size: 48px;">history</span>
+                                    <p class="text-muted mt-2">No certificates generated yet</p>
+                                    <a href="{{ url_for('index') }}" class="btn btn-primary">Generate Your First Certificate</a>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Profile Information Tab -->
+                <div class="tab-pane fade" id="profile-info">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="mb-0">Profile Information</h6>
+                        </div>
+                        <div class="card-body">
+                            <form method="POST" action="{{ url_for('auth.update_profile') }}" id="profileForm">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 
-                                <div class="mb-3">
-                                    <label for="username" class="form-label">Username</label>
-                                    <input type="text" class="form-control" id="username" value="{{ user.username }}" disabled>
-                                    <div class="form-text">Username cannot be changed</div>
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="first_name" class="form-label">First Name</label>
+                                        <input type="text" class="form-control" id="first_name" name="first_name" 
+                                               value="{{ user.first_name or '' }}" maxlength="50">
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="last_name" class="form-label">Last Name</label>
+                                        <input type="text" class="form-control" id="last_name" name="last_name" 
+                                               value="{{ user.last_name or '' }}" maxlength="50">
+                                    </div>
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="organization" class="form-label">Organization</label>
+                                        <input type="text" class="form-control" id="organization" name="organization" 
+                                               value="{{ user.organization or '' }}" maxlength="200">
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="job_title" class="form-label">Job Title</label>
+                                        <input type="text" class="form-control" id="job_title" name="job_title" 
+                                               value="{{ user.job_title or '' }}" maxlength="100">
+                                    </div>
                                 </div>
                                 
                                 <div class="mb-3">
-                                    <label for="email" class="form-label">Email Address</label>
-                                    <input type="email" class="form-control" id="email" name="email" value="{{ user.email }}" required>
+                                    <label for="bio" class="form-label">Bio</label>
+                                    <textarea class="form-control" id="bio" name="bio" rows="3" 
+                                              maxlength="500">{{ user.bio or '' }}</textarea>
+                                    <div class="form-text">Tell others about yourself and your research interests.</div>
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="website" class="form-label">Website</label>
+                                        <input type="url" class="form-control" id="website" name="website" 
+                                               value="{{ user.website or '' }}" maxlength="255">
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="location" class="form-label">Location</label>
+                                        <input type="text" class="form-control" id="location" name="location" 
+                                               value="{{ user.location or '' }}" maxlength="100">
+                                    </div>
                                 </div>
                                 
                                 <div class="mb-3">
-                                    <label class="form-label">Member Since</label>
-                                    <input type="text" class="form-control" value="{{ user.created_at.strftime('%B %d, %Y') }}" disabled>
+                                    <label for="profile_visibility" class="form-label">Profile Visibility</label>
+                                    <select class="form-select" id="profile_visibility" name="profile_visibility">
+                                        <option value="private" {{ 'selected' if user.profile_visibility == 'private' }}>Private</option>
+                                        <option value="public" {{ 'selected' if user.profile_visibility == 'public' }}>Public</option>
+                                    </select>
+                                    <div class="form-text">Control who can see your profile information.</div>
                                 </div>
                                 
-                                <button type="submit" class="btn btn-primary">Update Profile</button>
+                                <div class="text-end">
+                                    <button type="submit" class="btn btn-primary">Update Profile</button>
+                                </div>
                             </form>
                         </div>
                     </div>
                 </div>
                 
-                <!-- Security Tab -->
-                <div class="tab-pane fade" id="security" role="tabpanel">
-                    <div class="card">
-                        <div class="card-body">
-                            <h5 class="card-title">Change Password</h5>
-                            
-                            <form method="POST" action="{{ url_for('auth.change_password') }}" id="passwordForm">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                
-                                <div class="mb-3">
-                                    <label for="current_password" class="form-label">Current Password</label>
-                                    <input type="password" class="form-control" id="current_password" name="current_password" required>
+                <!-- Usage Statistics Tab -->
+                <div class="tab-pane fade" id="usage-stats">
+                    <div class="row">
+                        <div class="col-12 mb-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="mb-0">Usage Summary</h6>
                                 </div>
-                                
-                                <div class="mb-3">
-                                    <label for="new_password" class="form-label">New Password</label>
-                                    <input type="password" class="form-control" id="new_password" name="new_password" required>
-                                    <div class="progress mt-1" style="height: 5px; display: none;" id="newPasswordStrength">
-                                        <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-4 text-center">
+                                            <h3 class="text-primary">{{ stats.total_requests or 0 }}</h3>
+                                            <p class="text-muted mb-0">Total Requests</p>
+                                        </div>
+                                        <div class="col-md-4 text-center">
+                                            <h3 class="text-success">{{ stats.certificates_generated or 0 }}</h3>
+                                            <p class="text-muted mb-0">Certificates Generated</p>
+                                        </div>
+                                        <div class="col-md-4 text-center">
+                                            <h3 class="text-info">{{ user.login_count or 0 }}</h3>
+                                            <p class="text-muted mb-0">Total Logins</p>
+                                        </div>
                                     </div>
                                 </div>
-                                
-                                <div class="mb-3">
-                                    <label for="confirm_password" class="form-label">Confirm New Password</label>
-                                    <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Detailed Stats -->
+                    <div class="row">
+                        <div class="col-md-6 mb-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="mb-0">Rate Limits</h6>
                                 </div>
-                                
-                                <button type="submit" class="btn btn-warning">Change Password</button>
-                            </form>
-                            
-                            <hr class="my-4">
-                            
-                            <h5 class="card-title">Recent Login Activity</h5>
-                            <p class="text-muted">Last login: {{ user.last_login.strftime('%B %d, %Y at %I:%M %p') if user.last_login else 'Never' }}</p>
+                                <div class="card-body">
+                                    <dl class="row">
+                                        <dt class="col-sm-6">Daily Limit:</dt>
+                                        <dd class="col-sm-6">{{ user.daily_request_limit }}</dd>
+                                        
+                                        <dt class="col-sm-6">Monthly Limit:</dt>
+                                        <dd class="col-sm-6">{{ user.monthly_request_limit }}</dd>
+                                        
+                                        <dt class="col-sm-6">Concurrent Requests:</dt>
+                                        <dd class="col-sm-6">{{ user.max_concurrent_requests }}</dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6 mb-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="mb-0">Account Info</h6>
+                                </div>
+                                <div class="card-body">
+                                    <dl class="row">
+                                        <dt class="col-sm-6">Member Since:</dt>
+                                        <dd class="col-sm-6">{{ user.created_at.strftime('%B %d, %Y') if user.created_at }}</dd>
+                                        
+                                        <dt class="col-sm-6">Last Login:</dt>
+                                        <dd class="col-sm-6">{{ user.last_login.strftime('%B %d, %Y at %I:%M %p') if user.last_login else 'Never' }}</dd>
+                                        
+                                        <dt class="col-sm-6">Last Active:</dt>
+                                        <dd class="col-sm-6">{{ user.last_active.strftime('%B %d, %Y at %I:%M %p') if user.last_active else 'Never' }}</dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Certificate History Tab -->
+                <div class="tab-pane fade" id="certificate-history">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0">Certificate Generation History</h6>
+                            <div>
+                                <button class="btn btn-sm btn-outline-primary" onclick="exportHistory()">
+                                    <span class="material-icons align-middle me-1" style="font-size: 16px;">download</span>
+                                    Export
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            {% if user.queries %}
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>System Description</th>
+                                                <th>Model Used</th>
+                                                <th>Status</th>
+                                                <th>Rating</th>
+                                                <th>Generated</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for query in user.queries %}
+                                            <tr>
+                                                <td>
+                                                    {% if query.system_name %}
+                                                        <strong>{{ query.system_name }}</strong><br>
+                                                    {% endif %}
+                                                    <small class="text-muted">{{ (query.system_description[:100] + '...') if query.system_description|length > 100 else query.system_description }}</small>
+                                                    {% if query.is_favorite %}
+                                                        <span class="material-icons text-warning" style="font-size: 16px;">star</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td>
+                                                    {{ query.model_name or 'Unknown' }}
+                                                    {% if query.rag_k and query.rag_k > 0 %}
+                                                        <br><small class="text-muted">RAG: {{ query.rag_k }}</small>
+                                                    {% endif %}
+                                                </td>
+                                                <td>
+                                                    {% if query.status == 'completed' %}
+                                                        <span class="badge bg-success">Completed</span>
+                                                    {% elif query.status == 'failed' %}
+                                                        <span class="badge bg-danger">Failed</span>
+                                                    {% elif query.status == 'verified' %}
+                                                        <span class="badge bg-primary">Verified</span>
+                                                    {% else %}
+                                                        <span class="badge bg-warning">{{ query.status|title }}</span>
+                                                    {% endif %}
+                                                    {% if query.verification_completed %}
+                                                        <br><small class="text-muted">
+                                                            {% if query.verification_success %}
+                                                                ✓ Verified
+                                                            {% else %}
+                                                                ✗ Verification Failed
+                                                            {% endif %}
+                                                        </small>
+                                                    {% endif %}
+                                                </td>
+                                                <td>
+                                                    {% if query.user_rating %}
+                                                        {% for i in range(1, 6) %}
+                                                            {% if i <= query.user_rating %}
+                                                                <span class="material-icons text-warning" style="font-size: 16px;">star</span>
+                                                            {% else %}
+                                                                <span class="material-icons text-muted" style="font-size: 16px;">star_border</span>
+                                                            {% endif %}
+                                                        {% endfor %}
+                                                    {% else %}
+                                                        <span class="text-muted">Not rated</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td>{{ query.timestamp.strftime('%m/%d/%Y %H:%M') if query.timestamp }}</td>
+                                                <td>
+                                                    <div class="btn-group btn-group-sm">
+                                                        <button class="btn btn-outline-primary" onclick="viewCertificate({{ query.id }})">View</button>
+                                                        {% if query.generated_certificate %}
+                                                            <button class="btn btn-outline-success" onclick="copyCertificate('{{ query.generated_certificate }}')">Copy</button>
+                                                        {% endif %}
+                                                        <button class="btn btn-outline-warning" onclick="toggleFavorite({{ query.id }}, {{ query.is_favorite|lower }})">
+                                                            {% if query.is_favorite %}★{% else %}☆{% endif %}
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% else %}
+                                <div class="text-center py-4">
+                                    <span class="material-icons text-muted" style="font-size: 48px;">history</span>
+                                    <p class="text-muted mt-2">No certificate generation history yet</p>
+                                    <a href="{{ url_for('index') }}" class="btn btn-primary">Generate Your First Certificate</a>
+                                </div>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
                 
                 <!-- API Access Tab -->
-                <div class="tab-pane fade" id="api" role="tabpanel">
+                <div class="tab-pane fade" id="api-access">
                     <div class="card">
+                        <div class="card-header">
+                            <h6 class="mb-0">API Access</h6>
+                        </div>
                         <div class="card-body">
-                            <h5 class="card-title">API Key Management</h5>
-                            
                             {% if user.api_key %}
                                 <div class="alert alert-info">
-                                    <strong>Your API Key:</strong>
-                                    <div class="input-group mt-2">
-                                        <input type="text" class="form-control font-monospace" id="apiKey" 
-                                               value="{{ user.api_key }}" readonly>
-                                        <button class="btn btn-outline-secondary" type="button" onclick="copyApiKey()">
-                                            <i class="fas fa-copy"></i> Copy
+                                    <h6>Your API Key</h6>
+                                    <div class="input-group mb-3">
+                                        <input type="password" class="form-control" id="apiKey" value="{{ user.api_key }}" readonly>
+                                        <button class="btn btn-outline-secondary" type="button" onclick="toggleApiKeyVisibility()">
+                                            <span class="material-icons">visibility</span>
                                         </button>
+                                        <button class="btn btn-outline-primary" type="button" onclick="copyToClipboard('apiKey')">Copy</button>
                                     </div>
-                                    <small class="d-block mt-2">Created: {{ user.api_key_created.strftime('%B %d, %Y') }}</small>
+                                    <small class="text-muted">
+                                        Created: {{ user.api_key_created.strftime('%B %d, %Y') if user.api_key_created }}<br>
+                                        Last used: {{ user.api_key_last_used.strftime('%B %d, %Y at %I:%M %p') if user.api_key_last_used else 'Never' }}<br>
+                                        Total API requests: {{ user.api_requests_count or 0 }}
+                                    </small>
                                 </div>
                                 
-                                <form method="POST" action="{{ url_for('auth.revoke_api_key') }}" 
-                                      onsubmit="return confirm('Are you sure you want to revoke your API key?');">
-                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                    <button type="submit" class="btn btn-danger">Revoke API Key</button>
-                                </form>
+                                <div class="d-flex gap-2 mb-4">
+                                    <button class="btn btn-warning" onclick="regenerateApiKey()">Regenerate API Key</button>
+                                    <button class="btn btn-danger" onclick="revokeApiKey()">Revoke API Key</button>
+                                </div>
                             {% else %}
-                                <p class="text-muted">You don't have an API key yet. Generate one to use the API endpoints.</p>
-                                
-                                <form method="POST" action="{{ url_for('auth.api_key') }}">
-                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                    <button type="submit" class="btn btn-success">Generate API Key</button>
-                                </form>
+                                <div class="alert alert-warning">
+                                    <h6>No API Key</h6>
+                                    <p>You don't have an API key yet. Generate one to access the FM-LLM Solver programmatically.</p>
+                                    <button class="btn btn-primary" onclick="generateApiKey()">Generate API Key</button>
+                                </div>
                             {% endif %}
                             
-                            <hr class="my-4">
-                            
-                            <h6>API Usage Example</h6>
-                            <pre class="bg-light p-3"><code>curl -X POST {{ url_for('api_generate', _external=True) }} \
+                            <h6>API Documentation</h6>
+                            <p>Use your API key to access FM-LLM Solver programmatically:</p>
+                            <pre><code>curl -X POST {{ request.url_root }}api/generate \
   -H "X-API-Key: YOUR_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{
-    "system_description": "Your system description here",
-    "model_config": "default"
-  }'</code></pre>
+  -d '{"system_description": "dx/dt = -x, dy/dt = -y"}'</code></pre>
+                            
+                            <p class="mt-3">
+                                <a href="{{ url_for('api_docs') }}" class="btn btn-outline-primary">
+                                    <span class="material-icons align-middle me-1">description</span>
+                                    View Full API Documentation
+                                </a>
+                            </p>
                         </div>
                     </div>
                 </div>
+                
+                <!-- Settings Tab -->
+                <div class="tab-pane fade" id="settings">
+                    <div class="row">
+                        <div class="col-md-6 mb-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="mb-0">Preferences</h6>
+                                </div>
+                                <div class="card-body">
+                                    <form method="POST" action="{{ url_for('auth.update_preferences') }}">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        
+                                        <div class="mb-3">
+                                            <label for="theme_preference" class="form-label">Theme</label>
+                                            <select class="form-select" id="theme_preference" name="theme_preference">
+                                                <option value="light" {{ 'selected' if user.theme_preference == 'light' }}>Light</option>
+                                                <option value="dark" {{ 'selected' if user.theme_preference == 'dark' }}>Dark</option>
+                                                <option value="auto" {{ 'selected' if user.theme_preference == 'auto' }}>Auto</option>
+                                            </select>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <label for="default_rag_k" class="form-label">Default RAG Context</label>
+                                            <select class="form-select" id="default_rag_k" name="default_rag_k">
+                                                <option value="0" {{ 'selected' if user.default_rag_k == 0 }}>No RAG (0)</option>
+                                                <option value="3" {{ 'selected' if user.default_rag_k == 3 }}>Low (3)</option>
+                                                <option value="5" {{ 'selected' if user.default_rag_k == 5 }}>Medium (5)</option>
+                                                <option value="10" {{ 'selected' if user.default_rag_k == 10 }}>High (10)</option>
+                                            </select>
+                                        </div>
+                                        
+                                        <div class="form-check mb-3">
+                                            <input class="form-check-input" type="checkbox" id="email_notifications" 
+                                                   name="email_notifications" {{ 'checked' if user.email_notifications }}>
+                                            <label class="form-check-label" for="email_notifications">
+                                                Email notifications for important updates
+                                            </label>
+                                        </div>
+                                        
+                                        <div class="form-check mb-3">
+                                            <input class="form-check-input" type="checkbox" id="marketing_emails" 
+                                                   name="marketing_emails" {{ 'checked' if user.marketing_emails }}>
+                                            <label class="form-check-label" for="marketing_emails">
+                                                Marketing and newsletter emails
+                                            </label>
+                                        </div>
+                                        
+                                        <button type="submit" class="btn btn-primary">Save Preferences</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6 mb-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="mb-0">Security</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <a href="{{ url_for('auth.change_password') }}" class="btn btn-outline-warning d-block">
+                                            <span class="material-icons align-middle me-2">lock</span>
+                                            Change Password
+                                        </a>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        {% if user.two_factor_enabled %}
+                                            <button class="btn btn-outline-danger d-block" onclick="disableTwoFactor()">
+                                                <span class="material-icons align-middle me-2">security</span>
+                                                Disable Two-Factor Auth
+                                            </button>
+                                        {% else %}
+                                            <button class="btn btn-outline-success d-block" onclick="enableTwoFactor()">
+                                                <span class="material-icons align-middle me-2">security</span>
+                                                Enable Two-Factor Auth
+                                            </button>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <button class="btn btn-outline-info d-block" onclick="viewSessions()">
+                                            <span class="material-icons align-middle me-2">devices</span>
+                                            Manage Sessions
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Danger Zone -->
+                    <div class="card border-danger">
+                        <div class="card-header bg-danger text-white">
+                            <h6 class="mb-0">Danger Zone</h6>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-danger">These actions cannot be undone.</p>
+                            
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-outline-danger" onclick="exportAccount()">Export Account Data</button>
+                                <button class="btn btn-danger" onclick="deleteAccount()">Delete Account</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Admin Panel Tab -->
+                {% if user.is_admin %}
+                <div class="tab-pane fade" id="admin-panel">
+                    <div class="row">
+                        <div class="col-12 mb-4">
+                            <div class="card border-warning">
+                                <div class="card-header bg-warning">
+                                    <h6 class="mb-0">
+                                        <span class="material-icons align-middle me-2">admin_panel_settings</span>
+                                        Administrator Panel
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <p>You have administrator privileges. Use these tools responsibly.</p>
+                                    
+                                    <div class="row">
+                                        <div class="col-md-4 mb-3">
+                                            <a href="{{ url_for('admin.users') }}" class="btn btn-outline-primary d-block">
+                                                <span class="material-icons align-middle me-2">people</span>
+                                                Manage Users
+                                            </a>
+                                        </div>
+                                        <div class="col-md-4 mb-3">
+                                            <a href="{{ url_for('admin.system_stats') }}" class="btn btn-outline-info d-block">
+                                                <span class="material-icons align-middle me-2">analytics</span>
+                                                System Statistics
+                                            </a>
+                                        </div>
+                                        <div class="col-md-4 mb-3">
+                                            <a href="{{ url_for('admin.security_logs') }}" class="btn btn-outline-warning d-block">
+                                                <span class="material-icons align-middle me-2">security</span>
+                                                Security Logs
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>
 </div>
 
-<style>
-    .avatar-circle {
-        width: 80px;
-        height: 80px;
-        background-color: #007bff;
-        border-radius: 50%;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-    }
-    
-    .avatar-circle .initials {
-        color: white;
-        font-size: 2rem;
-        font-weight: bold;
-    }
-</style>
-
+<!-- Modals and Scripts -->
 <script>
-    function copyApiKey() {
-        const apiKeyInput = document.getElementById('apiKey');
-        apiKeyInput.select();
-        document.execCommand('copy');
-        
-        // Show feedback
-        const button = event.target.closest('button');
-        const originalHtml = button.innerHTML;
-        button.innerHTML = '<i class="fas fa-check"></i> Copied!';
-        button.classList.remove('btn-outline-secondary');
+// API Key management
+function toggleApiKeyVisibility() {
+    const input = document.getElementById('apiKey');
+    const button = event.target.closest('button');
+    const icon = button.querySelector('.material-icons');
+    
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.textContent = 'visibility_off';
+    } else {
+        input.type = 'password';
+        icon.textContent = 'visibility';
+    }
+}
+
+function copyToClipboard(elementId) {
+    const element = document.getElementById(elementId);
+    element.select();
+    document.execCommand('copy');
+    
+    // Show feedback
+    const button = event.target;
+    const originalText = button.textContent;
+    button.textContent = 'Copied!';
+    button.classList.add('btn-success');
+    
+    setTimeout(() => {
+        button.textContent = originalText;
+        button.classList.remove('btn-success');
+    }, 2000);
+}
+
+function generateApiKey() {
+    if (confirm('Generate a new API key? This will allow programmatic access to your account.')) {
+        fetch('{{ url_for("auth.api_key") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Failed to generate API key: ' + data.error);
+            }
+        });
+    }
+}
+
+function regenerateApiKey() {
+    if (confirm('Regenerate your API key? Your current key will stop working immediately.')) {
+        generateApiKey();
+    }
+}
+
+function revokeApiKey() {
+    if (confirm('Revoke your API key? You will lose programmatic access until you generate a new one.')) {
+        fetch('{{ url_for("auth.revoke_api_key") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Failed to revoke API key: ' + data.error);
+            }
+        });
+    }
+}
+
+// Certificate management
+ function viewCertificate(queryId) {
+     window.open('/query/' + queryId, '_blank');
+ }
+
+function copyCertificate(certificate) {
+    navigator.clipboard.writeText(certificate).then(() => {
+        const button = event.target;
+        const originalText = button.textContent;
+        button.textContent = 'Copied!';
         button.classList.add('btn-success');
         
         setTimeout(() => {
-            button.innerHTML = originalHtml;
+            button.textContent = originalText;
             button.classList.remove('btn-success');
-            button.classList.add('btn-outline-secondary');
         }, 2000);
-    }
-    
-    // Password strength checker
-    const newPassword = document.getElementById('new_password');
-    const strengthBar = document.getElementById('newPasswordStrength');
-    const progressBar = strengthBar.querySelector('.progress-bar');
-    
-    newPassword.addEventListener('input', function() {
-        const password = this.value;
-        let strength = 0;
-        
-        if (password.length >= 8) strength += 25;
-        if (/[a-z]/.test(password)) strength += 25;
-        if (/[A-Z]/.test(password)) strength += 25;
-        if (/\d/.test(password)) strength += 25;
-        if (/[!@#$%^&*(),.?":{}|<>]/.test(password)) strength += 25;
-        
-        strength = Math.min(strength, 100);
-        
-        strengthBar.style.display = 'block';
-        progressBar.style.width = strength + '%';
-        
-        if (strength < 50) {
-            progressBar.className = 'progress-bar bg-danger';
-        } else if (strength < 75) {
-            progressBar.className = 'progress-bar bg-warning';
-        } else {
-            progressBar.className = 'progress-bar bg-success';
-        }
     });
+}
+
+ function toggleFavorite(queryId, isFavorite) {
+     fetch('/api/toggle_favorite/' + queryId, {
+         method: 'POST',
+         headers: {
+             'Content-Type': 'application/json',
+             'X-Requested-With': 'XMLHttpRequest'
+         }
+     })
+     .then(response => response.json())
+     .then(data => {
+         if (data.success) {
+             location.reload();
+         }
+     });
+ }
+
+function exportHistory() {
+    window.open('{{ url_for("export_history") }}', '_blank');
+}
+
+// Security functions
+function enableTwoFactor() {
+    window.location.href = '{{ url_for("auth.setup_2fa") }}';
+}
+
+function disableTwoFactor() {
+    if (confirm('Disable two-factor authentication? This will make your account less secure.')) {
+        window.location.href = '{{ url_for("auth.disable_2fa") }}';
+    }
+}
+
+function viewSessions() {
+    window.location.href = '{{ url_for("auth.sessions") }}';
+}
+
+function exportAccount() {
+    if (confirm('Export all your account data? This may take a few minutes.')) {
+        window.open('{{ url_for("auth.export_account") }}', '_blank');
+    }
+}
+
+function deleteAccount() {
+    const confirmation = prompt('To delete your account, type "DELETE" in all caps:');
+    if (confirmation === 'DELETE') {
+        if (confirm('This will permanently delete your account and all data. Are you absolutely sure?')) {
+            window.location.href = '{{ url_for("auth.delete_account") }}';
+        }
+    }
+}
+
+// Initialize tooltips
+document.addEventListener('DOMContentLoaded', function() {
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
 </script>
 {% endblock %} 

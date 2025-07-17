@@ -1,5 +1,5 @@
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin
@@ -12,7 +12,7 @@ def init_db(app):
     return db
 
 class User(UserMixin, db.Model):
-    """Model for user authentication and management."""
+    """Enhanced model for user authentication and management."""
     __tablename__ = 'users'
     
     id = db.Column(db.Integer, primary_key=True)
@@ -20,27 +20,85 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
     
-    # User status
+    # Enhanced user profile
+    first_name = db.Column(db.String(50))
+    last_name = db.Column(db.String(50))
+    organization = db.Column(db.String(200))
+    job_title = db.Column(db.String(100))
+    bio = db.Column(db.Text)
+    website = db.Column(db.String(255))
+    location = db.Column(db.String(100))
+    timezone = db.Column(db.String(50), default='UTC')
+    
+    # User status and verification
     is_active = db.Column(db.Boolean, default=True)
     is_verified = db.Column(db.Boolean, default=False)
+    is_premium = db.Column(db.Boolean, default=False)
+    email_verified = db.Column(db.Boolean, default=False)
+    email_verification_token = db.Column(db.String(255))
+    password_reset_token = db.Column(db.String(255))
+    password_reset_expires = db.Column(db.DateTime)
+    
+    # Account timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_login = db.Column(db.DateTime)
+    last_active = db.Column(db.DateTime, default=datetime.utcnow)
+    profile_updated_at = db.Column(db.DateTime, default=datetime.utcnow)
     
-    # Rate limiting
+    # Subscription and billing
+    subscription_type = db.Column(db.String(20), default='free')  # free, basic, premium, enterprise
+    subscription_start = db.Column(db.DateTime)
+    subscription_end = db.Column(db.DateTime)
+    billing_email = db.Column(db.String(120))
+    
+    # Rate limiting and usage
     daily_request_count = db.Column(db.Integer, default=0)
+    monthly_request_count = db.Column(db.Integer, default=0)
+    total_request_count = db.Column(db.Integer, default=0)
     last_request_date = db.Column(db.Date)
-    daily_request_limit = db.Column(db.Integer, default=50)  # Customizable per user
+    last_request_month = db.Column(db.String(7))  # YYYY-MM format
     
-    # API key for programmatic access (optional)
+    # Usage limits based on subscription
+    daily_request_limit = db.Column(db.Integer, default=50)
+    monthly_request_limit = db.Column(db.Integer, default=1000)
+    max_concurrent_requests = db.Column(db.Integer, default=3)
+    
+    # API access
     api_key = db.Column(db.String(64), unique=True)
     api_key_created = db.Column(db.DateTime)
+    api_key_last_used = db.Column(db.DateTime)
+    api_requests_count = db.Column(db.Integer, default=0)
     
-    # User role
-    role = db.Column(db.String(20), default='user')  # user, premium, admin
+    # User preferences
+    preferred_models = db.Column(db.JSON)  # List of preferred model names
+    default_rag_k = db.Column(db.Integer, default=3)
+    email_notifications = db.Column(db.Boolean, default=True)
+    marketing_emails = db.Column(db.Boolean, default=False)
+    theme_preference = db.Column(db.String(20), default='light')  # light, dark, auto
+    
+    # User role and permissions
+    role = db.Column(db.String(20), default='user')  # user, premium, admin, researcher
+    permissions = db.Column(db.JSON)  # Custom permissions list
+    
+    # Privacy and security
+    profile_visibility = db.Column(db.String(20), default='private')  # public, private, contacts
+    two_factor_enabled = db.Column(db.Boolean, default=False)
+    two_factor_secret = db.Column(db.String(32))
+    backup_codes = db.Column(db.JSON)  # List of backup codes
+    
+    # Activity tracking
+    login_count = db.Column(db.Integer, default=0)
+    certificates_generated = db.Column(db.Integer, default=0)
+    successful_verifications = db.Column(db.Integer, default=0)
+    favorite_systems = db.Column(db.JSON)  # List of favorite system IDs
     
     # Relationships
     queries = db.relationship('QueryLog', backref='user', lazy=True)
+    conversations = db.relationship('Conversation', backref='user', lazy=True)
     rate_limit_logs = db.relationship('RateLimitLog', backref='user', lazy=True, cascade='all, delete-orphan')
+    user_activities = db.relationship('UserActivity', backref='user', lazy=True, cascade='all, delete-orphan')
+    certificate_favorites = db.relationship('CertificateFavorite', backref='user', lazy=True, cascade='all, delete-orphan')
+    user_sessions = db.relationship('UserSession', backref='user', lazy=True, cascade='all, delete-orphan')
     
     def set_password(self, password):
         """Set password hash."""
@@ -53,24 +111,212 @@ class User(UserMixin, db.Model):
     def check_rate_limit(self):
         """Check if user has exceeded rate limit."""
         today = datetime.utcnow().date()
+        current_month = datetime.utcnow().strftime('%Y-%m')
+        
+        # Reset daily counter
         if self.last_request_date != today:
-            # Reset counter for new day
             self.daily_request_count = 0
             self.last_request_date = today
         
-        return self.daily_request_count < self.daily_request_limit
+        # Reset monthly counter
+        if self.last_request_month != current_month:
+            self.monthly_request_count = 0
+            self.last_request_month = current_month
+        
+        # Check both daily and monthly limits
+        return (self.daily_request_count < self.daily_request_limit and 
+                self.monthly_request_count < self.monthly_request_limit)
     
     def increment_request_count(self):
-        """Increment daily request count."""
+        """Increment daily and monthly request counts."""
         today = datetime.utcnow().date()
+        current_month = datetime.utcnow().strftime('%Y-%m')
+        
         if self.last_request_date != today:
             self.daily_request_count = 1
             self.last_request_date = today
         else:
             self.daily_request_count += 1
+        
+        if self.last_request_month != current_month:
+            self.monthly_request_count = 1
+            self.last_request_month = current_month
+        else:
+            self.monthly_request_count += 1
+        
+        self.total_request_count = (self.total_request_count or 0) + 1
+        self.last_active = datetime.utcnow()
+        
+        if self.api_key:
+            self.api_requests_count = (self.api_requests_count or 0) + 1
+            self.api_key_last_used = datetime.utcnow()
+    
+    def increment_certificate_count(self):
+        """Increment successful certificate generation count."""
+        self.certificates_generated = (self.certificates_generated or 0) + 1
+    
+    def increment_verification_count(self):
+        """Increment successful verification count.""" 
+        self.successful_verifications = (self.successful_verifications or 0) + 1
+    
+    def get_subscription_status(self):
+        """Get current subscription status."""
+        if not self.subscription_end:
+            return {'active': False, 'type': 'free', 'days_remaining': None}
+        
+        if datetime.utcnow() > self.subscription_end:
+            return {'active': False, 'type': self.subscription_type, 'days_remaining': 0}
+        
+        days_remaining = (self.subscription_end - datetime.utcnow()).days
+        return {'active': True, 'type': self.subscription_type, 'days_remaining': days_remaining}
+    
+    def get_usage_stats(self):
+        """Get user usage statistics."""
+        return {
+            'daily_requests': self.daily_request_count,
+            'daily_limit': self.daily_request_limit,
+            'monthly_requests': self.monthly_request_count,
+            'monthly_limit': self.monthly_request_limit,
+            'total_requests': self.total_request_count,
+            'certificates_generated': self.certificates_generated,
+            'successful_verifications': self.successful_verifications,
+            'api_requests': self.api_requests_count,
+            'daily_usage_percent': round(((self.daily_request_count or 0) / (self.daily_request_limit or 1)) * 100, 1),
+            'monthly_usage_percent': round(((self.monthly_request_count or 0) / (self.monthly_request_limit or 1)) * 100, 1)
+        }
+    
+    @property
+    def full_name(self):
+        """Get user's full name."""
+        if self.first_name and self.last_name:
+            return f"{self.first_name} {self.last_name}"
+        return self.username
+    
+    @property
+    def is_admin(self):
+        """Check if user is admin."""
+        return self.role == 'admin'
+    
+    @property
+    def display_name(self):
+        """Get display name for UI."""
+        return self.full_name if (self.first_name or self.last_name) else self.username
+    
+    def to_dict(self, include_sensitive=False):
+        """Convert user to dictionary for API responses."""
+        data = {
+            'id': self.id,
+            'username': self.username,
+            'email': self.email if include_sensitive else None,
+            'display_name': self.display_name,
+            'first_name': self.first_name,
+            'last_name': self.last_name,
+            'organization': self.organization,
+            'job_title': self.job_title,
+            'bio': self.bio,
+            'website': self.website,
+            'location': self.location,
+            'is_verified': self.is_verified,
+            'is_premium': self.is_premium,
+            'role': self.role,
+            'subscription_type': self.subscription_type,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'last_login': self.last_login.isoformat() if self.last_login else None,
+            'certificates_generated': self.certificates_generated,
+            'successful_verifications': self.successful_verifications,
+            'profile_visibility': self.profile_visibility
+        }
+        
+        if include_sensitive:
+            data.update({
+                'usage_stats': self.get_usage_stats(),
+                'subscription_status': self.get_subscription_status(),
+                'email_notifications': self.email_notifications,
+                'theme_preference': self.theme_preference,
+                'api_key_created': self.api_key_created.isoformat() if self.api_key_created else None,
+                'two_factor_enabled': self.two_factor_enabled
+            })
+        
+        return data
     
     def __repr__(self):
         return f'<User {self.username}>'
+
+class UserActivity(db.Model):
+    """Track detailed user activities for analytics and security."""
+    __tablename__ = 'user_activities'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Activity details
+    activity_type = db.Column(db.String(50), nullable=False)  # login, logout, certificate_generated, verification_run, etc.
+    activity_details = db.Column(db.JSON)  # Additional details about the activity
+    
+    # Request context
+    ip_address = db.Column(db.String(45))
+    user_agent = db.Column(db.Text)
+    session_id = db.Column(db.String(255))
+    
+    # Performance tracking
+    response_time_ms = db.Column(db.Integer)
+    success = db.Column(db.Boolean, default=True)
+    error_message = db.Column(db.Text)
+    
+    def __repr__(self):
+        return f'<UserActivity {self.activity_type} by {self.user_id}>'
+
+class UserSession(db.Model):
+    """Track user sessions for security and analytics."""
+    __tablename__ = 'user_sessions'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    session_token = db.Column(db.String(255), unique=True, nullable=False)
+    
+    # Session details
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_activity = db.Column(db.DateTime, default=datetime.utcnow)
+    expires_at = db.Column(db.DateTime)
+    is_active = db.Column(db.Boolean, default=True)
+    
+    # Device/browser info
+    ip_address = db.Column(db.String(45))
+    user_agent = db.Column(db.Text)
+    device_type = db.Column(db.String(50))  # desktop, mobile, tablet
+    browser = db.Column(db.String(100))
+    os = db.Column(db.String(100))
+    
+    # Security
+    login_method = db.Column(db.String(20))  # password, api_key, oauth
+    is_remembered = db.Column(db.Boolean, default=False)
+    
+    def __repr__(self):
+        return f'<UserSession {self.user_id} - {self.created_at}>'
+
+class CertificateFavorite(db.Model):
+    """Track user's favorite certificates and systems."""
+    __tablename__ = 'certificate_favorites'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    query_id = db.Column(db.Integer, db.ForeignKey('query_logs.id'), nullable=False)
+    
+    # Favorite details
+    name = db.Column(db.String(200))  # Custom name for the favorite
+    notes = db.Column(db.Text)  # User's notes about this certificate
+    tags = db.Column(db.JSON)  # User-defined tags
+    
+    # Timestamps
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_accessed = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Visibility
+    is_public = db.Column(db.Boolean, default=False)  # Whether other users can see this
+    
+    def __repr__(self):
+        return f'<CertificateFavorite {self.name} by {self.user_id}>'
 
 class RateLimitLog(db.Model):
     """Model for tracking rate limit violations and patterns."""
@@ -169,9 +415,8 @@ class Conversation(db.Model):
     domain_bounds = db.Column(db.Text)  # JSON string: {"x": [-2, 2], "y": [-1, 1]}
     domain_conditions = db.Column(db.Text)  # JSON string: ["x >= -2", "x <= 2", ...]
     
-    # Relationship to messages and queries
+    # Relationship to messages
     messages = db.relationship('ConversationMessage', backref='conversation', lazy=True, cascade='all, delete-orphan', order_by='ConversationMessage.timestamp')
-    query_logs = db.relationship('QueryLog', backref='conversation', lazy=True)
     
     def __repr__(self):
         return f'<Conversation {self.id}: {self.status}>'
@@ -237,24 +482,74 @@ class ConversationMessage(db.Model):
         }
 
 class QueryLog(db.Model):
-    """Track all queries and their results."""
+    """Enhanced model to track all queries and their results with comprehensive user data."""
     __tablename__ = 'query_logs'
     
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    
+    # System and query details
     system_description = db.Column(db.Text, nullable=False)
+    system_name = db.Column(db.String(200))  # User-provided name for the system
+    system_type = db.Column(db.String(50))  # continuous, discrete, stochastic
+    system_dimension = db.Column(db.Integer)  # Detected or specified dimension
+    variables = db.Column(db.JSON)  # List of system variables
+    
+    # Model configuration and generation
     model_config = db.Column(db.JSON)
+    model_name = db.Column(db.String(200))  # Name of the model used
+    model_version = db.Column(db.String(50))  # Version of the model
+    rag_k = db.Column(db.Integer, default=0)  # Number of RAG documents used
+    temperature = db.Column(db.Float, default=0.7)  # Generation temperature
+    max_tokens = db.Column(db.Integer, default=512)  # Max tokens generated
+    
+    # Results
     generated_certificate = db.Column(db.Text)
-    status = db.Column(db.String(50), default='pending')  # pending, completed, failed
+    certificate_format = db.Column(db.String(50))  # polynomial, trigonometric, rational, etc.
+    certificate_complexity = db.Column(db.Integer)  # Estimated complexity score
+    extraction_method = db.Column(db.String(50))  # How certificate was extracted from LLM output
+    
+    # Status and performance
+    status = db.Column(db.String(50), default='pending')  # pending, completed, failed, verified
     error_message = db.Column(db.Text)
     processing_time = db.Column(db.Float)  # seconds
     processing_start = db.Column(db.DateTime)  # Start time of processing
     processing_end = db.Column(db.DateTime)    # End time of processing
+    total_tokens_used = db.Column(db.Integer)  # Total tokens consumed
+    cost_estimate = db.Column(db.Float)  # Estimated cost in USD
+    
+    # Context and tracking
     conversation_id = db.Column(db.String(36))
+    session_id = db.Column(db.String(255))
+    ip_address = db.Column(db.String(45))
+    user_agent = db.Column(db.Text)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # User interaction
+    user_rating = db.Column(db.Integer)  # 1-5 star rating from user
+    user_feedback = db.Column(db.Text)  # User's comments about the result
+    is_favorite = db.Column(db.Boolean, default=False)
+    is_public = db.Column(db.Boolean, default=False)  # Whether user shared publicly
+    tags = db.Column(db.JSON)  # User-defined tags
+    
+    # Domain bounds for certificate validity
+    certificate_domain_bounds = db.Column(db.Text)  # JSON string: {"x": [-2, 2], "y": [-1, 1]}
+    domain_bounds_conditions = db.Column(db.Text)  # JSON string: ["x >= -2", "x <= 2", ...]
+    domain_description = db.Column(db.Text)  # Human-readable domain description
+    
+    # Verification tracking
+    verification_requested = db.Column(db.Boolean, default=False)
+    verification_completed = db.Column(db.Boolean, default=False)
+    verification_success = db.Column(db.Boolean, default=False)
+    verification_attempts = db.Column(db.Integer, default=0)
+    
+    # Quality metrics
+    confidence_score = db.Column(db.Float)  # Model's confidence in the result
+    mathematical_soundness = db.Column(db.Float)  # Automated assessment of mathematical validity
     
     # Relationships
     verification_result = db.relationship('VerificationResult', backref='query', uselist=False)
+    certificate_favorite = db.relationship('CertificateFavorite', backref='query_log', uselist=False)
 
     def __repr__(self):
         return f'<QueryLog {self.id}: {self.status}>'
@@ -303,7 +598,7 @@ class VerificationResult(db.Model):
     __tablename__ = 'verification_result'
     
     id = db.Column(db.Integer, primary_key=True)
-    query_id = db.Column(db.Integer, db.ForeignKey('query_log.id'), nullable=False)
+    query_id = db.Column(db.Integer, db.ForeignKey('query_logs.id'), nullable=False)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     
     # Individual verification checks

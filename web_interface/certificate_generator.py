@@ -18,6 +18,9 @@ from inference.generate_certificate import (
 from sentence_transformers import SentenceTransformer
 from transformers import pipeline
 from knowledge_base.kb_utils import get_active_kb_paths, determine_kb_type_from_config, validate_kb_config
+from web_interface.models import db, QueryLog, UserActivity
+from flask_login import current_user
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +70,344 @@ class CertificateGenerator:
         except Exception as e:
             logger.warning(f"Could not validate knowledge base configuration: {e}. Some features may be limited.")
         
+        self.start_time = None
+        self.user_context = {}
+    
+    def generate_certificate_with_user_tracking(self, system_description, model_config=None, 
+                                               conversation_id=None, system_name=None, 
+                                               user_tags=None, domain_bounds=None):
+        """Enhanced certificate generation with comprehensive user tracking."""
+        self.start_time = time.time()
+        
+        # Initialize user context
+        if current_user.is_authenticated:
+            self.user_context = {
+                'user_id': current_user.id,
+                'username': current_user.username,
+                'subscription_type': current_user.subscription_type,
+                'session_id': current_user.get('session_id'),
+                'ip_address': self._get_client_ip(),
+                'user_agent': self._get_user_agent()
+            }
+            
+            # Check rate limits
+            if not current_user.check_rate_limit():
+                raise Exception(f"Rate limit exceeded. Daily limit: {current_user.daily_request_limit}")
+            
+            # Increment request count
+            current_user.increment_request_count()
+            db.session.commit()
+        
+        # Create enhanced query log entry
+        query_log = self._create_enhanced_query_log(
+            system_description, model_config, conversation_id, 
+            system_name, user_tags, domain_bounds
+        )
+        
+        try:
+            # Log activity start
+            self._log_user_activity('certificate_generation_started', {
+                'system_name': system_name,
+                'model_config': model_config.get('name') if model_config else 'default',
+                'conversation_id': conversation_id,
+                'has_domain_bounds': bool(domain_bounds),
+                'system_complexity': self._estimate_system_complexity(system_description)
+            })
+            
+            # Generate certificate using existing method
+            result = self.generate_certificate(system_description, model_config or {}, conversation_id or "")
+            
+            # Process and enhance the result
+            enhanced_result = self._enhance_result_with_metadata(result, query_log)
+            
+            # Update query log with results
+            self._update_query_log_with_results(query_log, enhanced_result)
+            
+            # Log successful generation
+            self._log_certificate_generation_success(query_log, enhanced_result)
+            
+            # Update user statistics
+            if current_user.is_authenticated:
+                current_user.increment_certificate_count()
+                db.session.commit()
+            
+            return enhanced_result
+            
+        except Exception as e:
+            # Log failure
+            self._log_certificate_generation_failure(query_log, str(e))
+            
+            # Update query log with error
+            query_log.status = 'failed'
+            query_log.error_message = str(e)
+            query_log.processing_end = datetime.utcnow()
+            db.session.commit()
+            
+            raise e
+    
+    def _create_enhanced_query_log(self, system_description, model_config, 
+                                 conversation_id, system_name, user_tags, domain_bounds):
+        """Create comprehensive query log with user tracking."""
+        
+        # Detect system properties
+        system_vars = self._extract_system_variables(system_description)
+        system_type = self._detect_system_type(system_description)
+        system_dimension = len(system_vars) if system_vars else None
+        
+        # Prepare model configuration
+        model_name = model_config.get('name', 'default') if model_config else 'default'
+        rag_k = model_config.get('rag_k', 0) if model_config else 0
+        temperature = model_config.get('temperature', 0.7) if model_config else 0.7
+        max_tokens = model_config.get('max_tokens', 512) if model_config else 512
+        
+        query_log = QueryLog(
+            user_id=current_user.id if current_user.is_authenticated else None,
+            
+            # System details
+            system_description=system_description,
+            system_name=system_name,
+            system_type=system_type,
+            system_dimension=system_dimension,
+            variables=system_vars,
+            
+            # Model configuration
+            model_config=model_config or {},
+            model_name=model_name,
+            rag_k=rag_k,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            
+            # Context tracking
+            conversation_id=conversation_id,
+            session_id=self.user_context.get('session_id'),
+            ip_address=self.user_context.get('ip_address'),
+            user_agent=self.user_context.get('user_agent'),
+            
+            # User interaction
+            tags=user_tags or [],
+            
+            # Domain bounds
+            certificate_domain_bounds=json.dumps(domain_bounds) if domain_bounds else None,
+            domain_description=self._generate_domain_description(domain_bounds) if domain_bounds else None,
+            
+            # Status and timing
+            status='pending',
+            processing_start=datetime.utcnow(),
+            timestamp=datetime.utcnow()
+        )
+        
+        db.session.add(query_log)
+        db.session.commit()
+        return query_log
+    
+    def _enhance_result_with_metadata(self, result, query_log):
+        """Add metadata and quality metrics to the generation result."""
+        processing_time = time.time() - self.start_time
+        
+        enhanced_result = result.copy() if isinstance(result, dict) else {
+            'generated_certificate': result,
+            'status': 'completed'
+        }
+        
+        # Add performance metrics
+        enhanced_result.update({
+            'processing_time_seconds': processing_time,
+            'query_id': query_log.id,
+            'timestamp': datetime.utcnow().isoformat(),
+            'user_context': self.user_context if current_user.is_authenticated else None,
+            
+            # Quality metrics (to be computed)
+            'certificate_complexity': None,
+            'confidence_score': None,
+            'mathematical_soundness': None
+        })
+        
+        # Analyze certificate if generated successfully
+        if enhanced_result.get('generated_certificate'):
+            cert_analysis = self._analyze_certificate(enhanced_result['generated_certificate'])
+            enhanced_result.update(cert_analysis)
+        
+        return enhanced_result
+    
+    def _update_query_log_with_results(self, query_log, enhanced_result):
+        """Update the query log with generation results."""
+        query_log.generated_certificate = enhanced_result.get('generated_certificate')
+        query_log.status = enhanced_result.get('status', 'completed')
+        query_log.processing_end = datetime.utcnow()
+        query_log.processing_time = enhanced_result.get('processing_time_seconds')
+        
+        # Certificate analysis results
+        query_log.certificate_format = enhanced_result.get('certificate_format')
+        query_log.certificate_complexity = enhanced_result.get('certificate_complexity')
+        query_log.extraction_method = enhanced_result.get('extraction_method')
+        query_log.confidence_score = enhanced_result.get('confidence_score')
+        query_log.mathematical_soundness = enhanced_result.get('mathematical_soundness')
+        
+        # Token usage and cost estimation
+        query_log.total_tokens_used = enhanced_result.get('total_tokens_used')
+        query_log.cost_estimate = enhanced_result.get('cost_estimate')
+        
+        db.session.commit()
+    
+    def _log_certificate_generation_success(self, query_log, result):
+        """Log successful certificate generation activity."""
+        self._log_user_activity('certificate_generated', {
+            'query_id': query_log.id,
+            'system_name': query_log.system_name,
+            'model_name': query_log.model_name,
+            'processing_time': result.get('processing_time_seconds'),
+            'certificate_format': result.get('certificate_format'),
+            'certificate_complexity': result.get('certificate_complexity'),
+            'tokens_used': result.get('total_tokens_used'),
+            'cost_estimate': result.get('cost_estimate'),
+            'has_certificate': bool(result.get('generated_certificate'))
+        }, success=True, response_time_ms=int(result.get('processing_time_seconds', 0) * 1000))
+    
+    def _log_certificate_generation_failure(self, query_log, error_message):
+        """Log failed certificate generation activity."""
+        processing_time = time.time() - self.start_time if self.start_time else 0
+        
+        self._log_user_activity('certificate_generation_failed', {
+            'query_id': query_log.id,
+            'system_name': query_log.system_name,
+            'model_name': query_log.model_name,
+            'error_message': error_message,
+            'processing_time': processing_time
+        }, success=False, response_time_ms=int(processing_time * 1000))
+    
+    def _log_user_activity(self, activity_type, details=None, success=True, response_time_ms=None):
+        """Log user activity if user is authenticated."""
+        if current_user.is_authenticated:
+            try:
+                activity = UserActivity(
+                    user_id=current_user.id,
+                    activity_type=activity_type,
+                    activity_details=details or {},
+                    ip_address=self.user_context.get('ip_address'),
+                    user_agent=self.user_context.get('user_agent'),
+                    session_id=self.user_context.get('session_id'),
+                    response_time_ms=response_time_ms,
+                    success=success
+                )
+                db.session.add(activity)
+                db.session.commit()
+            except Exception:
+                # Don't let activity logging break the main functionality
+                db.session.rollback()
+    
+    def _extract_system_variables(self, system_description):
+        """Extract variable names from system description."""
+        import re
+        
+        # Common patterns for variable extraction
+        patterns = [
+            r'([a-zA-Z]\w*)\s*\'',  # x', y', etc.
+            r'd([a-zA-Z]\w*)/dt',   # dx/dt, dy/dt, etc.
+            r'([a-zA-Z]\w*)\s*\(',  # x(t), y(t), etc.
+            r'([a-zA-Z]\w*)\s*=',   # x =, y =, etc.
+        ]
+        
+        variables = set()
+        for pattern in patterns:
+            matches = re.findall(pattern, system_description.lower())
+            variables.update(matches)
+        
+        # Filter out common non-variable words
+        exclude_words = {'dt', 'dx', 'dy', 'dz', 'sin', 'cos', 'exp', 'log', 'sqrt', 'abs', 'max', 'min'}
+        variables = [var for var in variables if var not in exclude_words and len(var) <= 5]
+        
+        return list(variables)
+    
+    def _detect_system_type(self, system_description):
+        """Detect if system is continuous, discrete, or stochastic."""
+        description_lower = system_description.lower()
+        
+        if any(keyword in description_lower for keyword in ['dt', 'derivative', 'differential', 'continuous']):
+            return 'continuous'
+        elif any(keyword in description_lower for keyword in ['k+1', 'next', 'discrete', 'iteration']):
+            return 'discrete'
+        elif any(keyword in description_lower for keyword in ['noise', 'stochastic', 'random', 'probability']):
+            return 'stochastic'
+        else:
+            return 'unknown'
+    
+    def _estimate_system_complexity(self, system_description):
+        """Estimate system complexity based on description."""
+        # Simple heuristic based on length, math operations, etc.
+        base_score = len(system_description) // 20
+        
+        math_operations = len(re.findall(r'[+\-*/^]', system_description))
+        functions = len(re.findall(r'(sin|cos|exp|log|sqrt|abs)', system_description.lower()))
+        
+        complexity = base_score + math_operations + functions * 2
+        return min(complexity, 100)  # Cap at 100
+    
+    def _analyze_certificate(self, certificate):
+        """Analyze the generated certificate for quality metrics."""
+        if not certificate:
+            return {
+                'certificate_format': None,
+                'certificate_complexity': 0,
+                'extraction_method': 'none'
+            }
+        
+        cert_lower = certificate.lower()
+        
+        # Detect certificate format
+        if any(op in cert_lower for op in ['^2', '**2', 'x*x', 'y*y']):
+            cert_format = 'polynomial'
+        elif any(func in cert_lower for func in ['sin', 'cos', 'tan']):
+            cert_format = 'trigonometric'
+        elif '/' in cert_lower:
+            cert_format = 'rational'
+        else:
+            cert_format = 'linear'
+        
+        # Estimate complexity
+        complexity = len(certificate) // 10
+        complexity += len(re.findall(r'[+\-*/^]', certificate))
+        complexity += len(re.findall(r'(sin|cos|exp|log|sqrt)', cert_lower)) * 2
+        
+        return {
+            'certificate_format': cert_format,
+            'certificate_complexity': min(complexity, 100),
+            'extraction_method': 'regex_pattern'  # Could be enhanced with ML models
+        }
+    
+    def _generate_domain_description(self, domain_bounds):
+        """Generate human-readable domain description."""
+        if not domain_bounds:
+            return None
+        
+        descriptions = []
+        for var, bounds in domain_bounds.items():
+            if isinstance(bounds, list) and len(bounds) == 2:
+                descriptions.append(f"{var} ∈ [{bounds[0]}, {bounds[1]}]")
+        
+        return ", ".join(descriptions)
+    
+    def _get_client_ip(self):
+        """Get client IP address from request."""
+        try:
+            from flask import request
+            # Check for forwarded headers (when behind proxy)
+            if request.headers.get('X-Forwarded-For'):
+                return request.headers.get('X-Forwarded-For').split(',')[0].strip()
+            elif request.headers.get('X-Real-IP'):
+                return request.headers.get('X-Real-IP')
+            else:
+                return request.remote_addr
+        except:
+            return 'unknown'
+    
+    def _get_user_agent(self):
+        """Get user agent from request."""
+        try:
+            from flask import request
+            return request.headers.get('User-Agent', '')[:500]  # Limit length
+        except:
+            return 'unknown'
+    
     def get_available_models(self) -> List[Dict[str, Any]]:
         """Get list of available model configurations."""
         if self.deployment_mode != "local":

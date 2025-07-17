@@ -4,13 +4,14 @@ Authentication routes for FM-LLM Solver web interface.
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, session, abort
 from flask_login import login_user, logout_user, login_required, current_user
-from web_interface.models import db, User, SecurityLog
+from web_interface.models import db, User, SecurityLog, UserActivity, UserSession
 from web_interface.auth import (
     check_password_strength, detect_brute_force, block_ip, 
     log_security_event, generate_api_key, get_client_ip
 )
 from datetime import datetime
 import re
+import secrets
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
 
@@ -68,8 +69,7 @@ def login():
         else:
             # Failed login
             log_security_event('login_failed', severity='medium',
-                             description=f'Failed login attempt for username: {username}',
-                             username=username)
+                             description=f'Failed login attempt for username: {username}')
             flash('Invalid username or password.', 'error')
     
     return render_template('auth/login.html')
@@ -277,3 +277,91 @@ def admin_security_logs():
     )
     
     return render_template('auth/security_logs.html', logs=logs) 
+
+def log_user_activity(activity_type, details=None, success=True, response_time_ms=None):
+    """Log user activity for analytics and security."""
+    if current_user.is_authenticated:
+        try:
+            activity = UserActivity(
+                user_id=current_user.id,
+                activity_type=activity_type,
+                activity_details=details or {},
+                ip_address=get_client_ip(),
+                user_agent=request.headers.get('User-Agent', ''),
+                session_id=session.get('_id', ''),
+                response_time_ms=response_time_ms,
+                success=success
+            )
+            db.session.add(activity)
+            db.session.commit()
+        except Exception:
+            # Don't let activity logging break the main functionality
+            db.session.rollback()
+
+def track_login_activity(user):
+    """Track login activity and update user statistics."""
+    user.login_count = (user.login_count or 0) + 1
+    user.last_login = datetime.utcnow()
+    
+    # Create or update session record
+    session_token = session.get('_id', secrets.token_urlsafe(32))
+    session['_id'] = session_token
+    
+    user_session = UserSession(
+        user_id=user.id,
+        session_token=session_token,
+        ip_address=get_client_ip(),
+        user_agent=request.headers.get('User-Agent', ''),
+        device_type=detect_device_type(request.headers.get('User-Agent', '')),
+        browser=detect_browser(request.headers.get('User-Agent', '')),
+        os=detect_os(request.headers.get('User-Agent', '')),
+        login_method='password',
+        is_remembered=bool(request.form.get('remember'))
+    )
+    db.session.add(user_session)
+    
+    log_user_activity('login', {
+        'ip_address': get_client_ip(),
+        'user_agent': request.headers.get('User-Agent', ''),
+        'remember_me': bool(request.form.get('remember'))
+    })
+
+def detect_device_type(user_agent):
+    """Detect device type from user agent."""
+    user_agent = user_agent.lower()
+    if 'mobile' in user_agent or 'android' in user_agent or 'iphone' in user_agent:
+        return 'mobile'
+    elif 'tablet' in user_agent or 'ipad' in user_agent:
+        return 'tablet'
+    else:
+        return 'desktop'
+
+def detect_browser(user_agent):
+    """Detect browser from user agent."""
+    user_agent = user_agent.lower()
+    if 'chrome' in user_agent:
+        return 'Chrome'
+    elif 'firefox' in user_agent:
+        return 'Firefox'
+    elif 'safari' in user_agent:
+        return 'Safari'
+    elif 'edge' in user_agent:
+        return 'Edge'
+    else:
+        return 'Unknown'
+
+def detect_os(user_agent):
+    """Detect operating system from user agent."""
+    user_agent = user_agent.lower()
+    if 'windows' in user_agent:
+        return 'Windows'
+    elif 'macintosh' in user_agent or 'mac os' in user_agent:
+        return 'macOS'
+    elif 'linux' in user_agent:
+        return 'Linux'
+    elif 'android' in user_agent:
+        return 'Android'
+    elif 'ios' in user_agent:
+        return 'iOS'
+    else:
+        return 'Unknown' 
