@@ -6,4 +6,4 @@ Provides a unified CLI tool to replace scattered scripts and improve developer e
 
 from .main import cli
 
-__all__ = ["cli"] 
+__all__ = ["cli"]

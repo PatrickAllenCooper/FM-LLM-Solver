@@ -14,6 +14,7 @@ import io
 try:
     import matplotlib.pyplot as plt
     import matplotlib.patches as mpatches
+
     MATPLOTLIB_AVAILABLE = True
 except ImportError:
     MATPLOTLIB_AVAILABLE = False
@@ -22,114 +23,118 @@ except ImportError:
 
 class HTMLReportGenerator:
     """Generates comprehensive HTML reports for test results"""
-    
+
     def __init__(self, results_file: str, output_file: str = "phase1_report.html"):
         self.results_file = results_file
         self.output_file = output_file
         self.results = None
         self.load_results()
-        
+
     def load_results(self):
         """Load test results from JSON file"""
-        with open(self.results_file, 'r') as f:
+        with open(self.results_file, "r") as f:
             self.results = json.load(f)
-            
+
     def generate_pie_chart(self, passed: int, failed: int, errors: int) -> str:
         """Generate a pie chart as base64 encoded image"""
         if not MATPLOTLIB_AVAILABLE:
             return ""
-            
+
         fig, ax = plt.subplots(figsize=(6, 6))
-        
+
         # Data
         sizes = []
         labels = []
         colors = []
-        
+
         if passed > 0:
             sizes.append(passed)
-            labels.append(f'Passed ({passed})')
-            colors.append('#28a745')
-            
+            labels.append(f"Passed ({passed})")
+            colors.append("#28a745")
+
         if failed > 0:
             sizes.append(failed)
-            labels.append(f'Failed ({failed})')
-            colors.append('#dc3545')
-            
+            labels.append(f"Failed ({failed})")
+            colors.append("#dc3545")
+
         if errors > 0:
             sizes.append(errors)
-            labels.append(f'Errors ({errors})')
-            colors.append('#ffc107')
-            
+            labels.append(f"Errors ({errors})")
+            colors.append("#ffc107")
+
         if not sizes:
             return ""
-            
+
         # Create pie chart
-        ax.pie(sizes, labels=labels, colors=colors, autopct='%1.1f%%', startangle=90)
-        ax.axis('equal')
-        
+        ax.pie(sizes, labels=labels, colors=colors, autopct="%1.1f%%", startangle=90)
+        ax.axis("equal")
+
         # Save to base64
         buffer = io.BytesIO()
-        plt.savefig(buffer, format='png', bbox_inches='tight', transparent=True)
+        plt.savefig(buffer, format="png", bbox_inches="tight", transparent=True)
         buffer.seek(0)
         image_base64 = base64.b64encode(buffer.read()).decode()
         plt.close()
-        
-        return f'data:image/png;base64,{image_base64}'
-        
+
+        return f"data:image/png;base64,{image_base64}"
+
     def generate_timeline_chart(self, test_results: List[Dict]) -> str:
         """Generate a timeline chart showing test execution times"""
         if not MATPLOTLIB_AVAILABLE or not test_results:
             return ""
-            
+
         fig, ax = plt.subplots(figsize=(10, 6))
-        
+
         # Extract timing data
         test_names = []
         times = []
         colors = []
-        
+
         for result in test_results:
-            if 'new_validator_time' in result and result['new_validator_time']:
-                test_names.append(result['test_id'][:20] + '...' if len(result['test_id']) > 20 else result['test_id'])
-                times.append(result['new_validator_time'])
-                colors.append('#28a745' if result.get('correct', False) else '#dc3545')
-                
+            if "new_validator_time" in result and result["new_validator_time"]:
+                test_names.append(
+                    result["test_id"][:20] + "..."
+                    if len(result["test_id"]) > 20
+                    else result["test_id"]
+                )
+                times.append(result["new_validator_time"])
+                colors.append("#28a745" if result.get("correct", False) else "#dc3545")
+
         if not times:
             return ""
-            
+
         # Create horizontal bar chart
         y_pos = range(len(test_names))
         ax.barh(y_pos, times, color=colors)
         ax.set_yticks(y_pos)
         ax.set_yticklabels(test_names)
-        ax.set_xlabel('Execution Time (seconds)')
-        ax.set_title('Test Execution Times')
-        
+        ax.set_xlabel("Execution Time (seconds)")
+        ax.set_title("Test Execution Times")
+
         # Save to base64
         buffer = io.BytesIO()
-        plt.savefig(buffer, format='png', bbox_inches='tight', transparent=True)
+        plt.savefig(buffer, format="png", bbox_inches="tight", transparent=True)
         buffer.seek(0)
         image_base64 = base64.b64encode(buffer.read()).decode()
         plt.close()
-        
-        return f'data:image/png;base64,{image_base64}'
-        
+
+        return f"data:image/png;base64,{image_base64}"
+
     def generate_html(self):
         """Generate the complete HTML report"""
         # Calculate statistics
-        total_tests = self.results.get('total_tests', 0)
-        summary = self.results.get('summary', {})
-        passed = summary.get('passed', 0)
-        failed = summary.get('failed', 0)
-        errors = summary.get('errors', 0)
-        
+        total_tests = self.results.get("total_tests", 0)
+        summary = self.results.get("summary", {})
+        passed = summary.get("passed", 0)
+        failed = summary.get("failed", 0)
+        errors = summary.get("errors", 0)
+
         # Generate charts
         pie_chart = self.generate_pie_chart(passed, failed, errors)
-        timeline_chart = self.generate_timeline_chart(self.results.get('results', []))
-        
+        timeline_chart = self.generate_timeline_chart(self.results.get("results", []))
+
         # HTML template
-        html = f"""
+        html = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -285,7 +290,7 @@ class HTMLReportGenerator:
         <h1>Phase 1 Barrier Certificate Test Report</h1>
         <div class="timestamp">Generated: {self.results.get('timestamp', datetime.now().isoformat())}</div>
     </header>
-    
+
     <div class="container">
         <div class="summary-grid">
             <div class="summary-card">
@@ -309,25 +314,25 @@ class HTMLReportGenerator:
             </div>
         </div>
 """
-        
+
         # Add pie chart if available
         if pie_chart:
-            html += f"""
+            html += """
         <div class="chart-container">
             <h2>Test Results Distribution</h2>
             <img src="{pie_chart}" alt="Test Results Pie Chart" style="max-width: 500px;">
         </div>
 """
-        
+
         # Add timeline chart if available
         if timeline_chart:
-            html += f"""
+            html += """
         <div class="chart-container">
             <h2>Test Execution Timeline</h2>
             <img src="{timeline_chart}" alt="Test Execution Timeline" style="max-width: 100%;">
         </div>
 """
-        
+
         # Add detailed results table
         html += """
         <div class="results-table">
@@ -346,21 +351,29 @@ class HTMLReportGenerator:
                 </thead>
                 <tbody>
 """
-        
+
         # Add individual test results
-        for result in self.results.get('results', []):
-            status = 'pass' if result.get('correct') else 'error' if result.get('correct') is None else 'fail'
-            status_text = 'PASS' if status == 'pass' else 'ERROR' if status == 'error' else 'FAIL'
-            
+        for result in self.results.get("results", []):
+            status = (
+                "pass"
+                if result.get("correct")
+                else "error" if result.get("correct") is None else "fail"
+            )
+            status_text = "PASS" if status == "pass" else "ERROR" if status == "error" else "FAIL"
+
             level_sets = ""
-            if result.get('level_sets_computed'):
-                c1 = result['level_sets_computed'].get('c1', 'N/A')
-                c2 = result['level_sets_computed'].get('c2', 'N/A')
+            if result.get("level_sets_computed"):
+                c1 = result["level_sets_computed"].get("c1", "N/A")
+                c2 = result["level_sets_computed"].get("c2", "N/A")
                 level_sets = f"c₁={c1:.3f}, c₂={c2:.3f}" if isinstance(c1, (int, float)) else "N/A"
-                
-            time_str = f"{result.get('new_validator_time', 0):.3f}" if result.get('new_validator_time') else "N/A"
-            
-            html += f"""
+
+            time_str = (
+                f"{result.get('new_validator_time', 0):.3f}"
+                if result.get("new_validator_time")
+                else "N/A"
+            )
+
+            html += """
                     <tr>
                         <td><strong>{result.get('test_id', 'Unknown')}</strong></td>
                         <td>{result.get('system_name', 'Unknown')}</td>
@@ -371,23 +384,23 @@ class HTMLReportGenerator:
                         <td>{time_str}</td>
                     </tr>
 """
-            
+
             # Add notes if present
-            if result.get('notes'):
-                html += f"""
+            if result.get("notes"):
+                html += """
                     <tr>
                         <td colspan="7" class="notes">Note: {result['notes']}</td>
                     </tr>
 """
-        
+
         html += """
                 </tbody>
             </table>
         </div>
 """
-        
+
         # Add failed tests summary if any
-        failed_tests = [r for r in self.results.get('results', []) if r.get('correct') == False]
+        failed_tests = [r for r in self.results.get("results", []) if r.get("correct") == False]
         if failed_tests:
             html += """
         <div class="results-table">
@@ -404,7 +417,7 @@ class HTMLReportGenerator:
                 <tbody>
 """
             for result in failed_tests:
-                html += f"""
+                html += """
                     <tr>
                         <td><strong>{result.get('test_id', 'Unknown')}</strong></td>
                         <td>{result.get('expected_valid', 'Unknown')}</td>
@@ -417,16 +430,16 @@ class HTMLReportGenerator:
             </table>
         </div>
 """
-        
+
         # Add footer
         html += """
     </div>
-    
+
     <footer class="footer">
         <p>Phase 1 Barrier Certificate Validation Test Report</p>
         <p>Generated by HTMLReportGenerator</p>
     </footer>
-    
+
     <script>
         // Add collapsible functionality if needed
         var coll = document.getElementsByClassName("collapsible");
@@ -445,68 +458,69 @@ class HTMLReportGenerator:
 </body>
 </html>
 """
-        
+
         # Write to file
-        with open(self.output_file, 'w') as f:
+        with open(self.output_file, "w") as f:
             f.write(html)
-            
+
         print(f"HTML report generated: {self.output_file}")
-        
+
     def generate_metrics_summary(self) -> Dict[str, Any]:
         """Generate metrics summary for the report"""
-        results = self.results.get('results', [])
-        
+        results = self.results.get("results", [])
+
         # Calculate various metrics
         metrics = {
-            'total_tests': len(results),
-            'passed': sum(1 for r in results if r.get('correct') == True),
-            'failed': sum(1 for r in results if r.get('correct') == False),
-            'errors': sum(1 for r in results if r.get('correct') is None),
-            'avg_execution_time': 0,
-            'validator_agreement_rate': 0,
-            'level_set_accuracy': 0
+            "total_tests": len(results),
+            "passed": sum(1 for r in results if r.get("correct") == True),
+            "failed": sum(1 for r in results if r.get("correct") == False),
+            "errors": sum(1 for r in results if r.get("correct") is None),
+            "avg_execution_time": 0,
+            "validator_agreement_rate": 0,
+            "level_set_accuracy": 0,
         }
-        
+
         # Average execution time
-        times = [r.get('new_validator_time', 0) for r in results if r.get('new_validator_time')]
+        times = [r.get("new_validator_time", 0) for r in results if r.get("new_validator_time")]
         if times:
-            metrics['avg_execution_time'] = sum(times) / len(times)
-            
+            metrics["avg_execution_time"] = sum(times) / len(times)
+
         # Validator agreement rate
-        agreements = [r for r in results if r.get('agreement') is not None]
+        agreements = [r for r in results if r.get("agreement") is not None]
         if agreements:
-            agreed = sum(1 for r in agreements if r.get('agreement'))
-            metrics['validator_agreement_rate'] = agreed / len(agreements) * 100
-            
+            agreed = sum(1 for r in agreements if r.get("agreement"))
+            metrics["validator_agreement_rate"] = agreed / len(agreements) * 100
+
         # Level set accuracy
-        level_set_matches = [r for r in results if r.get('level_set_match') is not None]
+        level_set_matches = [r for r in results if r.get("level_set_match") is not None]
         if level_set_matches:
-            matches = sum(1 for r in level_set_matches if r.get('level_set_match'))
-            metrics['level_set_accuracy'] = matches / len(level_set_matches) * 100
-            
+            matches = sum(1 for r in level_set_matches if r.get("level_set_match"))
+            metrics["level_set_accuracy"] = matches / len(level_set_matches) * 100
+
         return metrics
 
 
 def main():
     """Main entry point for report generation"""
     import argparse
-    
+
     parser = argparse.ArgumentParser(description="Generate HTML report from test results")
-    parser.add_argument('results_file', help='JSON file containing test results')
-    parser.add_argument('-o', '--output', default='phase1_report.html',
-                       help='Output HTML file name')
-    
+    parser.add_argument("results_file", help="JSON file containing test results")
+    parser.add_argument(
+        "-o", "--output", default="phase1_report.html", help="Output HTML file name"
+    )
+
     args = parser.parse_args()
-    
+
     # Check if results file exists
     if not os.path.exists(args.results_file):
         print(f"Error: Results file '{args.results_file}' not found")
         return
-        
+
     # Generate report
     generator = HTMLReportGenerator(args.results_file, args.output)
     generator.generate_html()
-    
+
     # Print metrics summary
     metrics = generator.generate_metrics_summary()
     print("\nTest Metrics Summary:")
@@ -520,4 +534,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main() 
+    main()

@@ -18,7 +18,7 @@ from fm_llm_solver.core.exceptions import (
     ConfigurationError,
     GenerationError,
     VerificationError,
-    KnowledgeBaseError
+    KnowledgeBaseError,
 )
 
 # Service exports
@@ -29,7 +29,7 @@ from fm_llm_solver.services.knowledge_base import KnowledgeBase
 __all__ = [
     "__version__",
     "Config",
-    "load_config", 
+    "load_config",
     "get_logger",
     "configure_logging",
     "FMLLMSolverError",
@@ -39,5 +39,5 @@ __all__ = [
     "KnowledgeBaseError",
     "CertificateGenerator",
     "CertificateVerifier",
-    "KnowledgeBase"
-] 
+    "KnowledgeBase",
+]

@@ -9,9 +9,4 @@ from .api import api_bp
 from .auth import auth_bp
 from .monitoring import monitoring_bp
 
-__all__ = [
-    "main_bp",
-    "api_bp", 
-    "auth_bp",
-    "monitoring_bp"
-] 
+__all__ = ["main_bp", "api_bp", "auth_bp", "monitoring_bp"]

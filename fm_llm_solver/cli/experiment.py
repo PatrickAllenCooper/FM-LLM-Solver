@@ -13,11 +13,11 @@ def experiment():
 
 
 @experiment.command()
-@click.option('--config-file', type=click.Path(exists=True), help='Experiment configuration file')
-@click.pass_context  
+@click.option("--config-file", type=click.Path(exists=True), help="Experiment configuration file")
+@click.pass_context
 def run(ctx, config_file):
     """Run experiments."""
-    logger = get_logger('experiment.run')
+    logger = get_logger("experiment.run")
     click.echo("🧪 Running experiments...")
     # TODO: Implement experiment runner
 
@@ -27,4 +27,4 @@ def run(ctx, config_file):
 def list_experiments(ctx):
     """List available experiments."""
     click.echo("📋 Available experiments:")
-    # TODO: Implement experiment listing 
+    # TODO: Implement experiment listing

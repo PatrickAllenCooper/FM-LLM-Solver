@@ -13,11 +13,11 @@ def deploy():
 
 
 @deploy.command()
-@click.argument('target', type=click.Choice(['local', 'runpod', 'modal', 'vastai', 'gcp']))
+@click.argument("target", type=click.Choice(["local", "runpod", "modal", "vastai", "gcp"]))
 @click.pass_context
 def to(ctx, target):
     """Deploy to specified target."""
-    logger = get_logger('deploy.to')
+    logger = get_logger("deploy.to")
     click.echo(f"🚀 Deploying to {target}...")
     # TODO: Implement deployment logic
 
@@ -27,4 +27,4 @@ def to(ctx, target):
 def status(ctx):
     """Check deployment status."""
     click.echo("📊 Deployment status:")
-    # TODO: Implement status checking 
+    # TODO: Implement status checking

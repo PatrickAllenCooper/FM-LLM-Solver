@@ -9,7 +9,7 @@ from fm_llm_solver.web.routes import (
     register_main_routes,
     register_api_routes,
     register_auth_routes,
-    register_monitoring_routes
+    register_monitoring_routes,
 )
 
 __all__ = [
@@ -17,5 +17,5 @@ __all__ = [
     "register_main_routes",
     "register_api_routes",
     "register_auth_routes",
-    "register_monitoring_routes"
-] 
+    "register_monitoring_routes",
+]

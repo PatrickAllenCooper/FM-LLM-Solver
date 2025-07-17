@@ -15,29 +15,27 @@ from fm_llm_solver.core.logging import configure_logging, get_logger
 
 
 @click.group()
-@click.option('--config', '-c', type=click.Path(exists=True), help='Configuration file path')
-@click.option('--verbose', '-v', is_flag=True, help='Enable verbose logging')
-@click.option('--debug', is_flag=True, help='Enable debug logging')
+@click.option("--config", "-c", type=click.Path(exists=True), help="Configuration file path")
+@click.option("--verbose", "-v", is_flag=True, help="Enable verbose logging")
+@click.option("--debug", is_flag=True, help="Enable debug logging")
 @click.pass_context
 def cli(ctx, config: Optional[str], verbose: bool, debug: bool):
     """FM-LLM Solver - Barrier Certificate Generation using Large Language Models."""
     # Ensure context object exists
     ctx.ensure_object(dict)
-    
+
     # Load configuration
     try:
-        ctx.obj['config'] = load_config(config)
-        
+        ctx.obj["config"] = load_config(config)
+
         # Configure logging
-        log_level = 'DEBUG' if debug else ('INFO' if verbose else ctx.obj['config'].logging.level)
+        log_level = "DEBUG" if debug else ("INFO" if verbose else ctx.obj["config"].logging.level)
         configure_logging(
-            level=log_level,
-            console=True,
-            structured=ctx.obj['config'].logging.structured
+            level=log_level, console=True, structured=ctx.obj["config"].logging.structured
         )
-        
-        ctx.obj['logger'] = get_logger('cli')
-        
+
+        ctx.obj["logger"] = get_logger("cli")
+
     except Exception as e:
         click.echo(f"Error loading configuration: {e}", err=True)
         sys.exit(1)
@@ -61,79 +59,79 @@ cli.add_command(config)
 
 
 @cli.command()
-@click.argument('system_description')
-@click.option('--model', default='base', help='Model configuration to use')
-@click.option('--rag-k', default=3, help='Number of RAG context chunks')
-@click.option('--output', '-o', type=click.Path(), help='Output file for certificate')
-@click.option('--verify', is_flag=True, help='Verify the generated certificate')
+@click.argument("system_description")
+@click.option("--model", default="base", help="Model configuration to use")
+@click.option("--rag-k", default=3, help="Number of RAG context chunks")
+@click.option("--output", "-o", type=click.Path(), help="Output file for certificate")
+@click.option("--verify", is_flag=True, help="Verify the generated certificate")
 @click.pass_context
-def generate(ctx, system_description: str, model: str, rag_k: int, output: Optional[str], verify: bool):
+def generate(
+    ctx, system_description: str, model: str, rag_k: int, output: Optional[str], verify: bool
+):
     """Generate a barrier certificate for a given system description."""
-    config = ctx.obj['config']
-    logger = ctx.obj['logger']
-    
+    config = ctx.obj["config"]
+    logger = ctx.obj["logger"]
+
     logger.info(f"Generating certificate for system: {system_description[:50]}...")
-    
+
     try:
         # Initialize services
         from fm_llm_solver.services.certificate_generator import CertificateGenerator
         from fm_llm_solver.services.model_provider import ModelProviderFactory
         from fm_llm_solver.services.knowledge_base import KnowledgeBase
-        
+
         # Create model provider
         model_provider = ModelProviderFactory.create(
-            provider=config.model.provider,
-            config=config.model
+            provider=config.model.provider, config=config.model
         )
-        
+
         # Create knowledge base if RAG is enabled
         knowledge_base = None
         if config.rag.enabled and rag_k > 0:
             knowledge_base = KnowledgeBase(config)
-        
+
         # Create generator
         generator = CertificateGenerator(
-            config=config,
-            model_provider=model_provider,
-            knowledge_store=knowledge_base
+            config=config, model_provider=model_provider, knowledge_store=knowledge_base
         )
-        
+
         # Parse system description
         from fm_llm_solver.core.types import SystemDescription, SystemType
+
         system = SystemDescription(
-            dynamics={'x': system_description},  # Simplified for CLI
+            dynamics={"x": system_description},  # Simplified for CLI
             initial_set="x <= 1",
             unsafe_set="x >= 10",
-            system_type=SystemType.CONTINUOUS
+            system_type=SystemType.CONTINUOUS,
         )
-        
+
         # Generate certificate
         result = generator.generate(system)
-        
+
         if result.success:
-            click.echo(f"\n✅ Certificate generated successfully!")
+            click.echo("\n✅ Certificate generated successfully!")
             click.echo(f"Certificate: {result.certificate.expression}")
             click.echo(f"Confidence: {result.confidence:.2%}")
             click.echo(f"Generation time: {result.generation_time:.2f}s")
-            
+
             # Save to file if specified
             if output:
-                with open(output, 'w') as f:
-                    f.write(f"# Generated by FM-LLM Solver\n")
+                with open(output, "w") as f:
+                    f.write("# Generated by FM-LLM Solver\n")
                     f.write(f"# System: {system_description}\n")
                     f.write(f"# Model: {model}\n")
                     f.write(f"# RAG context: {rag_k} chunks\n\n")
                     f.write(f"Certificate: {result.certificate.expression}\n")
                 click.echo(f"Certificate saved to: {output}")
-            
+
             # Verify if requested
             if verify:
                 click.echo("\n🔍 Verifying certificate...")
                 from fm_llm_solver.services.verifier import CertificateVerifier
-                
+
                 verifier = CertificateVerifier(config)
                 verification_result = verifier.verify(system, result.certificate)
-                
+
                 if verification_result.valid:
                     click.echo("✅ Certificate verification passed!")
                 else:
@@ -144,7 +142,7 @@ def generate(ctx, system_description: str, model: str, rag_k: int, output: Optio
         else:
             click.echo(f"❌ Certificate generation failed: {result.error}")
             sys.exit(1)
-            
+
     except Exception as e:
         logger.error(f"Generation failed: {e}")
         click.echo(f"❌ Error: {e}", err=True)
@@ -155,11 +153,11 @@ def generate(ctx, system_description: str, model: str, rag_k: int, output: Optio
 @click.pass_context
 def status(ctx):
     """Show system status and health checks."""
-    config = ctx.obj['config']
-    logger = ctx.obj['logger']
-    
+    config = ctx.obj["config"]
+    logger = ctx.obj["logger"]
+
     click.echo("🔍 FM-LLM Solver System Status\n")
-    
+
     # Check configuration
     click.echo("📋 Configuration:")
     click.echo(f"  • Config file: {config.paths.kb_output_dir}")
@@ -167,18 +165,19 @@ def status(ctx):
     click.echo(f"  • Model provider: {config.model.provider}")
     click.echo(f"  • Model: {config.model.name}")
     click.echo(f"  • RAG enabled: {config.rag.enabled}")
-    
+
     # Check GPU availability
     click.echo("\n🖥️  Hardware:")
     try:
         import torch
+
         if torch.cuda.is_available():
             gpu_count = torch.cuda.device_count()
             current_gpu = torch.cuda.current_device()
             gpu_name = torch.cuda.get_device_name(current_gpu)
             click.echo(f"  • CUDA: ✅ Available ({gpu_count} devices)")
             click.echo(f"  • Current GPU: {gpu_name}")
-            
+
             # Memory info
             memory = torch.cuda.get_device_properties(current_gpu).total_memory
             memory_gb = memory / (1024**3)
@@ -187,7 +186,7 @@ def status(ctx):
             click.echo("  • CUDA: ❌ Not available")
     except ImportError:
         click.echo("  • PyTorch: ❌ Not installed")
-    
+
     # Check knowledge base
     click.echo("\n📚 Knowledge Base:")
     kb_dir = Path(config.paths.kb_output_dir)
@@ -202,49 +201,53 @@ def status(ctx):
             click.echo("  • Status: ⚠️  No indexes found")
     else:
         click.echo("  • Status: ❌ Directory not found")
-    
+
     # Check model files
     click.echo("\n🤖 Models:")
     if config.model.provider == "qwen":
         # Check if model is cached
         model_cache = Path.home() / ".cache" / "huggingface" / "transformers"
         if model_cache.exists():
-            model_dirs = [d for d in model_cache.iterdir() if d.is_dir() and "qwen" in d.name.lower()]
+            model_dirs = [
+                d for d in model_cache.iterdir() if d.is_dir() and "qwen" in d.name.lower()
+            ]
             if model_dirs:
                 click.echo(f"  • Cached models: ✅ Found {len(model_dirs)} Qwen models")
             else:
                 click.echo("  • Cached models: ⚠️  No Qwen models cached")
         else:
             click.echo("  • Model cache: ❌ Not found")
-    
+
     # Check services
     click.echo("\n🔧 Services:")
     try:
         from fm_llm_solver.services.certificate_generator import CertificateGenerator
+
         click.echo("  • Certificate Generator: ✅ Available")
     except ImportError as e:
         click.echo(f"  • Certificate Generator: ❌ {e}")
-    
+
     try:
         from fm_llm_solver.services.verifier import CertificateVerifier
+
         click.echo("  • Verifier: ✅ Available")
     except ImportError as e:
         click.echo(f"  • Verifier: ❌ {e}")
-    
+
     click.echo("\n✅ System status check complete!")
 
 
 @cli.command()
-@click.option('--check-deps', is_flag=True, help='Check all dependencies')
-@click.option('--install-missing', is_flag=True, help='Install missing dependencies')
+@click.option("--check-deps", is_flag=True, help="Check all dependencies")
+@click.option("--install-missing", is_flag=True, help="Install missing dependencies")
 @click.pass_context
 def setup(ctx, check_deps: bool, install_missing: bool):
     """Set up the FM-LLM Solver environment."""
-    config = ctx.obj['config']
-    logger = ctx.obj['logger']
-    
+    config = ctx.obj["config"]
+    logger = ctx.obj["logger"]
+
     click.echo("🔧 Setting up FM-LLM Solver environment...\n")
-    
+
     # Create directories
     click.echo("📁 Creating directories...")
     directories = [
@@ -254,21 +257,30 @@ def setup(ctx, check_deps: bool, install_missing: bool):
         config.paths.log_dir,
         config.paths.temp_dir,
     ]
-    
+
     for directory in directories:
         Path(directory).mkdir(parents=True, exist_ok=True)
         click.echo(f"  • {directory}")
-    
+
     # Check dependencies if requested
     if check_deps:
         click.echo("\n📦 Checking dependencies...")
-        
+
         required_packages = [
-            'torch', 'transformers', 'accelerate', 'bitsandbytes',
-            'flask', 'sqlalchemy', 'pydantic', 'omegaconf',
-            'numpy', 'scipy', 'sympy', 'faiss-cpu'
+            "torch",
+            "transformers",
+            "accelerate",
+            "bitsandbytes",
+            "flask",
+            "sqlalchemy",
+            "pydantic",
+            "omegacon",
+            "numpy",
+            "scipy",
+            "sympy",
+            "faiss-cpu",
         ]
-        
+
         missing_packages = []
         for package in required_packages:
             try:
@@ -277,32 +289,33 @@ def setup(ctx, check_deps: bool, install_missing: bool):
             except ImportError:
                 click.echo(f"  • {package}: ❌ Missing")
                 missing_packages.append(package)
-        
+
         if missing_packages and install_missing:
             click.echo(f"\n📥 Installing missing packages: {', '.join(missing_packages)}")
             import subprocess
+
             try:
-                subprocess.check_call([
-                    sys.executable, '-m', 'pip', 'install'
-                ] + missing_packages)
+                subprocess.check_call([sys.executable, "-m", "pip", "install"] + missing_packages)
                 click.echo("✅ Packages installed successfully!")
             except subprocess.CalledProcessError as e:
                 click.echo(f"❌ Failed to install packages: {e}")
-    
+
     # Initialize database
     click.echo("\n🗄️  Initializing database...")
     try:
         from fm_llm_solver.web.app import create_app
+
         app = create_app()
         with app.app_context():
             from fm_llm_solver.web.models import db
+
             db.create_all()
         click.echo("  • Database initialized ✅")
     except Exception as e:
         click.echo(f"  • Database initialization failed: {e}")
-    
+
     click.echo("\n✅ Setup complete! Run 'fm-llm status' to check system health.")
 
 
-if __name__ == '__main__':
-    cli() 
+if __name__ == "__main__":
+    cli()

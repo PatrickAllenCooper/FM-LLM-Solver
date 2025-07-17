@@ -9,16 +9,16 @@ from typing import Optional, Dict, Any
 
 class FMLLMSolverError(Exception):
     """Base exception for all FM-LLM Solver errors."""
-    
+
     def __init__(
         self,
         message: str,
         error_code: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None
+        details: Optional[Dict[str, Any]] = None,
     ):
         """
         Initialize the exception.
-        
+
         Args:
             message: Human-readable error message
             error_code: Machine-readable error code
@@ -28,24 +28,21 @@ class FMLLMSolverError(Exception):
         self.message = message
         self.error_code = error_code or self.__class__.__name__
         self.details = details or {}
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert exception to dictionary for API responses."""
-        return {
-            "error": self.error_code,
-            "message": self.message,
-            "details": self.details
-        }
+        return {"error": self.error_code, "message": self.message, "details": self.details}
 
 
 class ConfigurationError(FMLLMSolverError):
     """Raised when configuration is invalid or missing."""
+
     pass
 
 
 class ValidationError(FMLLMSolverError):
     """Raised when input validation fails."""
-    
+
     def __init__(self, message: str, field: Optional[str] = None, **kwargs):
         super().__init__(message, **kwargs)
         if field:
@@ -54,12 +51,13 @@ class ValidationError(FMLLMSolverError):
 
 class GenerationError(FMLLMSolverError):
     """Raised when certificate generation fails."""
+
     pass
 
 
 class ModelError(GenerationError):
     """Raised when model operations fail."""
-    
+
     def __init__(self, message: str, model_name: Optional[str] = None, **kwargs):
         super().__init__(message, **kwargs)
         if model_name:
@@ -68,23 +66,20 @@ class ModelError(GenerationError):
 
 class VerificationError(FMLLMSolverError):
     """Raised when certificate verification fails."""
+
     pass
 
 
 class KnowledgeBaseError(FMLLMSolverError):
     """Raised when knowledge base operations fail."""
+
     pass
 
 
 class APIError(FMLLMSolverError):
     """Raised when API operations fail."""
-    
-    def __init__(
-        self,
-        message: str,
-        status_code: int = 500,
-        **kwargs
-    ):
+
+    def __init__(self, message: str, status_code: int = 500, **kwargs):
         super().__init__(message, **kwargs)
         self.status_code = status_code
         self.details["status_code"] = status_code
@@ -92,28 +87,28 @@ class APIError(FMLLMSolverError):
 
 class RateLimitError(APIError):
     """Raised when rate limit is exceeded."""
-    
+
     def __init__(self, message: str = "Rate limit exceeded", **kwargs):
         super().__init__(message, status_code=429, **kwargs)
 
 
 class AuthenticationError(APIError):
     """Raised when authentication fails."""
-    
+
     def __init__(self, message: str = "Authentication required", **kwargs):
         super().__init__(message, status_code=401, **kwargs)
 
 
 class AuthorizationError(APIError):
     """Raised when authorization fails."""
-    
+
     def __init__(self, message: str = "Insufficient permissions", **kwargs):
         super().__init__(message, status_code=403, **kwargs)
 
 
 class TimeoutError(FMLLMSolverError):
     """Raised when an operation times out."""
-    
+
     def __init__(self, message: str, timeout_seconds: Optional[float] = None, **kwargs):
         super().__init__(message, **kwargs)
         if timeout_seconds:
@@ -122,9 +117,14 @@ class TimeoutError(FMLLMSolverError):
 
 class ResourceNotFoundError(FMLLMSolverError):
     """Raised when a requested resource is not found."""
-    
-    def __init__(self, message: str, resource_type: Optional[str] = None, 
-                 resource_id: Optional[str] = None, **kwargs):
+
+    def __init__(
+        self,
+        message: str,
+        resource_type: Optional[str] = None,
+        resource_id: Optional[str] = None,
+        **kwargs,
+    ):
         super().__init__(message, **kwargs)
         if resource_type:
             self.details["resource_type"] = resource_type
@@ -134,9 +134,10 @@ class ResourceNotFoundError(FMLLMSolverError):
 
 class DatabaseError(FMLLMSolverError):
     """Raised when database operations fail."""
-    
-    def __init__(self, message: str, operation: Optional[str] = None, 
-                 table: Optional[str] = None, **kwargs):
+
+    def __init__(
+        self, message: str, operation: Optional[str] = None, table: Optional[str] = None, **kwargs
+    ):
         super().__init__(message, **kwargs)
         if operation:
             self.details["operation"] = operation
@@ -146,7 +147,7 @@ class DatabaseError(FMLLMSolverError):
 
 class CacheError(FMLLMSolverError):
     """Raised when cache operations fail."""
-    
+
     def __init__(self, message: str, cache_key: Optional[str] = None, **kwargs):
         super().__init__(message, **kwargs)
         if cache_key:
@@ -155,7 +156,7 @@ class CacheError(FMLLMSolverError):
 
 class ServiceUnavailableError(FMLLMSolverError):
     """Raised when a service is unavailable."""
-    
+
     def __init__(self, message: str, service_name: Optional[str] = None, **kwargs):
         super().__init__(message, **kwargs)
         if service_name:
@@ -164,9 +165,14 @@ class ServiceUnavailableError(FMLLMSolverError):
 
 class SecurityError(FMLLMSolverError):
     """Raised when security violations occur."""
-    
-    def __init__(self, message: str, violation_type: Optional[str] = None, 
-                 user_id: Optional[str] = None, **kwargs):
+
+    def __init__(
+        self,
+        message: str,
+        violation_type: Optional[str] = None,
+        user_id: Optional[str] = None,
+        **kwargs,
+    ):
         super().__init__(message, **kwargs)
         if violation_type:
             self.details["violation_type"] = violation_type
@@ -176,7 +182,7 @@ class SecurityError(FMLLMSolverError):
 
 class DataIntegrityError(FMLLMSolverError):
     """Raised when data integrity is compromised."""
-    
+
     def __init__(self, message: str, data_type: Optional[str] = None, **kwargs):
         super().__init__(message, **kwargs)
         if data_type:
@@ -185,9 +191,14 @@ class DataIntegrityError(FMLLMSolverError):
 
 class ExternalServiceError(FMLLMSolverError):
     """Raised when external service calls fail."""
-    
-    def __init__(self, message: str, service_name: Optional[str] = None, 
-                 response_code: Optional[int] = None, **kwargs):
+
+    def __init__(
+        self,
+        message: str,
+        service_name: Optional[str] = None,
+        response_code: Optional[int] = None,
+        **kwargs,
+    ):
         super().__init__(message, **kwargs)
         if service_name:
             self.details["service"] = service_name
@@ -197,9 +208,14 @@ class ExternalServiceError(FMLLMSolverError):
 
 class ParseError(FMLLMSolverError):
     """Raised when parsing fails."""
-    
-    def __init__(self, message: str, parser_type: Optional[str] = None, 
-                 input_type: Optional[str] = None, **kwargs):
+
+    def __init__(
+        self,
+        message: str,
+        parser_type: Optional[str] = None,
+        input_type: Optional[str] = None,
+        **kwargs,
+    ):
         super().__init__(message, **kwargs)
         if parser_type:
             self.details["parser_type"] = parser_type
@@ -209,9 +225,14 @@ class ParseError(FMLLMSolverError):
 
 class RetryableError(FMLLMSolverError):
     """Base class for errors that can be retried."""
-    
-    def __init__(self, message: str, retry_after: Optional[float] = None, 
-                 max_retries: Optional[int] = None, **kwargs):
+
+    def __init__(
+        self,
+        message: str,
+        retry_after: Optional[float] = None,
+        max_retries: Optional[int] = None,
+        **kwargs,
+    ):
         super().__init__(message, **kwargs)
         if retry_after:
             self.details["retry_after"] = retry_after
@@ -221,14 +242,21 @@ class RetryableError(FMLLMSolverError):
 
 class NonRetryableError(FMLLMSolverError):
     """Base class for errors that should not be retried."""
+
     pass
 
 
 class PerformanceError(FMLLMSolverError):
     """Raised when performance requirements are not met."""
-    
-    def __init__(self, message: str, metric: Optional[str] = None, 
-                 threshold: Optional[float] = None, actual: Optional[float] = None, **kwargs):
+
+    def __init__(
+        self,
+        message: str,
+        metric: Optional[str] = None,
+        threshold: Optional[float] = None,
+        actual: Optional[float] = None,
+        **kwargs,
+    ):
         super().__init__(message, **kwargs)
         if metric:
             self.details["metric"] = metric
@@ -240,9 +268,10 @@ class PerformanceError(FMLLMSolverError):
 
 class ServiceError(FMLLMSolverError):
     """Raised when a service operation fails."""
-    
-    def __init__(self, message: str, service: Optional[str] = None, 
-                 operation: Optional[str] = None, **kwargs):
+
+    def __init__(
+        self, message: str, service: Optional[str] = None, operation: Optional[str] = None, **kwargs
+    ):
         super().__init__(message, **kwargs)
         if service:
             self.details["service"] = service
@@ -252,13 +281,19 @@ class ServiceError(FMLLMSolverError):
 
 class MemoryError(FMLLMSolverError):
     """Raised when memory operations fail."""
-    
-    def __init__(self, message: str, memory_type: Optional[str] = None, 
-                 requested: Optional[int] = None, available: Optional[int] = None, **kwargs):
+
+    def __init__(
+        self,
+        message: str,
+        memory_type: Optional[str] = None,
+        requested: Optional[int] = None,
+        available: Optional[int] = None,
+        **kwargs,
+    ):
         super().__init__(message, **kwargs)
         if memory_type:
             self.details["memory_type"] = memory_type
         if requested is not None:
             self.details["requested"] = requested
         if available is not None:
-            self.details["available"] = available 
+            self.details["available"] = available
