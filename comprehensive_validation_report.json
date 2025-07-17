@@ -1,9 +1,9 @@
 {
-  "timestamp": "2025-07-07T04:50:18.622012",
+  "timestamp": "2025-07-16T12:13:51.492824",
   "validation_status": "PRODUCTION_READY",
   "total_checks": 104,
-  "passed_checks": 104,
-  "failed_checks": 0,
+  "passed_checks": 101,
+  "failed_checks": 3,
   "categories": {
     "Core Services Structure": {
       "passed": 18,
@@ -109,7 +109,7 @@
         [
           "Web Directory",
           true,
-          "Found at C:\\Users\\patri\\code\\FM-LLM-Solver\\fm_llm_solver\\web"
+          "Found at /home/patc/code/FM-LLM-Solver/fm_llm_solver/web"
         ],
         [
           "Web Component: Flask Application",
@@ -212,7 +212,7 @@
       "failed_checks": []
     },
     "Knowledge Base Structure": {
-      "passed": 12,
+      "passed": 9,
       "total": 12,
       "checks": [
         [
@@ -252,18 +252,18 @@
         ],
         [
           "KB Data: General KB Data",
-          true,
-          "Directory exists"
+          false,
+          "Directory missing"
         ],
         [
           "KB Data: Continuous Time KB",
-          true,
-          "Directory exists"
+          false,
+          "Directory missing"
         ],
         [
           "KB Data: Discrete Time KB",
-          true,
-          "Directory exists"
+          false,
+          "Directory missing"
         ],
         [
           "KB Script: KB Builder Script",
@@ -276,7 +276,11 @@
           "Script exists"
         ]
       ],
-      "failed_checks": []
+      "failed_checks": [
+        "KB Data: General KB Data",
+        "KB Data: Continuous Time KB",
+        "KB Data: Discrete Time KB"
+      ]
     },
     "Fine-tuning Structure": {
       "passed": 12,
@@ -461,7 +465,7 @@
         [
           "Documentation Files",
           true,
-          "12 documentation files found"
+          "14 documentation files found"
         ],
         [
           "Important Doc: Architecture Documentation",
@@ -596,6 +600,10 @@
       "failed_checks": []
     }
   },
-  "critical_issues": [],
+  "critical_issues": [
+    "Knowledge Base Structure: KB Data: General KB Data",
+    "Knowledge Base Structure: KB Data: Continuous Time KB",
+    "Knowledge Base Structure: KB Data: Discrete Time KB"
+  ],
   "recommendations": []
 }
