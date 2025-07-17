@@ -12,6 +12,11 @@ data:
   POSTGRES_PORT: "5432"
   POSTGRES_DB: "fmllm"
   POSTGRES_USER: "fmllm"
+  # Domain configuration
+  DOMAIN_NAME: "fmgen.net"
+  PRODUCTION_URL: "https://fmgen.net"
+  STAGING_URL: "https://staging.fmgen.net"
+  DEVELOPMENT_URL: "https://dev.fmgen.net"
   # Application configuration
   LOG_LEVEL: "INFO"
   CACHE_BACKEND: "redis"
@@ -21,6 +26,7 @@ data:
   RATE_LIMIT_DEFAULT: "100/day"
   RATE_LIMIT_API: "1000/hour"
   CORS_ENABLED: "true"
+  CORS_ORIGINS: "https://fmgen.net,https://www.fmgen.net,https://staging.fmgen.net,https://dev.fmgen.net"
   SECURITY_HEADERS_ENABLED: "true"
   # Performance settings
   GUNICORN_WORKERS: "4"
@@ -39,6 +45,7 @@ metadata:
 data:
   config.yaml: |
     # Production configuration for FM-LLM-Solver
+    # Domain: fmgen.net
     env_vars:
       MATHPIX_APP_ID: ''
       MATHPIX_APP_KEY: ''
@@ -133,6 +140,7 @@ data:
         auth_endpoints: "10/minute"
       cors:
         enabled: true
+        origins: ["https://fmgen.net", "https://www.fmgen.net", "https://staging.fmgen.net", "https://dev.fmgen.net"]
         max_age: 86400
       headers:
         force_https: true
@@ -147,7 +155,8 @@ data:
       host: "0.0.0.0"
       port: 5000
       debug: false
-      cors_origins: ["https://your-domain.com"]
+      cors_origins: ["https://fmgen.net", "https://www.fmgen.net", "https://staging.fmgen.net", "https://dev.fmgen.net"]
+      base_url: "https://fmgen.net"
     
     # Fine-tuning configuration
     fine_tuning:

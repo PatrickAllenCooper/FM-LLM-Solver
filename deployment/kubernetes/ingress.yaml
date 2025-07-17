@@ -17,7 +17,7 @@ metadata:
     
     # CORS
     nginx.ingress.kubernetes.io/enable-cors: "true"
-    nginx.ingress.kubernetes.io/cors-allow-origin: "https://your-domain.com"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "https://fmgen.net, https://www.fmgen.net, https://staging.fmgen.net"
     nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS"
     nginx.ingress.kubernetes.io/cors-allow-headers: "Content-Type, Authorization, X-Requested-With, X-CSRF-Token"
     
@@ -43,21 +43,22 @@ metadata:
     # Certificate management (cert-manager)
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
     
-    # AWS Load Balancer annotations (if using AWS ALB)
-    # kubernetes.io/ingress.class: "alb"
-    # alb.ingress.kubernetes.io/scheme: internet-facing
-    # alb.ingress.kubernetes.io/target-type: ip
-    # alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:region:account:certificate/cert-id"
-    
 spec:
   ingressClassName: nginx
   tls:
   - hosts:
-    - fm-llm-solver.your-domain.com
-    - www.fm-llm-solver.your-domain.com
-    secretName: fm-llm-solver-tls
+    - fmgen.net
+    - www.fmgen.net
+    secretName: fmgen-net-tls
+  - hosts:
+    - staging.fmgen.net
+    secretName: staging-fmgen-net-tls
+  - hosts:
+    - dev.fmgen.net
+    secretName: dev-fmgen-net-tls
   rules:
-  - host: fm-llm-solver.your-domain.com
+  # Production - fmgen.net
+  - host: fmgen.net
     http:
       paths:
       - path: /
@@ -67,28 +68,116 @@ spec:
             name: fm-llm-solver-web-service
             port:
               number: 80
-      - path: /api
+  # Production - www.fmgen.net (redirect to main)
+  - host: www.fmgen.net
+    http:
+      paths:
+      - path: /
         pathType: Prefix
         backend:
           service:
             name: fm-llm-solver-web-service
             port:
               number: 80
-      - path: /health
-        pathType: Exact
+  # Staging - staging.fmgen.net
+  - host: staging.fmgen.net
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: fm-llm-solver-web-service-staging
+            port:
+              number: 80
+  # Development - dev.fmgen.net
+  - host: dev.fmgen.net
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: fm-llm-solver-web-service-dev
+            port:
+              number: 80
+
+---
+# Production ingress (separate for cleaner management)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: fm-llm-solver-production-ingress
+  namespace: fm-llm-solver-prod
+  labels:
+    app: fm-llm-solver
+    environment: production
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rate-limit: "200"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    # Production security headers
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      add_header X-Frame-Options DENY always;
+      add_header X-Content-Type-Options nosniff always;
+      add_header X-XSS-Protection "1; mode=block" always;
+      add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
+      add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https:; frame-ancestors 'none';" always;
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - fmgen.net
+    - www.fmgen.net
+    secretName: fmgen-net-prod-tls
+  rules:
+  - host: fmgen.net
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
         backend:
           service:
             name: fm-llm-solver-web-service
             port:
               number: 80
-      - path: /metrics
-        pathType: Exact
+  - host: www.fmgen.net
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
         backend:
           service:
             name: fm-llm-solver-web-service
             port:
               number: 80
-  - host: www.fm-llm-solver.your-domain.com
+
+---
+# Staging ingress
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: fm-llm-solver-staging-ingress
+  namespace: fm-llm-solver-staging
+  labels:
+    app: fm-llm-solver
+    environment: staging
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rate-limit: "150"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    cert-manager.io/cluster-issuer: "letsencrypt-staging"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - staging.fmgen.net
+    secretName: staging-fmgen-net-tls
+  rules:
+  - host: staging.fmgen.net
     http:
       paths:
       - path: /

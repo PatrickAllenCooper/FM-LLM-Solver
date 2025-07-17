@@ -29,6 +29,10 @@ env:
   IMAGE_NAME: ${{ github.repository }}
   NODE_VERSION: '18'
   PYTHON_VERSION: '3.10'
+  # Production domain URLs
+  PRODUCTION_URL: 'https://fmgen.net'
+  STAGING_URL: 'https://staging.fmgen.net'
+  DEVELOPMENT_URL: 'https://dev.fmgen.net'
 
 jobs:
   # ==================== QUALITY & SECURITY GATES ====================
@@ -401,13 +405,14 @@ jobs:
     if: github.ref == 'refs/heads/development' && github.event_name == 'push'
     environment:
       name: development
-      url: ${{ vars.DEVELOPMENT_URL || 'https://dev.fm-llm-solver.com' }}
+      url: ${{ env.DEVELOPMENT_URL }}
       
     steps:
     - name: Deploy to Development Environment
       run: |
         echo "🚀 Deploying to Development Environment"
         echo "Image: ${{ needs.build-and-push.outputs.image-tag }}"
+        echo "URL: ${{ env.DEVELOPMENT_URL }}"
         # Add actual deployment commands here
 
   deploy-staging:
@@ -417,13 +422,14 @@ jobs:
     if: github.ref == 'refs/heads/staging' && github.event_name == 'push'
     environment:
       name: staging
-      url: ${{ vars.STAGING_URL || 'https://staging.fm-llm-solver.com' }}
+      url: ${{ env.STAGING_URL }}
       
     steps:
     - name: Deploy to Staging Environment
       run: |
         echo "🚀 Deploying to Staging Environment" 
         echo "Image: ${{ needs.build-and-push.outputs.image-tag }}"
+        echo "URL: ${{ env.STAGING_URL }}"
         # Add actual deployment commands here
 
   deploy-production:
@@ -433,13 +439,15 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     environment:
       name: production
-      url: ${{ vars.PRODUCTION_URL || 'https://fm-llm-solver.com' }}
+      url: ${{ env.PRODUCTION_URL }}
       
     steps:
     - name: Deploy to Production Environment
       run: |
         echo "🚀 Deploying to Production Environment"
         echo "Image: ${{ needs.build-and-push.outputs.image-tag }}"
+        echo "URL: ${{ env.PRODUCTION_URL }}"
+        echo "🌟 Your website will be live at: https://fmgen.net"
         # Add actual deployment commands here
 
   # ==================== POST-DEPLOYMENT ====================
@@ -454,14 +462,40 @@ jobs:
     - name: Run post-deployment health checks
       run: |
         echo "✅ Running post-deployment validation"
-        # Add health check commands here
+        
+        # Test development if deployed
+        if [ "${{ needs.deploy-development.result }}" == "success" ]; then
+          echo "Testing development at: ${{ env.DEVELOPMENT_URL }}"
+          # curl -f "${{ env.DEVELOPMENT_URL }}/health" || echo "Dev health check failed"
+        fi
+        
+        # Test staging if deployed
+        if [ "${{ needs.deploy-staging.result }}" == "success" ]; then
+          echo "Testing staging at: ${{ env.STAGING_URL }}"
+          # curl -f "${{ env.STAGING_URL }}/health" || echo "Staging health check failed"
+        fi
+        
+        # Test production if deployed
+        if [ "${{ needs.deploy-production.result }}" == "success" ]; then
+          echo "Testing production at: ${{ env.PRODUCTION_URL }}"
+          echo "🎉 Website should be live at: https://fmgen.net"
+          # curl -f "${{ env.PRODUCTION_URL }}/health" || echo "Production health check failed"
+        fi
         
     - name: Generate deployment summary
       run: |
-        echo "# Deployment Summary" > deployment-summary.md
+        echo "# Deployment Summary for fmgen.net" > deployment-summary.md
         echo "Generated: $(date)" >> deployment-summary.md
         echo "Commit: ${{ github.sha }}" >> deployment-summary.md
         echo "Branch: ${{ github.ref_name }}" >> deployment-summary.md
+        echo "" >> deployment-summary.md
+        echo "## URLs:" >> deployment-summary.md
+        echo "- **Production**: ${{ env.PRODUCTION_URL }}" >> deployment-summary.md
+        echo "- **Staging**: ${{ env.STAGING_URL }}" >> deployment-summary.md
+        echo "- **Development**: ${{ env.DEVELOPMENT_URL }}" >> deployment-summary.md
+        echo "" >> deployment-summary.md
+        echo "## Docker Image:" >> deployment-summary.md
+        echo "- **Image**: ${{ needs.build-and-push.outputs.image-tag }}" >> deployment-summary.md
         
     - name: Upload deployment summary
       uses: actions/upload-artifact@v4
