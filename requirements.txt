@@ -107,3 +107,24 @@ python-daemon>=3.0.0
 
 # Platform-specific dependencies
 # Windows users may need: pywin32>=306 
+
+# Code Generation Models Support
+huggingface_hub>=0.19.0
+transformers>=4.35.0
+torch>=2.0.0
+accelerate>=0.21.0
+bitsandbytes>=0.41.0  # For quantization support
+einops>=0.7.0  # Required by some models
+sentencepiece>=0.1.99  # Tokenization support
+protobuf>=3.20.0  # Protocol buffers
+safetensors>=0.4.0  # Safe tensor format
+
+# Model benchmarking and evaluation
+nltk>=3.8.1  # For BLEU score calculation
+rouge-score>=0.1.2  # For ROUGE metrics
+bert-score>=0.3.13  # For semantic similarity
+
+# Progress tracking and utilities
+tqdm>=4.65.0  # Progress bars
+psutil>=5.9.0  # System monitoring
+GPUtil>=1.4.0  # GPU monitoring 

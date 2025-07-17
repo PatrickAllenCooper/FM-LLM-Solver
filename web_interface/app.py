@@ -50,6 +50,16 @@ app.register_blueprint(auth_bp)
 from web_interface.monitoring_routes import monitoring_bp
 app.register_blueprint(monitoring_bp)
 
+# Register models API blueprint
+from .models_api import models_api
+app.register_blueprint(models_api)
+
+# Add model selection route
+@app.route('/models')
+def model_selection():
+    """Model selection page."""
+    return render_template('model_selection.html')
+
 # Add custom Jinja2 filters
 @app.template_filter('csrf_token')
 def csrf_token_filter(s):

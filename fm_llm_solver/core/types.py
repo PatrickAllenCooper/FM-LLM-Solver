@@ -170,6 +170,7 @@ class ModelConfig:
     quantization: Optional[str] = None
     device: str = "cuda"
     use_flash_attention: bool = True
+    trust_remote_code: bool = True
     extra_params: Dict[str, Any] = field(default_factory=dict)
 
 

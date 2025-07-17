@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Model Selection - FM-LLM Solver</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .model-card {
+            transition: all 0.3s ease;
+            border: 1px solid #e0e0e0;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        
+        .model-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        }
+        
+        .model-card.selected {
+            border-color: #007bff;
+            box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+        }
+        
+        .provider-badge {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+        }
+        
+        .status-downloaded { background-color: #28a745; }
+        .status-downloading { background-color: #ffc107; }
+        .status-not-downloaded { background-color: #dc3545; }
+        .status-error { background-color: #6c757d; }
+        
+        .progress-container {
+            height: 4px;
+            background-color: #e9ecef;
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(45deg, #007bff, #0056b3);
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+        
+        .model-specs {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 12px;
+        }
+        
+        .spec-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 6px;
+        }
+        
+        .spec-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .spec-label {
+            font-weight: 600;
+            color: #495057;
+            font-size: 0.875rem;
+        }
+        
+        .spec-value {
+            font-size: 0.875rem;
+            color: #6c757d;
+        }
+        
+        .filter-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem 0;
+            margin-bottom: 2rem;
+        }
+        
+        .search-box {
+            border-radius: 25px;
+            border: none;
+            padding: 12px 20px;
+            font-size: 1rem;
+        }
+        
+        .filter-btn {
+            border-radius: 20px;
+            padding: 6px 16px;
+            margin: 4px;
+            border: 1px solid rgba(255,255,255,0.3);
+            background: rgba(255,255,255,0.1);
+            color: white;
+            transition: all 0.3s ease;
+        }
+        
+        .filter-btn:hover, .filter-btn.active {
+            background: rgba(255,255,255,0.2);
+            border-color: rgba(255,255,255,0.5);
+            color: white;
+        }
+        
+        .download-btn {
+            border-radius: 20px;
+            padding: 8px 16px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            border: none;
+            transition: all 0.3s ease;
+        }
+        
+        .download-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .model-actions {
+            padding: 1rem;
+            background-color: #f8f9fa;
+            border-top: 1px solid #e9ecef;
+        }
+        
+        .comparison-mode {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+        
+        .loading-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .gpu-requirement {
+            color: #6c757d;
+            font-size: 0.8rem;
+            margin-top: 4px;
+        }
+        
+        .provider-qwen { border-left: 4px solid #e74c3c; }
+        .provider-deepseek { border-left: 4px solid #3498db; }
+        .provider-starcoder { border-left: 4px solid #f39c12; }
+        .provider-codellama { border-left: 4px solid #9b59b6; }
+        .provider-codestral { border-left: 4px solid #1abc9c; }
+        .provider-opencoder { border-left: 4px solid #34495e; }
+        .provider-codegemma { border-left: 4px solid #e67e22; }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <!-- Header -->
+        <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+            <div class="container">
+                <a class="navbar-brand" href="{{ url_for('main.index') }}">
+                    <i class="fas fa-code me-2"></i>
+                    FM-LLM Solver - Model Selection
+                </a>
+                <div class="navbar-nav ms-auto">
+                    <a class="nav-link" href="{{ url_for('main.index') }}">
+                        <i class="fas fa-home me-1"></i>
+                        Back to Main
+                    </a>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Filter Section -->
+        <div class="filter-section">
+            <div class="container">
+                <div class="row align-items-center">
+                    <div class="col-md-6">
+                        <h1 class="mb-3">
+                            <i class="fas fa-robot me-2"></i>
+                            Choose Your Code Generation Model
+                        </h1>
+                        <p class="mb-4">Select from the top 10 open-source code generation models</p>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <input type="text" class="form-control search-box" id="searchModels" 
+                                   placeholder="🔍 Search models...">
+                        </div>
+                        <div class="filter-buttons">
+                            <button class="btn filter-btn active" data-filter="all">All Models</button>
+                            <button class="btn filter-btn" data-filter="downloaded">Downloaded</button>
+                            <button class="btn filter-btn" data-filter="small">Small (&lt;3B)</button>
+                            <button class="btn filter-btn" data-filter="medium">Medium (3-15B)</button>
+                            <button class="btn filter-btn" data-filter="large">Large (15B+)</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Model Selection -->
+        <div class="container">
+            <div class="row">
+                <div class="col-12">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h3>Available Models</h3>
+                        <div>
+                            <button class="btn btn-outline-primary me-2" id="downloadAllBtn">
+                                <i class="fas fa-download me-1"></i>
+                                Download All
+                            </button>
+                            <button class="btn btn-outline-secondary" id="compareBtn">
+                                <i class="fas fa-balance-scale me-1"></i>
+                                Compare Selected
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Models Grid -->
+            <div class="row" id="modelsGrid">
+                <!-- Models will be dynamically populated here -->
+            </div>
+        </div>
+
+        <!-- Comparison Modal -->
+        <div class="modal fade" id="comparisonModal" tabindex="-1">
+            <div class="modal-dialog modal-xl">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="fas fa-balance-scale me-2"></i>
+                            Model Comparison
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body" id="comparisonContent">
+                        <!-- Comparison table will be populated here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Download Progress Modal -->
+        <div class="modal fade" id="downloadModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="fas fa-download me-2"></i>
+                            Downloading Model
+                        </h5>
+                    </div>
+                    <div class="modal-body">
+                        <div id="downloadStatus"></div>
+                        <div class="progress mt-3">
+                            <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating Action Button for Comparison -->
+    <div class="comparison-mode" id="comparisonFab" style="display: none;">
+        <button class="btn btn-primary btn-lg rounded-circle" onclick="showComparison()">
+            <i class="fas fa-balance-scale"></i>
+            <span class="badge bg-warning text-dark ms-1" id="selectedCount">0</span>
+        </button>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Global variables
+        let availableModels = {};
+        let selectedModels = new Set();
+        let downloadStatus = {};
+
+        // Initialize the page
+        document.addEventListener('DOMContentLoaded', function() {
+            loadModels();
+            setupEventListeners();
+            startStatusPolling();
+        });
+
+        function setupEventListeners() {
+            // Search functionality
+            document.getElementById('searchModels').addEventListener('input', filterModels);
+            
+            // Filter buttons
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    filterModels();
+                });
+            });
+
+            // Download all button
+            document.getElementById('downloadAllBtn').addEventListener('click', downloadAllModels);
+            
+            // Compare button
+            document.getElementById('compareBtn').addEventListener('click', showComparison);
+        }
+
+        async function loadModels() {
+            try {
+                const response = await fetch('/api/models/available');
+                const data = await response.json();
+                availableModels = data.models;
+                downloadStatus = data.download_status || {};
+                renderModels();
+            } catch (error) {
+                console.error('Error loading models:', error);
+                showErrorMessage('Failed to load models');
+            }
+        }
+
+        function renderModels() {
+            const grid = document.getElementById('modelsGrid');
+            grid.innerHTML = '';
+
+            Object.entries(availableModels).forEach(([modelId, model]) => {
+                const modelCard = createModelCard(modelId, model);
+                grid.appendChild(modelCard);
+            });
+        }
+
+        function createModelCard(modelId, model) {
+            const col = document.createElement('div');
+            col.className = 'col-lg-4 col-md-6 mb-4';
+
+            const status = downloadStatus[modelId] || { downloaded: false };
+            const providerClass = `provider-${model.provider}`;
+            
+            col.innerHTML = `
+                <div class="card model-card ${providerClass}" data-model-id="${modelId}">
+                    <div class="card-header bg-transparent">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <span class="badge provider-badge bg-secondary">${model.provider}</span>
+                                <h6 class="card-title mt-2 mb-1">${model.display_name}</h6>
+                                <small class="text-muted">${model.parameters} parameters</small>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" 
+                                       id="select_${modelId}" onchange="toggleModelSelection('${modelId}')">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="status-indicator ${getStatusClass(status)}"></span>
+                            <small class="text-muted">${getStatusText(status)}</small>
+                        </div>
+                        
+                        <p class="card-text">${model.specialization}</p>
+                        
+                        <div class="model-specs">
+                            <div class="spec-item">
+                                <span class="spec-label">Context Length:</span>
+                                <span class="spec-value">${(model.context_length / 1000).toFixed(0)}K tokens</span>
+                            </div>
+                            <div class="spec-item">
+                                <span class="spec-label">Quantization:</span>
+                                <span class="spec-value">${model.quantization_support.join(', ')}</span>
+                            </div>
+                            <div class="spec-item">
+                                <span class="spec-label">GPU Memory:</span>
+                                <span class="spec-value">${model.recommended_gpu_memory}</span>
+                            </div>
+                        </div>
+                        
+                        <div class="progress-container" id="progress_${modelId}" style="display: none;">
+                            <div class="progress-bar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="model-actions">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <button class="btn download-btn ${getDownloadButtonClass(status)}" 
+                                    onclick="toggleDownload('${modelId}')" 
+                                    id="downloadBtn_${modelId}">
+                                ${getDownloadButtonText(status)}
+                            </button>
+                            <button class="btn btn-outline-primary btn-sm" 
+                                    onclick="selectModel('${modelId}')"
+                                    ${!status.downloaded ? 'disabled' : ''}>
+                                <i class="fas fa-play me-1"></i>
+                                Use Model
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            return col;
+        }
+
+        function getStatusClass(status) {
+            if (status.downloading) return 'status-downloading';
+            if (status.downloaded) return 'status-downloaded';
+            if (status.error) return 'status-error';
+            return 'status-not-downloaded';
+        }
+
+        function getStatusText(status) {
+            if (status.downloading) return 'Downloading...';
+            if (status.downloaded) return 'Downloaded';
+            if (status.error) return 'Error';
+            return 'Not Downloaded';
+        }
+
+        function getDownloadButtonClass(status) {
+            if (status.downloading) return 'btn-warning';
+            if (status.downloaded) return 'btn-success';
+            return 'btn-primary';
+        }
+
+        function getDownloadButtonText(status) {
+            if (status.downloading) return '<i class="loading-spinner me-1"></i>Downloading';
+            if (status.downloaded) return '<i class="fas fa-trash me-1"></i>Delete';
+            return '<i class="fas fa-download me-1"></i>Download';
+        }
+
+        function filterModels() {
+            const searchTerm = document.getElementById('searchModels').value.toLowerCase();
+            const activeFilter = document.querySelector('.filter-btn.active').dataset.filter;
+            
+            document.querySelectorAll('.model-card').forEach(card => {
+                const modelId = card.dataset.modelId;
+                const model = availableModels[modelId];
+                const status = downloadStatus[modelId] || {};
+                
+                let showCard = true;
+                
+                // Search filter
+                if (searchTerm) {
+                    const searchableText = (model.display_name + ' ' + model.provider + ' ' + model.specialization).toLowerCase();
+                    showCard = searchableText.includes(searchTerm);
+                }
+                
+                // Category filter
+                if (showCard && activeFilter !== 'all') {
+                    switch (activeFilter) {
+                        case 'downloaded':
+                            showCard = status.downloaded;
+                            break;
+                        case 'small':
+                            showCard = model.parameters.includes('0.5B') || model.parameters.includes('1.5B') || model.parameters.includes('2B');
+                            break;
+                        case 'medium':
+                            showCard = model.parameters.includes('3B') || model.parameters.includes('7B') || model.parameters.includes('8B') || model.parameters.includes('13B') || model.parameters.includes('14B');
+                            break;
+                        case 'large':
+                            showCard = model.parameters.includes('15B') || model.parameters.includes('22B') || model.parameters.includes('32B') || model.parameters.includes('34B') || model.parameters.includes('21B');
+                            break;
+                    }
+                }
+                
+                card.closest('.col-lg-4').style.display = showCard ? 'block' : 'none';
+            });
+        }
+
+        function toggleModelSelection(modelId) {
+            const checkbox = document.getElementById(`select_${modelId}`);
+            if (checkbox.checked) {
+                selectedModels.add(modelId);
+            } else {
+                selectedModels.delete(modelId);
+            }
+            
+            updateComparisonFab();
+        }
+
+        function updateComparisonFab() {
+            const fab = document.getElementById('comparisonFab');
+            const count = document.getElementById('selectedCount');
+            
+            count.textContent = selectedModels.size;
+            fab.style.display = selectedModels.size > 1 ? 'block' : 'none';
+        }
+
+        async function toggleDownload(modelId) {
+            const status = downloadStatus[modelId] || {};
+            
+            if (status.downloaded) {
+                // Delete model
+                if (confirm('Are you sure you want to delete this model?')) {
+                    await deleteModel(modelId);
+                }
+            } else if (!status.downloading) {
+                // Download model
+                await downloadModel(modelId);
+            }
+        }
+
+        async function downloadModel(modelId) {
+            try {
+                const response = await fetch(`/api/models/download/${modelId}`, {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    // Update status and start polling
+                    downloadStatus[modelId] = { downloading: true };
+                    updateModelCard(modelId);
+                } else {
+                    const error = await response.json();
+                    showErrorMessage(error.message || 'Download failed');
+                }
+            } catch (error) {
+                console.error('Download error:', error);
+                showErrorMessage('Download failed');
+            }
+        }
+
+        async function deleteModel(modelId) {
+            try {
+                const response = await fetch(`/api/models/delete/${modelId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    downloadStatus[modelId] = { downloaded: false };
+                    updateModelCard(modelId);
+                } else {
+                    const error = await response.json();
+                    showErrorMessage(error.message || 'Delete failed');
+                }
+            } catch (error) {
+                console.error('Delete error:', error);
+                showErrorMessage('Delete failed');
+            }
+        }
+
+        function updateModelCard(modelId) {
+            // Re-render the specific model card
+            const oldCard = document.querySelector(`[data-model-id="${modelId}"]`).closest('.col-lg-4');
+            const newCard = createModelCard(modelId, availableModels[modelId]);
+            oldCard.replaceWith(newCard);
+        }
+
+        async function selectModel(modelId) {
+            try {
+                const response = await fetch('/api/models/select', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ model_id: modelId })
+                });
+                
+                if (response.ok) {
+                    // Update UI to show selected model
+                    document.querySelectorAll('.model-card').forEach(card => {
+                        card.classList.remove('selected');
+                    });
+                    document.querySelector(`[data-model-id="${modelId}"]`).classList.add('selected');
+                    
+                    showSuccessMessage(`${availableModels[modelId].display_name} is now active`);
+                } else {
+                    const error = await response.json();
+                    showErrorMessage(error.message || 'Model selection failed');
+                }
+            } catch (error) {
+                console.error('Model selection error:', error);
+                showErrorMessage('Model selection failed');
+            }
+        }
+
+        function showComparison() {
+            if (selectedModels.size < 2) {
+                showErrorMessage('Please select at least 2 models to compare');
+                return;
+            }
+            
+            const comparisonContent = document.getElementById('comparisonContent');
+            const selectedModelsList = Array.from(selectedModels);
+            
+            let tableHtml = `
+                <div class="table-responsive">
+                    <table class="table table-bordered">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Specification</th>
+                                ${selectedModelsList.map(id => `<th>${availableModels[id].display_name}</th>`).join('')}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>Provider</strong></td>
+                                ${selectedModelsList.map(id => `<td><span class="badge bg-secondary">${availableModels[id].provider}</span></td>`).join('')}
+                            </tr>
+                            <tr>
+                                <td><strong>Parameters</strong></td>
+                                ${selectedModelsList.map(id => `<td>${availableModels[id].parameters}</td>`).join('')}
+                            </tr>
+                            <tr>
+                                <td><strong>Context Length</strong></td>
+                                ${selectedModelsList.map(id => `<td>${(availableModels[id].context_length / 1000).toFixed(0)}K tokens</td>`).join('')}
+                            </tr>
+                            <tr>
+                                <td><strong>GPU Memory</strong></td>
+                                ${selectedModelsList.map(id => `<td>${availableModels[id].recommended_gpu_memory}</td>`).join('')}
+                            </tr>
+                            <tr>
+                                <td><strong>Specialization</strong></td>
+                                ${selectedModelsList.map(id => `<td>${availableModels[id].specialization}</td>`).join('')}
+                            </tr>
+                            <tr>
+                                <td><strong>Status</strong></td>
+                                ${selectedModelsList.map(id => {
+                                    const status = downloadStatus[id] || {};
+                                    return `<td><span class="status-indicator ${getStatusClass(status)}"></span>${getStatusText(status)}</td>`;
+                                }).join('')}
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            
+            comparisonContent.innerHTML = tableHtml;
+            
+            const modal = new bootstrap.Modal(document.getElementById('comparisonModal'));
+            modal.show();
+        }
+
+        async function downloadAllModels() {
+            if (confirm('This will download all models. This may take a long time and use significant disk space. Continue?')) {
+                for (const modelId of Object.keys(availableModels)) {
+                    const status = downloadStatus[modelId] || {};
+                    if (!status.downloaded && !status.downloading) {
+                        await downloadModel(modelId);
+                        // Small delay between downloads
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                    }
+                }
+            }
+        }
+
+        function startStatusPolling() {
+            setInterval(async () => {
+                try {
+                    const response = await fetch('/api/models/status');
+                    const data = await response.json();
+                    
+                    // Update download status
+                    downloadStatus = data.download_status || {};
+                    
+                    // Update any cards that have changed status
+                    Object.keys(availableModels).forEach(modelId => {
+                        const currentCard = document.querySelector(`[data-model-id="${modelId}"]`);
+                        if (currentCard) {
+                            updateModelCard(modelId);
+                        }
+                    });
+                } catch (error) {
+                    console.error('Status polling error:', error);
+                }
+            }, 5000); // Poll every 5 seconds
+        }
+
+        function showSuccessMessage(message) {
+            // TODO: Implement toast notification
+            alert(message);
+        }
+
+        function showErrorMessage(message) {
+            // TODO: Implement toast notification
+            alert('Error: ' + message);
+        }
+    </script>
+</body>
+</html> 

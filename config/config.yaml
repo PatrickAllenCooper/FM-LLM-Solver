@@ -208,3 +208,252 @@ web_interface:
     enabled: false
     requests_per_minute: 60
     requests_per_hour: 1000
+
+# Models configuration - Top 10 Open Source Code Generation Models
+models:
+  # Default model selection
+  default_provider: "qwen"
+  default_model: "qwen2.5-coder-7b-instruct"
+  
+  # Available code generation models
+  available_models:
+    # DeepSeek Coder V2 Family
+    deepseek-coder-v2-lite-instruct:
+      provider: "deepseek"
+      name: "deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct"
+      display_name: "DeepSeek-Coder-V2-Lite (2.4B)"
+      parameters: "16B total (2.4B active)"
+      context_length: 128000
+      specialization: "Code generation, completion, and debugging"
+      quantization_support: ["4bit", "8bit"]
+      recommended_gpu_memory: "8GB"
+      
+    deepseek-coder-v2-instruct:
+      provider: "deepseek"
+      name: "deepseek-ai/DeepSeek-Coder-V2-Instruct"
+      display_name: "DeepSeek-Coder-V2 (21B)"
+      parameters: "236B total (21B active)"
+      context_length: 128000
+      specialization: "Advanced code generation and reasoning"
+      quantization_support: ["4bit", "8bit"]
+      recommended_gpu_memory: "48GB"
+      
+    # Qwen2.5-Coder Family
+    qwen2.5-coder-0.5b-instruct:
+      provider: "qwen"
+      name: "Qwen/Qwen2.5-Coder-0.5B-Instruct"
+      display_name: "Qwen2.5-Coder (0.5B)"
+      parameters: "0.5B"
+      context_length: 32000
+      specialization: "Lightweight code generation"
+      quantization_support: ["4bit", "8bit"]
+      recommended_gpu_memory: "2GB"
+      
+    qwen2.5-coder-1.5b-instruct:
+      provider: "qwen"
+      name: "Qwen/Qwen2.5-Coder-1.5B-Instruct"
+      display_name: "Qwen2.5-Coder (1.5B)"
+      parameters: "1.5B"
+      context_length: 32000
+      specialization: "Efficient code generation"
+      quantization_support: ["4bit", "8bit"]
+      recommended_gpu_memory: "3GB"
+      
+    qwen2.5-coder-3b-instruct:
+      provider: "qwen"
+      name: "Qwen/Qwen2.5-Coder-3B-Instruct"
+      display_name: "Qwen2.5-Coder (3B)"
+      parameters: "3B"
+      context_length: 32000
+      specialization: "Balanced code generation"
+      quantization_support: ["4bit", "8bit"]
+      recommended_gpu_memory: "6GB"
+      
+    qwen2.5-coder-7b-instruct:
+      provider: "qwen"
+      name: "Qwen/Qwen2.5-Coder-7B-Instruct"
+      display_name: "Qwen2.5-Coder (7B)"
+      parameters: "7B"
+      context_length: 128000
+      specialization: "High-quality code generation"
+      quantization_support: ["4bit", "8bit"]
+      recommended_gpu_memory: "14GB"
+      
+    qwen2.5-coder-14b-instruct:
+      provider: "qwen"
+      name: "Qwen/Qwen2.5-Coder-14B-Instruct"
+      display_name: "Qwen2.5-Coder (14B)"
+      parameters: "14B"
+      context_length: 128000
+      specialization: "Advanced code generation and reasoning"
+      quantization_support: ["4bit", "8bit"]
+      recommended_gpu_memory: "28GB"
+      
+    qwen2.5-coder-32b-instruct:
+      provider: "qwen"
+      name: "Qwen/Qwen2.5-Coder-32B-Instruct"
+      display_name: "Qwen2.5-Coder (32B)"
+      parameters: "32B"
+      context_length: 128000
+      specialization: "State-of-the-art code generation"
+      quantization_support: ["4bit", "8bit"]
+      recommended_gpu_memory: "64GB"
+      
+    # StarCoder2 Family
+    starcoder2-3b:
+      provider: "starcoder"
+      name: "bigcode/starcoder2-3b"
+      display_name: "StarCoder2 (3B)"
+      parameters: "3B"
+      context_length: 16000
+      specialization: "Multi-language code completion"
+      quantization_support: ["4bit", "8bit"]
+      recommended_gpu_memory: "6GB"
+      
+    starcoder2-7b:
+      provider: "starcoder"
+      name: "bigcode/starcoder2-7b"
+      display_name: "StarCoder2 (7B)"
+      parameters: "7B"
+      context_length: 16000
+      specialization: "Advanced code completion"
+      quantization_support: ["4bit", "8bit"]
+      recommended_gpu_memory: "14GB"
+      
+    starcoder2-15b:
+      provider: "starcoder"
+      name: "bigcode/starcoder2-15b"
+      display_name: "StarCoder2 (15B)"
+      parameters: "15B"
+      context_length: 16000
+      specialization: "Professional code generation"
+      quantization_support: ["4bit", "8bit"]
+      recommended_gpu_memory: "30GB"
+      
+    # CodeLlama Family
+    codellama-7b-instruct:
+      provider: "codellama"
+      name: "codellama/CodeLlama-7b-Instruct-hf"
+      display_name: "CodeLlama (7B Instruct)"
+      parameters: "7B"
+      context_length: 16000
+      specialization: "Code generation and instruction following"
+      quantization_support: ["4bit", "8bit"]
+      recommended_gpu_memory: "14GB"
+      
+    codellama-13b-instruct:
+      provider: "codellama"
+      name: "codellama/CodeLlama-13b-Instruct-hf"
+      display_name: "CodeLlama (13B Instruct)"
+      parameters: "13B"
+      context_length: 16000
+      specialization: "Advanced code generation"
+      quantization_support: ["4bit", "8bit"]
+      recommended_gpu_memory: "26GB"
+      
+    codellama-34b-instruct:
+      provider: "codellama"
+      name: "codellama/CodeLlama-34b-Instruct-hf"
+      display_name: "CodeLlama (34B Instruct)"
+      parameters: "34B"
+      context_length: 16000
+      specialization: "Professional code generation"
+      quantization_support: ["4bit", "8bit"]
+      recommended_gpu_memory: "68GB"
+      
+    # Codestral
+    codestral-22b:
+      provider: "codestral"
+      name: "mistralai/Codestral-22B-v0.1"
+      display_name: "Codestral (22B)"
+      parameters: "22B"
+      context_length: 32000
+      specialization: "Multi-language code generation"
+      quantization_support: ["4bit", "8bit"]
+      recommended_gpu_memory: "44GB"
+      
+    # OpenCoder Family
+    opencoder-1.5b-instruct:
+      provider: "opencoder"
+      name: "infly/OpenCoder-1.5B-Instruct"
+      display_name: "OpenCoder (1.5B)"
+      parameters: "1.5B"
+      context_length: 16000
+      specialization: "Open reproducible code generation"
+      quantization_support: ["4bit", "8bit"]
+      recommended_gpu_memory: "3GB"
+      
+    opencoder-8b-instruct:
+      provider: "opencoder"
+      name: "infly/OpenCoder-8B-Instruct"
+      display_name: "OpenCoder (8B)"
+      parameters: "8B"
+      context_length: 16000
+      specialization: "Advanced open code generation"
+      quantization_support: ["4bit", "8bit"]
+      recommended_gpu_memory: "16GB"
+      
+    # CodeGemma Family
+    codegemma-2b:
+      provider: "codegemma"
+      name: "google/codegemma-2b"
+      display_name: "CodeGemma (2B)"
+      parameters: "2B"
+      context_length: 8000
+      specialization: "Lightweight code completion"
+      quantization_support: ["4bit", "8bit"]
+      recommended_gpu_memory: "4GB"
+      
+    codegemma-7b-instruct:
+      provider: "codegemma"
+      name: "google/codegemma-7b-it"
+      display_name: "CodeGemma (7B Instruct)"
+      parameters: "7B"
+      context_length: 8000
+      specialization: "Code generation and instruction following"
+      quantization_support: ["4bit", "8bit"]
+      recommended_gpu_memory: "14GB"
+
+  # Model provider configurations
+  providers:
+    qwen:
+      backend: "transformers"
+      auto_tokenizer: true
+      trust_remote_code: true
+      supports_quantization: true
+      
+    deepseek:
+      backend: "transformers"
+      auto_tokenizer: true
+      trust_remote_code: true
+      supports_quantization: true
+      
+    starcoder:
+      backend: "transformers"
+      auto_tokenizer: true
+      trust_remote_code: false
+      supports_quantization: true
+      
+    codellama:
+      backend: "transformers"
+      auto_tokenizer: true
+      trust_remote_code: false
+      supports_quantization: true
+      
+    codestral:
+      backend: "transformers"
+      auto_tokenizer: true
+      trust_remote_code: true
+      supports_quantization: true
+      
+    opencoder:
+      backend: "transformers"
+      auto_tokenizer: true
+      trust_remote_code: false
+      supports_quantization: true
+      
+    codegemma:
+      backend: "transformers"
+      auto_tokenizer: true
+      trust_remote_code: false
+      supports_quantization: true
