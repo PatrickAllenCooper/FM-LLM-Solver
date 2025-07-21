@@ -34,7 +34,7 @@ scipy>=1.10.0
 
 # Caching and async
 aioredis==2.0.1
-redis==5.0.1
+redis==6.2.0
 
 # System utilities
 psutil==5.9.6

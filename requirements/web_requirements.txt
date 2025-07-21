@@ -1,12 +1,12 @@
 # Web Interface Requirements (CPU-only)
 # Flask and web framework
-flask==3.0.0
+flask==3.1.1
 flask-sqlalchemy==3.1.1
 flask-login==0.6.3
-flask-migrate==4.0.5
-flask-cors==4.0.0
+flask-migrate==4.1.0
+flask-cors==6.0.1
 werkzeug==3.0.1
-gunicorn==21.2.0
+gunicorn==23.0.0
 gevent==23.9.1
 
 # Database
@@ -14,7 +14,7 @@ psycopg2-binary==2.9.9
 sqlalchemy==2.0.23
 
 # Cache and session
-redis==5.0.1
+redis==6.2.0
 
 # Authentication and security
 cryptography==41.0.7
