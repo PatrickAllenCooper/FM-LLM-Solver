@@ -1,0 +1,90 @@
+# Phase 2 Test Configuration
+# =========================
+
+# Core validation parameters
+confidence_threshold: 0.8
+max_strategies: 3
+parallel_execution: true
+numerical_tolerance: 1e-6
+
+# Sampling parameters
+num_samples_boundary: 100
+num_samples_lie: 200
+sampling_seed: 42
+
+# Performance parameters
+execution_timeout: 300
+memory_limit: "2GB"
+max_workers: 4
+
+# Caching parameters
+cache_enabled: true
+cache_size: 1000
+cache_ttl: 3600
+
+# Monitoring parameters
+performance_monitoring: true
+metrics_retention_hours: 24
+alert_thresholds:
+  execution_time: 10.0
+  memory_usage: 0.8
+  error_rate: 0.05
+
+# Strategy-specific parameters
+strategies:
+  sampling:
+    enabled: true
+    confidence_threshold: 0.8
+    max_samples: 1000
+    adaptive_sampling: true
+    
+  symbolic:
+    enabled: true
+    polynomial_only: true
+    max_degree: 10
+    
+  interval:
+    enabled: true
+    precision: 1e-6
+    max_iterations: 100
+    
+  smt:
+    enabled: true
+    solver: "z3"
+    timeout: 30
+
+# Test parameters
+test:
+  timeout: 600
+  verbose: true
+  parallel: true
+  coverage: true
+  
+# Integration test parameters
+integration:
+  phase1_compatibility: true
+  web_interface: true
+  performance_benchmarks: true
+  
+# Performance test parameters
+performance:
+  baseline_comparison: true
+  memory_profiling: true
+  cpu_profiling: true
+  gpu_profiling: false
+  
+# Error handling parameters
+error_handling:
+  max_retries: 3
+  retry_delay: 1.0
+  exponential_backoff: true
+  circuit_breaker: true
+  failure_threshold: 5
+  recovery_timeout: 30
+
+# Logging parameters
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "phase2_tests.log"
+  console: true 

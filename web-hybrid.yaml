@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fm-llm-web-hybrid
+  namespace: fm-llm-solver
+  labels:
+    app: fm-llm-web-hybrid
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: fm-llm-web-hybrid
+  template:
+    metadata:
+      labels:
+        app: fm-llm-web-hybrid
+    spec:
+      containers:
+      - name: web
+        image: python:3.11-slim
+        ports:
+        - containerPort: 5000
+        command: ["/bin/sh"]
+        args: ["-c", "pip install flask flask-cors requests && python -c 'from flask import Flask; app = Flask(__name__); @app.route(\"/\") ; def hello(): return \"<h1>FM-LLM Solver - Hybrid Mode</h1><p>Web interface running! GPU inference will connect to external provider.</p><p>Status: Ready for GPU provider integration</p>\"; @app.route(\"/health\"); def health(): return {\"status\": \"healthy\", \"mode\": \"hybrid\"}; app.run(host=\"0.0.0.0\", port=5000)'"]
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fm-llm-web-hybrid-service
+  namespace: fm-llm-solver
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 5000
+    protocol: TCP
+  selector:
+    app: fm-llm-web-hybrid 

@@ -22,22 +22,12 @@ inference_image = (
         "uvicorn>=0.24.0",
         "pydantic>=2.4.0",
         "numpy>=1.24.0",
-        "scipy>=1.11.0",
         "scikit-learn>=1.3.0",
-        "faiss-cpu>=1.7.4",
         "accelerate>=0.24.0",
-        "bitsandbytes>=0.41.0",
-        "peft>=0.6.0",
-        "datasets>=2.14.0",
         "aiofiles>=23.2.0",
         "python-multipart>=0.0.6",
     ])
-    .pip_install("flash-attn", pre=True)
     .apt_install("git")
-    .run_commands([
-        "pip install 'git+https://github.com/huggingface/transformers.git'",
-        "pip install 'git+https://github.com/huggingface/peft.git'",
-    ])
 )
 
 # Shared volume for model storage
@@ -45,19 +35,19 @@ models_volume = modal.Volume.from_name("fm-llm-models", create_if_missing=True)
 kb_volume = modal.Volume.from_name("fm-llm-kb", create_if_missing=True)
 
 # GPU configuration
-GPU_CONFIG = modal.gpu.A10G()  # 24GB GPU, good for LLMs
+GPU_CONFIG = "A10G"  # 24GB GPU, good for LLMs
 
-@app.function(
+@app.cls(
     image=inference_image,
     gpu=GPU_CONFIG,
     volumes={
         "/models": models_volume,
         "/kb": kb_volume,
     },
-    container_idle_timeout=300,  # Keep warm for 5 minutes
+    scaledown_window=300,  # Keep warm for 5 minutes
     timeout=1800,  # 30 minute timeout for long generations
-    allow_concurrent_inputs=3,  # Handle multiple requests
 )
+@modal.concurrent(max_inputs=3)  # Handle multiple requests
 class InferenceAPI:
     """FM-LLM Solver Inference API on Modal."""
     
@@ -80,7 +70,7 @@ class InferenceAPI:
         """Load models and knowledge bases on container startup."""
         import torch
         from sentence_transformers import SentenceTransformer
-        from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
+        from transformers import AutoTokenizer, AutoModelForCausalLM
         import json
         
         self.logger.info("🚀 Starting FM-LLM Solver inference service...")
@@ -96,19 +86,11 @@ class InferenceAPI:
         except Exception as e:
             self.logger.error(f"Failed to load embedding model: {e}")
         
-        # Load base LLM with quantization
+        # Load base LLM with simple configuration
         try:
             self.logger.info("Loading base language model...")
             
-            # Quantization config for memory efficiency
-            quantization_config = BitsAndBytesConfig(
-                load_in_4bit=True,
-                bnb_4bit_compute_dtype=torch.float16,
-                bnb_4bit_quant_type="nf4",
-                bnb_4bit_use_double_quant=True,
-            )
-            
-            model_name = "microsoft/DialoGPT-medium"  # Smaller model for quick testing
+            model_name = "microsoft/DialoGPT-small"  # Small, reliable model
             
             tokenizer = AutoTokenizer.from_pretrained(model_name)
             if tokenizer.pad_token is None:
@@ -116,11 +98,11 @@ class InferenceAPI:
                 
             model = AutoModelForCausalLM.from_pretrained(
                 model_name,
-                quantization_config=quantization_config,
-                device_map="auto",
-                torch_dtype=torch.float16,
-                trust_remote_code=True,
+                torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
             )
+            
+            if torch.cuda.is_available():
+                model = model.cuda()
             
             self.models_cache["base"] = {
                 "model": model,
@@ -329,9 +311,9 @@ Barrier Certificate:"""
 @modal.web_endpoint(method="POST", label="fm-llm-generate")
 def web_generate(item: dict):
     """Web endpoint for barrier certificate generation."""
-    inference_service = InferenceAPI()
+    service = InferenceAPI()
     
-    return inference_service.generate_certificate(
+    return service.generate_certificate(
         system_description=item.get("system_description", ""),
         model_config=item.get("model_config", "base"),
         rag_k=item.get("rag_k", 3),
@@ -343,15 +325,15 @@ def web_generate(item: dict):
 @modal.web_endpoint(method="GET", label="fm-llm-health")
 def web_health():
     """Health check web endpoint."""
-    inference_service = InferenceAPI()
-    return inference_service.health_check()
+    service = InferenceAPI()
+    return service.health_check()
 
 # FastAPI app for full API compatibility
 @app.function(
     image=inference_image,
     gpu=GPU_CONFIG,
     volumes={"/models": models_volume, "/kb": kb_volume},
-    container_idle_timeout=300,
+    scaledown_window=300,
 )
 @modal.asgi_app()
 def fastapi_app():
@@ -385,15 +367,15 @@ def fastapi_app():
         request_id: Optional[str] = None
     
     # Initialize inference service
-    inference_service = InferenceAPI()
+    service = InferenceAPI()
     
     @api.get("/health")
     def health_check():
-        return inference_service.health_check()
+        return service.health_check()
     
     @api.post("/generate")
     def generate_certificate(request: GenerateRequest):
-        return inference_service.generate_certificate(
+        return service.generate_certificate(
             system_description=request.system_description,
             model_config=request.model_config,
             rag_k=request.rag_k,
