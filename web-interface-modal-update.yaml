@@ -392,7 +392,7 @@ spec:
         args: ["-c", "pip install flask requests && python /app/simple-app-modal.py"]
         env:
         - name: MODAL_API_URL
-          value: "REPLACE_WITH_YOUR_MODAL_URL"  # Replace this with your actual Modal URL
+          value: "https://patrick-allen-cooper--fm-llm-solver-fastapi-app.modal.run"
         - name: PORT
           value: "5000"
         - name: HOST
