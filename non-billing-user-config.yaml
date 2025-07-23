@@ -1,0 +1,163 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: non-billing-config
+  namespace: fm-llm-production
+data:
+  update_users.py: |
+    #!/usr/bin/env python3
+    """
+    Update user configuration for authentication-only (no billing) mode.
+    """
+    import sys
+    sys.path.insert(0, '/app')
+    
+    from web_interface.app import create_app
+    from web_interface.models import db, User
+    
+    def configure_non_billing_mode():
+        """Configure all users for authentication-only mode with generous limits."""
+        app = create_app()
+        
+        with app.app_context():
+            print("🔧 Configuring authentication-only mode (no billing)...")
+            
+            # Default settings for non-billing mode
+            default_settings = {
+                'subscription_type': 'research',      # Non-billed research tier
+                'daily_request_limit': 500,           # Generous daily limit
+                'monthly_request_limit': 10000,       # Generous monthly limit  
+                'billing_email': None,                # No billing information
+                'subscription_start': None,           # No billing period
+                'subscription_end': None,             # No expiration
+                'is_premium': False,                  # No premium billing
+            }
+            
+            # Admin gets higher limits
+            admin_settings = {
+                'subscription_type': 'research_admin',
+                'daily_request_limit': 2000,
+                'monthly_request_limit': 100000,
+                'billing_email': None,
+                'subscription_start': None,
+                'subscription_end': None,
+                'is_premium': False,
+            }
+            
+            # Update all users
+            users = User.query.all()
+            updated_count = 0
+            
+            for user in users:
+                settings = admin_settings if user.role == 'admin' else default_settings
+                
+                for key, value in settings.items():
+                    setattr(user, key, value)
+                
+                updated_count += 1
+                print(f"✅ Updated user: {user.username} -> {user.subscription_type} (daily: {user.daily_request_limit})")
+            
+            db.session.commit()
+            print(f"🎯 Successfully configured {updated_count} users for authentication-only mode")
+            print("📋 Summary:")
+            print("   - No billing or subscription enforcement")
+            print("   - Generous rate limits for all authenticated users")
+            print("   - YOUR sophisticated authentication system active")
+            print("   - User management and security features enabled")
+    
+    if __name__ == "__main__":
+        configure_non_billing_mode()
+  
+  config.yaml: |
+    # Non-billing authentication-only configuration
+    app:
+      name: "FM-LLM Solver"
+      version: "1.0.0"
+      environment: "production"
+      billing_enabled: false  # Disable billing features
+      
+    # Authentication settings (keep YOUR sophisticated system)
+    authentication:
+      required: true                    # Require authentication
+      allow_registration: true          # Allow new user registration
+      default_subscription: "research"  # Non-billed research tier
+      email_verification: false        # Simplified for research use
+      
+    # Default user limits (generous, no billing)
+    user_defaults:
+      daily_request_limit: 500
+      monthly_request_limit: 10000
+      max_concurrent_requests: 5
+      subscription_type: "research"
+      
+    # Rate limiting (keep YOUR security features)
+    rate_limiting:
+      enabled: true                     # Keep rate limiting for security
+      enforce_billing: false            # Don't tie to billing
+      default_daily_limit: 500
+      default_monthly_limit: 10000
+      admin_daily_limit: 2000
+      admin_monthly_limit: 100000
+      
+    # Security settings (keep YOUR sophisticated security)
+    security:
+      ip_blacklisting: true
+      csrf_protection: true
+      security_logging: true
+      brute_force_protection: true
+      two_factor_optional: true
+      
+    # Database and infrastructure (unchanged)
+    database:
+      host: "postgres-service"
+      port: 5432
+      database: "fm_llm_production"
+      
+    web_interface:
+      host: "0.0.0.0"
+      port: 5000
+      debug: false
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: configure-non-billing
+  namespace: fm-llm-production
+spec:
+  template:
+    spec:
+      containers:
+      - name: configure
+        image: python:3.11-slim
+        env:
+        - name: DATABASE_URL
+          value: "postgresql://fm_llm_user:secure_production_password_123@postgres-service:5432/fm_llm_production"
+        - name: PYTHONPATH
+          value: "/app"
+        command: ['sh', '-c']
+        args:
+        - |
+          echo "🔧 Configuring authentication-only mode (no billing)..."
+          
+          # Install dependencies
+          pip install --no-cache-dir flask flask-sqlalchemy psycopg2-binary werkzeug
+          
+          # Wait for database
+          apt-get update && apt-get install -y netcat-traditional
+          while ! nc -z postgres-service 5432; do sleep 2; done
+          
+          # Run configuration
+          python3 /config/update_users.py
+        volumeMounts:
+        - name: config
+          mountPath: /config
+        - name: app-code
+          mountPath: /app
+      volumes:
+      - name: config
+        configMap:
+          name: non-billing-config
+      - name: app-code
+        configMap:
+          name: your-exact-models  # Use YOUR models for User class
+      restartPolicy: OnFailure 

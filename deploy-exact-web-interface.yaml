@@ -2243,7 +2243,7 @@ spec:
               db.create_all()
               print('✅ YOUR database tables created successfully')
               
-              # Create admin user using YOUR User model
+              # Create admin user using YOUR User model (no billing)
               admin = User.query.filter_by(username='admin').first()
               if not admin:
                   admin = User(
@@ -2252,16 +2252,31 @@ spec:
                       role='admin',
                       is_active=True,
                       is_verified=True,
-                      subscription_type='enterprise',
-                      daily_request_limit=5000,
-                      monthly_request_limit=100000
+                      subscription_type='research',  # Non-billed research tier
+                      daily_request_limit=1000,     # Generous limits for all users
+                      monthly_request_limit=50000,  # No billing enforcement
+                      billing_email=None            # No billing information
                   )
                   admin.set_password('admin123')  # Change in production!
                   db.session.add(admin)
                   db.session.commit()
-                  print('✅ Admin user created with YOUR User model')
+                  print('✅ Admin user created with YOUR User model (no billing)')
               else:
                   print('✅ Admin user already exists')
+              
+              # Set default generous limits for all existing users (no billing)
+              print('🔧 Updating user limits for non-billing mode...')
+              users = User.query.all()
+              for user in users:
+                  if user.role != 'admin':
+                      user.subscription_type = 'research'  # Non-billed tier
+                      user.daily_request_limit = 500      # Generous daily limit
+                      user.monthly_request_limit = 10000  # Generous monthly limit
+                      user.billing_email = None           # Remove billing info
+                      user.subscription_start = None      # No billing period
+                      user.subscription_end = None        # No expiration
+              db.session.commit()
+              print('✅ All users configured for non-billing authentication-only mode')
           "
           
           # Start YOUR sophisticated web interface
