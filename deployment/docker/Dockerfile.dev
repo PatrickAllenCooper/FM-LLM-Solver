@@ -1,0 +1,74 @@
+# Development Environment
+# Full development setup with tools and hot reload
+FROM nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04 AS base
+
+ENV PYTHONUNBUFFERED=1 \
+    DEBIAN_FRONTEND=noninteractive \
+    CUDA_VISIBLE_DEVICES=0 \
+    PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:512 \
+    PYTHONPATH=/app \
+    FM_LLM_ENV=development
+
+# Install comprehensive system dependencies
+RUN apt-get update && apt-get install -y \
+    python3.10 \
+    python3.10-dev \
+    python3-pip \
+    git \
+    wget \
+    curl \
+    build-essential \
+    postgresql-client \
+    redis-tools \
+    vim \
+    nano \
+    htop \
+    tree \
+    jq \
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -sf /usr/bin/python3.10 /usr/bin/python
+
+# Create non-root user with sudo access
+RUN groupadd -r fmllm && useradd -r -g fmllm -s /bin/bash fmllm \
+    && apt-get update && apt-get install -y sudo \
+    && echo "fmllm ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+WORKDIR /app
+
+# Copy and install requirements
+COPY requirements/ ./requirements/
+COPY requirements.txt ./
+RUN pip install --no-cache-dir --upgrade pip
+
+# Install PyTorch with CUDA support
+RUN pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+
+# Install all requirements including development tools
+RUN pip install --no-cache-dir \
+    -r requirements/base.txt \
+    -r requirements/web.txt \
+    -r requirements/inference.txt \
+    -r requirements/dev.txt
+
+# Copy application code
+COPY . .
+
+# Create necessary directories and set permissions
+RUN mkdir -p /app/instance /app/logs /app/cache /app/uploads /app/models \
+    /home/fmllm/.vscode-server && \
+    chown -R fmllm:fmllm /app /home/fmllm
+
+# Copy entrypoint
+COPY deployment/docker/docker-entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+USER fmllm
+
+# Set up development environment
+RUN git config --global user.name "FM-LLM Developer" && \
+    git config --global user.email "dev@fmllm.local"
+
+EXPOSE 5000 8000 8888
+
+# Default to development mode with hot reload
+CMD ["/entrypoint.sh", "dev"] 

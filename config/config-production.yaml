@@ -1,23 +1,61 @@
 # FM-LLM Solver Production Configuration
-# Optimized for Google Cloud Platform deployment
+# Extends the main config.yaml with production-specific overrides
+# Usage: Load config.yaml first, then merge these overrides
 
-# Core application settings
-app:
-  name: "FM-LLM Solver"
-  version: "1.0.0"
-  environment: "production"
+# ============================================================================
+# Environment & System (Production Overrides)
+# ============================================================================
+environment:
+  mode: production
   debug: false
+  log_level: INFO
 
-# Web interface configuration
-web_interface:
+# ============================================================================
+# Database (Production PostgreSQL)
+# ============================================================================
+database:
+  url: ${ENV:DATABASE_URL:postgresql://fmllm:${ENV:DB_PASSWORD}@127.0.0.1:5432/fm_llm_solver}
+  pool_size: 20
+  max_overflow: 40
+  pool_timeout: 60
+  pool_recycle: 3600
+  echo: false
+
+# ============================================================================
+# Cache (Production Redis)
+# ============================================================================
+cache:
+  enabled: true
+  url: ${ENV:REDIS_URL:redis://10.66.171.51:6379/0}
+  default_timeout: 7200
+  key_prefix: "fmllm:prod:"
+
+# ============================================================================
+# Web Interface (Production)
+# ============================================================================
+web:
   host: "0.0.0.0"
   port: 5000
-  database_path: "/app/instance/production.db"
-  debug: false
-  secret_key_env: "SECRET_KEY"
+  
+  # Enhanced security for production
+  csrf_enabled: true
+  session_timeout: 1800  # 30 minutes
+  max_content_length: 52428800  # 50MB
+  
+  # User management in production
+  enable_registration: false  # Disable public registration
+  enable_api_keys: true
+  default_subscription: basic
+  
+  # Stricter rate limiting for production
+  rate_limit:
+    enabled: true
+    default: "50 per hour"
+    api: "500 per hour"
+    burst: "5 per minute"
   
   # User quotas (enforced in production)
-  user_quotas:
+  quotas:
     free:
       daily_limit: 50
       monthly_limit: 500
@@ -28,181 +66,115 @@ web_interface:
       daily_limit: 1000
       monthly_limit: 10000
 
-# Database configuration
-database:
-  type: "postgresql"
-  host: "127.0.0.1"  # Cloud SQL proxy
-  port: 5432
-  name: "fm_llm_solver"
-  pool_size: 10
-  max_overflow: 20
-  pool_pre_ping: true
-
-# Redis cache configuration
-cache:
-  type: "redis"
-  host: "10.66.171.51"  # Redis instance IP
-  port: 6379
-  db: 0
-  ttl: 3600
-  max_connections: 50
-
-# Model configurations
+# ============================================================================
+# Inference (Production)
+# ============================================================================
+inference:
+  host: "0.0.0.0"
+  port: 8000
+  timeout: 600  # Longer timeout for production
+  
+  # Production model configurations
 models:
   base:
-    name: "Base Llama2-7B"
-    description: "Base model without fine-tuning"
-    type: "base"
-    barrier_type: "unified"
-    
-  finetuned:
-    name: "Fine-tuned Llama2-7B"
-    description: "Model fine-tuned on barrier certificate data"
-    type: "finetuned"
-    barrier_type: "unified"
-    
-  discrete:
-    name: "Discrete-Time Specialist"
-    description: "Model specialized for discrete-time systems"
-    type: "finetuned"
+      name: "Qwen/Qwen2.5-14B-Instruct"
     barrier_type: "discrete"
-    
-  continuous:
-    name: "Continuous-Time Specialist"
-    description: "Model specialized for continuous-time systems"
-    type: "finetuned"
-    barrier_type: "continuous"
+      max_new_tokens: 512
+      temperature: 0.05  # More deterministic in production
+      top_p: 0.9
+      device_map: auto
+      torch_dtype: bfloat16
+      load_in_4bit: true  # Memory optimization
 
-# Fine-tuning configuration
-fine_tuning:
-  base_model_name: "meta-llama/Llama-2-7b-chat-hf"
-  use_adapter: true
+# ============================================================================
+# Performance (Production Optimized)
+# ============================================================================
+performance:
+  cuda:
+    visible_devices: "0"
+    memory_config: "max_split_size_mb:1024"
   
-  quantization:
-    use_4bit: true
-    bnb_4bit_compute_dtype: "float16"
-    bnb_4bit_quant_type: "nf4"
-    use_nested_quant: false
+  cpu_workers: 8
+  max_memory: 32
+  
+  model_cache_size: 1  # Conservative memory usage
+  enable_model_offload: true
 
-# Knowledge base configuration
-knowledge_base:
-  embedding_model_name: "sentence-transformers/all-MiniLM-L6-v2"
-  chunk_size: 500
-  chunk_overlap: 50
-  use_gpu: false  # CPU-only for production
-
-# Inference configuration
-inference:
-  max_new_tokens: 512
-  temperature: 0.1
-  top_p: 0.9
-  rag_k: 3
-  max_retries: 3
-  timeout_seconds: 300
-
-# Deployment configuration
+# ============================================================================
+# Deployment (Cloud/GCP)
+# ============================================================================
 deployment:
-  mode: "cloud"  # local, cloud, hybrid
+  mode: cloud
   
   services:
     web:
-      replicas: 2
-      resources:
-        requests:
-          cpu: "300m"
-          memory: "512Mi"
-        limits:
-          cpu: "800m"
-          memory: "1Gi"
+      enabled: true
+      workers: 8
+      timeout: 300
     
     inference:
-      replicas: 1
-      resources:
-        requests:
-          cpu: "1000m"
-          memory: "2Gi"
-        limits:
-          cpu: "2000m"
-          memory: "4Gi"
-      timeout: 300
+      enabled: true
+      workers: 2
+      timeout: 600
+      
+    database:
+      host: 127.0.0.1  # Cloud SQL proxy
+      port: 5432
+      
+    redis:
+      host: 10.66.171.51  # Redis instance IP
+      port: 6379
   
   cloud:
-    project_id: "fmgen-net-production"
-    region: "us-central1"
-    inference_api_url: "http://fm-llm-inference-service:8000"
-    
-    storage:
-      models_bucket: "fm-llm-models-fmgen-net-production"
-      kb_bucket: "fm-llm-knowledge-base-fmgen-net-production"
-  
-  performance:
-    enable_caching: true
-    cache_ttl: 3600
-    max_concurrent_requests: 100
-    
-  security:
-    rate_limiting: true
-    api_key_required: true
-    cors_enabled: true
-    ssl_redirect: true
+    storage_bucket: ${ENV:STORAGE_BUCKET:fm-llm-models}
+    cdn_url: ${ENV:CDN_URL:}
 
-# Paths configuration (container paths)
-paths:
-  project_root: "/app"
-  models_dir: "/app/models"
-  kb_output_dir: "/app/knowledge_base"
-  kb_vector_store_filename: "faiss_index.bin"
-  kb_metadata_filename: "metadata.json"
-  
-  # Discrete-time knowledge base
-  kb_discrete_output_dir: "/app/knowledge_base/discrete"
-  kb_discrete_vector_store_filename: "faiss_index_discrete.bin"
-  kb_discrete_metadata_filename: "metadata_discrete.json"
-  
-  # Continuous-time knowledge base
-  kb_continuous_output_dir: "/app/knowledge_base/continuous"
-  kb_continuous_vector_store_filename: "faiss_index_continuous.bin"
-  kb_continuous_metadata_filename: "metadata_continuous.json"
-  
-  ft_output_dir: "/app/models/fine_tuned"
-  logs_dir: "/app/logs"
-  cache_dir: "/app/cache"
-
-# Logging configuration
-logging:
-  level: "INFO"
-  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-  file_logging: false  # Use container logs
-  console_logging: true
-  
-  loggers:
-    web_interface: "INFO"
-    inference_api: "INFO"
-    certificate_generator: "INFO"
-    verification_service: "INFO"
-
-# Monitoring configuration
+# ============================================================================
+# Monitoring (Production)
+# ============================================================================
 monitoring:
-  enabled: true
-  metrics_port: 8080
-  health_check_interval: 30
+  metrics_enabled: true
+  metrics_port: 9090
   
-  prometheus:
-    enabled: true
-    port: 8090
-    path: "/metrics"
+  health_check_interval: 15  # More frequent checks
+  health_check_timeout: 5
   
-  alerts:
-    error_rate_threshold: 0.05
-    response_time_threshold: 5.0
-    memory_usage_threshold: 0.85
+  track_generation_time: true
+  track_memory_usage: true
+  track_gpu_usage: true
 
-# Feature flags
+# ============================================================================
+# Security (Production)
+# ============================================================================
+  security:
+  cors_origins: ${ENV:CORS_ORIGINS:https://fmgen.net,https://fm-llm-solver.fmgen.net}
+  csp_enabled: true
+  
+  api_key_length: 64  # Longer keys for production
+  api_rate_limit: "500 per hour"
+  
+  password_min_length: 12  # Stricter password policy
+  password_require_special: true
+
+# ============================================================================
+# Feature Flags (Production)
+# ============================================================================
 features:
-  user_authentication: true
-  api_access: true
-  conversation_mode: true
-  rag_retrieval: true
-  certificate_verification: true
-  cost_tracking: true
-  usage_analytics: true 
+  enable_conversation_mode: true
+  enable_batch_processing: false  # Disabled for stability
+  enable_model_comparison: false  # Disabled to save resources
+  enable_verification_service: true
+  
+  enable_dark_mode: true
+  enable_advanced_settings: false  # Simplified UI
+  enable_export_formats: ["json", "latex"]  # Limited formats
+
+# ============================================================================
+# Logging (Production)
+# ============================================================================
+logging:
+  level: INFO
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "/app/logs/fm-llm-solver.log"
+  max_bytes: 10485760  # 10MB
+  backup_count: 5 

@@ -1,6 +1,13 @@
-FROM python:3.10-slim
+# Web Interface Only - CPU Optimized
+# Lightweight container for web interface without ML dependencies
+FROM python:3.10-slim AS base
 
-# Install system dependencies
+ENV PYTHONUNBUFFERED=1 \
+    DEBIAN_FRONTEND=noninteractive \
+    PYTHONPATH=/app \
+    FM_LLM_ENV=production
+
+# Install minimal system dependencies
 RUN apt-get update && apt-get install -y \
     curl \
     git \
@@ -12,12 +19,10 @@ RUN groupadd -r fmllm && useradd -r -g fmllm fmllm
 
 WORKDIR /app
 
-# Copy web-specific requirements
-COPY requirements/web_requirements.txt ./
-
-# Install Python dependencies (web-only, CPU optimized)
+# Copy and install requirements
+COPY requirements/base.txt requirements/web.txt ./
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r web_requirements.txt
+    pip install --no-cache-dir -r base.txt -r web.txt
 
 # Copy application code
 COPY . .
@@ -26,39 +31,18 @@ COPY . .
 RUN mkdir -p /app/instance /app/logs /app/cache /app/uploads && \
     chown -R fmllm:fmllm /app
 
-# Copy production config
+# Copy production configuration
 COPY config/config-production.yaml /app/config/config.yaml
 
-# Create a startup script
-RUN echo '#!/bin/bash\n\
-set -e\n\
-\n\
-# Initialize database if needed\n\
-python -c "from web_interface.app import app; from web_interface.models import db; app.app_context().push(); db.create_all()"\n\
-\n\
-# Start the web application\n\
-exec gunicorn \
-    --bind 0.0.0.0:5000 \
-    --workers 4 \
-    --worker-class gevent \
-    --worker-connections 1000 \
-    --timeout 120 \
-    --keepalive 5 \
-    --preload \
-    --access-logfile - \
-    --error-logfile - \
-    --log-level info \
-    web_interface.app:app' > /app/start.sh && \
-    chmod +x /app/start.sh
+# Copy entrypoint
+COPY deployment/docker/docker-entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
-# Switch to non-root user
 USER fmllm
+EXPOSE 5000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD curl -f http://localhost:5000/health || exit 1
 
-EXPOSE 5000
-
-# Start the web application
-CMD ["/app/start.sh"]
+CMD ["/entrypoint.sh", "web"]

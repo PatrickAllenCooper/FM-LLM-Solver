@@ -1,0 +1,242 @@
+# FM-LLM Solver - Production Environment Overrides
+# This file contains production-specific security and deployment settings
+
+# ============================================================================
+# Environment Settings (Production)
+# ============================================================================
+environment:
+  mode: production
+  debug: false
+  log_level: INFO
+
+# ============================================================================
+# Secrets (Production - MUST be set via environment variables)
+# ============================================================================
+secrets:
+  # CRITICAL: Must be set via environment variables in production
+  secret_key: "${ENV:SECRET_KEY}"
+  jwt_secret: "${ENV:JWT_SECRET}"
+  
+  # External API keys from environment
+  mathpix_app_id: "${ENV:MATHPIX_APP_ID}"
+  mathpix_app_key: "${ENV:MATHPIX_APP_KEY}"
+  unpaywall_email: "${ENV:UNPAYWALL_EMAIL}"
+  semantic_scholar_api_key: "${ENV:SEMANTIC_SCHOLAR_API_KEY}"
+  huggingface_token: "${ENV:HUGGINGFACE_TOKEN}"
+
+# ============================================================================
+# Database (Production - PostgreSQL)
+# ============================================================================
+database:
+  url: "${ENV:DATABASE_URL}"
+  
+  # Production connection pool settings
+  pool_size: 20
+  max_overflow: 30
+  pool_timeout: 30
+  pool_recycle: 3600
+  
+  # No SQL echo in production
+  echo: false
+
+# ============================================================================
+# Cache (Production - Redis required)
+# ============================================================================
+cache:
+  enabled: true
+  url: "${ENV:REDIS_URL}"
+  default_timeout: 3600
+  key_prefix: "fmllm:prod:"
+
+# ============================================================================
+# Web Interface (Production - Security Hardened)
+# ============================================================================
+web:
+  host: "0.0.0.0"
+  port: 5000
+  
+  # Enhanced security for production
+  csrf_enabled: true
+  session_timeout: 1800  # 30 minutes
+  max_content_length: 52428800  # 50MB
+  
+  # User management in production
+  enable_registration: false  # Disable public registration
+  enable_api_keys: true
+  default_subscription: basic
+  
+  # Stricter rate limiting for production
+  rate_limit:
+    enabled: true
+    default: "50 per hour"
+    api: "500 per hour"
+    burst: "5 per minute"
+  
+  # User quotas (enforced in production)
+  quotas:
+    free:
+      daily_limit: 50
+      monthly_limit: 500
+    premium:
+      daily_limit: 200
+      monthly_limit: 2000
+    enterprise:
+      daily_limit: 1000
+      monthly_limit: 10000
+
+# ============================================================================
+# Inference (Production - Hybrid GCP + Modal)
+# ============================================================================
+inference:
+  host: "0.0.0.0"
+  port: 8000
+  timeout: 600  # Longer timeout for production
+  
+  # Modal API URL for hybrid deployment
+  api_url: "${ENV:INFERENCE_API_URL}"
+
+# ============================================================================
+# Models (Production - Optimized for performance)
+# ============================================================================
+models:
+  base:
+    name: "Qwen/Qwen2.5-14B-Instruct"
+    barrier_type: "discrete"
+    max_new_tokens: 512
+    temperature: 0.05  # More deterministic in production
+    top_p: 0.9
+    device_map: auto
+    torch_dtype: bfloat16
+    load_in_4bit: true  # Memory optimization
+
+# ============================================================================
+# Performance (Production Optimized)
+# ============================================================================
+performance:
+  cuda:
+    visible_devices: "${ENV:CUDA_VISIBLE_DEVICES:0}"
+    memory_config: "max_split_size_mb:1024"
+  
+  cpu_workers: 8
+  max_memory: 32
+  
+  model_cache_size: 1  # Conservative memory usage
+  enable_model_offload: true
+
+# ============================================================================
+# Deployment (Production - GCP + Modal Hybrid)
+# ============================================================================
+deployment:
+  mode: hybrid  # GCP web interface + Modal inference
+  
+  # Service configuration for production
+  services:
+    web:
+      enabled: true
+      workers: 8  # Scale for production load
+      timeout: 120
+      
+    inference:
+      enabled: false  # Inference handled by Modal
+      
+    # External services
+    database:
+      host: "${ENV:DB_HOST}"
+      port: "${ENV:DB_PORT:5432}"
+      
+    redis:
+      host: "${ENV:REDIS_HOST}"
+      port: "${ENV:REDIS_PORT:6379}"
+  
+  # Cloud/production specific
+  cloud:
+    inference_api_url: "${ENV:CLOUD_INFERENCE_URL}"
+    cdn_url: "${ENV:CDN_URL:}"
+    storage_bucket: "${ENV:STORAGE_BUCKET:}"
+
+# ============================================================================
+# Monitoring (Production - Full monitoring enabled)
+# ============================================================================
+monitoring:
+  # Prometheus metrics
+  metrics_enabled: true
+  metrics_port: 9090
+  
+  # Health checks
+  health_check_interval: 15  # More frequent in production
+  health_check_timeout: 5
+  
+  # Performance tracking
+  track_generation_time: true
+  track_memory_usage: true
+  track_gpu_usage: true
+  
+  # Production-specific monitoring
+  alerts:
+    enabled: true
+    error_threshold: 0.05  # 5% error rate threshold
+    latency_threshold: 10000  # 10s latency threshold
+
+# ============================================================================
+# Security (Production - Hardened)
+# ============================================================================
+security:
+  # CORS - Restrictive in production
+  cors_origins: "${ENV:CORS_ORIGINS}"
+  
+  # Content Security Policy
+  csp_enabled: true
+  csp_policy: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"
+  
+  # API Security
+  api_key_length: 32
+  api_rate_limit: "500 per hour"  # Stricter in production
+  
+  # Password policy (stricter)
+  password_min_length: 12
+  password_require_special: true
+  password_require_uppercase: true
+  password_require_numbers: true
+
+# ============================================================================
+# Feature Flags (Production - Stable features only)
+# ============================================================================
+features:
+  # Only stable features in production
+  enable_conversation_mode: true
+  enable_batch_processing: false  # Disabled until stable
+  enable_model_comparison: true
+  enable_verification_service: true
+  
+  # UI features
+  enable_dark_mode: true
+  enable_advanced_settings: false  # Simplified UI for users
+  enable_export_formats: ["json", "pdf"]  # Limited formats
+
+# ============================================================================
+# Production-Specific Settings
+# ============================================================================
+production:
+  # Error handling
+  error_reporting:
+    enabled: true
+    service: "${ENV:ERROR_REPORTING_SERVICE:}"
+    
+  # Backup settings
+  backup:
+    enabled: true
+    schedule: "0 2 * * *"  # Daily at 2 AM
+    retention_days: 30
+    
+  # Scaling settings
+  auto_scaling:
+    enabled: true
+    min_instances: 2
+    max_instances: 10
+    target_cpu_utilization: 70
+    
+  # SSL/TLS
+  ssl:
+    enabled: true
+    certificate_path: "${ENV:SSL_CERT_PATH}"
+    private_key_path: "${ENV:SSL_KEY_PATH}" 

@@ -1,0 +1,266 @@
+# FM-LLM Solver - Unified Multi-Stage Dockerfile
+# Consolidates: Dockerfile, Dockerfile.web, Dockerfile.inference, Dockerfile.dev
+# 
+# Build targets:
+#   base       - Common dependencies and setup
+#   web        - Web interface only (CPU optimized)
+#   inference  - ML/inference only (GPU optimized)
+#   development- Development environment with tools
+#   production - Full production stack
+#
+# Usage:
+#   docker build --target web -t fm-llm:web .
+#   docker build --target inference -t fm-llm:inference .
+#   docker build --target development -t fm-llm:dev .
+#   docker build --target production -t fm-llm:full .
+
+# ============================================================================
+# Base Stage - Common dependencies and setup
+# ============================================================================
+FROM nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04 AS base
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    DEBIAN_FRONTEND=noninteractive \
+    PYTHONPATH=/app \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    python3.10 \
+    python3.10-dev \
+    python3-pip \
+    python3.10-venv \
+    git \
+    wget \
+    curl \
+    build-essential \
+    pkg-config \
+    libssl-dev \
+    libffi-dev \
+    libpq-dev \
+    postgresql-client \
+    redis-tools \
+    htop \
+    vim \
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -sf /usr/bin/python3.10 /usr/bin/python \
+    && ln -sf /usr/bin/pip3 /usr/bin/pip
+
+# Create application user for security
+RUN groupadd -r fmllm && useradd -r -g fmllm fmllm
+
+# Copy requirements files first for better caching
+COPY requirements/ ./requirements/
+COPY requirements.txt ./
+
+# Install base Python requirements
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -r requirements/base.txt
+
+# Copy application code
+COPY . .
+
+# Create necessary directories and set permissions
+RUN mkdir -p /app/instance /app/logs /app/cache /app/uploads /app/models /app/kb_data && \
+    chown -R fmllm:fmllm /app
+
+# Copy unified entrypoint script
+COPY deployment/docker/docker-entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# ============================================================================
+# Web Stage - Web interface only (CPU optimized)
+# ============================================================================
+FROM base AS web
+
+# Install web-specific requirements
+RUN pip install --no-cache-dir -r requirements/web.txt
+
+# Remove unnecessary packages for smaller image
+RUN apt-get remove -y build-essential python3.10-dev && \
+    apt-get autoremove -y && \
+    apt-get clean
+
+# Set web-specific environment variables
+ENV FM_LLM_COMPONENT=web \
+    DEPLOYMENT_MODE=hybrid
+
+# Switch to application user
+USER fmllm
+
+# Expose web port
+EXPOSE 5000
+
+# Health check for web interface
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:5000/health || exit 1
+
+# Default command
+CMD ["/entrypoint.sh", "web"]
+
+# ============================================================================
+# Inference Stage - ML/inference only (GPU optimized)
+# ============================================================================
+FROM base AS inference
+
+# Install PyTorch with CUDA support first
+RUN pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+
+# Install inference-specific requirements
+RUN pip install --no-cache-dir -r requirements/inference.txt
+
+# Set inference-specific environment variables
+ENV FM_LLM_COMPONENT=inference \
+    CUDA_VISIBLE_DEVICES=0 \
+    PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:512
+
+# Switch to application user
+USER fmllm
+
+# Expose inference port
+EXPOSE 8000
+
+# Health check for inference API
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Default command
+CMD ["/entrypoint.sh", "inference"]
+
+# ============================================================================
+# Development Stage - Full development environment
+# ============================================================================
+FROM base AS development
+
+# Install PyTorch with CUDA support
+RUN pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+
+# Install all requirements including development tools
+RUN pip install --no-cache-dir \
+    -r requirements/web.txt \
+    -r requirements/inference.txt \
+    -r requirements/dev.txt
+
+# Install additional development tools
+RUN apt-get update && apt-get install -y \
+    jupyter \
+    ipython \
+    bash-completion \
+    tree \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Jupyter extensions and configure
+RUN pip install --no-cache-dir \
+    jupyterlab \
+    jupyter-lsp \
+    jupyterlab-git \
+    ipywidgets
+
+# Set development environment variables
+ENV FM_LLM_ENV=development \
+    FLASK_ENV=development \
+    FLASK_DEBUG=1 \
+    DEPLOYMENT_MODE=local
+
+# Create Jupyter config
+RUN mkdir -p /home/fmllm/.jupyter
+COPY deployment/docker/jupyter_config.py /home/fmllm/.jupyter/
+
+# Switch to application user
+USER fmllm
+
+# Expose development ports
+EXPOSE 5000 8000 8888
+
+# Health check for development
+HEALTHCHECK --interval=60s --timeout=10s --start-period=120s --retries=3 \
+    CMD curl -f http://localhost:5000/health || curl -f http://localhost:8000/health || exit 1
+
+# Default to development mode
+CMD ["/entrypoint.sh", "dev"]
+
+# ============================================================================
+# Production Stage - Full production stack
+# ============================================================================
+FROM base AS production
+
+# Install PyTorch with CUDA support
+RUN pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+
+# Install production requirements
+RUN pip install --no-cache-dir \
+    -r requirements/web.txt \
+    -r requirements/inference.txt \
+    -r requirements/production.txt
+
+# Install production monitoring tools
+RUN pip install --no-cache-dir \
+    prometheus-client \
+    gunicorn \
+    uvicorn[standard]
+
+# Copy production configuration
+COPY config/environments/production.yaml /app/config/production.yaml
+
+# Remove unnecessary packages for smaller production image
+RUN apt-get remove -y build-essential python3.10-dev && \
+    apt-get autoremove -y && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# Set production environment variables
+ENV FM_LLM_ENV=production \
+    DEPLOYMENT_MODE=local \
+    PYTHONOPTIMIZE=1
+
+# Switch to application user
+USER fmllm
+
+# Expose production ports
+EXPOSE 5000 8000 9090
+
+# Comprehensive health check for production
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
+    CMD curl -f http://localhost:5000/health && curl -f http://localhost:8000/health || exit 1
+
+# Default to both services in production
+CMD ["/entrypoint.sh", "both"]
+
+# ============================================================================
+# Minimal Runtime - Ultra-lightweight for specific deployments
+# ============================================================================
+FROM python:3.10-slim AS minimal
+
+# Install only essential system packages
+RUN apt-get update && apt-get install -y \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy only essential files from base
+COPY --from=base /app/requirements/base.txt /tmp/
+COPY --from=base /app/fm_llm_solver/ /app/fm_llm_solver/
+COPY --from=base /app/utils/ /app/utils/
+COPY --from=base /app/config/ /app/config/
+COPY --from=base /entrypoint.sh /entrypoint.sh
+
+# Install minimal requirements
+RUN pip install --no-cache-dir -r /tmp/base.txt && \
+    rm /tmp/base.txt
+
+WORKDIR /app
+
+# Create minimal user
+RUN useradd -r fmllm && \
+    mkdir -p /app/instance /app/logs && \
+    chown -R fmllm:fmllm /app
+
+USER fmllm
+
+EXPOSE 5000
+
+CMD ["/entrypoint.sh", "web"] 

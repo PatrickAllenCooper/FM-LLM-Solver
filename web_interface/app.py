@@ -67,7 +67,7 @@ except ImportError as e:
     # Create placeholder objects for testing
     auth_bp = None
     monitoring_bp = None
-    
+
     # Create placeholder services for testing
     class VerificationService:
         def __init__(self, config):

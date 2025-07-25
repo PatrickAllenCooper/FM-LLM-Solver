@@ -1,0 +1,182 @@
+# FM-LLM Solver Development Configuration
+# Extends the main config.yaml with development-specific overrides
+# Usage: Load config.yaml first, then merge these overrides
+
+# ============================================================================
+# Environment & System (Development Overrides)
+# ============================================================================
+environment:
+  mode: development
+  debug: true
+  log_level: DEBUG
+
+# ============================================================================
+# Database (Development SQLite)
+# ============================================================================
+database:
+  url: sqlite:///instance/fmllm_dev.db
+  echo: true  # Show SQL queries in development
+
+# ============================================================================
+# Cache (Development - Optional Redis)
+# ============================================================================
+cache:
+  enabled: false  # Disable cache for development to see real-time changes
+  url: redis://localhost:6379/1  # Different DB from production
+
+# ============================================================================
+# Web Interface (Development)
+# ============================================================================
+web:
+  host: "127.0.0.1"
+  port: 5000
+  
+  # Relaxed security for development
+  csrf_enabled: false  # Easier testing
+  session_timeout: 86400  # 24 hours
+  max_content_length: 104857600  # 100MB for testing
+  
+  # Open registration for development
+  enable_registration: true
+  enable_api_keys: true
+  default_subscription: enterprise  # Full access for testing
+  
+  # Relaxed rate limiting for development
+  rate_limit:
+    enabled: false  # No rate limiting in dev
+    default: "1000 per hour"
+    api: "10000 per hour"
+    burst: "100 per minute"
+
+# ============================================================================
+# Inference (Development)
+# ============================================================================
+inference:
+  host: "127.0.0.1"
+  port: 8000
+  timeout: 120  # Shorter timeout for faster feedback
+  
+  # Development model configurations (smaller/faster models)
+  default_model: qwen2.5-7b  # Smaller model for development
+  
+  models:
+    base:
+      name: "Qwen/Qwen2.5-7B-Instruct"  # Smaller for development
+      barrier_type: "discrete"
+      max_new_tokens: 256  # Shorter responses for faster testing
+      temperature: 0.3  # Slightly more creative for testing
+      top_p: 0.95
+      device_map: auto
+      torch_dtype: float16  # Less memory usage
+      load_in_4bit: false  # Disable for better debugging
+
+# ============================================================================
+# Performance (Development Optimized)
+# ============================================================================
+performance:
+  cuda:
+    visible_devices: "0"
+    memory_config: "max_split_size_mb:256"
+  
+  cpu_workers: 2  # Less aggressive for development
+  max_memory: 8   # Lower memory usage
+  
+  model_cache_size: 1
+  enable_model_offload: false  # Keep models loaded for faster iteration
+
+# ============================================================================
+# Deployment (Local Development)
+# ============================================================================
+deployment:
+  mode: local
+  
+  services:
+    web:
+      enabled: true
+      workers: 1  # Single worker for debugging
+      timeout: 60
+      
+    inference:
+      enabled: true
+      workers: 1
+      timeout: 120
+      
+    database:
+      host: localhost
+      port: 5432
+      
+    redis:
+      host: localhost
+      port: 6379
+
+# ============================================================================
+# Monitoring (Development)
+# ============================================================================
+monitoring:
+  metrics_enabled: false  # Disable to reduce overhead
+  metrics_port: 9090
+  
+  health_check_interval: 60  # Less frequent checks
+  health_check_timeout: 30
+  
+  track_generation_time: true
+  track_memory_usage: false
+  track_gpu_usage: false
+
+# ============================================================================
+# Security (Development - Relaxed)
+# ============================================================================
+security:
+  cors_origins: "*"  # Allow all origins in development
+  csp_enabled: false  # Easier debugging
+  
+  api_key_length: 16  # Shorter keys for easier testing
+  api_rate_limit: "10000 per hour"
+  
+  password_min_length: 4  # Easier testing
+  password_require_special: false
+
+# ============================================================================
+# Feature Flags (Development - All Enabled)
+# ============================================================================
+features:
+  enable_conversation_mode: true
+  enable_batch_processing: true
+  enable_model_comparison: true
+  enable_verification_service: true
+  
+  enable_dark_mode: true
+  enable_advanced_settings: true
+  enable_export_formats: ["json", "latex", "pdf", "txt", "csv"]
+
+# ============================================================================
+# Development Specific Settings
+# ============================================================================
+development:
+  auto_reload: true
+  
+  # Mock settings for faster development
+  mock_external_apis: true
+  
+  # Testing
+  test_database_url: "sqlite:///test_dev.db"
+  test_timeout: 30
+  
+  # Debug features
+  enable_sql_echo: true
+  enable_profiling: true
+  
+  # Hot reload settings
+  hot_reload_templates: true
+  hot_reload_static: true
+
+# ============================================================================
+# Logging (Development - Verbose)
+# ============================================================================
+logging:
+  level: DEBUG
+  format: "%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s"
+  console: true  # Log to console in development
+  file: "logs/fm-llm-solver-dev.log"
+  max_bytes: 5242880  # 5MB
+  backup_count: 2 

@@ -18,6 +18,17 @@ from flask_login import current_user
 from sentence_transformers import SentenceTransformer
 from transformers import pipeline
 
+# Import from the core services architecture
+try:
+    from fm_llm_solver.services.certificate_generator import CertificateGenerator as CoreCertificateGenerator
+    from fm_llm_solver.core.types import SystemDescription, GenerationResult
+    from fm_llm_solver.core.config import Config
+    from fm_llm_solver.services.model_provider import QwenProvider
+    CORE_SERVICES_AVAILABLE = True
+except ImportError:
+    CORE_SERVICES_AVAILABLE = False
+
+# Fallback to original implementation
 from inference.generate_certificate import (
     format_prompt_with_context,
     load_finetuned_model,
@@ -35,7 +46,12 @@ logger = logging.getLogger(__name__)
 
 
 class CertificateGenerator:
-    """Service for generating barrier certificates using different model configurations."""
+    """
+    Web interface certificate generator with improved architecture.
+    
+    This class serves as a bridge between the web interface and the core services,
+    providing backward compatibility while leveraging cleaner architecture when available.
+    """
 
     def __init__(self, config):
         """Initialize the certificate generator with configuration."""
@@ -48,19 +64,30 @@ class CertificateGenerator:
         )
         self.inference_api_url = None
 
-        # For local mode, import inference modules
-        if self.deployment_mode == "local":
+        # Try to use core services architecture if available
+        if CORE_SERVICES_AVAILABLE and self.deployment_mode == "local":
+            try:
+                # Initialize core services
+                core_config = Config(config) if not isinstance(config, Config) else config
+                model_provider = QwenProvider()
+                self.core_generator = CoreCertificateGenerator(
+                    config=core_config,
+                    model_provider=model_provider
+                )
+                self.use_core_services = True
+                logger.info("Using core services architecture")
+            except Exception as e:
+                logger.warning(f"Could not initialize core services: {e}, falling back to legacy implementation")
+                self.use_core_services = False
+        else:
+            self.use_core_services = False
+
+        # For local mode fallback or when core services unavailable
+        if not self.use_core_services and self.deployment_mode == "local":
             from sentence_transformers import SentenceTransformer
             from transformers import pipeline
 
-            from inference.generate_certificate import (
-                format_prompt_with_context,
-                load_finetuned_model,
-                load_knowledge_base,
-                retrieve_context,
-            )
-
-            # Store imported functions
+            # Store imported functions (legacy approach)
             self.load_knowledge_base = load_knowledge_base
             self.load_finetuned_model = load_finetuned_model
             self.retrieve_context = retrieve_context
@@ -73,7 +100,7 @@ class CertificateGenerator:
             self.knowledge_bases = {}  # Cache for knowledge bases
 
         # For hybrid/cloud mode, use inference API
-        else:
+        elif self.deployment_mode != "local":
             default_url = "http://inference:8000"
             if hasattr(config, "deployment") and hasattr(config.deployment, "cloud"):
                 default_url = config.deployment.cloud.get(
@@ -794,8 +821,21 @@ class CertificateGenerator:
         rag_k: int = 3,
         domain_bounds: dict = None,
     ) -> Dict[str, Any]:
-        """Generate a barrier certificate for the given system description."""
-        if self.deployment_mode == "local":
+        """
+        Generate a barrier certificate for the given system description.
+        
+        This method intelligently routes to either core services or legacy implementation
+        based on availability and configuration.
+        """
+        try:
+            # Use core services if available
+            if self.use_core_services:
+                return self._generate_with_core_services(
+                    system_description, model_key, rag_k, domain_bounds
+                )
+            
+            # Fallback to legacy implementation
+            elif self.deployment_mode == "local":
             return self._generate_local(
                 system_description, model_key, rag_k, domain_bounds
             )
@@ -803,6 +843,76 @@ class CertificateGenerator:
             return self._generate_remote(
                 system_description, model_key, rag_k, domain_bounds
             )
+                
+        except Exception as e:
+            logger.error(f"Certificate generation failed: {e}")
+            return {
+                "success": False,
+                "error": f"Failed to generate certificate: {str(e)}",
+                "certificate": None,
+                "llm_output": "",
+                "context_chunks": 0
+            }
+
+    def _generate_with_core_services(
+        self,
+        system_description: str,
+        model_key: str,
+        rag_k: int = 3,
+        domain_bounds: dict = None,
+    ) -> Dict[str, Any]:
+        """Generate certificate using the core services architecture."""
+        try:
+            logger.info(f"Using core services for generation: model={model_key}, rag_k={rag_k}")
+            
+            # Convert to core services format
+            system = SystemDescription(
+                dynamics=system_description,
+                system_type="continuous",  # Default, could be improved with parsing
+                variables=self._extract_variables(system_description),
+                domain_bounds=domain_bounds
+            )
+            
+            # Use core generator
+            result = self.core_generator.generate(
+                system=system,
+                model_key=model_key,
+                rag_k=rag_k
+            )
+            
+            # Convert back to web interface format
+            return {
+                "success": result.success,
+                "certificate": result.certificate.expression if result.certificate else None,
+                "llm_output": getattr(result, 'raw_output', ''),
+                "context_chunks": len(result.rag_context) if result.rag_context else 0,
+                "error": result.error if hasattr(result, 'error') else None,
+                "processing_time": result.generation_time,
+                "cached": False,  # Would need to check cache separately
+            }
+            
+        except Exception as e:
+            logger.error(f"Core services generation failed: {e}")
+            # Fallback to legacy implementation
+            logger.info("Falling back to legacy implementation")
+            return self._generate_local(system_description, model_key, rag_k, domain_bounds)
+
+    def _extract_variables(self, system_description: str) -> List[str]:
+        """Extract variables from system description (simple regex-based approach)."""
+        # Find variables like dx/dt, dy/dt, x, y, etc.
+        variables = set()
+        
+        # Look for derivative patterns
+        derivative_pattern = r'd([a-z])/dt'
+        matches = re.findall(derivative_pattern, system_description, re.IGNORECASE)
+        variables.update(matches)
+        
+        # Look for common variable patterns
+        var_pattern = r'\b([x-z])\b'
+        matches = re.findall(var_pattern, system_description, re.IGNORECASE)
+        variables.update(matches)
+        
+        return list(variables) if variables else ['x', 'y']  # Default fallback
 
     def _generate_remote(
         self,

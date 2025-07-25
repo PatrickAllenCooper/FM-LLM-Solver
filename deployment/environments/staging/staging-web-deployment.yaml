@@ -1,0 +1,453 @@
+# FM-LLM Solver - Staging Environment Deployment
+# Clean, modular replacement for the 2,343-line monstrosity
+# Follows Kubernetes best practices
+
+---
+# ConfigMap for staging configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fm-llm-staging-config
+  namespace: fm-llm-staging
+  labels:
+    app: fm-llm-solver
+    environment: staging
+    version: v2.0
+data:
+  # Application configuration (hierarchical config will override this)
+  FM_LLM_ENV: "staging"
+  DEPLOYMENT_MODE: "hybrid"
+  
+  # Database configuration
+  DATABASE_URL: "postgresql://fmllm:changeme@postgres:5432/fmllm_staging"
+  DB_HOST: "postgres"
+  DB_PORT: "5432"
+  
+  # Redis configuration
+  REDIS_URL: "redis://redis:6379/2"
+  REDIS_HOST: "redis"
+  REDIS_PORT: "6379"
+  
+  # Web configuration
+  WEB_HOST: "0.0.0.0"
+  WEB_PORT: "5000"
+  
+  # Inference configuration (Modal hybrid)
+  INFERENCE_API_URL: ""  # Set by deployment script
+  
+  # Monitoring
+  METRICS_ENABLED: "true"
+  METRICS_PORT: "9091"
+  
+  # CORS for staging
+  CORS_ORIGINS: "*"
+
+---
+# Secret for staging credentials
+apiVersion: v1
+kind: Secret
+metadata:
+  name: fm-llm-staging-secrets
+  namespace: fm-llm-staging
+  labels:
+    app: fm-llm-solver
+    environment: staging
+type: Opaque
+data:
+  # Base64 encoded secrets (replace with actual values)
+  SECRET_KEY: ZGV2LXNlY3JldC1rZXktY2hhbmdlLWluLXByb2R1Y3Rpb24=  # dev-secret-key-change-in-production
+  JWT_SECRET: and0LWRldi1zZWNyZXQ=  # jwt-dev-secret
+  POSTGRES_PASSWORD: Y2hhbmdlbWU=  # changeme
+  # Add your actual API keys here (base64 encoded)
+  MATHPIX_APP_ID: ""
+  MATHPIX_APP_KEY: ""
+  UNPAYWALL_EMAIL: ""
+
+---
+# PostgreSQL Database for staging
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: fm-llm-staging
+  labels:
+    app: postgres
+    environment: staging
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        env:
+        - name: POSTGRES_USER
+          value: "fmllm"
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: fm-llm-staging-secrets
+              key: POSTGRES_PASSWORD
+        - name: POSTGRES_DB
+          value: "fmllm_staging"
+        ports:
+        - containerPort: 5432
+        volumeMounts:
+        - name: postgres-storage
+          mountPath: /var/lib/postgresql/data
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+      volumes:
+      - name: postgres-storage
+        persistentVolumeClaim:
+          claimName: postgres-pvc
+
+---
+# PostgreSQL Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: fm-llm-staging
+  labels:
+    app: postgres
+    environment: staging
+spec:
+  selector:
+    app: postgres
+  ports:
+  - port: 5432
+    targetPort: 5432
+  type: ClusterIP
+
+---
+# PostgreSQL PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  namespace: fm-llm-staging
+  labels:
+    app: postgres
+    environment: staging
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+# Redis Cache for staging
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: fm-llm-staging
+  labels:
+    app: redis
+    environment: staging
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        args: ["redis-server", "--appendonly", "yes", "--databases", "16"]
+        ports:
+        - containerPort: 6379
+        volumeMounts:
+        - name: redis-storage
+          mountPath: /data
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+      volumes:
+      - name: redis-storage
+        persistentVolumeClaim:
+          claimName: redis-pvc
+
+---
+# Redis Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: fm-llm-staging
+  labels:
+    app: redis
+    environment: staging
+spec:
+  selector:
+    app: redis
+  ports:
+  - port: 6379
+    targetPort: 6379
+  type: ClusterIP
+
+---
+# Redis PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-pvc
+  namespace: fm-llm-staging
+  labels:
+    app: redis
+    environment: staging
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+
+---
+# FM-LLM Web Interface Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fm-llm-web
+  namespace: fm-llm-staging
+  labels:
+    app: fm-llm-solver
+    component: web
+    environment: staging
+    version: v2.0
+spec:
+  replicas: 2  # Multiple replicas for staging testing
+  selector:
+    matchLabels:
+      app: fm-llm-solver
+      component: web
+  template:
+    metadata:
+      labels:
+        app: fm-llm-solver
+        component: web
+        environment: staging
+    spec:
+      containers:
+      - name: web
+        image: fm-llm-solver:staging  # Build with staging tag
+        imagePullPolicy: Always
+        command: ["/entrypoint.sh", "web"]
+        ports:
+        - containerPort: 5000
+          name: http
+        env:
+        # Import configuration from ConfigMap
+        - name: FM_LLM_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: fm-llm-staging-config
+              key: FM_LLM_ENV
+        - name: DEPLOYMENT_MODE
+          valueFrom:
+            configMapKeyRef:
+              name: fm-llm-staging-config
+              key: DEPLOYMENT_MODE
+        - name: DATABASE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: fm-llm-staging-config
+              key: DATABASE_URL
+        - name: REDIS_URL
+          valueFrom:
+            configMapKeyRef:
+              name: fm-llm-staging-config
+              key: REDIS_URL
+        # Import secrets
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: fm-llm-staging-secrets
+              key: SECRET_KEY
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: fm-llm-staging-secrets
+              key: JWT_SECRET
+        - name: MATHPIX_APP_ID
+          valueFrom:
+            secretKeyRef:
+              name: fm-llm-staging-secrets
+              key: MATHPIX_APP_ID
+              optional: true
+        - name: MATHPIX_APP_KEY
+          valueFrom:
+            secretKeyRef:
+              name: fm-llm-staging-secrets
+              key: MATHPIX_APP_KEY
+              optional: true
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        volumeMounts:
+        - name: app-storage
+          mountPath: /app/instance
+        - name: logs-storage
+          mountPath: /app/logs
+      volumes:
+      - name: app-storage
+        persistentVolumeClaim:
+          claimName: fm-llm-app-pvc
+      - name: logs-storage
+        persistentVolumeClaim:
+          claimName: fm-llm-logs-pvc
+
+---
+# Web Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: fm-llm-web
+  namespace: fm-llm-staging
+  labels:
+    app: fm-llm-solver
+    component: web
+    environment: staging
+spec:
+  selector:
+    app: fm-llm-solver
+    component: web
+  ports:
+  - port: 80
+    targetPort: 5000
+    name: http
+  type: ClusterIP
+
+---
+# App storage PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: fm-llm-app-pvc
+  namespace: fm-llm-staging
+  labels:
+    app: fm-llm-solver
+    environment: staging
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+
+---
+# Logs storage PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: fm-llm-logs-pvc
+  namespace: fm-llm-staging
+  labels:
+    app: fm-llm-solver
+    environment: staging
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+
+---
+# Ingress for external access
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: fm-llm-staging-ingress
+  namespace: fm-llm-staging
+  labels:
+    app: fm-llm-solver
+    environment: staging
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    cert-manager.io/cluster-issuer: "letsencrypt-staging"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+spec:
+  tls:
+  - hosts:
+    - staging.fm-llm-solver.com  # Replace with your domain
+    secretName: fm-llm-staging-tls
+  rules:
+  - host: staging.fm-llm-solver.com  # Replace with your domain
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: fm-llm-web
+            port:
+              number: 80
+
+---
+# HorizontalPodAutoscaler for staging load testing
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: fm-llm-web-hpa
+  namespace: fm-llm-staging
+  labels:
+    app: fm-llm-solver
+    environment: staging
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: fm-llm-web
+  minReplicas: 2
+  maxReplicas: 5
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80 

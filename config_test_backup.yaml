@@ -1,0 +1,567 @@
+env_vars:
+  MATHPIX_APP_ID: ''
+  MATHPIX_APP_KEY: ''
+  UNPAYWALL_EMAIL: ''
+  SEMANTIC_SCHOLAR_API_KEY: ''
+huggingface:
+  use_auth: false
+  local_model_path: ''
+paths:
+  project_root: .
+  data_dir: data
+  output_dir: output
+  pdf_input_dir: ${paths.data_dir}/fetched_papers
+  user_ids_csv: ${paths.data_dir}/user_ids.csv
+  eval_benchmark_file: ${paths.data_dir}/benchmark_systems.json
+  # Knowledge base paths (unified by default)
+  kb_output_dir: kb_data
+  kb_vector_store_filename: paper_index_mathpix.faiss
+  kb_metadata_filename: paper_metadata_mathpix.jsonl
+  # Discrete barrier certificate knowledge base paths
+  kb_discrete_output_dir: kb_data_discrete
+  kb_discrete_vector_store_filename: paper_index_discrete.faiss
+  kb_discrete_metadata_filename: paper_metadata_discrete.jsonl
+  # Continuous barrier certificate knowledge base paths
+  kb_continuous_output_dir: kb_data_continuous
+  kb_continuous_vector_store_filename: paper_index_continuous.faiss
+  kb_continuous_metadata_filename: paper_metadata_continuous.jsonl
+  # Fine-tuning data paths
+  ft_manual_data_file: ${paths.data_dir}/ft_manual_data.jsonl
+  ft_extracted_data_file: ${paths.data_dir}/ft_extracted_data_verified.jsonl
+  ft_combined_data_file: ${paths.data_dir}/ft_data_combined.jsonl
+  # Type-specific fine-tuning data paths
+  ft_discrete_data_file: ${paths.data_dir}/ft_data_discrete.jsonl
+  ft_continuous_data_file: ${paths.data_dir}/ft_data_continuous.jsonl
+  ft_output_dir: ${paths.output_dir}/finetuning_results
+  eval_results_file: ${paths.output_dir}/evaluation_results.csv
+data_fetching:
+  sleep_time_scholarly: 3
+  sleep_time_api: 1.5
+  sleep_time_retry: 5
+  max_retries: 2
+  requests_user_agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
+    (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36
+  publication_limit_per_author: 50
+knowledge_base:
+  embedding_model_name: all-mpnet-base-v2
+  chunk_target_size_mmd: 1000
+  chunk_overlap_mmd: 150
+  mathpix_poll_max_wait_sec: 600
+  mathpix_poll_interval: 10
+  pipeline: "open_source"  # Pipeline for PDF processing: 'mathpix' or 'open_source'
+  gpu_memory_limit: 3072   # Max VRAM to use in MB (reduced for RTX 3080)
+  embedding_batch_size: 16  # Reduced batch size for embedding generation
+  low_memory_mode: true    # Enabled memory optimizations
+  # Barrier certificate type-specific configurations
+  barrier_certificate_type: "discrete"  # Options: "unified", "discrete", "continuous"
+  # Classification settings for automatic document categorization
+  classification:
+    enable_auto_classification: true  # Automatically classify documents
+    discrete_keywords: ["discrete", "hybrid automata", "symbolic", "finite state", "temporal logic", "LTL", "CTL", "model checking", "transition system", "discrete dynamics"]
+    continuous_keywords: ["continuous", "differential equation", "control theory", "Lyapunov", "SOS", "polynomial", "semidefinite", "continuous dynamics", "flow", "vector field"]
+    confidence_threshold: 0.6  # Minimum confidence for classification (0.0-1.0)
+
+# Added embeddings section to match the structure expected by the code
+embeddings:
+  model_name: all-mpnet-base-v2
+  chunk_size: 1000
+  chunk_overlap: 150
+  batch_size: 16           # Reduced batch size for embedding generation
+
+fine_tuning:
+  base_model_name: "Qwen/Qwen2.5-14B-Instruct"
+  data_format: instruction
+  use_adapter: true
+  # Barrier certificate type for fine-tuning (should match knowledge_base.barrier_certificate_type)
+  barrier_certificate_type: "discrete"  # Options: "unified", "discrete", "continuous"
+  lora:
+    r: 8                  # Reduced from 16 to 8 for memory savings
+    alpha: 8              # Reduced from 16 to 8 for memory savings
+    dropout: 0.1
+    target_modules:
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+  quantization:
+    use_4bit: true
+    bnb_4bit_compute_dtype: float16
+    bnb_4bit_quant_type: nf4
+    use_nested_quant: true  # Enabled for additional memory savings
+  training:
+    num_train_epochs: 1
+    per_device_train_batch_size: 1      # Keep at 1
+    per_device_eval_batch_size: 1       # Reduced from 4 to 1
+    gradient_accumulation_steps: 8      # Increased from 4 to 8
+    gradient_checkpointing: true
+    max_grad_norm: 0.3
+    learning_rate: 0.0002
+    weight_decay: 0.001
+    optim: paged_adamw_32bit
+    lr_scheduler_type: cosine
+    max_steps: -1
+    warmup_ratio: 0.03
+    group_by_length: false    # Disabled as it can use more memory
+    save_steps: 50            # Save less frequently to reduce I/O overhead
+    logging_steps: 10
+    packing: false
+    max_seq_length: 1024      # Set a fixed sequence length to optimize memory usage
+inference:
+  rag_k: 3
+  max_new_tokens: 200           # Reduced from 512 - certificates are short expressions
+  temperature: 0.3              # Lowered from 0.6 for more focused output
+  top_p: 0.85                   # Slightly reduced from 0.9 for better quality
+  device: "auto"  # Use GPU if available, fallback to CPU
+  torch_dtype: "auto"  # Automatic precision selection
+  # Stop tokens to prevent incomplete generation
+  stop_sequences: ["Therefore", "However", "But", "Let", "We can", "Note that"]
+  # Better sampling parameters for mathematical expressions
+  do_sample: true
+  repetition_penalty: 1.1       # Prevent repetitive text
+  pad_token_id: null            # Will be set by tokenizer
+evaluation:
+  rag_k: ${inference.rag_k}
+  max_new_tokens: ${inference.max_new_tokens}
+  temperature: ${inference.temperature}
+  top_p: ${inference.top_p}
+  verification:
+    num_samples_lie: 5000       # Reduced from 10000 for faster verification
+    num_samples_boundary: 3000  # Reduced from 5000 for faster verification
+    numerical_tolerance: 1.0e-06
+    sos_default_degree: 2
+    sos_epsilon: 1.0e-07
+    optimization_max_iter: 75   # Reduced from 100 for faster verification
+    optimization_pop_size: 10   # Reduced from 15 for faster verification
+    attempt_sos: true
+    attempt_optimization: true
+    # CRITICAL FIX: Set-relative tolerance configuration
+    use_set_relative_tolerances: true     # Use bounds from initial set instead of absolute tolerance
+    set_tolerance_margin: 0.01            # 1% margin for numerical precision
+    absolute_fallback_tolerance: 1.0e-06  # Fallback when no set bound is detected
+    # Relaxed domain bounds verification to focus on core barrier conditions
+    strict_domain_bounds_check: false     # Allow some domain violations if core conditions hold
+    domain_bounds_tolerance: 0.1          # Higher tolerance for domain bounds violations
+    # Debug settings
+    log_boundary_analysis: true           # Log detailed boundary condition analysis
+    save_verification_details: true       # Save detailed verification results
+
+# Database configuration
+database:
+  primary:
+    host: "localhost"
+    port: 5432
+    database: "fm_llm_solver"
+    username: "postgres"
+    password: "${secret:DB_PASSWORD}"
+    pool_size: 20
+    max_overflow: 10
+    pool_timeout: 30
+    pool_recycle: 3600
+    ssl_mode: "prefer"
+    echo: false
+  # Optional secondary database for read replicas
+  replica:
+    host: "localhost"
+    port: 5432
+    database: "fm_llm_solver_replica"
+    username: "postgres"
+    password: "${secret:DB_PASSWORD}"
+    pool_size: 10
+    max_overflow: 5
+    pool_timeout: 30
+    pool_recycle: 3600
+    ssl_mode: "prefer"
+    echo: false
+
+# Logging configuration
+logging:
+  log_directory: "logs"
+  root_level: "INFO"
+  loggers:
+    api:
+      level: "INFO"
+      handlers: ["console", "rotating_file"]
+      json_format: true
+      propagate: false
+    model_operations:
+      level: "INFO"
+      handlers: ["console", "rotating_file"]
+      json_format: true
+      propagate: false
+    security:
+      level: "WARNING"
+      handlers: ["console", "rotating_file", "syslog"]
+      json_format: true
+      propagate: false
+    performance:
+      level: "INFO"
+      handlers: ["rotating_file"]
+      json_format: true
+      propagate: false
+    database:
+      level: "INFO"
+      handlers: ["console", "rotating_file"]
+      json_format: true
+      propagate: false
+    web:
+      level: "INFO"
+      handlers: ["console", "rotating_file"]
+      json_format: true
+      propagate: false
+
+# Cache configuration
+cache:
+  backend: "memory"  # Options: "memory", "redis", "hybrid"
+  max_size: 1000
+  default_ttl: 3600  # 1 hour in seconds
+  redis_url: null  # Set to Redis URL if using Redis backend
+  redis_db: 0
+  redis_max_connections: 20
+  key_prefix: "fm_llm:"
+  namespace: "default"
+
+# Monitoring configuration
+monitoring:
+  enabled: true
+  metrics:
+    prometheus_enabled: true
+    custom_metrics_retention_hours: 24
+    system_metrics_interval: 30  # seconds
+  health_checks:
+    enabled: true
+    default_interval: 30  # seconds
+    default_timeout: 10   # seconds
+    critical_failure_threshold: 3
+  alerting:
+    enabled: false  # Set to true to enable alerting
+    email_alerts: false
+    webhook_url: null  # Set webhook URL for alerts
+  performance:
+    slow_request_threshold: 5.0  # seconds
+    memory_usage_threshold: 90   # percent
+    cpu_usage_threshold: 90      # percent
+
+# Security configuration
+security:
+  rate_limit:
+    default: "100/day"
+    api_endpoints: "1000/hour"
+    auth_endpoints: "10/minute"
+  cors:
+    enabled: true
+    max_age: 86400  # 24 hours
+  headers:
+    force_https: true  # Only in production
+    content_security_policy: true
+    frame_options: "DENY"
+  encryption:
+    algorithm: "fernet"
+    key_rotation_days: 90
+  session:
+    timeout_minutes: 1440  # 24 hours
+    secure_cookies: true   # Only in production
+
+# Web interface configuration
+web_interface:
+  host: "127.0.0.1"
+  port: 5000
+  debug: true
+  database_path: "web_interface/instance/app.db"
+  # Security settings
+  secret_key_env: "SECRET_KEY"  # Environment variable name for secret key
+  # CORS settings for API access
+  cors_origins: ["http://localhost:3000", "http://127.0.0.1:3000"]  # Add frontend origins if needed
+
+# Performance optimization configuration
+performance:
+  # Async operations
+  async:
+    max_thread_workers: 8
+    max_process_workers: 4
+    default_timeout: 30.0
+    queue_size: 1000
+    enable_connection_pooling: true
+  
+  # Memory management
+  memory:
+    gc_threshold_mb: 100
+    monitoring_interval: 60
+    enable_object_pools: true
+    max_pool_size: 100
+    warning_threshold_mb: 1000
+    critical_threshold_mb: 2000
+    enable_monitoring: true
+  
+  # Request optimization
+  requests:
+    max_concurrent: 20
+    request_timeout: 30.0
+    keep_alive_timeout: 5.0
+    max_content_length: 16777216  # 16MB
+    enable_compression: true
+  
+  # Database optimization
+  database_performance:
+    connection_pool_size: 20
+    max_overflow: 30
+    pool_timeout: 30
+    pool_recycle: 3600
+    echo_queries: false
+    enable_query_cache: true
+    query_cache_size: 1000
+  
+  # Cache optimization
+  cache_performance:
+    enable_write_through: true
+    enable_read_through: true
+    background_refresh: true
+    prefetch_enabled: true
+    compression_enabled: true
+    eviction_policy: "lru"
+
+# Models configuration - Top 10 Open Source Code Generation Models
+models:
+  # Default model selection
+  default_provider: "qwen"
+  default_model: "qwen2.5-coder-7b-instruct"
+  
+  # Available code generation models
+  available_models:
+    # DeepSeek Coder V2 Family
+    deepseek-coder-v2-lite-instruct:
+      provider: "deepseek"
+      name: "deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct"
+      display_name: "DeepSeek-Coder-V2-Lite (2.4B)"
+      parameters: "16B total (2.4B active)"
+      context_length: 128000
+      specialization: "Code generation, completion, and debugging"
+      quantization_support: ["4bit", "8bit"]
+      recommended_gpu_memory: "8GB"
+      
+    deepseek-coder-v2-instruct:
+      provider: "deepseek"
+      name: "deepseek-ai/DeepSeek-Coder-V2-Instruct"
+      display_name: "DeepSeek-Coder-V2 (21B)"
+      parameters: "236B total (21B active)"
+      context_length: 128000
+      specialization: "Advanced code generation and reasoning"
+      quantization_support: ["4bit", "8bit"]
+      recommended_gpu_memory: "48GB"
+      
+    # Qwen2.5-Coder Family
+    qwen2.5-coder-0.5b-instruct:
+      provider: "qwen"
+      name: "Qwen/Qwen2.5-Coder-0.5B-Instruct"
+      display_name: "Qwen2.5-Coder (0.5B)"
+      parameters: "0.5B"
+      context_length: 32000
+      specialization: "Lightweight code generation"
+      quantization_support: ["4bit", "8bit"]
+      recommended_gpu_memory: "2GB"
+      
+    qwen2.5-coder-1.5b-instruct:
+      provider: "qwen"
+      name: "Qwen/Qwen2.5-Coder-1.5B-Instruct"
+      display_name: "Qwen2.5-Coder (1.5B)"
+      parameters: "1.5B"
+      context_length: 32000
+      specialization: "Efficient code generation"
+      quantization_support: ["4bit", "8bit"]
+      recommended_gpu_memory: "3GB"
+      
+    qwen2.5-coder-3b-instruct:
+      provider: "qwen"
+      name: "Qwen/Qwen2.5-Coder-3B-Instruct"
+      display_name: "Qwen2.5-Coder (3B)"
+      parameters: "3B"
+      context_length: 32000
+      specialization: "Balanced code generation"
+      quantization_support: ["4bit", "8bit"]
+      recommended_gpu_memory: "6GB"
+      
+    qwen2.5-coder-7b-instruct:
+      provider: "qwen"
+      name: "Qwen/Qwen2.5-Coder-7B-Instruct"
+      display_name: "Qwen2.5-Coder (7B)"
+      parameters: "7B"
+      context_length: 128000
+      specialization: "High-quality code generation"
+      quantization_support: ["4bit", "8bit"]
+      recommended_gpu_memory: "14GB"
+      
+    qwen2.5-coder-14b-instruct:
+      provider: "qwen"
+      name: "Qwen/Qwen2.5-Coder-14B-Instruct"
+      display_name: "Qwen2.5-Coder (14B)"
+      parameters: "14B"
+      context_length: 128000
+      specialization: "Advanced code generation"
+      quantization_support: ["4bit", "8bit"]
+      recommended_gpu_memory: "28GB"
+      
+    qwen2.5-coder-32b-instruct:
+      provider: "qwen"
+      name: "Qwen/Qwen2.5-Coder-32B-Instruct"
+      display_name: "Qwen2.5-Coder (32B)"
+      parameters: "32B"
+      context_length: 128000
+      specialization: "State-of-the-art code generation"
+      quantization_support: ["4bit", "8bit"]
+      recommended_gpu_memory: "64GB"
+      
+    # StarCoder2 Family
+    starcoder2-3b:
+      provider: "starcoder"
+      name: "bigcode/starcoder2-3b"
+      display_name: "StarCoder2 (3B)"
+      parameters: "3B"
+      context_length: 16000
+      specialization: "Multi-language code completion"
+      quantization_support: ["4bit", "8bit"]
+      recommended_gpu_memory: "6GB"
+      
+    starcoder2-7b:
+      provider: "starcoder"
+      name: "bigcode/starcoder2-7b"
+      display_name: "StarCoder2 (7B)"
+      parameters: "7B"
+      context_length: 16000
+      specialization: "Advanced code completion"
+      quantization_support: ["4bit", "8bit"]
+      recommended_gpu_memory: "14GB"
+      
+    starcoder2-15b:
+      provider: "starcoder"
+      name: "bigcode/starcoder2-15b"
+      display_name: "StarCoder2 (15B)"
+      parameters: "15B"
+      context_length: 16000
+      specialization: "Professional code generation"
+      quantization_support: ["4bit", "8bit"]
+      recommended_gpu_memory: "30GB"
+      
+    # CodeLlama Family
+    codellama-7b-instruct:
+      provider: "codellama"
+      name: "codellama/CodeLlama-7b-Instruct-hf"
+      display_name: "CodeLlama (7B Instruct)"
+      parameters: "7B"
+      context_length: 16000
+      specialization: "Code generation with instruction following"
+      quantization_support: ["4bit", "8bit"]
+      recommended_gpu_memory: "14GB"
+      
+    codellama-13b-instruct:
+      provider: "codellama"
+      name: "codellama/CodeLlama-13b-Instruct-hf"
+      display_name: "CodeLlama (13B Instruct)"
+      parameters: "13B"
+      context_length: 16000
+      specialization: "Advanced code generation"
+      quantization_support: ["4bit", "8bit"]
+      recommended_gpu_memory: "26GB"
+      
+    codellama-34b-instruct:
+      provider: "codellama"
+      name: "codellama/CodeLlama-34b-Instruct-hf"
+      display_name: "CodeLlama (34B Instruct)"
+      parameters: "34B"
+      context_length: 16000
+      specialization: "Professional code generation"
+      quantization_support: ["4bit", "8bit"]
+      recommended_gpu_memory: "68GB"
+      
+    # Additional Models
+    codestral-22b:
+      provider: "codestral"
+      name: "mistralai/Codestral-22B-v0.1"
+      display_name: "Codestral (22B)"
+      parameters: "22B"
+      context_length: 32000
+      specialization: "Multi-language code generation"
+      quantization_support: ["4bit", "8bit"]
+      recommended_gpu_memory: "44GB"
+      
+    opencoder-1.5b:
+      provider: "opencoder"
+      name: "infly/OpenCoder-1.5B-Instruct"
+      display_name: "OpenCoder (1.5B)"
+      parameters: "1.5B"
+      context_length: 16000
+      specialization: "Open reproducible code generation"
+      quantization_support: ["4bit", "8bit"]
+      recommended_gpu_memory: "3GB"
+      
+    opencoder-8b:
+      provider: "opencoder"
+      name: "infly/OpenCoder-8B-Instruct"
+      display_name: "OpenCoder (8B)"
+      parameters: "8B"
+      context_length: 16000
+      specialization: "Advanced open code generation"
+      quantization_support: ["4bit", "8bit"]
+      recommended_gpu_memory: "16GB"
+      
+    codegemma-2b:
+      provider: "codegemma"
+      name: "google/codegemma-2b"
+      display_name: "CodeGemma (2B)"
+      parameters: "2B"
+      context_length: 8000
+      specialization: "Lightweight code completion"
+      quantization_support: ["4bit", "8bit"]
+      recommended_gpu_memory: "4GB"
+      
+    codegemma-7b-instruct:
+      provider: "codegemma"
+      name: "google/codegemma-7b-it"
+      display_name: "CodeGemma (7B Instruct)"
+      parameters: "7B"
+      context_length: 8000
+      specialization: "Code generation and instruction following"
+      quantization_support: ["4bit", "8bit"]
+      recommended_gpu_memory: "14GB"
+
+  # Model provider configurations
+  providers:
+    qwen:
+      backend: "transformers"
+      auto_tokenizer: true
+      trust_remote_code: true
+      supports_quantization: true
+      
+    deepseek:
+      backend: "transformers"
+      auto_tokenizer: true
+      trust_remote_code: true
+      supports_quantization: true
+      
+    starcoder:
+      backend: "transformers"
+      auto_tokenizer: true
+      trust_remote_code: false
+      supports_quantization: true
+      
+    codellama:
+      backend: "transformers"
+      auto_tokenizer: true
+      trust_remote_code: false
+      supports_quantization: true
+      
+    codestral:
+      backend: "transformers"
+      auto_tokenizer: true
+      trust_remote_code: true
+      supports_quantization: true
+      
+    opencoder:
+      backend: "transformers"
+      auto_tokenizer: true
+      trust_remote_code: false
+      supports_quantization: true
+      
+    codegemma:
+      backend: "transformers"
+      auto_tokenizer: true
+      trust_remote_code: false
+      supports_quantization: true

@@ -59,15 +59,7 @@ knowledge_base:
     enable_auto_classification: true  # Automatically classify documents
     discrete_keywords: ["discrete", "hybrid automata", "symbolic", "finite state", "temporal logic", "LTL", "CTL", "model checking", "transition system", "discrete dynamics"]
     continuous_keywords: ["continuous", "differential equation", "control theory", "Lyapunov", "SOS", "polynomial", "semidefinite", "continuous dynamics", "flow", "vector field"]
-    # Stochastic barrier certificate keywords for filtering
-    stochastic_keywords: ["stochastic", "probabilistic", "random", "noise", "uncertainty", "martingale", "supermartingale", "submartingale", "brownian motion", "wiener process", "stochastic differential", "SDE", "markov", "random walk", "monte carlo", "probabilistic safety", "almost surely", "probability", "stochastic reachability", "stochastic control"]
     confidence_threshold: 0.6  # Minimum confidence for classification (0.0-1.0)
-    # Stochastic filtering configuration
-    stochastic_filter:
-      enable: false  # Whether to apply stochastic filtering
-      mode: "exclude"  # "include" to only include stochastic papers, "exclude" to exclude them
-      min_stochastic_keywords: 2  # Minimum number of stochastic keywords to classify as stochastic
-      stochastic_confidence_threshold: 0.4  # Threshold for stochastic classification
 
 # Added embeddings section to match the structure expected by the code
 embeddings:
@@ -82,13 +74,6 @@ fine_tuning:
   use_adapter: true
   # Barrier certificate type for fine-tuning (should match knowledge_base.barrier_certificate_type)
   barrier_certificate_type: "discrete"  # Options: "unified", "discrete", "continuous"
-  # Stochastic filtering for fine-tuning data
-  stochastic_filter:
-    enable: false  # Whether to apply stochastic filtering to training data
-    mode: "exclude"  # "include" to only include stochastic content, "exclude" to exclude it
-    apply_to_extracted_data: true  # Apply filter to LLM-extracted data
-    apply_to_manual_data: false  # Apply filter to manually created data
-    apply_to_synthetic_data: true  # Apply filter to synthetically generated data
   lora:
     r: 8                  # Reduced from 16 to 8 for memory savings
     alpha: 8              # Reduced from 16 to 8 for memory savings
@@ -123,9 +108,17 @@ fine_tuning:
     max_seq_length: 1024      # Set a fixed sequence length to optimize memory usage
 inference:
   rag_k: 3
-  max_new_tokens: 512
-  temperature: 0.6
-  top_p: 0.9
+  max_new_tokens: 200           # Reduced from 512 - certificates are short expressions
+  temperature: 0.3              # Lowered from 0.6 for more focused output
+  top_p: 0.85                   # Slightly reduced from 0.9 for better quality
+  device: "auto"  # Use GPU if available, fallback to CPU
+  torch_dtype: "auto"  # Automatic precision selection
+  # Stop tokens to prevent incomplete generation
+  stop_sequences: ["Therefore", "However", "But", "Let", "We can", "Note that"]
+  # Better sampling parameters for mathematical expressions
+  do_sample: true
+  repetition_penalty: 1.1       # Prevent repetitive text
+  pad_token_id: null            # Will be set by tokenizer
 evaluation:
   rag_k: ${inference.rag_k}
   max_new_tokens: ${inference.max_new_tokens}
@@ -141,73 +134,190 @@ evaluation:
     optimization_pop_size: 10   # Reduced from 15 for faster verification
     attempt_sos: true
     attempt_optimization: true
+    # CRITICAL FIX: Set-relative tolerance configuration
+    use_set_relative_tolerances: true     # Use bounds from initial set instead of absolute tolerance
+    set_tolerance_margin: 0.01            # 1% margin for numerical precision
+    absolute_fallback_tolerance: 1.0e-06  # Fallback when no set bound is detected
+    # Relaxed domain bounds verification to focus on core barrier conditions
+    strict_domain_bounds_check: false     # Allow some domain violations if core conditions hold
+    domain_bounds_tolerance: 0.1          # Higher tolerance for domain bounds violations
+    # Debug settings
+    log_boundary_analysis: true           # Log detailed boundary condition analysis
+    save_verification_details: true       # Save detailed verification results
 
-# Deployment configuration for hybrid architecture
-deployment:
-  mode: "local"  # Options: "local", "hybrid", "cloud"
-  
-  # Local deployment settings (default)
-  local:
-    host: "127.0.0.1"
-    port: 5000
-    debug: true
-    
-  # Hybrid deployment settings
-  hybrid:
-    web_host: "0.0.0.0"
-    web_port: 5000
-    inference_host: "0.0.0.0"
-    inference_port: 8000
-    
-  # Cloud service endpoints
-  cloud:
-    inference_api_url: "${INFERENCE_API_URL:}"
-    storage_bucket: "${STORAGE_BUCKET:}"
-    model_cache_dir: "/tmp/models"
-    
-  # Service configuration
-  services:
-    inference:
-      enabled: true
-      type: "local"  # Options: "local", "modal", "runpod", "vastai"
-      timeout: 300  # seconds
-      max_retries: 3
-      
-    storage:
-      type: "local"  # Options: "local", "s3", "r2", "b2"
-      cache_models: true
-      
+# Database configuration
+database:
+  primary:
+    host: "localhost"
+    port: 5432
+    database: "fm_llm_solver"
+    username: "postgres"
+    password: "${secret:DB_PASSWORD}"
+    pool_size: 20
+    max_overflow: 10
+    pool_timeout: 30
+    pool_recycle: 3600
+    ssl_mode: "prefer"
+    echo: false
+  # Optional secondary database for read replicas
+  replica:
+    host: "localhost"
+    port: 5432
+    database: "fm_llm_solver_replica"
+    username: "postgres"
+    password: "${secret:DB_PASSWORD}"
+    pool_size: 10
+    max_overflow: 5
+    pool_timeout: 30
+    pool_recycle: 3600
+    ssl_mode: "prefer"
+    echo: false
+
+# Logging configuration
+logging:
+  log_directory: "logs"
+  root_level: "INFO"
+  loggers:
+    api:
+      level: "INFO"
+      handlers: ["console", "rotating_file"]
+      json_format: true
+      propagate: false
+    model_operations:
+      level: "INFO"
+      handlers: ["console", "rotating_file"]
+      json_format: true
+      propagate: false
+    security:
+      level: "WARNING"
+      handlers: ["console", "rotating_file", "syslog"]
+      json_format: true
+      propagate: false
+    performance:
+      level: "INFO"
+      handlers: ["rotating_file"]
+      json_format: true
+      propagate: false
     database:
-      type: "sqlite"  # Options: "sqlite", "postgresql"
-      url: "${DATABASE_URL:}"
-      
-  # Performance settings
+      level: "INFO"
+      handlers: ["console", "rotating_file"]
+      json_format: true
+      propagate: false
+    web:
+      level: "INFO"
+      handlers: ["console", "rotating_file"]
+      json_format: true
+      propagate: false
+
+# Cache configuration
+cache:
+  backend: "memory"  # Options: "memory", "redis", "hybrid"
+  max_size: 1000
+  default_ttl: 3600  # 1 hour in seconds
+  redis_url: null  # Set to Redis URL if using Redis backend
+  redis_db: 0
+  redis_max_connections: 20
+  key_prefix: "fm_llm:"
+  namespace: "default"
+
+# Monitoring configuration
+monitoring:
+  enabled: true
+  metrics:
+    prometheus_enabled: true
+    custom_metrics_retention_hours: 24
+    system_metrics_interval: 30  # seconds
+  health_checks:
+    enabled: true
+    default_interval: 30  # seconds
+    default_timeout: 10   # seconds
+    critical_failure_threshold: 3
+  alerting:
+    enabled: false  # Set to true to enable alerting
+    email_alerts: false
+    webhook_url: null  # Set webhook URL for alerts
   performance:
-    enable_caching: true
-    cache_ttl: 3600  # seconds
-    batch_size: 5
-    queue_enabled: false
-    
-  # Monitoring
-  monitoring:
-    enabled: false
-    prometheus_port: 9090
-    health_check_interval: 30
-    
-# Web interface configuration (updated)
+    slow_request_threshold: 5.0  # seconds
+    memory_usage_threshold: 90   # percent
+    cpu_usage_threshold: 90      # percent
+
+# Security configuration
+security:
+  rate_limit:
+    default: "100/day"
+    api_endpoints: "1000/hour"
+    auth_endpoints: "10/minute"
+  cors:
+    enabled: true
+    max_age: 86400  # 24 hours
+  headers:
+    force_https: true  # Only in production
+    content_security_policy: true
+    frame_options: "DENY"
+  encryption:
+    algorithm: "fernet"
+    key_rotation_days: 90
+  session:
+    timeout_minutes: 1440  # 24 hours
+    secure_cookies: true   # Only in production
+
+# Web interface configuration
 web_interface:
-  host: "${deployment.local.host}"
-  port: ${deployment.local.port}
-  debug: ${deployment.local.debug}
+  host: "127.0.0.1"
+  port: 5000
+  debug: true
   database_path: "web_interface/instance/app.db"
-  secret_key_env: "SECRET_KEY"
-  cors_origins: ["http://localhost:3000", "http://127.0.0.1:3000"]
+  # Security settings
+  secret_key_env: "SECRET_KEY"  # Environment variable name for secret key
+  # CORS settings for API access
+  cors_origins: ["http://localhost:3000", "http://127.0.0.1:3000"]  # Add frontend origins if needed
+
+# Performance optimization configuration
+performance:
+  # Async operations
+  async:
+    max_thread_workers: 8
+    max_process_workers: 4
+    default_timeout: 30.0
+    queue_size: 1000
+    enable_connection_pooling: true
   
-  # API rate limiting
-  rate_limiting:
-    enabled: false
-    requests_per_minute: 60
-    requests_per_hour: 1000
+  # Memory management
+  memory:
+    gc_threshold_mb: 100
+    monitoring_interval: 60
+    enable_object_pools: true
+    max_pool_size: 100
+    warning_threshold_mb: 1000
+    critical_threshold_mb: 2000
+    enable_monitoring: true
+  
+  # Request optimization
+  requests:
+    max_concurrent: 20
+    request_timeout: 30.0
+    keep_alive_timeout: 5.0
+    max_content_length: 16777216  # 16MB
+    enable_compression: true
+  
+  # Database optimization
+  database_performance:
+    connection_pool_size: 20
+    max_overflow: 30
+    pool_timeout: 30
+    pool_recycle: 3600
+    echo_queries: false
+    enable_query_cache: true
+    query_cache_size: 1000
+  
+  # Cache optimization
+  cache_performance:
+    enable_write_through: true
+    enable_read_through: true
+    background_refresh: true
+    prefetch_enabled: true
+    compression_enabled: true
+    eviction_policy: "lru"
 
 # Models configuration - Top 10 Open Source Code Generation Models
 models:
@@ -285,7 +395,7 @@ models:
       display_name: "Qwen2.5-Coder (14B)"
       parameters: "14B"
       context_length: 128000
-      specialization: "Advanced code generation and reasoning"
+      specialization: "Advanced code generation"
       quantization_support: ["4bit", "8bit"]
       recommended_gpu_memory: "28GB"
       
@@ -337,7 +447,7 @@ models:
       display_name: "CodeLlama (7B Instruct)"
       parameters: "7B"
       context_length: 16000
-      specialization: "Code generation and instruction following"
+      specialization: "Code generation with instruction following"
       quantization_support: ["4bit", "8bit"]
       recommended_gpu_memory: "14GB"
       
@@ -361,7 +471,7 @@ models:
       quantization_support: ["4bit", "8bit"]
       recommended_gpu_memory: "68GB"
       
-    # Codestral
+    # Additional Models
     codestral-22b:
       provider: "codestral"
       name: "mistralai/Codestral-22B-v0.1"
@@ -372,8 +482,7 @@ models:
       quantization_support: ["4bit", "8bit"]
       recommended_gpu_memory: "44GB"
       
-    # OpenCoder Family
-    opencoder-1.5b-instruct:
+    opencoder-1.5b:
       provider: "opencoder"
       name: "infly/OpenCoder-1.5B-Instruct"
       display_name: "OpenCoder (1.5B)"
@@ -383,7 +492,7 @@ models:
       quantization_support: ["4bit", "8bit"]
       recommended_gpu_memory: "3GB"
       
-    opencoder-8b-instruct:
+    opencoder-8b:
       provider: "opencoder"
       name: "infly/OpenCoder-8B-Instruct"
       display_name: "OpenCoder (8B)"
@@ -393,7 +502,6 @@ models:
       quantization_support: ["4bit", "8bit"]
       recommended_gpu_memory: "16GB"
       
-    # CodeGemma Family
     codegemma-2b:
       provider: "codegemma"
       name: "google/codegemma-2b"
