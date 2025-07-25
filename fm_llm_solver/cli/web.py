@@ -25,7 +25,7 @@ def run(ctx, host: str, port: int, debug: bool):
     click.echo(f"🌐 Starting web interface on {host}:{port}")
 
     try:
-        from fm_llm_solver.web.app import create_app
+        from web_interface.app import create_app
 
         app = create_app()
         app.run(host=host, port=port, debug=debug)
@@ -41,11 +41,11 @@ def init_db(ctx):
     click.echo("🗄️  Initializing database...")
 
     try:
-        from fm_llm_solver.web.app import create_app
+        from web_interface.app import create_app
 
         app = create_app()
         with app.app_context():
-            from fm_llm_solver.web.models import db
+            from web_interface.models import db
 
             db.create_all()
         click.echo("✅ Database initialized")

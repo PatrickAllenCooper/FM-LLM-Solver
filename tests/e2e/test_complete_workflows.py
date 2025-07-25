@@ -120,7 +120,7 @@ Unsafe Set: {', '.join(test_system['unsafe_set'])}"""
         print("\n🌐 Testing Web Interface E2E Workflow...")
 
         try:
-            from fm_llm_solver.web.app import create_app
+            from web_interface.app import create_app
 
             app = create_app()
 

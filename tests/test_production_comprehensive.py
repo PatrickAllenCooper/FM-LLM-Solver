@@ -281,7 +281,7 @@ class TestWebInterface:
     @pytest.fixture
     def test_app(self):
         """Create test Flask app."""
-        from fm_llm_solver.web.app import create_app
+        from web_interface.app import create_app
 
         test_config = {
             "TESTING": True,
@@ -294,7 +294,7 @@ class TestWebInterface:
         app = create_app(test_config=test_config)
 
         with app.app_context():
-            from fm_llm_solver.web.models import db
+            from web_interface.models import db
 
             db.create_all()
 
@@ -520,7 +520,7 @@ class TestSecurity:
 
     def test_input_validation(self):
         """Test input validation functions."""
-        from fm_llm_solver.web.utils import validate_input
+        from web_interface.auth import validate_input
 
         # Test valid inputs
         assert validate_input("test", "string", max_length=10) == "test"
@@ -532,7 +532,7 @@ class TestSecurity:
 
     def test_output_sanitization(self):
         """Test output sanitization."""
-        from fm_llm_solver.web.utils import sanitize_output
+        from web_interface.auth import sanitize_output
 
         # Test XSS prevention
         malicious_input = "<script>alert('xss')</script>"

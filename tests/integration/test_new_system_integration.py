@@ -26,7 +26,7 @@ from fm_llm_solver.core.logging_manager import LoggingManager
 from fm_llm_solver.core.monitoring import MonitoringManager
 from fm_llm_solver.services.certificate_generator import CertificateGenerator
 from fm_llm_solver.services.parser import Parser
-from fm_llm_solver.web.app import create_app
+from web_interface.app import create_app
 
 
 class TestSystemIntegration:

@@ -19,13 +19,13 @@ from fm_llm_solver.core.exceptions import ConfigurationError
 
 def run_web_interface(config_path: str, host: str, port: int, debug: bool):
     """Run the Flask web interface."""
-    from fm_llm_solver.web import create_app
+    from web_interface.app import create_app
     
     print(f"Starting FM-LLM Solver Web Interface v{__version__}")
     
     try:
         # Create and run app
-        app = create_app(config_path)
+        app = create_app()
         
         # Override debug if specified
         if debug:

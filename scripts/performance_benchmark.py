@@ -280,7 +280,7 @@ class PerformanceBenchmark:
     def _benchmark_web_interface(self) -> Dict:
         """Benchmark web interface performance."""
         try:
-            from fm_llm_solver.web.app import create_app
+            from web_interface.app import create_app
         except ImportError as e:
             return {"error": f"Import failed: {e}", "score": 0, "max_score": 100}
         
@@ -351,8 +351,8 @@ class PerformanceBenchmark:
     def _benchmark_database(self) -> Dict:
         """Benchmark database operations."""
         try:
-            from fm_llm_solver.web.models import User, QueryLog
-            from fm_llm_solver.web.app import create_app
+            from web_interface.models import User, QueryLog
+            from web_interface.app import create_app
         except ImportError as e:
             return {"error": f"Import failed: {e}", "score": 0, "max_score": 100}
         
@@ -373,7 +373,7 @@ class PerformanceBenchmark:
         
         with app.app_context():
             try:
-                from fm_llm_solver.web.models import db
+                from web_interface.models import db
                 db.create_all()
                 
                 # Test database operations
@@ -645,7 +645,7 @@ class PerformanceBenchmark:
     # Helper methods for database benchmarking
     def _create_test_user(self, db):
         """Create a test user."""
-        from fm_llm_solver.web.models import User
+        from web_interface.models import User
         user = User(username="testuser", email="test@example.com")
         db.session.add(user)
         db.session.commit()
@@ -653,12 +653,12 @@ class PerformanceBenchmark:
     
     def _query_test_user(self, db):
         """Query test user."""
-        from fm_llm_solver.web.models import User
+        from web_interface.models import User
         return User.query.filter_by(username="testuser").first()
     
     def _create_test_query_log(self, db):
         """Create test query log."""
-        from fm_llm_solver.web.models import QueryLog
+        from web_interface.models import QueryLog
         log = QueryLog(
             user_id=1,
             system_dynamics="test dynamics",
@@ -671,12 +671,12 @@ class PerformanceBenchmark:
     
     def _query_test_logs(self, db):
         """Query test logs."""
-        from fm_llm_solver.web.models import QueryLog
+        from web_interface.models import QueryLog
         return QueryLog.query.all()
     
     def _update_test_user(self, db):
         """Update test user."""
-        from fm_llm_solver.web.models import User
+        from web_interface.models import User
         user = User.query.filter_by(username="testuser").first()
         if user:
             user.email = "updated@example.com"
@@ -685,7 +685,7 @@ class PerformanceBenchmark:
     
     def _delete_test_log(self, db):
         """Delete test log."""
-        from fm_llm_solver.web.models import QueryLog
+        from web_interface.models import QueryLog
         log = QueryLog.query.first()
         if log:
             db.session.delete(log)
