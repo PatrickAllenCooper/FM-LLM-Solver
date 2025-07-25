@@ -1,0 +1,25 @@
+# FM-LLM Solver - Base Requirements
+# Core dependencies required by all components
+
+# Configuration Management
+PyYAML>=6.0
+omegaconf>=2.3.0
+python-dotenv>=1.0.0
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+
+# Core Python packages
+click>=8.1.0
+requests>=2.31.0
+tqdm>=4.66.0
+
+# Scientific computing (core)
+numpy>=1.24.0
+scipy>=1.10.0
+sympy>=1.12
+pandas>=2.0.0
+
+# Utilities
+humanize>=4.9.0
+tenacity>=8.2.0
+joblib>=1.3.0 

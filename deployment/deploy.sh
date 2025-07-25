@@ -1,356 +1,174 @@
 #!/bin/bash
-
-# FM-LLM-Solver Deployment Script
-# Usage: ./deploy.sh [environment] [options]
+# FM-LLM Solver Deployment Script
+# Simple wrapper for deployment operations
 
 set -e
-
-# Configuration
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-KUBE_CONFIGS_DIR="${SCRIPT_DIR}/kubernetes"
 
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Default values
-ENVIRONMENT=""
-NAMESPACE="fm-llm-solver"
-IMAGE_TAG="latest"
-DRY_RUN=false
-VERBOSE=false
-SKIP_TESTS=false
-WAIT_TIMEOUT=300
-
-# Functions
-log() {
+# Function to print colored output
+print_info() {
     echo -e "${GREEN}[INFO]${NC} $1"
 }
 
-warn() {
+print_warn() {
     echo -e "${YELLOW}[WARN]${NC} $1"
 }
 
-error() {
+print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-debug() {
-    if [[ "$VERBOSE" == true ]]; then
-        echo -e "${BLUE}[DEBUG]${NC} $1"
-    fi
-}
-
-usage() {
-    cat << EOF
-FM-LLM-Solver Deployment Script
-
-Usage: $0 [ENVIRONMENT] [OPTIONS]
-
-ENVIRONMENTS:
-    local       Deploy locally using docker-compose
-    staging     Deploy to staging Kubernetes cluster
-    production  Deploy to production Kubernetes cluster
-
-OPTIONS:
-    -t, --tag TAG           Docker image tag to deploy (default: latest)
-    -n, --namespace NS      Kubernetes namespace (default: fm-llm-solver)
-    --dry-run              Show what would be deployed without actually deploying
-    --skip-tests           Skip pre-deployment tests
-    --wait-timeout SEC     Wait timeout for deployment (default: 300)
-    -v, --verbose          Enable verbose output
-    -h, --help             Show this help message
-
-EXAMPLES:
-    $0 local                        # Deploy locally
-    $0 staging -t v1.2.3            # Deploy to staging with specific tag
-    $0 production --dry-run         # Show what would be deployed to production
-    $0 local --skip-tests -v        # Deploy locally, skip tests, verbose output
-
-PREREQUISITES:
-    - Docker and docker-compose (for local deployment)
-    - kubectl configured for your cluster (for Kubernetes deployment)
-    - Appropriate secrets configured in your cluster
-
-EOF
-}
-
+# Function to check prerequisites
 check_prerequisites() {
-    debug "Checking prerequisites for $ENVIRONMENT deployment"
+    print_info "Checking prerequisites..."
     
-    case $ENVIRONMENT in
-        local)
-            if ! command -v docker >/dev/null 2>&1; then
-                error "Docker is not installed or not in PATH"
-                exit 1
-            fi
-            if ! command -v docker-compose >/dev/null 2>&1; then
-                error "Docker Compose is not installed or not in PATH"
-                exit 1
-            fi
-            ;;
-        staging|production)
-            if ! command -v kubectl >/dev/null 2>&1; then
-                error "kubectl is not installed or not in PATH"
-                exit 1
-            fi
-            if ! kubectl cluster-info >/dev/null 2>&1; then
-                error "kubectl is not configured or cluster is not accessible"
-                exit 1
-            fi
-            ;;
-        *)
-            error "Invalid environment: $ENVIRONMENT"
-            exit 1
-            ;;
-    esac
-}
-
-run_tests() {
-    if [[ "$SKIP_TESTS" == true ]]; then
-        warn "Skipping pre-deployment tests as requested"
-        return 0
-    fi
-    
-    log "Running pre-deployment tests..."
-    
-    cd "$PROJECT_ROOT"
-    
-    # Run unit tests
-    debug "Running unit tests"
-    if ! python -m pytest tests/unit/ -v --tb=short; then
-        error "Unit tests failed"
+    # Check Docker
+    if ! command -v docker &> /dev/null; then
+        print_error "Docker is not installed. Please install Docker first."
         exit 1
     fi
     
-    # Run integration tests (if available)
-    if [[ -d "tests/integration" ]]; then
-        debug "Running integration tests"
-        if ! python -m pytest tests/integration/ -v --tb=short; then
-            error "Integration tests failed"
-            exit 1
-        fi
+    # Check Python
+    if ! command -v python3 &> /dev/null; then
+        print_error "Python 3 is not installed. Please install Python 3.10+."
+        exit 1
     fi
     
-    log "All tests passed"
+    # Check if .env exists
+    if [ ! -f ".env" ]; then
+        print_warn ".env file not found. Creating from template..."
+        cp config/env.example .env
+        print_info "Please edit .env file with your configuration before deploying."
+        exit 0
+    fi
+    
+    print_info "All prerequisites met!"
 }
 
-deploy_local() {
-    log "Deploying to local environment using Docker Compose"
-    
-    cd "$PROJECT_ROOT"
-    
-    # Build images
-    log "Building Docker images..."
-    if [[ "$DRY_RUN" == true ]]; then
-        debug "DRY RUN: Would build Docker images"
-    else
-        docker-compose build
-    fi
-    
-    # Deploy services
-    log "Starting services..."
-    if [[ "$DRY_RUN" == true ]]; then
-        debug "DRY RUN: Would start services with docker-compose up -d"
-    else
-        docker-compose up -d
-        
-        # Wait for services to be ready
-        log "Waiting for services to be ready..."
-        sleep 10
-        
-        # Check health
-        max_attempts=30
-        attempt=0
-        while [[ $attempt -lt $max_attempts ]]; do
-            if curl -f http://localhost:5000/health >/dev/null 2>&1; then
-                log "Application is ready!"
-                break
-            fi
-            attempt=$((attempt + 1))
-            debug "Health check attempt $attempt/$max_attempts"
-            sleep 5
-        done
-        
-        if [[ $attempt -eq $max_attempts ]]; then
-            error "Application failed to become ready"
-            exit 1
-        fi
-    fi
-    
-    log "Local deployment completed successfully"
-    log "Application available at: http://localhost:5000"
+# Function to show usage
+show_usage() {
+    echo "FM-LLM Solver Deployment Script"
+    echo ""
+    echo "Usage: $0 [command] [options]"
+    echo ""
+    echo "Commands:"
+    echo "  local       Deploy locally using Docker Compose"
+    echo "  hybrid      Deploy web locally, inference on cloud"
+    echo "  cloud       Deploy everything to cloud"
+    echo "  test        Run deployment tests"
+    echo "  stop        Stop all services"
+    echo "  logs        Show logs"
+    echo "  clean       Clean up containers and volumes"
+    echo ""
+    echo "Cloud Provider Options (for cloud/hybrid):"
+    echo "  --provider [runpod|modal|vastai|gcp]"
+    echo ""
+    echo "Examples:"
+    echo "  $0 local                    # Deploy everything locally"
+    echo "  $0 hybrid --provider modal  # Web local, inference on Modal"
+    echo "  $0 cloud --provider runpod  # Everything on RunPod"
+    echo "  $0 test                     # Run deployment tests"
 }
 
-deploy_kubernetes() {
-    log "Deploying to $ENVIRONMENT Kubernetes cluster"
-    
-    cd "$KUBE_CONFIGS_DIR"
-    
-    # Update image tags in manifests
-    log "Updating image tags to $IMAGE_TAG"
-    if [[ "$DRY_RUN" == true ]]; then
-        debug "DRY RUN: Would update image tags in manifests"
-    else
-        # Create temporary manifests with updated image tags
-        temp_dir=$(mktemp -d)
-        cp -r . "$temp_dir/"
-        
-        # Update web app image tag
-        sed -i.bak "s|image: fm-llm-solver:web|image: ghcr.io/patrickalllencooper/fm-llm-solver:$IMAGE_TAG|g" "$temp_dir/web-app.yaml"
-        
-        cd "$temp_dir"
-    fi
-    
-    # Apply manifests
-    log "Applying Kubernetes manifests..."
-    
-    manifests=(
-        "namespace.yaml"
-        "secrets.yaml"
-        "configmap.yaml"
-        "postgres.yaml"
-        "redis.yaml"
-        "web-app.yaml"
-        "ingress.yaml"
-    )
-    
-    for manifest in "${manifests[@]}"; do
-        log "Applying $manifest..."
-        if [[ "$DRY_RUN" == true ]]; then
-            debug "DRY RUN: Would apply $manifest"
-            kubectl apply -f "$manifest" --dry-run=client -o yaml
-        else
-            kubectl apply -f "$manifest"
-        fi
-    done
-    
-    if [[ "$DRY_RUN" == false ]]; then
-        # Wait for deployment to be ready
-        log "Waiting for deployment to be ready..."
-        if ! kubectl wait --for=condition=available --timeout="${WAIT_TIMEOUT}s" deployment/fm-llm-solver-web -n "$NAMESPACE"; then
-            error "Deployment failed to become ready within ${WAIT_TIMEOUT} seconds"
-            exit 1
-        fi
-        
-        # Check pod status
-        log "Checking pod status..."
-        kubectl get pods -n "$NAMESPACE"
-        
-        # Check service endpoints
-        log "Checking service endpoints..."
-        kubectl get services -n "$NAMESPACE"
-        
-        # Cleanup temporary directory
-        rm -rf "$temp_dir"
-    fi
-    
-    log "$ENVIRONMENT deployment completed successfully"
-}
-
-rollback_deployment() {
-    case $ENVIRONMENT in
-        local)
-            log "Rolling back local deployment..."
-            docker-compose down
-            ;;
-        staging|production)
-            log "Rolling back $ENVIRONMENT deployment..."
-            kubectl rollout undo deployment/fm-llm-solver-web -n "$NAMESPACE"
-            ;;
-    esac
-}
-
-cleanup() {
-    local exit_code=$?
-    if [[ $exit_code -ne 0 ]]; then
-        error "Deployment failed with exit code $exit_code"
-        
-        read -p "Do you want to rollback? (y/n): " -r
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            rollback_deployment
-        fi
-    fi
-    exit $exit_code
-}
-
-# Parse command line arguments
-while [[ $# -gt 0 ]]; do
-    case $1 in
-        local|staging|production)
-            ENVIRONMENT="$1"
-            shift
-            ;;
-        -t|--tag)
-            IMAGE_TAG="$2"
-            shift 2
-            ;;
-        -n|--namespace)
-            NAMESPACE="$2"
-            shift 2
-            ;;
-        --dry-run)
-            DRY_RUN=true
-            shift
-            ;;
-        --skip-tests)
-            SKIP_TESTS=true
-            shift
-            ;;
-        --wait-timeout)
-            WAIT_TIMEOUT="$2"
-            shift 2
-            ;;
-        -v|--verbose)
-            VERBOSE=true
-            shift
-            ;;
-        -h|--help)
-            usage
-            exit 0
-            ;;
-        *)
-            error "Unknown option: $1"
-            usage
-            exit 1
-            ;;
-    esac
-done
-
-# Validate environment
-if [[ -z "$ENVIRONMENT" ]]; then
-    error "Environment must be specified"
-    usage
-    exit 1
-fi
-
-# Set up signal handlers
-trap cleanup EXIT
-
-# Main deployment flow
-log "Starting deployment to $ENVIRONMENT environment"
-debug "Image tag: $IMAGE_TAG"
-debug "Namespace: $NAMESPACE"
-debug "Dry run: $DRY_RUN"
-
-# Check prerequisites
-check_prerequisites
-
-# Run tests
-run_tests
-
-# Deploy based on environment
-case $ENVIRONMENT in
+# Main script logic
+case "$1" in
     local)
-        deploy_local
+        check_prerequisites
+        print_info "Starting local deployment..."
+        
+        # Set deployment mode
+        export DEPLOYMENT_MODE=local
+        
+        # Build and start services
+        print_info "Building Docker images..."
+        docker compose build
+        
+        print_info "Starting services..."
+        docker compose up -d
+        
+        print_info "Local deployment complete!"
+        print_info "Web interface: http://localhost:5000"
+        print_info "Inference API: http://localhost:8000"
         ;;
-    staging|production)
-        deploy_kubernetes
+        
+    hybrid)
+        check_prerequisites
+        PROVIDER=${3:-modal}
+        
+        print_info "Starting hybrid deployment..."
+        print_info "Provider: $PROVIDER"
+        
+        # Set deployment mode
+        export DEPLOYMENT_MODE=hybrid
+        
+        # Deploy inference to cloud
+        print_info "Deploying inference API to $PROVIDER..."
+        python deployment/deploy.py $PROVIDER
+        
+        # Start web interface locally
+        print_info "Starting web interface locally..."
+        docker compose up -d web
+        
+        print_info "Hybrid deployment complete!"
+        print_info "Web interface: http://localhost:5000"
+        print_info "Check $PROVIDER dashboard for inference API endpoint"
         ;;
-esac
-
-log "Deployment completed successfully!" 
+        
+    cloud)
+        check_prerequisites
+        PROVIDER=${3:-runpod}
+        
+        print_info "Starting cloud deployment..."
+        print_info "Provider: $PROVIDER"
+        
+        # Set deployment mode
+        export DEPLOYMENT_MODE=cloud
+        
+        # Deploy everything to cloud
+        python deployment/deploy.py $PROVIDER
+        
+        print_info "Cloud deployment initiated!"
+        print_info "Check $PROVIDER dashboard for service endpoints"
+        ;;
+        
+    test)
+        print_info "Running deployment tests..."
+        python deployment/test_deployment.py
+        ;;
+        
+    stop)
+        print_info "Stopping all services..."
+        docker compose down
+        print_info "Services stopped."
+        ;;
+        
+    logs)
+        SERVICE=${2:-}
+        if [ -z "$SERVICE" ]; then
+            docker compose logs -f
+        else
+            docker compose logs -f $SERVICE
+        fi
+        ;;
+        
+    clean)
+        print_warn "This will remove all containers, volumes, and images."
+        read -p "Are you sure? (y/N) " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            print_info "Cleaning up..."
+            docker compose down -v --rmi all
+            print_info "Cleanup complete."
+        fi
+        ;;
+        
+    *)
+        show_usage
+        exit 1
+        ;;
+esac 

@@ -1,0 +1,21 @@
+# FM-LLM Solver - Production Requirements
+# Production deployment and monitoring dependencies
+# Install with: pip install -r base.txt -r web.txt -r production.txt
+
+# Monitoring & Logging
+prometheus-client>=0.19.0
+redis>=5.0.0
+aioredis>=2.0.0
+
+# Process Management
+supervisor>=4.2.5
+python-daemon>=3.0.0
+
+# Caching
+redis>=5.0.0
+
+# Security Enhancements
+python-jose[cryptography]>=3.3.0
+
+# Performance
+httpx>=0.25.0 
