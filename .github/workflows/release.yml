@@ -191,7 +191,7 @@ jobs:
             type=semver,pattern={{major}}
       
       - name: Build and push web image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           target: web
@@ -203,7 +203,7 @@ jobs:
           cache-to: type=gha,mode=max
       
       - name: Build and push CLI image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           target: cli
