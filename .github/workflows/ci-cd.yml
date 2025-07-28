@@ -114,7 +114,7 @@ jobs:
         pytest tests/integration/ -v --cov=fm_llm_solver --cov-append --cov-report=xml
 
     - name: Upload coverage reports
-      uses: codecov/codecov-action@v4
+      uses: codecov/codecov-action@v5
       if: matrix.python-version == '3.10'
       with:
         file: ./coverage.xml
