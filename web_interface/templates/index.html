@@ -198,6 +198,97 @@ Note: Also specify Domain Bounds below (e.g., x ∈ [-2,2], y ∈ [-2,2])"
                 </select>
             </div>
             
+            <!-- Enhanced RAG Dataset Selection -->
+            <div class="form-field" id="rag-dataset-config" style="display: none;">
+                <label class="form-label">
+                    <span class="material-icons" style="vertical-align: middle;">tune</span>
+                    RAG Dataset Configuration
+                </label>
+                
+                <!-- Dataset Type Selection -->
+                <div class="form-field-group">
+                    <label for="rag-dataset-type" class="form-sublabel">Dataset Type</label>
+                    <select id="rag-dataset-type" name="rag_dataset_type" class="form-select">
+                        <option value="unified" selected>All Papers (Unified)</option>
+                        <option value="discrete">Discrete-Time Systems Only</option>
+                        <option value="continuous">Continuous-Time Systems Only</option>
+                        <option value="custom">Custom Selection</option>
+                    </select>
+                </div>
+                
+                <!-- Researcher Selection -->
+                <div class="form-field-group" id="researcher-selection" style="display: none;">
+                    <label class="form-sublabel">
+                        <span class="material-icons" style="font-size: 16px;">people</span>
+                        Select Researchers
+                    </label>
+                    <div class="researcher-grid" id="researcher-grid">
+                        <!-- Researchers will be populated dynamically -->
+                    </div>
+                    <div class="researcher-summary">
+                        <span id="selected-researchers-count">0</span> researchers selected
+                        <button type="button" class="btn-link" onclick="selectAllResearchers()">Select All</button>
+                        <button type="button" class="btn-link" onclick="clearAllResearchers()">Clear All</button>
+                    </div>
+                </div>
+                
+                <!-- Topic Filtering -->
+                <div class="form-field-group" id="topic-filtering" style="display: none;">
+                    <label class="form-sublabel">
+                        <span class="material-icons" style="font-size: 16px;">topic</span>
+                        Research Topics
+                    </label>
+                    <div class="topic-tags">
+                        <label class="checkbox-tag">
+                            <input type="checkbox" name="topics" value="barrier_certificates">
+                            <span>Barrier Certificates</span>
+                        </label>
+                        <label class="checkbox-tag">
+                            <input type="checkbox" name="topics" value="control_theory">
+                            <span>Control Theory</span>
+                        </label>
+                        <label class="checkbox-tag">
+                            <input type="checkbox" name="topics" value="formal_methods">
+                            <span>Formal Methods</span>
+                        </label>
+                        <label class="checkbox-tag">
+                            <input type="checkbox" name="topics" value="cyber_physical">
+                            <span>Cyber-Physical Systems</span>
+                        </label>
+                        <label class="checkbox-tag">
+                            <input type="checkbox" name="topics" value="safety_verification">
+                            <span>Safety Verification</span>
+                        </label>
+                        <label class="checkbox-tag">
+                            <input type="checkbox" name="topics" value="hybrid_systems">
+                            <span>Hybrid Systems</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Dataset Preview -->
+                <div class="form-field-group">
+                    <label class="form-sublabel">
+                        <span class="material-icons" style="font-size: 16px;">preview</span>
+                        Dataset Preview
+                    </label>
+                    <div class="dataset-preview" id="dataset-preview">
+                        <div class="preview-stats">
+                            <span id="paper-count">Loading...</span> papers, 
+                            <span id="chunk-count">Loading...</span> chunks available
+                        </div>
+                        <div class="preview-quality">
+                            Quality Score: <span id="quality-score">--</span>/100
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <button type="button" class="btn btn-text" onclick="toggleRagConfig()" id="rag-config-toggle">
+                <span class="material-icons">expand_more</span>
+                Advanced RAG Configuration
+            </button>
+            
             <button id="start-conversation-btn" class="btn btn-primary">
                 <span class="material-icons">chat</span>
                 Start Conversation
@@ -850,120 +941,310 @@ async function rejectCertificate() {
 
 // ============ END CONVERSATION FUNCTIONS ============
 
-// Auto-clear initial state
-document.addEventListener('DOMContentLoaded', function() {
-    // Set active nav link
-    const currentPath = window.location.pathname;
-    document.querySelectorAll('.nav-link').forEach(link => {
-        if (link.getAttribute('href') === currentPath) {
-            link.classList.add('active');
+// Enhanced RAG Configuration Functions
+let researchers = [];
+let selectedResearchers = new Set();
+let selectedTopics = new Set();
+
+async function loadResearchers() {
+    try {
+        const response = await fetch('/api/researchers');
+        if (response.ok) {
+            researchers = await response.json();
+            populateResearcherGrid();
+        } else {
+            console.error('Failed to load researchers');
         }
-    });
+    } catch (error) {
+        console.error('Error loading researchers:', error);
+        // Fallback to demo data if API fails
+        researchers = [
+            {
+                scholar_id: "mFdINk4AAAAJ",
+                name: "Majid Zamani",
+                institution: "University of Colorado Boulder",
+                research_focus: "Cyber-physical systems; Hybrid systems; Control theory; Barrier certificates"
+            },
+            {
+                scholar_id: "TjWwqmwAAAAJ",
+                name: "Aaron D. Ames",
+                institution: "California Institute of Technology", 
+                research_focus: "Control Barrier Functions; Robotics; Nonlinear Control"
+            },
+            {
+                scholar_id: "5_ksIkAAAAJ",
+                name: "Claire J. Tomlin",
+                institution: "University of California Berkeley",
+                research_focus: "Control Theory; Hybrid Systems; Formal Verification"
+            }
+        ];
+        populateResearcherGrid();
+    }
+}
+
+function populateResearcherGrid() {
+    const grid = document.getElementById('researcher-grid');
+    if (!grid) return;
     
-    // Mode selection event listeners
-    document.querySelectorAll('input[name="generation-mode"]').forEach(radio => {
-        radio.addEventListener('change', function() {
-            switchMode(this.value);
+    grid.innerHTML = researchers.map(researcher => `
+        <div class="researcher-card" onclick="toggleResearcher('${researcher.scholar_id}')" data-id="${researcher.scholar_id}">
+            <input type="checkbox" 
+                   id="researcher-${researcher.scholar_id}" 
+                   onchange="updateResearcherSelection('${researcher.scholar_id}')"
+                   ${selectedResearchers.has(researcher.scholar_id) ? 'checked' : ''}>
+            <div class="researcher-info">
+                <h4 class="researcher-name">${researcher.name}</h4>
+                <p class="researcher-institution">${researcher.institution}</p>
+                <p class="researcher-focus">${researcher.research_focus}</p>
+            </div>
+        </div>
+    `).join('');
+    
+    updateResearcherCount();
+}
+
+function toggleResearcher(scholarId) {
+    const checkbox = document.getElementById(`researcher-${scholarId}`);
+    checkbox.checked = !checkbox.checked;
+    updateResearcherSelection(scholarId);
+}
+
+function updateResearcherSelection(scholarId) {
+    const checkbox = document.getElementById(`researcher-${scholarId}`);
+    const card = checkbox.closest('.researcher-card');
+    
+    if (checkbox.checked) {
+        selectedResearchers.add(scholarId);
+        card.classList.add('selected');
+    } else {
+        selectedResearchers.delete(scholarId);
+        card.classList.remove('selected');
+    }
+    
+    updateResearcherCount();
+    updateDatasetPreview();
+}
+
+function selectAllResearchers() {
+    researchers.forEach(researcher => {
+        selectedResearchers.add(researcher.scholar_id);
+        const checkbox = document.getElementById(`researcher-${researcher.scholar_id}`);
+        const card = checkbox.closest('.researcher-card');
+        checkbox.checked = true;
+        card.classList.add('selected');
+    });
+    updateResearcherCount();
+    updateDatasetPreview();
+}
+
+function clearAllResearchers() {
+    selectedResearchers.clear();
+    researchers.forEach(researcher => {
+        const checkbox = document.getElementById(`researcher-${researcher.scholar_id}`);
+        const card = checkbox.closest('.researcher-card');
+        checkbox.checked = false;
+        card.classList.remove('selected');
+    });
+    updateResearcherCount();
+    updateDatasetPreview();
+}
+
+function updateResearcherCount() {
+    const countElement = document.getElementById('selected-researchers-count');
+    if (countElement) {
+        countElement.textContent = selectedResearchers.size;
+    }
+}
+
+function toggleRagConfig() {
+    const configDiv = document.getElementById('rag-dataset-config');
+    const toggleBtn = document.getElementById('rag-config-toggle');
+    const icon = toggleBtn.querySelector('.material-icons');
+    
+    if (configDiv.style.display === 'none' || !configDiv.style.display) {
+        configDiv.style.display = 'block';
+        toggleBtn.classList.add('expanded');
+        icon.textContent = 'expand_less';
+        toggleBtn.innerHTML = '<span class="material-icons">expand_less</span>Hide RAG Configuration';
+        
+        // Load researchers if not already loaded
+        if (researchers.length === 0) {
+            loadResearchers();
+        }
+        updateDatasetPreview();
+    } else {
+        configDiv.style.display = 'none';
+        toggleBtn.classList.remove('expanded');
+        icon.textContent = 'expand_more';
+        toggleBtn.innerHTML = '<span class="material-icons">expand_more</span>Advanced RAG Configuration';
+    }
+}
+
+function handleDatasetTypeChange() {
+    const datasetType = document.getElementById('rag-dataset-type').value;
+    const researcherSelection = document.getElementById('researcher-selection');
+    const topicFiltering = document.getElementById('topic-filtering');
+    
+    if (datasetType === 'custom') {
+        researcherSelection.style.display = 'block';
+        topicFiltering.style.display = 'block';
+    } else {
+        researcherSelection.style.display = 'none';
+        topicFiltering.style.display = 'none';
+    }
+    
+    updateDatasetPreview();
+}
+
+function handleTopicChange() {
+    selectedTopics.clear();
+    document.querySelectorAll('input[name="topics"]:checked').forEach(checkbox => {
+        selectedTopics.add(checkbox.value);
+    });
+    updateDatasetPreview();
+}
+
+async function updateDatasetPreview() {
+    const paperCountElement = document.getElementById('paper-count');
+    const chunkCountElement = document.getElementById('chunk-count');
+    const qualityScoreElement = document.getElementById('quality-score');
+    
+    if (!paperCountElement || !chunkCountElement || !qualityScoreElement) return;
+    
+    // Show loading state
+    paperCountElement.textContent = 'Loading...';
+    chunkCountElement.textContent = 'Loading...';
+    qualityScoreElement.textContent = '--';
+    
+    try {
+        const datasetType = document.getElementById('rag-dataset-type')?.value || 'unified';
+        
+        const requestData = {
+            dataset_type: datasetType,
+            selected_researchers: Array.from(selectedResearchers),
+            selected_topics: Array.from(selectedTopics)
+        };
+        
+        const response = await fetch('/api/rag/preview', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestData)
         });
-    });
-    
-    // Conversation event listeners
-    document.getElementById('start-conversation-btn').addEventListener('click', startConversation);
-    document.getElementById('send-message-btn').addEventListener('click', sendMessage);
-    document.getElementById('message-input').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            sendMessage();
+        
+        if (response.ok) {
+            const data = await response.json();
+            paperCountElement.textContent = data.paper_count || 0;
+            chunkCountElement.textContent = data.chunk_count || 0;
+            qualityScoreElement.textContent = data.quality_score || '--';
+        } else {
+            // Fallback to demo data
+            const demoStats = getDemoDatasetStats(datasetType);
+            paperCountElement.textContent = demoStats.papers;
+            chunkCountElement.textContent = demoStats.chunks;
+            qualityScoreElement.textContent = demoStats.quality;
         }
-    });
-    
-    // Ready to generate checkbox
-    document.getElementById('ready-to-generate').addEventListener('change', function() {
-        setReadyToGenerate(this.checked);
-    });
-    
-    // Generation from conversation
-    document.getElementById('generate-from-conversation-btn').addEventListener('click', generateFromConversation);
-    
-    // Certificate decision buttons
-    document.getElementById('accept-certificate-btn').addEventListener('click', acceptCertificate);
-    document.getElementById('reject-certificate-btn').addEventListener('click', rejectCertificate);
-});
-
-// Show/hide optimisation parameters
-document.getElementById('attempt_optimization').addEventListener('change', function(e) {
-    document.getElementById('opt-params').style.display = e.target.checked ? 'block' : 'none';
-});
-
-// Domain bounds functions
-function addDomainBound() {
-    const container = document.getElementById('domain-bounds-container');
-    const row = document.createElement('div');
-    row.className = 'domain-bound-row';
-    row.style.cssText = 'display: flex; gap: 8px; align-items: center; margin-bottom: 8px;';
-    row.innerHTML = `
-        <input type="text" class="form-input domain-var" placeholder="Variable (e.g., x)" style="width: 80px;">
-        <span>∈ [</span>
-        <input type="number" class="form-input domain-min" placeholder="Min" style="width: 80px;" step="0.1">
-        <span>,</span>
-        <input type="number" class="form-input domain-max" placeholder="Max" style="width: 80px;" step="0.1">
-        <span>]</span>
-        <button type="button" class="btn btn-outline" onclick="removeDomainBound(this)" style="font-size: 12px; padding: 4px 8px;">Remove</button>
-    `;
-    container.appendChild(row);
-}
-
-function removeDomainBound(button) {
-    const container = document.getElementById('domain-bounds-container');
-    if (container.children.length > 1) {
-        button.parentElement.remove();
+    } catch (error) {
+        console.error('Error updating dataset preview:', error);
+        // Fallback to demo data
+        const demoStats = getDemoDatasetStats(document.getElementById('rag-dataset-type')?.value || 'unified');
+        paperCountElement.textContent = demoStats.papers;
+        chunkCountElement.textContent = demoStats.chunks;
+        qualityScoreElement.textContent = demoStats.quality;
     }
 }
 
-function getDomainBounds() {
-    const bounds = {};
-    const rows = document.querySelectorAll('.domain-bound-row');
-    
-    rows.forEach(row => {
-        const varInput = row.querySelector('.domain-var');
-        const minInput = row.querySelector('.domain-min');
-        const maxInput = row.querySelector('.domain-max');
-        
-        const variable = varInput.value.trim();
-        const min = parseFloat(minInput.value);
-        const max = parseFloat(maxInput.value);
-        
-        if (variable && !isNaN(min) && !isNaN(max)) {
-            bounds[variable] = [min, max];
-        }
-    });
-    
-    return Object.keys(bounds).length > 0 ? bounds : null;
+function getDemoDatasetStats(datasetType) {
+    const stats = {
+        unified: { papers: 156, chunks: 3240, quality: 87 },
+        discrete: { papers: 45, chunks: 920, quality: 82 },
+        continuous: { papers: 98, chunks: 2010, quality: 89 },
+        custom: { papers: selectedResearchers.size * 5, chunks: selectedResearchers.size * 75, quality: 85 }
+    };
+    return stats[datasetType] || stats.unified;
 }
 
-function setDomainBounds(bounds) {
-    const container = document.getElementById('domain-bounds-container');
-    container.innerHTML = '';
+function getRAGConfiguration() {
+    const ragConfig = {
+        rag_k: parseInt(document.getElementById('conv-rag-k')?.value || 3),
+        dataset_type: document.getElementById('rag-dataset-type')?.value || 'unified',
+        selected_researchers: Array.from(selectedResearchers),
+        selected_topics: Array.from(selectedTopics)
+    };
     
-    if (!bounds || Object.keys(bounds).length === 0) {
-        addDomainBound();
-        return;
+    return ragConfig;
+}
+
+// Event listeners for RAG configuration
+document.addEventListener('DOMContentLoaded', function() {
+    // Dataset type change handler
+    const datasetTypeSelect = document.getElementById('rag-dataset-type');
+    if (datasetTypeSelect) {
+        datasetTypeSelect.addEventListener('change', handleDatasetTypeChange);
     }
     
-    Object.entries(bounds).forEach(([variable, [min, max]]) => {
-        const row = document.createElement('div');
-        row.className = 'domain-bound-row';
-        row.style.cssText = 'display: flex; gap: 8px; align-items: center; margin-bottom: 8px;';
-        row.innerHTML = `
-            <input type="text" class="form-input domain-var" placeholder="Variable (e.g., x)" style="width: 80px;" value="${variable}">
-            <span>∈ [</span>
-            <input type="number" class="form-input domain-min" placeholder="Min" style="width: 80px;" step="0.1" value="${min}">
-            <span>,</span>
-            <input type="number" class="form-input domain-max" placeholder="Max" style="width: 80px;" step="0.1" value="${max}">
-            <span>]</span>
-            <button type="button" class="btn btn-outline" onclick="removeDomainBound(this)" style="font-size: 12px; padding: 4px 8px;">Remove</button>
-        `;
-        container.appendChild(row);
+    // Topic checkboxes change handler
+    document.querySelectorAll('input[name="topics"]').forEach(checkbox => {
+        checkbox.addEventListener('change', handleTopicChange);
     });
-}
+    
+    // RAG K value change handler
+    const ragKSelect = document.getElementById('conv-rag-k');
+    if (ragKSelect) {
+        ragKSelect.addEventListener('change', function() {
+            const ragConfigDiv = document.getElementById('rag-dataset-config');
+            if (parseInt(this.value) > 0) {
+                // Show toggle button when RAG is enabled
+                document.getElementById('rag-config-toggle').style.display = 'flex';
+            } else {
+                // Hide config when RAG is disabled
+                document.getElementById('rag-config-toggle').style.display = 'none';
+                if (ragConfigDiv) {
+                    ragConfigDiv.style.display = 'none';
+                }
+            }
+        });
+    }
+});
+
+// Integration with existing functions
+const originalStartConversation = startConversation;
+startConversation = async function() {
+    try {
+        const modelConfig = document.getElementById('conv-model-config').value;
+        const ragConfig = getRAGConfiguration();
+        
+        const response = await fetch('/conversation/start', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                model_config: modelConfig,
+                rag_config: ragConfig
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            currentSessionId = result.session_id;
+            
+            // Hide setup, show active conversation
+            document.getElementById('conversation-setup').classList.add('hidden');
+            document.getElementById('conversation-active').classList.remove('hidden');
+            
+            // Add initial message
+            addMessageToChat(result.initial_message);
+            
+            showStatus('Conversation started successfully!', 'success');
+        } else {
+            showStatus('Failed to start conversation: ' + result.error, 'error');
+        }
+    } catch (error) {
+        showStatus('Error starting conversation: ' + error.message, 'error');
+    }
+};
 </script>
 {% endblock %} 

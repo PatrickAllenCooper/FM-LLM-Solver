@@ -465,6 +465,11 @@ class Conversation(db.Model):
     # Conversation settings
     model_config = db.Column(db.String(100), nullable=False)
     rag_k = db.Column(db.Integer, default=3)
+    
+    # Enhanced RAG Configuration
+    rag_dataset_type = db.Column(db.String(20), default="unified")  # unified, discrete, continuous, custom
+    rag_selected_researchers = db.Column(db.JSON)  # List of researcher scholar_ids
+    rag_selected_topics = db.Column(db.JSON)  # List of research topic tags
 
     # Current state
     status = db.Column(

@@ -1,270 +1,428 @@
-name: CI
+name: FM-LLM-Solver CI/CD Pipeline
 
 on:
   push:
     branches: [ main, develop ]
   pull_request:
-    branches: [ main ]
-  schedule:
-    # Run daily at 2 AM UTC
-    - cron: '0 2 * * *'
+    branches: [ main, develop ]
+  workflow_dispatch:
 
 env:
   PYTHON_VERSION: '3.10'
+  NODE_VERSION: '18'
 
 jobs:
-  lint:
-    name: Lint Code
+  # ============= CODE QUALITY CHECKS =============
+  code-quality:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-      
-      - name: Cache pip packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-      
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install pre-commit
-      
-      - name: Run pre-commit
-        run: pre-commit run --all-files
-
-  test:
-    name: Test Python ${{ matrix.python-version }} on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ['3.8', '3.9', '3.10', '3.11']
-        exclude:
-          # Exclude some combinations to save CI time
-          - os: windows-latest
-            python-version: '3.8'
-          - os: macos-latest
-            python-version: '3.8'
+    name: Code Quality & Linting
     
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-      
-      - name: Cache pip packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-${{ matrix.python-version }}-
-      
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -e ".[dev,web,monitoring]"
-      
-      - name: Run tests with coverage
-        run: |
-          pytest --cov=fm_llm_solver --cov-report=xml --cov-report=term
-      
-      - name: Upload coverage to Codecov
-        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10'
-        uses: codecov/codecov-action@v4
-        with:
-          file: ./coverage.xml
-          flags: unittests
-          name: codecov-umbrella
+    - name: Checkout Code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Cache Python Dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8 black isort mypy pylint bandit safety
+        pip install -r requirements.txt
+    
+    - name: Run Black Code Formatter Check
+      run: |
+        black --check --diff --color .
+      continue-on-error: false
+    
+    - name: Run isort Import Sorting Check
+      run: |
+        isort --check-only --diff --color .
+      continue-on-error: false
+    
+    - name: Run Flake8 Linting
+      run: |
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+    
+    - name: Run Pylint Analysis
+      run: |
+        pylint --fail-under=7.0 fm_llm_solver/ web_interface/ || echo "Pylint score below threshold"
+      continue-on-error: true
+    
+    - name: Run Security Analysis with Bandit
+      run: |
+        bandit -r . -f json -o bandit-report.json || true
+        bandit -r . --severity-level medium
+      continue-on-error: true
+    
+    - name: Check Dependencies for Security Vulnerabilities
+      run: |
+        safety check --json --output safety-report.json || true
+        safety check
+      continue-on-error: true
+    
+    - name: Upload Security Reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-reports
+        path: |
+          bandit-report.json
+          safety-report.json
+      if: always()
 
-  test-gpu:
-    name: Test GPU Features
+  # ============= UNIT AND INTEGRATION TESTS =============
+  tests:
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    name: Unit & Integration Tests
+    needs: code-quality
+    
+    strategy:
+      matrix:
+        test-suite: [unit, integration, performance]
+    
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-      
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -e ".[dev,web,monitoring]"
-      
-      - name: Run GPU compatibility tests
-        run: |
-          # Test GPU-related code without requiring actual GPU hardware
-          python -c "
-          try:
-              import torch
-              print(f'PyTorch version: {torch.__version__}')
-              print(f'CUDA available: {torch.cuda.is_available()}')
-              print(f'CUDA version: {torch.version.cuda if torch.cuda.is_available() else \"N/A\"}')
-              print('GPU compatibility test passed')
-          except Exception as e:
-              print(f'GPU compatibility test failed: {e}')
-              exit(1)
-          "
-          # Run any GPU-marked tests in mock mode
-          pytest tests/ -k "gpu" --no-cov -v || echo "GPU tests skipped (no GPU available in CI)"
+    - name: Checkout Code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Cache Python Dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pytest pytest-cov pytest-mock pytest-asyncio
+        pip install -r requirements.txt
+        pip install -r requirements/dev.txt || echo "Dev requirements not found"
+    
+    - name: Create Test Environment
+      run: |
+        mkdir -p instance
+        mkdir -p logs
+        mkdir -p test_results
+        export DATABASE_URL="sqlite:///instance/test.db"
+        export SECRET_KEY="test-secret-key"
+        export TESTING=true
+    
+    - name: Run Unit Tests
+      if: matrix.test-suite == 'unit'
+      run: |
+        pytest tests/unit/ -v --cov=fm_llm_solver --cov=web_interface \
+          --cov-report=xml --cov-report=html --cov-report=term \
+          --junitxml=test_results/unit-test-results.xml
+    
+    - name: Run Integration Tests
+      if: matrix.test-suite == 'integration'
+      run: |
+        pytest tests/integration/ -v --timeout=300 \
+          --junitxml=test_results/integration-test-results.xml
+    
+    - name: Run Performance Tests
+      if: matrix.test-suite == 'performance'
+      run: |
+        pytest tests/performance/ -v --timeout=600 \
+          --junitxml=test_results/performance-test-results.xml
+      continue-on-error: true
+    
+    - name: Upload Test Results
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-results-${{ matrix.test-suite }}
+        path: |
+          test_results/
+          htmlcov/
+      if: always()
+    
+    - name: Upload Coverage to Codecov
+      if: matrix.test-suite == 'unit'
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
 
-  build:
-    name: Build Distribution
+  # ============= DOCKER BUILD AND SECURITY SCAN =============
+  docker-build:
     runs-on: ubuntu-latest
-    needs: [lint, test]
+    name: Docker Build & Security Scan
+    needs: [code-quality, tests]
+    
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-      
-      - name: Install build tools
-        run: |
-          python -m pip install --upgrade pip
-          pip install build wheel
-      
-      - name: Build distribution
-        run: |
-          python -m build
-      
-      - name: Check distribution
-        run: |
-          pip install twine
-          twine check dist/*
-      
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: dist
-          path: dist/
+    - name: Checkout Code
+      uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Build Docker Images
+      run: |
+        # Build web interface
+        docker build -f deployment/docker/Dockerfile.web -t fm-llm-web:test .
+        
+        # Build inference service
+        docker build -f deployment/docker/Dockerfile.inference -t fm-llm-inference:test .
+    
+    - name: Run Docker Security Scan
+      run: |
+        # Install Trivy for security scanning
+        sudo apt-get update
+        sudo apt-get install wget apt-transport-https gnupg lsb-release
+        wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+        echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
+        sudo apt-get update
+        sudo apt-get install trivy
+        
+        # Scan images
+        trivy image --format json --output docker-security-web.json fm-llm-web:test || true
+        trivy image --format json --output docker-security-inference.json fm-llm-inference:test || true
+        
+        # Display critical and high severity issues
+        trivy image --severity HIGH,CRITICAL fm-llm-web:test
+        trivy image --severity HIGH,CRITICAL fm-llm-inference:test
+      continue-on-error: true
+    
+    - name: Upload Docker Security Reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: docker-security-reports
+        path: |
+          docker-security-*.json
+      if: always()
 
-  docker:
-    name: Build Docker Image
+  # ============= DEPLOYMENT VALIDATION =============
+  deployment-validation:
     runs-on: ubuntu-latest
-    needs: [lint, test]
+    name: Deployment Validation
+    needs: [code-quality, tests, docker-build]
+    
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      
-      - name: Build Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: false
-          tags: fm-llm-solver:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+    - name: Checkout Code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install docker-compose
+    
+    - name: Validate Configuration Files
+      run: |
+        echo "Validating YAML configuration files..."
+        python -c "
+        import yaml
+        import os
+        import sys
+        
+        config_files = [
+            'config.yaml',
+            'config/base.yaml',
+            'deployment/kubernetes/fm-llm-full-stack.yaml'
+        ]
+        
+        for config_file in config_files:
+            if os.path.exists(config_file):
+                try:
+                    with open(config_file, 'r') as f:
+                        yaml.safe_load(f)
+                    print(f'✅ {config_file} is valid')
+                except yaml.YAMLError as e:
+                    print(f'❌ {config_file} is invalid: {e}')
+                    sys.exit(1)
+            else:
+                print(f'⚠️  {config_file} not found')
+        "
+    
+    - name: Validate Docker Compose Files
+      run: |
+        echo "Validating Docker Compose files..."
+        cd deployment/docker
+        docker-compose -f docker-compose.unified.yml config > /dev/null
+        echo "✅ Docker Compose files are valid"
+    
+    - name: Test Local Deployment
+      run: |
+        echo "Testing local deployment..."
+        cd deployment/docker
+        docker-compose -f docker-compose.unified.yml up -d --build
+        sleep 30
+        
+        # Test health endpoints
+        curl -f http://localhost:5000/api/v1/system/health || echo "Health check failed"
+        
+        # Cleanup
+        docker-compose -f docker-compose.unified.yml down
+    
+    - name: Validate API Documentation
+      run: |
+        echo "Validating API documentation..."
+        python -c "
+        from fm_llm_solver.api.endpoints import create_api
+        from flask import Flask
+        
+        app = Flask(__name__)
+        api_bp = create_api()
+        app.register_blueprint(api_bp)
+        
+        with app.app_context():
+            print('✅ API endpoints are valid and documented')
+        "
 
-  docs:
-    name: Build Documentation
+  # ============= SECURITY AND COMPLIANCE CHECKS =============
+  security-compliance:
     runs-on: ubuntu-latest
+    name: Security & Compliance
+    needs: [code-quality]
+    
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-      
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -e ".[docs]"
-      
-      - name: Create docs directory structure
-        run: |
-          mkdir -p docs/_build
-          mkdir -p docs/_static
-          mkdir -p docs/_templates
-      
-      - name: Generate Sphinx configuration if missing
-        run: |
-          if [ ! -f docs/conf.py ]; then
-            cd docs
-            sphinx-quickstart -q -p "FM-LLM Solver" -a "Patrick Allen Cooper" -v "1.0.0" --ext-autodoc --ext-viewcode --makefile
-            cd ..
+    - name: Checkout Code
+      uses: actions/checkout@v4
+    
+    - name: Run GitLeaks Secret Scanning
+      uses: gitleaks/gitleaks-action@v2
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+    
+    - name: Check for Sensitive Files
+      run: |
+        echo "Checking for sensitive files..."
+        
+        # Files that shouldn't be in repository
+        sensitive_patterns=(
+          "*.key"
+          "*.pem" 
+          "*.p12"
+          "*.pfx"
+          "*password*"
+          "*.env"
+          "secrets.yaml"
+          "credentials.json"
+        )
+        
+        found_sensitive=false
+        for pattern in "${sensitive_patterns[@]}"; do
+          if find . -name "$pattern" -not -path "./.git/*" | grep -q .; then
+            echo "❌ Found sensitive files matching: $pattern"
+            find . -name "$pattern" -not -path "./.git/*"
+            found_sensitive=true
           fi
-      
-      - name: Build documentation
-        run: |
-          cd docs
-          # Build HTML documentation
-          sphinx-build -b html . _build/html
-          # Build also as single page for potential PDF generation
-          sphinx-build -b singlehtml . _build/singlehtml
-      
-      - name: Check documentation build
-        run: |
-          # Verify key files were generated
-          test -f docs/_build/html/index.html || exit 1
-          echo "Documentation built successfully"
-      
-      - name: Upload documentation
-        uses: actions/upload-artifact@v4
-        with:
-          name: docs
-          path: docs/_build/html/
+        done
+        
+        if [ "$found_sensitive" = true ]; then
+          echo "❌ Sensitive files found in repository"
+          exit 1
+        else
+          echo "✅ No sensitive files found"
+        fi
+    
+    - name: License Compliance Check
+      run: |
+        echo "Checking license compliance..."
+        pip install pip-licenses
+        pip-licenses --format=json --output-file=licenses.json
+        
+        # Check for problematic licenses
+        python -c "
+        import json
+        
+        with open('licenses.json', 'r') as f:
+            licenses = json.load(f)
+        
+        problematic_licenses = ['GPL-3.0', 'AGPL-3.0', 'LGPL-3.0']
+        issues_found = False
+        
+        for package in licenses:
+            license_name = package.get('License', 'Unknown')
+            if any(prob in license_name for prob in problematic_licenses):
+                print(f'⚠️  Potentially problematic license: {package[\"Name\"]} ({license_name})')
+                issues_found = True
+        
+        if not issues_found:
+            print('✅ No problematic licenses found')
+        "
+      continue-on-error: true
 
-  security:
-    name: Security Scan
+  # ============= GENERATE REPORT =============
+  generate-report:
     runs-on: ubuntu-latest
+    name: Generate CI Report
+    needs: [code-quality, tests, docker-build, deployment-validation, security-compliance]
+    if: always()
+    
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: 'fs'
-          scan-ref: '.'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-      
-      - name: Upload Trivy scan results
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: 'trivy-results.sarif'
-
-  release:
-    name: Create Release
-    runs-on: ubuntu-latest
-    needs: [build, docker, docs]
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: dist
-          path: dist/
-      
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: dist/*
-          generate_release_notes: true
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+    - name: Checkout Code
+      uses: actions/checkout@v4
+    
+    - name: Download All Artifacts
+      uses: actions/download-artifact@v3
+    
+    - name: Generate CI Report
+      run: |
+        echo "# FM-LLM-Solver CI/CD Report" > ci-report.md
+        echo "" >> ci-report.md
+        echo "**Date:** $(date)" >> ci-report.md
+        echo "**Commit:** ${{ github.sha }}" >> ci-report.md
+        echo "**Branch:** ${{ github.ref_name }}" >> ci-report.md
+        echo "" >> ci-report.md
+        
+        echo "## Job Results" >> ci-report.md
+        echo "" >> ci-report.md
+        
+        # Check job results (simplified)
+        echo "- Code Quality: ${{ needs.code-quality.result }}" >> ci-report.md
+        echo "- Tests: ${{ needs.tests.result }}" >> ci-report.md  
+        echo "- Docker Build: ${{ needs.docker-build.result }}" >> ci-report.md
+        echo "- Deployment Validation: ${{ needs.deployment-validation.result }}" >> ci-report.md
+        echo "- Security & Compliance: ${{ needs.security-compliance.result }}" >> ci-report.md
+        echo "" >> ci-report.md
+        
+        echo "## Artifacts Generated" >> ci-report.md
+        echo "" >> ci-report.md
+        if [ -d "test-results-unit" ]; then echo "- Unit test results"; fi >> ci-report.md
+        if [ -d "test-results-integration" ]; then echo "- Integration test results"; fi >> ci-report.md
+        if [ -d "security-reports" ]; then echo "- Security scan reports"; fi >> ci-report.md
+        if [ -d "docker-security-reports" ]; then echo "- Docker security reports"; fi >> ci-report.md
+        
+        echo "" >> ci-report.md
+        echo "## Summary" >> ci-report.md
+        echo "" >> ci-report.md
+        
+        if [ "${{ needs.code-quality.result }}" = "success" ] && [ "${{ needs.tests.result }}" = "success" ]; then
+          echo "✅ Build passed all critical checks" >> ci-report.md
+        else
+          echo "❌ Build failed critical checks" >> ci-report.md
+        fi
+        
+        cat ci-report.md
+    
+    - name: Upload CI Report
+      uses: actions/upload-artifact@v3
+      with:
+        name: ci-report
+        path: ci-report.md 

@@ -35,37 +35,50 @@ class ConversationService:
         self.models = {}  # Cache for loaded models
         self.embedding_model = None
 
-    def start_conversation(self, model_config: str, rag_k: int = 3) -> Dict[str, Any]:
+    def start_conversation(self, model_config: str, rag_config: Dict[str, Any] = None) -> Dict[str, Any]:
         """Start a new conversation with the specified configuration."""
         try:
+            # Extract RAG configuration
+            if rag_config is None:
+                rag_config = {}
+            
+            rag_k = rag_config.get('rag_k', 3)
+            rag_dataset_type = rag_config.get('dataset_type', 'unified')
+            rag_selected_researchers = rag_config.get('selected_researchers', [])
+            rag_selected_topics = rag_config.get('selected_topics', [])
+            
             # Create unique session ID
             session_id = str(uuid.uuid4())
 
-            # Create conversation record
+            # Create conversation record with enhanced RAG configuration
             conversation = Conversation(
                 session_id=session_id,
                 model_config=model_config,
                 rag_k=rag_k,
+                rag_dataset_type=rag_dataset_type,
+                rag_selected_researchers=rag_selected_researchers,
+                rag_selected_topics=rag_selected_topics,
                 status="active",
             )
 
             db.session.add(conversation)
             db.session.commit()
 
+            # Generate personalized initial message based on RAG configuration
+            initial_content = self._generate_initial_message(rag_config)
+
             # Add initial system message
             initial_message = ConversationMessage(
                 conversation_id=conversation.id,
                 role="assistant",
-                content="Hello! I'm here to help you generate barrier certificates for your autonomous system. "
-                "Please describe your system, including the dynamics, initial conditions, and safety requirements. "
-                "We can discuss the details and refine the description before generating the certificate.",
+                content=initial_content,
                 message_type="chat",
             )
 
             db.session.add(initial_message)
             db.session.commit()
 
-            logger.info(f"Started new conversation: {session_id}")
+            logger.info(f"Started new conversation: {session_id} with RAG config: {rag_config}")
 
             return {
                 "success": True,
@@ -77,6 +90,47 @@ class ConversationService:
         except Exception as e:
             logger.error(f"Error starting conversation: {str(e)}")
             return {"success": False, "error": str(e)}
+    
+    def _generate_initial_message(self, rag_config: Dict[str, Any]) -> str:
+        """Generate a personalized initial message based on RAG configuration."""
+        base_message = ("Hello! I'm here to help you generate barrier certificates for your autonomous system. "
+                       "Please describe your system, including the dynamics, initial conditions, and safety requirements. "
+                       "We can discuss the details and refine the description before generating the certificate.")
+        
+        if not rag_config or rag_config.get('rag_k', 0) == 0:
+            return base_message
+        
+        dataset_type = rag_config.get('dataset_type', 'unified')
+        selected_researchers = rag_config.get('selected_researchers', [])
+        selected_topics = rag_config.get('selected_topics', [])
+        
+        # Add context about RAG configuration
+        rag_info = []
+        
+        if dataset_type == 'discrete':
+            rag_info.append("I'll use knowledge specifically from discrete-time systems research")
+        elif dataset_type == 'continuous':
+            rag_info.append("I'll use knowledge specifically from continuous-time systems research")
+        elif dataset_type == 'custom' and (selected_researchers or selected_topics):
+            if selected_researchers:
+                rag_info.append(f"I'll draw from research by {len(selected_researchers)} selected experts")
+            if selected_topics:
+                topic_names = {
+                    'barrier_certificates': 'Barrier Certificates',
+                    'control_theory': 'Control Theory',
+                    'formal_methods': 'Formal Methods',
+                    'cyber_physical': 'Cyber-Physical Systems',
+                    'safety_verification': 'Safety Verification',
+                    'hybrid_systems': 'Hybrid Systems'
+                }
+                topics_str = ', '.join([topic_names.get(t, t.replace('_', ' ').title()) for t in selected_topics])
+                rag_info.append(f"focusing on: {topics_str}")
+        
+        if rag_info:
+            rag_context = " " + " and ".join(rag_info) + " to provide you with the most relevant guidance."
+            return base_message + rag_context
+        
+        return base_message
 
     def send_message(
         self, session_id: str, user_message: str, message_type: str = "chat"
