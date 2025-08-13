@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { User, AuthResponse, LoginForm, RegisterForm, ChangePasswordForm } from '@/types/api';
-import { apiService } from '@/services/api';
+import { api } from '@/services/api';
 import toast from 'react-hot-toast';
 
 interface AuthStore {
@@ -17,7 +17,7 @@ interface AuthStore {
   checkAuthStatus: () => void;
 }
 
-export const useAuthStore = create<AuthStore>((set, get) => ({
+export const useAuthStore = create<AuthStore>((set) => ({
   user: null,
   isLoading: false,
   isAuthenticated: false,
@@ -26,10 +26,10 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     try {
       set({ isLoading: true });
       
-      const authResponse: AuthResponse = await apiService.login(data);
+      const authResponse: AuthResponse = await api.login(data);
       
       // Store token and user
-      apiService.setAuthToken(authResponse.token);
+      api.setAuthToken(authResponse.token);
       localStorage.setItem('user', JSON.stringify(authResponse.user));
       
       set({
@@ -51,10 +51,10 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     try {
       set({ isLoading: true });
       
-      const authResponse: AuthResponse = await apiService.register(data);
+      const authResponse: AuthResponse = await api.register(data);
       
       // Store token and user
-      apiService.setAuthToken(authResponse.token);
+      api.setAuthToken(authResponse.token);
       localStorage.setItem('user', JSON.stringify(authResponse.user));
       
       set({
@@ -73,7 +73,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   },
 
   logout: () => {
-    apiService.removeAuthToken();
+    api.removeAuthToken();
     set({
       user: null,
       isAuthenticated: false,
@@ -83,7 +83,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
   loadUser: async () => {
     try {
-      const token = apiService.getAuthToken();
+      const token = api.getAuthToken();
       if (!token) {
         set({ isAuthenticated: false, user: null });
         return;
@@ -91,7 +91,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
       set({ isLoading: true });
       
-      const user = await apiService.getCurrentUser();
+      const user = await api.getCurrentUser();
       
       set({
         user,
@@ -100,7 +100,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       });
     } catch (error) {
       // Token is invalid, clear it
-      apiService.removeAuthToken();
+      api.removeAuthToken();
       set({
         user: null,
         isAuthenticated: false,
@@ -113,7 +113,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     try {
       set({ isLoading: true });
       
-      await apiService.changePassword(data);
+      await api.changePassword(data);
       
       set({ isLoading: false });
       toast.success('Password changed successfully!');
@@ -126,7 +126,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   },
 
   checkAuthStatus: () => {
-    const token = apiService.getAuthToken();
+    const token = api.getAuthToken();
     const storedUser = localStorage.getItem('user');
     
     if (token && storedUser) {
@@ -138,7 +138,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         });
       } catch (error) {
         // Invalid stored user, clear everything
-        apiService.removeAuthToken();
+        api.removeAuthToken();
         set({
           user: null,
           isAuthenticated: false,

@@ -166,6 +166,7 @@ export class CertificateController {
           llm_config_json: validatedData.llm_config,
           candidate_expression: llmResult.response.expression,
           candidate_json: llmResult.response,
+          verification_status: 'pending',
           created_by: req.user.id,
           generation_duration_ms: llmResult.duration_ms,
         };
@@ -189,6 +190,7 @@ export class CertificateController {
           generation_method: validatedData.generation_method,
           candidate_expression: baselineResult.expression,
           candidate_json: baselineResult,
+          verification_status: 'pending',
           created_by: req.user.id,
           generation_duration_ms: baselineResult.duration_ms,
         };

@@ -15,6 +15,7 @@ import SystemSpecsPage from '@/pages/SystemSpecsPage';
 import CreateSystemSpecPage from '@/pages/CreateSystemSpecPage';
 import CertificatesPage from '@/pages/CertificatesPage';
 import CertificateDetailsPage from '@/pages/CertificateDetailsPage';
+import GenerateCertificatePage from '@/pages/GenerateCertificatePage';
 import ExperimentsPage from '@/pages/ExperimentsPage';
 import ProfilePage from '@/pages/ProfilePage';
 
@@ -53,6 +54,7 @@ function App() {
               <Route path="system-specs" element={<SystemSpecsPage />} />
               <Route path="system-specs/create" element={<CreateSystemSpecPage />} />
               <Route path="certificates" element={<CertificatesPage />} />
+              <Route path="certificates/generate" element={<GenerateCertificatePage />} />
               <Route path="certificates/:id" element={<CertificateDetailsPage />} />
               <Route path="experiments" element={<ExperimentsPage />} />
               <Route path="profile" element={<ProfilePage />} />

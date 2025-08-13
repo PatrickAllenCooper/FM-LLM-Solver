@@ -27,11 +27,11 @@ export default function Layout() {
 
   return (
     <div className="min-h-full">
-      <Disclosure as="nav" className="bg-white shadow-sm border-b border-gray-200">
+      <Disclosure as="nav" className="bg-white shadow-md border-b border-gray-100">
         {({ open }) => (
           <>
-            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-              <div className="flex h-16 justify-between">
+            <div className="mx-auto max-w-7xl px-6 lg:px-8">
+              <div className="flex h-20 justify-between">
                 <div className="flex">
                   <div className="flex flex-shrink-0 items-center">
                     <Link to="/dashboard" className="flex items-center">
@@ -41,7 +41,7 @@ export default function Layout() {
                       </span>
                     </Link>
                   </div>
-                  <div className="hidden sm:-my-px sm:ml-6 sm:flex sm:space-x-8">
+                  <div className="hidden sm:ml-8 sm:flex sm:space-x-2">
                     {navigation.map((item) => {
                       const isActive = location.pathname.startsWith(item.href);
                       return (
@@ -50,9 +50,9 @@ export default function Layout() {
                           to={item.href}
                           className={clsx(
                             isActive
-                              ? 'border-primary-500 text-primary-600'
-                              : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700',
-                            'inline-flex items-center border-b-2 px-1 pt-1 text-sm font-medium'
+                              ? 'bg-primary-100 text-primary-700 shadow-sm'
+                              : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50',
+                            'inline-flex items-center px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 hover:shadow-md'
                           )}
                         >
                           <item.icon className="mr-2 h-4 w-4" />
@@ -65,12 +65,12 @@ export default function Layout() {
                 <div className="hidden sm:ml-6 sm:flex sm:items-center">
                   <Menu as="div" className="relative ml-3">
                     <div>
-                      <Menu.Button className="flex max-w-xs items-center rounded-full bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
+                      <Menu.Button className="flex max-w-xs items-center rounded-full bg-white px-3 py-2 text-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 transition-all duration-200 shadow-sm hover:shadow-md">
                         <span className="sr-only">Open user menu</span>
-                        <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center">
-                          <UserIcon className="h-5 w-5 text-primary-600" />
+                        <div className="h-8 w-8 rounded-full bg-gradient-to-br from-cu-gold to-primary-600 flex items-center justify-center shadow-sm">
+                          <UserIcon className="h-4 w-4 text-cu-black" />
                         </div>
-                        <span className="ml-2 text-sm font-medium text-gray-700">
+                        <span className="ml-3 text-sm font-medium text-gray-800">
                           {user?.email}
                         </span>
                       </Menu.Button>
@@ -84,17 +84,17 @@ export default function Layout() {
                       leaveFrom="transform opacity-100 scale-100"
                       leaveTo="transform opacity-0 scale-95"
                     >
-                      <Menu.Items className="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+                      <Menu.Items className="absolute right-0 z-10 mt-2 w-56 origin-top-right rounded-2xl bg-white py-2 shadow-xl ring-1 ring-gray-200 focus:outline-none">
                         <Menu.Item>
                           {({ active }) => (
                             <Link
                               to="/profile"
                               className={clsx(
-                                active ? 'bg-gray-100' : '',
-                                'flex items-center px-4 py-2 text-sm text-gray-700'
+                                active ? 'bg-primary-50 text-primary-700' : 'text-gray-700',
+                                'flex items-center px-4 py-3 text-sm font-medium rounded-xl mx-2 transition-colors duration-150'
                               )}
                             >
-                              <UserIcon className="mr-2 h-4 w-4" />
+                              <UserIcon className="mr-3 h-4 w-4" />
                               Profile
                             </Link>
                           )}
@@ -104,11 +104,11 @@ export default function Layout() {
                             <button
                               onClick={logout}
                               className={clsx(
-                                active ? 'bg-gray-100' : '',
-                                'flex w-full items-center px-4 py-2 text-sm text-gray-700'
+                                active ? 'bg-red-50 text-red-700' : 'text-gray-700',
+                                'flex w-full items-center px-4 py-3 text-sm font-medium rounded-xl mx-2 transition-colors duration-150'
                               )}
                             >
-                              <ArrowRightOnRectangleIcon className="mr-2 h-4 w-4" />
+                              <ArrowRightOnRectangleIcon className="mr-3 h-4 w-4" />
                               Sign out
                             </button>
                           )}
@@ -118,7 +118,7 @@ export default function Layout() {
                   </Menu>
                 </div>
                 <div className="-mr-2 flex items-center sm:hidden">
-                  <Disclosure.Button className="inline-flex items-center justify-center rounded-md bg-white p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
+                  <Disclosure.Button className="inline-flex items-center justify-center rounded-full bg-white p-3 text-gray-400 hover:bg-gray-100 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 shadow-sm hover:shadow-md transition-all duration-200">
                     <span className="sr-only">Open main menu</span>
                     {open ? (
                       <XMarkIcon className="block h-6 w-6" aria-hidden="true" />
@@ -130,8 +130,8 @@ export default function Layout() {
               </div>
             </div>
 
-            <Disclosure.Panel className="sm:hidden">
-              <div className="space-y-1 pb-3 pt-2">
+            <Disclosure.Panel className="sm:hidden bg-white border-t border-gray-100">
+              <div className="space-y-2 p-4">
                 {navigation.map((item) => {
                   const isActive = location.pathname.startsWith(item.href);
                   return (
@@ -141,41 +141,41 @@ export default function Layout() {
                       to={item.href}
                       className={clsx(
                         isActive
-                          ? 'border-primary-500 bg-primary-50 text-primary-700'
-                          : 'border-transparent text-gray-600 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-800',
-                        'block border-l-4 py-2 pl-3 pr-4 text-base font-medium'
+                          ? 'bg-primary-100 text-primary-700 shadow-sm'
+                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800',
+                        'block py-3 px-4 text-base font-medium rounded-xl transition-all duration-200'
                       )}
                     >
                       <div className="flex items-center">
-                        <item.icon className="mr-2 h-5 w-5" />
+                        <item.icon className="mr-3 h-5 w-5" />
                         {item.name}
                       </div>
                     </Disclosure.Button>
                   );
                 })}
               </div>
-              <div className="border-t border-gray-200 pb-3 pt-4">
+              <div className="border-t border-gray-100 pb-4 pt-4">
                 <div className="flex items-center px-4">
-                  <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center">
-                    <UserIcon className="h-6 w-6 text-primary-600" />
+                  <div className="h-10 w-10 rounded-full bg-gradient-to-br from-cu-gold to-primary-600 flex items-center justify-center shadow-sm">
+                    <UserIcon className="h-5 w-5 text-cu-black" />
                   </div>
                   <div className="ml-3">
                     <div className="text-base font-medium text-gray-800">{user?.email}</div>
                     <div className="text-sm font-medium text-gray-500 capitalize">{user?.role}</div>
                   </div>
                 </div>
-                <div className="mt-3 space-y-1">
+                <div className="mt-4 space-y-2 px-4">
                   <Disclosure.Button
                     as={Link}
                     to="/profile"
-                    className="block px-4 py-2 text-base font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-800"
+                    className="block px-4 py-3 text-base font-medium text-gray-600 hover:bg-primary-50 hover:text-primary-700 rounded-xl transition-colors duration-150"
                   >
                     Profile
                   </Disclosure.Button>
                   <Disclosure.Button
                     as="button"
                     onClick={logout}
-                    className="block w-full text-left px-4 py-2 text-base font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-800"
+                    className="block w-full text-left px-4 py-3 text-base font-medium text-gray-600 hover:bg-red-50 hover:text-red-700 rounded-xl transition-colors duration-150"
                   >
                     Sign out
                   </Disclosure.Button>
@@ -186,12 +186,32 @@ export default function Layout() {
         )}
       </Disclosure>
 
-      <div className="py-10">
-        <main>
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div className="min-h-screen bg-gray-50">
+        <main className="py-8">
+          <div className="mx-auto max-w-7xl px-6 lg:px-8">
             <Outlet />
           </div>
         </main>
+        
+        {/* CU Boulder Footer */}
+        <footer className="border-t border-gray-200 bg-white">
+          <div className="mx-auto max-w-7xl px-6 lg:px-8 py-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 rounded-full cu-gradient flex items-center justify-center">
+                  <CpuChipIcon className="h-4 w-4 text-cu-black" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">FM-LLM Solver</p>
+                  <p className="text-xs text-gray-500">University of Colorado Boulder</p>
+                </div>
+              </div>
+              <div className="text-xs text-gray-500">
+                Rigorous evaluation of LLMs for formal verification
+              </div>
+            </div>
+          </div>
+        </footer>
       </div>
     </div>
   );

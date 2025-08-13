@@ -6,10 +6,8 @@ import {
   BeakerIcon,
   CheckCircleIcon,
   XCircleIcon,
-  ClockIcon,
-  PlusIcon,
 } from '@heroicons/react/24/outline';
-import { apiService } from '@/services/api';
+import { api } from '@/services/api';
 import { useAuthStore } from '@/stores/auth.store';
 
 export default function DashboardPage() {
@@ -18,12 +16,12 @@ export default function DashboardPage() {
   // Fetch dashboard data
   const { data: systemSpecs } = useQuery({
     queryKey: ['system-specs', { limit: 5 }],
-    queryFn: () => apiService.getSystemSpecs({ limit: 5 }),
+    queryFn: () => api.getSystemSpecs({ limit: 5 }),
   });
 
   const { data: candidates } = useQuery({
     queryKey: ['candidates', { limit: 10 }],
-    queryFn: () => apiService.getCandidates({ limit: 10 }),
+    queryFn: () => api.getCandidates({ limit: 10 }),
   });
 
   // Calculate statistics
@@ -31,7 +29,7 @@ export default function DashboardPage() {
   const totalCandidates = candidates?.pagination.total || 0;
   const verifiedCandidates = candidates?.data.filter(c => c.verification_status === 'verified').length || 0;
   const failedCandidates = candidates?.data.filter(c => c.verification_status === 'failed').length || 0;
-  const pendingCandidates = candidates?.data.filter(c => c.verification_status === 'pending').length || 0;
+
 
   const stats = [
     {
@@ -69,34 +67,35 @@ export default function DashboardPage() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-        <p className="mt-2 text-gray-600">
+      <div className="cu-gradient-light rounded-3xl p-8 border border-primary-200">
+        <h1 className="academic-header text-3xl">Dashboard</h1>
+        <p className="academic-body text-lg">
           Welcome back, {user?.email}. Here's an overview of your formal verification activities.
         </p>
+        <div className="mt-4 text-xs text-primary-700 font-medium">
+          University of Colorado Boulder • FM-LLM Solver
+        </div>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => (
-          <div key={stat.name} className="card">
-            <div className="card-body">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className={`w-8 h-8 ${stat.bgColor} rounded-md flex items-center justify-center`}>
-                    <stat.icon className={`w-5 h-5 ${stat.color}`} />
-                  </div>
+          <div key={stat.name} className="surface-elevated p-6 hover:elevation-4 transition-all duration-300 hover:-translate-y-1">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className={`w-12 h-12 ${stat.bgColor} rounded-2xl flex items-center justify-center shadow-md`}>
+                  <stat.icon className={`w-6 h-6 ${stat.color}`} />
                 </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">
-                      {stat.name}
-                    </dt>
-                    <dd className="text-2xl font-bold text-gray-900">
-                      {stat.value}
-                    </dd>
-                  </dl>
-                </div>
+              </div>
+              <div className="ml-6 flex-1">
+                <dl>
+                  <dt className="text-sm font-medium text-gray-600 truncate">
+                    {stat.name}
+                  </dt>
+                  <dd className="text-3xl font-bold text-gray-900 mt-1">
+                    {stat.value}
+                  </dd>
+                </dl>
               </div>
             </div>
           </div>
@@ -107,24 +106,25 @@ export default function DashboardPage() {
       {user?.role !== 'viewer' && (
         <div className="card">
           <div className="card-header">
-            <h2 className="text-lg font-medium text-gray-900">Quick Actions</h2>
+            <h2 className="academic-subheader">Quick Actions</h2>
+            <p className="academic-body text-sm">Start your formal verification workflow</p>
           </div>
           <div className="card-body">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
               <Link
                 to="/system-specs/create"
-                className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-primary-500 rounded-lg border-2 border-dashed border-gray-300 hover:border-gray-400"
+                className="relative group surface-outlined p-6 transition-all duration-300 hover:elevation-3 hover:-translate-y-1 focus-within:ring-2 focus-within:ring-primary-500"
               >
                 <div>
-                  <span className="rounded-lg inline-flex p-3 bg-primary-100 text-primary-600 group-hover:bg-primary-200">
+                  <span className="rounded-2xl inline-flex p-4 cu-gradient text-cu-black shadow-md group-hover:shadow-lg">
                     <DocumentTextIcon className="w-6 h-6" />
                   </span>
                 </div>
-                <div className="mt-4">
-                  <h3 className="text-lg font-medium text-gray-900">
+                <div className="mt-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
                     Create System Spec
                   </h3>
-                  <p className="mt-2 text-sm text-gray-500">
+                  <p className="academic-body text-sm">
                     Define a new dynamical system for analysis
                   </p>
                 </div>
@@ -132,18 +132,18 @@ export default function DashboardPage() {
 
               <Link
                 to="/certificates"
-                className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-primary-500 rounded-lg border-2 border-dashed border-gray-300 hover:border-gray-400"
+                className="relative group surface-outlined p-6 transition-all duration-300 hover:elevation-3 hover:-translate-y-1 focus-within:ring-2 focus-within:ring-primary-500"
               >
                 <div>
-                  <span className="rounded-lg inline-flex p-3 bg-green-100 text-green-600 group-hover:bg-green-200">
+                  <span className="rounded-2xl inline-flex p-4 bg-gradient-to-br from-success-400 to-success-600 text-white shadow-md group-hover:shadow-lg">
                     <CpuChipIcon className="w-6 h-6" />
                   </span>
                 </div>
-                <div className="mt-4">
-                  <h3 className="text-lg font-medium text-gray-900">
+                <div className="mt-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
                     Generate Certificate
                   </h3>
-                  <p className="mt-2 text-sm text-gray-500">
+                  <p className="academic-body text-sm">
                     Use LLM to generate Lyapunov or barrier functions
                   </p>
                 </div>
@@ -151,18 +151,18 @@ export default function DashboardPage() {
 
               <Link
                 to="/experiments"
-                className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-primary-500 rounded-lg border-2 border-dashed border-gray-300 hover:border-gray-400"
+                className="relative group surface-outlined p-6 transition-all duration-300 hover:elevation-3 hover:-translate-y-1 focus-within:ring-2 focus-within:ring-primary-500"
               >
                 <div>
-                  <span className="rounded-lg inline-flex p-3 bg-purple-100 text-purple-600 group-hover:bg-purple-200">
+                  <span className="rounded-2xl inline-flex p-4 bg-gradient-to-br from-purple-400 to-purple-600 text-white shadow-md group-hover:shadow-lg">
                     <BeakerIcon className="w-6 h-6" />
                   </span>
                 </div>
-                <div className="mt-4">
-                  <h3 className="text-lg font-medium text-gray-900">
+                <div className="mt-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
                     Run Experiment
                   </h3>
-                  <p className="mt-2 text-sm text-gray-500">
+                  <p className="academic-body text-sm">
                     Compare LLM vs baseline methods
                   </p>
                 </div>
@@ -177,10 +177,10 @@ export default function DashboardPage() {
         {/* Recent System Specs */}
         <div className="card">
           <div className="card-header flex items-center justify-between">
-            <h2 className="text-lg font-medium text-gray-900">Recent System Specs</h2>
+            <h2 className="academic-subheader mb-0">Recent System Specs</h2>
             <Link
               to="/system-specs"
-              className="text-sm font-medium text-primary-600 hover:text-primary-500"
+              className="text-sm font-medium text-primary-600 hover:text-primary-700 transition-colors duration-200"
             >
               View all
             </Link>
@@ -214,10 +214,10 @@ export default function DashboardPage() {
         {/* Recent Certificates */}
         <div className="card">
           <div className="card-header flex items-center justify-between">
-            <h2 className="text-lg font-medium text-gray-900">Recent Certificates</h2>
+            <h2 className="academic-subheader mb-0">Recent Certificates</h2>
             <Link
               to="/certificates"
-              className="text-sm font-medium text-primary-600 hover:text-primary-500"
+              className="text-sm font-medium text-primary-600 hover:text-primary-700 transition-colors duration-200"
             >
               View all
             </Link>

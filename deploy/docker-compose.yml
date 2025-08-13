@@ -25,7 +25,16 @@ services:
     environment:
       NODE_ENV: development
       PORT: 3000
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/fm_llm_solver
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: fm_llm_solver
+      DATABASE_USER: postgres
+      DATABASE_PASSWORD: postgres
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: fm_llm_solver
+      DB_USER: postgres
+      DB_PASSWORD: postgres
       JWT_SECRET: development-jwt-secret-key
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       FRONTEND_URL: http://localhost:3001
@@ -34,10 +43,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    volumes:
-      - ../backend:/app
-      - /app/node_modules
-    command: npm run dev
+    command: node dist/index.js
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]
       interval: 30s

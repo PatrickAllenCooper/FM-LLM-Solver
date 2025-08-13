@@ -29,18 +29,23 @@ export interface SystemSpec {
 
 export interface Candidate {
   id: string;
-  run_id: string;
   system_spec_id: string;
   certificate_type: 'lyapunov' | 'barrier' | 'inductive_invariant';
   generation_method: 'llm' | 'sos' | 'sdp' | 'quadratic_template';
+  llm_provider?: string;
+  llm_model?: string;
+  llm_mode?: 'direct_expression' | 'basis_coeffs' | 'structure_constraints';
+  llm_config_json?: Record<string, any>;
   candidate_expression: string; // Mathematical expression
-  canonical_expression?: string; // Normalized form
-  latex_expression?: string; // LaTeX representation
-  ast_json?: Record<string, any>; // Abstract syntax tree
-  degree?: number; // Polynomial degree
-  term_count?: number; // Number of terms
-  generation_time_ms?: number; // Time to generate
+  candidate_json: Record<string, any>; // Raw candidate data
+  verification_status: 'pending' | 'verified' | 'failed' | 'timeout';
+  margin?: number;
+  created_by: string;
   created_at: Date;
+  updated_at: Date;
+  verified_at?: Date;
+  generation_duration_ms?: number;
+  verification_duration_ms?: number;
 }
 
 export interface Counterexample {
@@ -86,8 +91,8 @@ export type UpdateUser = Partial<Pick<User, 'email' | 'role' | 'last_login_at'>>
 export type CreateSystemSpec = Omit<SystemSpec, 'id' | 'created_at' | 'updated_at' | 'hash'>;
 export type UpdateSystemSpec = Partial<Pick<SystemSpec, 'name' | 'description'>>;
 
-export type CreateCandidate = Omit<Candidate, 'id' | 'created_at'>;
-export type UpdateCandidate = Partial<Pick<Candidate, 'degree' | 'term_count' | 'generation_time_ms'>>;
+export type CreateCandidate = Omit<Candidate, 'id' | 'created_at' | 'updated_at'>;
+export type UpdateCandidate = Partial<Pick<Candidate, 'verification_status' | 'margin' | 'verified_at' | 'generation_duration_ms' | 'verification_duration_ms'>>;
 
 export type CreateCounterexample = Omit<Counterexample, 'id' | 'created_at'>;
 export type CreateAuditEvent = Omit<AuditEvent, 'id' | 'at'>;

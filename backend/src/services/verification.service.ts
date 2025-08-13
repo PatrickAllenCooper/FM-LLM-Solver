@@ -25,23 +25,26 @@ export class VerificationService {
         systemSpecId: systemSpec.id,
       });
 
-      let result: VerificationResult;
+      let partialResult: Omit<VerificationResult, 'duration_ms'>;
 
       switch (candidate.certificate_type) {
         case 'lyapunov':
-          result = await this.verifyLyapunov(candidate, systemSpec);
+          partialResult = await this.verifyLyapunov(candidate, systemSpec);
           break;
         case 'barrier':
-          result = await this.verifyBarrier(candidate, systemSpec);
+          partialResult = await this.verifyBarrier(candidate, systemSpec);
           break;
         case 'inductive_invariant':
-          result = await this.verifyInductiveInvariant(candidate, systemSpec);
+          partialResult = await this.verifyInductiveInvariant(candidate, systemSpec);
           break;
         default:
           throw new Error(`Unsupported certificate type: ${candidate.certificate_type}`);
       }
 
-      result.duration_ms = Date.now() - startTime;
+      const result: VerificationResult = {
+        ...partialResult,
+        duration_ms: Date.now() - startTime,
+      };
 
       logger.info('Certificate verification completed', {
         candidateId: candidate.id,
