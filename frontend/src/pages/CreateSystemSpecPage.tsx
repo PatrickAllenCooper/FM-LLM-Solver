@@ -11,27 +11,68 @@ import { clsx } from 'clsx';
 import { SystemSpecRequest } from '@/types/api';
 import { api } from '@/services/api';
 
-// Validation schema
+// Enhanced validation with intelligent error messages
 const SystemSpecSchema = z.object({
-  name: z.string().min(1, 'Name is required').max(255, 'Name too long'),
+  name: z.string()
+    .min(1, 'System name is required - please provide a descriptive name')
+    .max(255, 'Name is too long (maximum 255 characters)')
+    .regex(/^[a-zA-Z0-9\s\-_()]+$/, 'Name can only contain letters, numbers, spaces, hyphens, underscores, and parentheses'),
   description: z.string().optional(),
-  system_type: z.enum(['continuous', 'discrete', 'hybrid']),
-  dimension: z.number().min(1, 'Dimension must be at least 1').max(20, 'Dimension cannot exceed 20'),
+  system_type: z.enum(['continuous', 'discrete', 'hybrid'], {
+    errorMap: () => ({ message: 'Please select a valid system type (continuous, discrete, or hybrid)' })
+  }),
+  dimension: z.number()
+    .min(1, 'Dimension must be at least 1 (single variable system)')
+    .max(20, 'Dimension cannot exceed 20 (too many variables for practical analysis)')
+    .int('Dimension must be a whole number'),
   dynamics: z.object({
-    type: z.enum(['polynomial', 'nonlinear', 'linear', 'piecewise']),
-    variables: z.array(z.string().min(1, 'Variable name required')),
-    equations: z.array(z.string().min(1, 'Equation required')),
+    type: z.enum(['polynomial', 'nonlinear', 'linear', 'piecewise'], {
+      errorMap: () => ({ message: 'Please select a valid dynamics type' })
+    }),
+    variables: z.array(z.string()
+      .min(1, 'Variable name cannot be empty')
+      .max(10, 'Variable name too long (max 10 characters)')
+      .regex(/^[a-zA-Z][a-zA-Z0-9_]*$/, 'Variable must start with a letter and contain only letters, numbers, and underscores')
+    ).min(1, 'At least one variable is required'),
+    equations: z.array(z.string()
+      .min(1, 'Equation cannot be empty - please define the differential equation')
+      .max(500, 'Equation too long (max 500 characters)')
+      .refine(eq => !eq.includes('undefined'), 'Equation contains undefined terms')
+      .refine(eq => !eq.includes('NaN'), 'Equation contains invalid mathematical expressions')
+    ).min(1, 'At least one equation is required'),
     domain: z.object({
       bounds: z.record(z.object({
         min: z.number().optional(),
         max: z.number().optional(),
-      })).optional(),
-      constraints: z.array(z.string()).optional(),
+      })).optional().refine(bounds => {
+        if (!bounds) return true;
+        for (const [, bound] of Object.entries(bounds)) {
+          if (bound.min !== undefined && bound.max !== undefined && bound.min >= bound.max) {
+            return false;
+          }
+        }
+        return true;
+      }, 'Variable bounds: minimum value must be less than maximum value'),
+      constraints: z.array(z.string()
+        .min(1, 'Constraint cannot be empty')
+        .max(200, 'Constraint too long (max 200 characters)')
+      ).optional(),
     }).optional(),
+  }).refine(data => data.variables.length === data.equations.length, {
+    message: 'Number of variables must match number of equations',
+    path: ['equations']
   }),
   constraints: z.any().optional(),
   initial_set: z.any().optional(),
   unsafe_set: z.any().optional(),
+}).refine(data => {
+  // Check for duplicate variable names
+  const variables = data.dynamics.variables;
+  const uniqueVars = new Set(variables);
+  return uniqueVars.size === variables.length;
+}, {
+  message: 'Variable names must be unique - duplicate variable names found',
+  path: ['dynamics', 'variables']
 });
 
 type SystemSpecForm = z.infer<typeof SystemSpecSchema>;
@@ -67,7 +108,7 @@ export default function CreateSystemSpecPage() {
       initial_set: {},
       unsafe_set: {},
     },
-    mode: 'onChange',
+    mode: 'onBlur', // Validate on blur for better UX
   });
 
   const { fields: variableFields, append: appendVariable, remove: removeVariable } = useFieldArray({
@@ -75,7 +116,7 @@ export default function CreateSystemSpecPage() {
     name: 'dynamics.variables',
   });
 
-  const { fields: equationFields, append: appendEquation, remove: removeEquation } = useFieldArray({
+  const { append: appendEquation, remove: removeEquation } = useFieldArray({
     control: form.control,
     name: 'dynamics.equations',
   });
@@ -111,7 +152,18 @@ export default function CreateSystemSpecPage() {
     createSystemSpecMutation.mutate(data);
   };
 
-  const nextStep = () => {
+  const nextStep = async () => {
+    // Validate current step before proceeding
+    const isValid = await form.trigger();
+    if (!isValid) {
+      // Show validation errors
+      const errors = form.formState.errors;
+      if (errors) {
+        toast.error('Please fix the validation errors before proceeding');
+      }
+      return;
+    }
+    
     if (currentStep < STEPS.length - 1) {
       setCurrentStep(currentStep + 1);
     }
@@ -144,6 +196,57 @@ export default function CreateSystemSpecPage() {
     }
     
     form.setValue('dimension', newDimension);
+  };
+
+  // Validation Summary Component
+  const ValidationSummary = () => {
+    const errors = form.formState.errors;
+    if (!errors || Object.keys(errors).length === 0) return null;
+
+    const getErrorMessages = (errorObj: any, path = ''): string[] => {
+      const messages: string[] = [];
+      
+      if (errorObj?.message) {
+        messages.push(errorObj.message);
+      }
+      
+      if (typeof errorObj === 'object') {
+        for (const [key, value] of Object.entries(errorObj)) {
+          if (key !== 'message') {
+            const newPath = path ? `${path}.${key}` : key;
+            messages.push(...getErrorMessages(value, newPath));
+          }
+        }
+      }
+      
+      return messages;
+    };
+
+    const allErrors = getErrorMessages(errors);
+    
+    if (allErrors.length === 0) return null;
+
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-2xl p-4 mb-6">
+        <div className="flex items-start">
+          <div className="flex-shrink-0">
+            <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" />
+            </svg>
+          </div>
+          <div className="ml-3">
+            <h3 className="text-sm font-medium text-red-800">Please fix these issues:</h3>
+            <div className="mt-2 text-sm text-red-700">
+              <ul className="list-disc pl-5 space-y-1">
+                {allErrors.map((error, index) => (
+                  <li key={index}>{error}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -182,6 +285,10 @@ export default function CreateSystemSpecPage() {
       </div>
 
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+      
+      {/* Validation Summary */}
+      <ValidationSummary />
+      
       <div className="card">
         <div className="card-body">
             {/* Step 1: Basic Information */}
@@ -214,6 +321,9 @@ export default function CreateSystemSpecPage() {
                       <option value="discrete">Discrete</option>
                       <option value="hybrid">Hybrid</option>
                     </select>
+                    {form.formState.errors.system_type && (
+                      <p className="mt-1 text-sm text-red-600">{form.formState.errors.system_type.message}</p>
+                    )}
                   </div>
 
                   <div>
@@ -245,6 +355,9 @@ export default function CreateSystemSpecPage() {
                       <option value="nonlinear">Nonlinear</option>
                       <option value="piecewise">Piecewise</option>
                     </select>
+                    {form.formState.errors.dynamics?.type && (
+                      <p className="mt-1 text-sm text-red-600">{form.formState.errors.dynamics.type.message}</p>
+                    )}
                   </div>
                 </div>
 
@@ -300,9 +413,14 @@ export default function CreateSystemSpecPage() {
                           </label>
                           <input
                             {...form.register(`dynamics.variables.${index}`)}
-                            className="input w-full"
+                            className={`input w-full ${form.formState.errors?.dynamics?.variables?.[index] ? 'input-error' : ''}`}
                             placeholder={`x${index + 1}`}
                           />
+                          {form.formState.errors?.dynamics?.variables?.[index] && (
+                            <p className="mt-1 text-xs text-red-600">
+                              {form.formState.errors.dynamics.variables[index]?.message}
+                            </p>
+                          )}
                         </div>
                         {variableFields.length > 1 && (
                           <button
@@ -334,11 +452,6 @@ export default function CreateSystemSpecPage() {
                     </p>
                   </div>
                   <div className="space-y-4">
-                    {/* Debug info */}
-                    <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded">
-                      Debug: Variables: {variableFields.length}, Equations: {equationFields.length}
-                    </div>
-                    
                     {variableFields.length > 0 ? (
                       variableFields.map((_, index) => {
                         const varName = form.watch('dynamics.variables')?.[index] || `x${index + 1}`;
@@ -348,11 +461,11 @@ export default function CreateSystemSpecPage() {
                               d{varName}/dt =
                             </label>
                             <div className="relative">
-                              <input
-                                {...form.register(`dynamics.equations.${index}`)}
-                                className="input w-full font-mono text-sm"
-                                placeholder={`Enter equation for d${varName}/dt (e.g., x2, -sin(x1), x1^2 + x2)`}
-                              />
+                                                          <input
+                              {...form.register(`dynamics.equations.${index}`)}
+                              className={`input w-full font-mono text-sm ${form.formState.errors?.dynamics?.equations?.[index] ? 'input-error' : ''}`}
+                              placeholder={`Enter equation for d${varName}/dt (e.g., x2, -sin(x1), x1^2 + x2)`}
+                            />
                             </div>
                             {form.formState.errors?.dynamics?.equations?.[index] && (
                               <p className="text-sm text-red-600">
@@ -370,27 +483,88 @@ export default function CreateSystemSpecPage() {
                   </div>
                 </div>
 
+                {/* Domain Constraints Section */}
+                <div className="surface-elevated p-6">
+                  <div className="mb-4">
+                    <label className="text-lg font-medium text-gray-900 block">
+                      Domain Constraints
+                    </label>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Define the operating region and bounds for your system variables
+                    </p>
+                  </div>
+                  
+                  {/* Variable Bounds */}
+                  <div className="space-y-4 mb-6">
+                    <h4 className="text-sm font-medium text-gray-700">Variable Bounds (Optional)</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {variableFields.map((_, index) => {
+                        const varName = form.watch('dynamics.variables')?.[index] || `x${index + 1}`;
+                        return (
+                          <div key={`bounds-${index}`} className="space-y-2">
+                            <label className="block text-xs font-medium text-gray-600">
+                              {varName} bounds
+                            </label>
+                            <div className="flex items-center gap-2">
+                              <input
+                                {...form.register(`dynamics.domain.bounds.${varName}.min`, { valueAsNumber: true })}
+                                type="number"
+                                step="any"
+                                className="input flex-1 text-sm"
+                                placeholder="min"
+                              />
+                              <span className="text-gray-400">&le; {varName} &le;</span>
+                              <input
+                                {...form.register(`dynamics.domain.bounds.${varName}.max`, { valueAsNumber: true })}
+                                type="number"
+                                step="any"
+                                className="input flex-1 text-sm"
+                                placeholder="max"
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* General Constraints */}
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-medium text-gray-700">General Constraints (Optional)</h4>
+                    <textarea
+                      {...form.register('dynamics.domain.constraints.0')}
+                      rows={2}
+                      className="input w-full font-mono text-sm"
+                      placeholder="e.g., x1^2 + x2^2 ≤ 4, x1 ≥ 0, |x2| ≤ 2"
+                    />
+                    <p className="text-xs text-gray-500">
+                      Enter mathematical constraints separated by commas. Use standard mathematical notation.
+                    </p>
+                  </div>
+                </div>
+
                 {/* Examples Section */}
                 <div className="cu-gradient-light border border-primary-200 rounded-2xl p-6">
                   <h3 className="text-sm font-semibold text-primary-900 mb-3 flex items-center">
                     <span className="w-2 h-2 bg-primary-600 rounded-full mr-2"></span>
-                    Equation Examples
+                    Examples
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                     <div>
-                      <p className="font-medium text-primary-800 mb-1">Linear Systems:</p>
-                      <p className="text-primary-700 font-mono">-x1 + 2*x2</p>
-                      <p className="text-primary-700 font-mono">3*x1 - x2</p>
+                      <p className="font-medium text-primary-800 mb-1">Equations:</p>
+                      <p className="text-primary-700 font-mono">x2</p>
+                      <p className="text-primary-700 font-mono">-sin(x1)</p>
+                      <p className="text-primary-700 font-mono">x1^2 - x2</p>
                     </div>
                     <div>
-                      <p className="font-medium text-primary-800 mb-1">Polynomial:</p>
-                      <p className="text-primary-700 font-mono">x1^2 - x1*x2 + x2</p>
-                      <p className="text-primary-700 font-mono">x1^3 + 2*x2^2</p>
+                      <p className="font-medium text-primary-800 mb-1">Variable Bounds:</p>
+                      <p className="text-primary-700 font-mono">x1: [-π, π]</p>
+                      <p className="text-primary-700 font-mono">x2: [-5, 5]</p>
                     </div>
                     <div>
-                      <p className="font-medium text-primary-800 mb-1">Nonlinear:</p>
-                      <p className="text-primary-700 font-mono">sin(x1) - cos(x2)</p>
-                      <p className="text-primary-700 font-mono">exp(-x1) + x2</p>
+                      <p className="font-medium text-primary-800 mb-1">Domain Constraints:</p>
+                      <p className="text-primary-700 font-mono">x1^2 + x2^2 &le; 4</p>
+                      <p className="text-primary-700 font-mono">x1 &ge; 0</p>
                     </div>
                   </div>
                 </div>
