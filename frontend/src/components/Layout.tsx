@@ -10,6 +10,7 @@ import {
   ChartBarIcon,
   UserIcon,
   ArrowRightOnRectangleIcon,
+  InformationCircleIcon,
 } from '@heroicons/react/24/outline';
 import { useAuthStore } from '@/stores/auth.store';
 import { clsx } from 'clsx';
@@ -18,6 +19,7 @@ const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: ChartBarIcon },
   { name: 'System Specs', href: '/system-specs', icon: DocumentTextIcon },
   { name: 'Certificates', href: '/certificates', icon: CpuChipIcon },
+  { name: 'About', href: '/about', icon: InformationCircleIcon },
   { name: 'Experiments', href: '/experiments', icon: BeakerIcon },
 ];
 

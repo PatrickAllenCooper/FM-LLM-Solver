@@ -16,6 +16,7 @@ import CreateSystemSpecPage from '@/pages/CreateSystemSpecPage';
 import CertificatesPage from '@/pages/CertificatesPage';
 import CertificateDetailsPage from '@/pages/CertificateDetailsPage';
 import GenerateCertificatePage from '@/pages/GenerateCertificatePage';
+import AboutPage from '@/pages/AboutPage';
 import ExperimentsPage from '@/pages/ExperimentsPage';
 import ProfilePage from '@/pages/ProfilePage';
 
@@ -56,6 +57,7 @@ function App() {
               <Route path="certificates" element={<CertificatesPage />} />
               <Route path="certificates/generate" element={<GenerateCertificatePage />} />
               <Route path="certificates/:id" element={<CertificateDetailsPage />} />
+              <Route path="about" element={<AboutPage />} />
               <Route path="experiments" element={<ExperimentsPage />} />
               <Route path="profile" element={<ProfilePage />} />
             </Route>
