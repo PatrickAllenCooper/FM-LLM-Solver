@@ -1,1 +1,0 @@
-{"instruction": "Generate a barrier certificate for this dynamical system:", "input": "System: dx/dt = -x, dy/dt = -y\nInitial Set: x^2 + y^2 <= 0.25\nUnsafe Set: x^2 + y^2 >= 4.0", "output": "B(x,y) = x**2 + y**2 - 1.0"}
