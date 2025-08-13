@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -79,6 +79,20 @@ export default function CreateSystemSpecPage() {
     control: form.control,
     name: 'dynamics.equations',
   });
+
+  // Initialize equation fields to match variable fields
+  useEffect(() => {
+    const currentVariables = form.getValues('dynamics.variables') || [];
+    const currentEquations = form.getValues('dynamics.equations') || [];
+    
+    // If equations array is shorter than variables array, add missing equations
+    if (currentEquations.length < currentVariables.length) {
+      const missingCount = currentVariables.length - currentEquations.length;
+      for (let i = 0; i < missingCount; i++) {
+        appendEquation('');
+      }
+    }
+  }, [form, appendEquation]);
 
   const createSystemSpecMutation = useMutation({
     mutationFn: async (data: SystemSpecRequest) => {
@@ -250,83 +264,134 @@ export default function CreateSystemSpecPage() {
 
             {/* Step 2: System Dynamics */}
             {currentStep === 1 && (
-              <div className="space-y-6">
-                <h2 className="text-xl font-semibold text-gray-900">System Dynamics</h2>
+              <div className="space-y-8">
+                <div>
+                  <h2 className="academic-subheader">System Dynamics</h2>
+                  <p className="academic-body text-sm">
+                    Define the state variables and their corresponding differential equations.
+                  </p>
+                </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Variables */}
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <label className="block text-sm font-medium text-gray-700">
-                        State Variables
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          appendVariable(`x${variableFields.length + 1}`);
-                          appendEquation('');
-                          form.setValue('dimension', variableFields.length + 1);
-                        }}
-                        className="btn btn-sm btn-outline"
-                      >
-                        <PlusIcon className="w-4 h-4 mr-1" />
-                        Add Variable
-                      </button>
-                    </div>
-                    <div className="space-y-2">
-                      {variableFields.map((field, index) => (
-                        <div key={field.id} className="flex items-center gap-2">
+                {/* Variables Section */}
+                <div className="surface-elevated p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <label className="text-lg font-medium text-gray-900">
+                      State Variables
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        appendVariable(`x${variableFields.length + 1}`);
+                        appendEquation('');
+                        form.setValue('dimension', variableFields.length + 1);
+                      }}
+                      className="btn-secondary text-sm"
+                    >
+                      <PlusIcon className="w-4 h-4 mr-2" />
+                      Add Variable
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {variableFields.map((field, index) => (
+                      <div key={field.id} className="flex items-center gap-2">
+                        <div className="flex-1">
+                          <label className="block text-xs font-medium text-gray-600 mb-1">
+                            Variable {index + 1}
+                          </label>
                           <input
                             {...form.register(`dynamics.variables.${index}`)}
-                            className="input flex-1"
+                            className="input w-full"
                             placeholder={`x${index + 1}`}
                           />
-                          {variableFields.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                removeVariable(index);
-                                removeEquation(index);
-                                form.setValue('dimension', variableFields.length - 1);
-                              }}
-                              className="btn btn-sm btn-outline text-red-600 hover:bg-red-50"
-                            >
-                              <TrashIcon className="w-4 h-4" />
-                            </button>
-                          )}
                         </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Equations */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-3">
-                      Dynamic Equations
-                    </label>
-                    <div className="space-y-2">
-                      {equationFields.map((field, index) => (
-                        <div key={field.id} className="flex items-center gap-2">
-                          <span className="text-sm text-gray-500 w-8">
-                            d{form.watch('dynamics.variables')?.[index] || `x${index + 1}`}/dt =
-                          </span>
-                          <input
-                            {...form.register(`dynamics.equations.${index}`)}
-                            className="input flex-1"
-                            placeholder="e.g., x2"
-                          />
-                        </div>
-                      ))}
-                    </div>
+                        {variableFields.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              removeVariable(index);
+                              removeEquation(index);
+                              form.setValue('dimension', variableFields.length - 1);
+                            }}
+                            className="mt-6 p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Remove variable"
+                          >
+                            <TrashIcon className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 </div>
 
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <h3 className="text-sm font-medium text-blue-900 mb-2">Examples:</h3>
-                  <div className="text-sm text-blue-700 space-y-1">
-                    <p><strong>Linear:</strong> -x1 + 2*x2</p>
-                    <p><strong>Polynomial:</strong> x1^2 - x1*x2 + x2</p>
-                    <p><strong>Nonlinear:</strong> sin(x1) - cos(x2)*x1</p>
+                {/* Equations Section */}
+                <div className="surface-elevated p-6">
+                  <div className="mb-4">
+                    <label className="text-lg font-medium text-gray-900 block">
+                      Differential Equations
+                    </label>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Define dx/dt for each state variable
+                    </p>
+                  </div>
+                  <div className="space-y-4">
+                    {/* Debug info */}
+                    <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded">
+                      Debug: Variables: {variableFields.length}, Equations: {equationFields.length}
+                    </div>
+                    
+                    {variableFields.length > 0 ? (
+                      variableFields.map((_, index) => {
+                        const varName = form.watch('dynamics.variables')?.[index] || `x${index + 1}`;
+                        return (
+                          <div key={`equation-${index}`} className="space-y-2">
+                            <label className="block text-sm font-medium text-gray-700">
+                              d{varName}/dt =
+                            </label>
+                            <div className="relative">
+                              <input
+                                {...form.register(`dynamics.equations.${index}`)}
+                                className="input w-full font-mono text-sm"
+                                placeholder={`Enter equation for d${varName}/dt (e.g., x2, -sin(x1), x1^2 + x2)`}
+                              />
+                            </div>
+                            {form.formState.errors?.dynamics?.equations?.[index] && (
+                              <p className="text-sm text-red-600">
+                                {form.formState.errors.dynamics.equations[index]?.message}
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div className="text-sm text-gray-500 bg-yellow-50 p-4 rounded">
+                        No variables defined yet. Please add variables first.
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Examples Section */}
+                <div className="cu-gradient-light border border-primary-200 rounded-2xl p-6">
+                  <h3 className="text-sm font-semibold text-primary-900 mb-3 flex items-center">
+                    <span className="w-2 h-2 bg-primary-600 rounded-full mr-2"></span>
+                    Equation Examples
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    <div>
+                      <p className="font-medium text-primary-800 mb-1">Linear Systems:</p>
+                      <p className="text-primary-700 font-mono">-x1 + 2*x2</p>
+                      <p className="text-primary-700 font-mono">3*x1 - x2</p>
+                    </div>
+                    <div>
+                      <p className="font-medium text-primary-800 mb-1">Polynomial:</p>
+                      <p className="text-primary-700 font-mono">x1^2 - x1*x2 + x2</p>
+                      <p className="text-primary-700 font-mono">x1^3 + 2*x2^2</p>
+                    </div>
+                    <div>
+                      <p className="font-medium text-primary-800 mb-1">Nonlinear:</p>
+                      <p className="text-primary-700 font-mono">sin(x1) - cos(x2)</p>
+                      <p className="text-primary-700 font-mono">exp(-x1) + x2</p>
+                    </div>
                   </div>
                 </div>
               </div>
