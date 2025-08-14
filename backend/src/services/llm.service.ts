@@ -148,9 +148,10 @@ ${systemDescription}
 A Lyapunov function V(x) must satisfy:
 1. V(x) > 0 for all x ≠ 0 (positive definite)
 2. V(0) = 0 (zero at equilibrium)
-3. dV/dt < 0 along system trajectories (decreasing)
+3. dV/dt ≤ 0 along system trajectories (non-increasing)
 
-This proves global asymptotic stability of the equilibrium.
+Note: dV/dt ≤ 0 proves stability, while dV/dt < 0 proves asymptotic stability.
+For conservative systems (e.g., undamped oscillators), dV/dt = 0 is valid and proves stability.
 `,
       barrier: `
 A barrier function B(x) must satisfy:

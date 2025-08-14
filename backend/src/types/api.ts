@@ -27,7 +27,7 @@ export interface AuthResponse {
 // LLM Configuration
 export const LLMConfigSchema = z.object({
   provider: z.literal('anthropic'),
-  model: z.string().default('claude-3-sonnet-20240229'),
+  model: z.string().default('claude-3-5-sonnet-20241022'),
   temperature: z.number().min(0).max(1).default(0.0),
   max_tokens: z.number().min(1).max(4096).default(2048),
   max_attempts: z.number().min(1).max(10).default(3),

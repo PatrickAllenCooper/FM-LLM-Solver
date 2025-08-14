@@ -91,11 +91,12 @@ export class VerificationService {
       );
 
       if (verification.positiveDefinite && verification.decreasing) {
+        const stabilityType = verification.isAsymptotic ? 'asymptotic stability' : 'stability';
         return {
           verified: true,
           margin: verification.margin,
           verification_method: 'mathematical',
-          solver_output: `Lyapunov conditions verified. Margin: ${verification.margin.toFixed(6)}`,
+          solver_output: `Lyapunov conditions verified. Proves ${stabilityType}. Margin: ${verification.margin.toFixed(6)}`,
         };
       } else {
         const firstViolation = verification.violations[0];
