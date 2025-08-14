@@ -59,7 +59,7 @@ export class CertificateController {
         unsafe_set_json: validatedData.unsafe_set,
         created_by: req.user.id,
         spec_version: '1.0',
-        spec_hash: specHash,
+        hash: specHash,
       }).returning('*');
 
       // Log audit event
@@ -90,7 +90,7 @@ export class CertificateController {
 
       const [specs, countResult] = await Promise.all([
         query.clone().limit(limit).offset(offset),
-        query.clone().count('* as count').first()
+        db('system_specs').count('* as count').first()
       ]);
 
       const total = parseInt(countResult?.count as string) || 0;
@@ -248,9 +248,24 @@ export class CertificateController {
         query = query.where('candidates.verification_status', verificationStatus);
       }
 
+      // Create a separate count query without joins and selects
+      let countQuery = db('candidates');
+      
+      if (systemSpecId) {
+        countQuery = countQuery.where('system_spec_id', systemSpecId);
+      }
+      
+      if (certificateType) {
+        countQuery = countQuery.where('certificate_type', certificateType);
+      }
+      
+      if (verificationStatus) {
+        countQuery = countQuery.where('verification_status', verificationStatus);
+      }
+
       const [candidates, countResult] = await Promise.all([
         query.clone().limit(limit).offset(offset),
-        query.clone().count('* as count').first()
+        countQuery.count('* as count').first()
       ]);
 
       const total = parseInt(countResult?.count as string) || 0;

@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -11,78 +9,25 @@ import { clsx } from 'clsx';
 import { SystemSpecRequest } from '@/types/api';
 import { api } from '@/services/api';
 
-// Enhanced validation with intelligent error messages
-const SystemSpecSchema = z.object({
-  name: z.string()
-    .min(1, 'System name is required - please provide a descriptive name')
-    .max(255, 'Name is too long (maximum 255 characters)')
-    .regex(/^[a-zA-Z0-9\s\-_()]+$/, 'Name can only contain letters, numbers, spaces, hyphens, underscores, and parentheses'),
-  description: z.string().optional(),
-  system_type: z.enum(['continuous', 'discrete', 'hybrid'], {
-    errorMap: () => ({ message: 'Please select a valid system type (continuous, discrete, or hybrid)' })
-  }),
-  dimension: z.number()
-    .min(1, 'Dimension must be at least 1 (single variable system)')
-    .max(20, 'Dimension cannot exceed 20 (too many variables for practical analysis)')
-    .int('Dimension must be a whole number'),
-  dynamics: z.object({
-    type: z.enum(['polynomial', 'nonlinear', 'linear', 'piecewise'], {
-      errorMap: () => ({ message: 'Please select a valid dynamics type' })
-    }),
-    variables: z.array(z.string()
-      .min(1, 'Variable name cannot be empty')
-      .max(10, 'Variable name too long (max 10 characters)')
-      .regex(/^[a-zA-Z][a-zA-Z0-9_]*$/, 'Variable must start with a letter and contain only letters, numbers, and underscores')
-    ).min(1, 'At least one variable is required'),
-    equations: z.array(z.string()
-      .max(500, 'Equation too long (max 500 characters)')
-      .refine(eq => eq === '' || !eq.includes('undefined'), 'Equation contains undefined terms')
-      .refine(eq => eq === '' || !eq.includes('NaN'), 'Equation contains invalid mathematical expressions')
-    ).refine(equations => {
-      // Only require non-empty equations if at least one has content
-      const nonEmptyEquations = equations.filter(eq => eq.trim() !== '');
-      return nonEmptyEquations.length === 0 || nonEmptyEquations.every(eq => eq.trim().length >= 1);
-    }, 'Equation cannot be empty - please define the differential equation'),
-    domain: z.object({
-      bounds: z.record(z.object({
-        min: z.number().optional(),
-        max: z.number().optional(),
-      })).optional().refine(bounds => {
-        if (!bounds) return true;
-        for (const [, bound] of Object.entries(bounds)) {
-          if (bound.min !== undefined && bound.max !== undefined && bound.min >= bound.max) {
-            return false;
-          }
-        }
-        return true;
-      }, 'Variable bounds: minimum value must be less than maximum value'),
-      constraints: z.array(z.string()
-        .min(1, 'Constraint cannot be empty')
-        .max(200, 'Constraint too long (max 200 characters)')
-      ).optional(),
-    }).optional(),
-  }).refine(data => {
-    // Only enforce variable-equation matching if equations are not empty
-    const nonEmptyEquations = data.equations.filter(eq => eq.trim() !== '');
-    return nonEmptyEquations.length === 0 || data.variables.length === data.equations.length;
-  }, {
-    message: 'Number of variables must match number of equations',
-    path: ['equations']
-  }),
-  constraints: z.any().optional(),
-  initial_set: z.any().optional(),
-  unsafe_set: z.any().optional(),
-}).refine(data => {
-  // Check for duplicate variable names
-  const variables = data.dynamics.variables;
-  const uniqueVars = new Set(variables);
-  return uniqueVars.size === variables.length;
-}, {
-  message: 'Variable names must be unique - duplicate variable names found',
-  path: ['dynamics', 'variables']
-});
-
-type SystemSpecForm = z.infer<typeof SystemSpecSchema>;
+// Form data type for manual validation
+interface SystemSpecForm {
+  name: string;
+  description?: string;
+  system_type: 'continuous' | 'discrete' | 'hybrid';
+  dimension: number;
+  dynamics: {
+    type: 'polynomial' | 'nonlinear' | 'linear' | 'piecewise';
+    variables: string[];
+    equations: string[];
+    domain?: {
+      bounds?: Record<string, { min?: number; max?: number }>;
+      constraints?: string[];
+    };
+  };
+  constraints?: any;
+  initial_set?: any;
+  unsafe_set?: any;
+}
 
 const STEPS = [
   { id: 'basic', title: 'Basic Information' },
@@ -96,7 +41,7 @@ export default function CreateSystemSpecPage() {
   const [currentStep, setCurrentStep] = useState(0);
 
   const form = useForm<SystemSpecForm>({
-    resolver: zodResolver(SystemSpecSchema),
+    // No resolver - we use manual validation only
     defaultValues: {
       name: '',
       description: '',
@@ -111,11 +56,11 @@ export default function CreateSystemSpecPage() {
           constraints: [],
         },
       },
-      constraints: {},
-      initial_set: {},
-      unsafe_set: {},
+      constraints: '',
+      initial_set: '',
+      unsafe_set: '',
     },
-    mode: 'onBlur', // Validate on blur for better UX
+    mode: 'onChange', // Minimal form state updates
   });
 
   const { fields: variableFields, append: appendVariable, remove: removeVariable } = useFieldArray({
@@ -156,46 +101,112 @@ export default function CreateSystemSpecPage() {
   });
 
   const onSubmit = async (data: SystemSpecForm) => {
-    // Perform final comprehensive validation before submission
-    const isValid = await form.trigger(); // Validate all fields for final submission
-    
-    if (!isValid) {
-      toast.error('Please fix all validation errors before creating the system specification');
+    // Basic validation only - detailed validation already done step-by-step
+    if (!data.name || !data.system_type || !data.dimension || !data.dynamics?.type) {
+      toast.error('Please complete all required fields');
       return;
     }
 
-    // Additional validation for final submission
-    if (data.dynamics.equations.some(eq => eq.trim() === '')) {
-      toast.error('All differential equations must be defined before creating the system specification');
-      return;
-    }
+    // Parse JSON strings for sets before submitting
+    const processedData = {
+      ...data,
+      initial_set: data.initial_set ? (() => {
+        try {
+          return JSON.parse(data.initial_set);
+        } catch {
+          return data.initial_set;
+        }
+      })() : undefined,
+      unsafe_set: data.unsafe_set ? (() => {
+        try {
+          return JSON.parse(data.unsafe_set);
+        } catch {
+          return data.unsafe_set;
+        }
+      })() : undefined,
+      constraints: data.constraints ? (() => {
+        try {
+          return JSON.parse(data.constraints);
+        } catch {
+          return data.constraints;
+        }
+      })() : undefined,
+    };
 
-    if (data.dynamics.variables.length !== data.dynamics.equations.length) {
-      toast.error('Number of variables must match number of equations');
-      return;
-    }
-
-    createSystemSpecMutation.mutate(data);
+    createSystemSpecMutation.mutate(processedData);
   };
 
   const nextStep = async () => {
-    // Define which fields to validate for each step
-    const stepValidationFields: Record<number, string[]> = {
-      0: ['name', 'description', 'system_type', 'dimension', 'dynamics.type'], // Basic Information
-      1: ['dynamics.variables', 'dynamics.equations', 'dynamics.domain'], // System Dynamics
-      2: ['constraints', 'initial_set', 'unsafe_set'], // Sets & Constraints
-    };
+    // Manual validation for each step to avoid schema refinement issues
+    const formData = form.getValues();
+    let validationErrors: string[] = [];
 
-    // Validate only the fields for the current step
-    const fieldsToValidate = stepValidationFields[currentStep] || [];
-    const isValid = await form.trigger(fieldsToValidate as any);
-    
-    if (!isValid) {
-      // Show validation errors
-      const errors = form.formState.errors;
-      if (errors) {
-        toast.error('Please fix the validation errors before proceeding');
-      }
+    switch (currentStep) {
+      case 0: // Basic Information
+        if (!formData.name || formData.name.trim() === '') {
+          validationErrors.push('System name is required');
+        }
+        if (formData.name && formData.name.length > 255) {
+          validationErrors.push('Name is too long (maximum 255 characters)');
+        }
+        if (formData.name && !/^[a-zA-Z0-9\s\-_()]+$/.test(formData.name)) {
+          validationErrors.push('Name can only contain letters, numbers, spaces, hyphens, underscores, and parentheses');
+        }
+        if (!formData.system_type) {
+          validationErrors.push('Please select a system type');
+        }
+        if (!formData.dimension || formData.dimension < 1 || formData.dimension > 20) {
+          validationErrors.push('Dimension must be between 1 and 20');
+        }
+        if (!formData.dynamics?.type) {
+          validationErrors.push('Please select a dynamics type');
+        }
+        break;
+
+      case 1: // System Dynamics
+        if (!formData.dynamics?.variables || formData.dynamics.variables.length === 0) {
+          validationErrors.push('At least one variable is required');
+        }
+        if (formData.dynamics?.variables) {
+          formData.dynamics.variables.forEach((variable, index) => {
+            if (!variable || variable.trim() === '') {
+              validationErrors.push(`Variable ${index + 1} name cannot be empty`);
+            }
+            if (variable && !/^[a-zA-Z][a-zA-Z0-9_]*$/.test(variable)) {
+              validationErrors.push(`Variable "${variable}" must start with a letter and contain only letters, numbers, and underscores`);
+            }
+          });
+          
+          // Check for duplicate variable names
+          const uniqueVars = new Set(formData.dynamics.variables);
+          if (uniqueVars.size !== formData.dynamics.variables.length) {
+            validationErrors.push('Variable names must be unique');
+          }
+        }
+        if (formData.dynamics?.equations) {
+          formData.dynamics.equations.forEach((equation, index) => {
+            if (!equation || equation.trim() === '') {
+              validationErrors.push(`Equation ${index + 1} cannot be empty - please define the differential equation`);
+            }
+            if (equation && equation.length > 500) {
+              validationErrors.push(`Equation ${index + 1} is too long (maximum 500 characters)`);
+            }
+          });
+        }
+        if (formData.dynamics?.variables && formData.dynamics?.equations) {
+          if (formData.dynamics.variables.length !== formData.dynamics.equations.length) {
+            validationErrors.push('Number of variables must match number of equations');
+          }
+        }
+        break;
+
+      case 2: // Sets & Constraints - minimal validation since these are optional
+        // Optional validation could be added here if needed
+        break;
+    }
+
+    if (validationErrors.length > 0) {
+      toast.error(`Please fix these issues: ${validationErrors.join('; ')}`);
       return;
     }
     
@@ -233,56 +244,7 @@ export default function CreateSystemSpecPage() {
     form.setValue('dimension', newDimension);
   };
 
-  // Validation Summary Component
-  const ValidationSummary = () => {
-    const errors = form.formState.errors;
-    if (!errors || Object.keys(errors).length === 0) return null;
 
-    const getErrorMessages = (errorObj: any, path = ''): string[] => {
-      const messages: string[] = [];
-      
-      if (errorObj?.message) {
-        messages.push(errorObj.message);
-      }
-      
-      if (typeof errorObj === 'object') {
-        for (const [key, value] of Object.entries(errorObj)) {
-          if (key !== 'message') {
-            const newPath = path ? `${path}.${key}` : key;
-            messages.push(...getErrorMessages(value, newPath));
-          }
-        }
-      }
-      
-      return messages;
-    };
-
-    const allErrors = getErrorMessages(errors);
-    
-    if (allErrors.length === 0) return null;
-
-    return (
-      <div className="bg-red-50 border border-red-200 rounded-2xl p-4 mb-6">
-        <div className="flex items-start">
-          <div className="flex-shrink-0">
-            <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" />
-            </svg>
-          </div>
-          <div className="ml-3">
-            <h3 className="text-sm font-medium text-red-800">Please fix these issues:</h3>
-            <div className="mt-2 text-sm text-red-700">
-              <ul className="list-disc pl-5 space-y-1">
-                {allErrors.map((error, index) => (
-                  <li key={index}>{error}</li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
@@ -320,9 +282,6 @@ export default function CreateSystemSpecPage() {
       </div>
 
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-      
-      {/* Validation Summary */}
-      <ValidationSummary />
 
       <div className="card">
         <div className="card-body">
@@ -342,9 +301,7 @@ export default function CreateSystemSpecPage() {
                       className="input"
                       placeholder="e.g., Van der Pol Oscillator"
                     />
-                    {form.formState.errors.name && (
-                      <p className="mt-1 text-sm text-red-600">{form.formState.errors.name.message}</p>
-                    )}
+
                   </div>
 
                   <div>
@@ -356,9 +313,7 @@ export default function CreateSystemSpecPage() {
                       <option value="discrete">Discrete</option>
                       <option value="hybrid">Hybrid</option>
                     </select>
-                    {form.formState.errors.system_type && (
-                      <p className="mt-1 text-sm text-red-600">{form.formState.errors.system_type.message}</p>
-                    )}
+
                   </div>
 
                   <div>
@@ -375,9 +330,7 @@ export default function CreateSystemSpecPage() {
                       })}
                       className="input"
                     />
-                    {form.formState.errors.dimension && (
-                      <p className="mt-1 text-sm text-red-600">{form.formState.errors.dimension.message}</p>
-                    )}
+
                   </div>
 
                   <div>
@@ -390,9 +343,7 @@ export default function CreateSystemSpecPage() {
                       <option value="nonlinear">Nonlinear</option>
                       <option value="piecewise">Piecewise</option>
                     </select>
-                    {form.formState.errors.dynamics?.type && (
-                      <p className="mt-1 text-sm text-red-600">{form.formState.errors.dynamics.type.message}</p>
-                    )}
+
                   </div>
                 </div>
 
@@ -448,14 +399,9 @@ export default function CreateSystemSpecPage() {
                           </label>
                           <input
                             {...form.register(`dynamics.variables.${index}`)}
-                            className={`input w-full ${form.formState.errors?.dynamics?.variables?.[index] ? 'input-error' : ''}`}
+                            className="input w-full"
                             placeholder={`x${index + 1}`}
                           />
-                          {form.formState.errors?.dynamics?.variables?.[index] && (
-                            <p className="mt-1 text-xs text-red-600">
-                              {form.formState.errors.dynamics.variables[index]?.message}
-                            </p>
-                          )}
                         </div>
                         {variableFields.length > 1 && (
                           <button
@@ -498,15 +444,10 @@ export default function CreateSystemSpecPage() {
                             <div className="relative">
                                                           <input
                               {...form.register(`dynamics.equations.${index}`)}
-                              className={`input w-full font-mono text-sm ${form.formState.errors?.dynamics?.equations?.[index] ? 'input-error' : ''}`}
+                              className="input w-full font-mono text-sm"
                               placeholder={`Enter equation for d${varName}/dt (e.g., x2, -sin(x1), x1^2 + x2)`}
                             />
                             </div>
-                            {form.formState.errors?.dynamics?.equations?.[index] && (
-                              <p className="text-sm text-red-600">
-                                {form.formState.errors.dynamics.equations[index]?.message}
-                              </p>
-                            )}
                           </div>
                         );
                       })
@@ -620,15 +561,9 @@ export default function CreateSystemSpecPage() {
                       Initial Set (Optional)
                     </label>
                     <textarea
-                      {...form.register('initial_set', {
-                        setValueAs: (value) => {
-                          try {
-                            return value ? JSON.parse(value) : undefined;
-                          } catch {
-                            return value;
-                          }
-                        }
-                      })}
+                      {...form.register('initial_set')}
+                      value={typeof form.watch('initial_set') === 'object' ? JSON.stringify(form.watch('initial_set'), null, 2) : form.watch('initial_set') || ''}
+                      onChange={(e) => form.setValue('initial_set', e.target.value)}
                       rows={3}
                       className="input"
                       placeholder='{"type": "box", "bounds": {"x1": [-1, 1], "x2": [-1, 1]}}'
@@ -640,15 +575,9 @@ export default function CreateSystemSpecPage() {
                       Unsafe Set (Optional)
                     </label>
                     <textarea
-                      {...form.register('unsafe_set', {
-                        setValueAs: (value) => {
-                          try {
-                            return value ? JSON.parse(value) : undefined;
-                          } catch {
-                            return value;
-                          }
-                        }
-                      })}
+                      {...form.register('unsafe_set')}
+                      value={typeof form.watch('unsafe_set') === 'object' ? JSON.stringify(form.watch('unsafe_set'), null, 2) : form.watch('unsafe_set') || ''}
+                      onChange={(e) => form.setValue('unsafe_set', e.target.value)}
                       rows={3}
                       className="input"
                       placeholder='{"type": "ball", "center": [2, 2], "radius": 0.5}'
