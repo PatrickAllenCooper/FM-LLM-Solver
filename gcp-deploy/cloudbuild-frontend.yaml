@@ -1,0 +1,31 @@
+steps:
+  # Build the frontend Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'build', 
+      '-f', 'gcp-deploy/Dockerfile.frontend.prod',
+      '-t', 'gcr.io/$_PROJECT_ID/fmgen-ui:$BUILD_ID',
+      '-t', 'gcr.io/$_PROJECT_ID/fmgen-ui:latest',
+      '.'
+    ]
+    
+  # Push the images to Container Registry  
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$_PROJECT_ID/fmgen-ui:$BUILD_ID']
+    
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$_PROJECT_ID/fmgen-ui:latest']
+
+# Store images in Container Registry
+images:
+  - 'gcr.io/$_PROJECT_ID/fmgen-ui:$BUILD_ID'
+  - 'gcr.io/$_PROJECT_ID/fmgen-ui:latest'
+
+substitutions:
+  _PROJECT_ID: 'fmgen-net-production'
+
+options:
+  machineType: 'E2_HIGHCPU_8'
+  diskSizeGb: '100'
+  
+timeout: '1200s'

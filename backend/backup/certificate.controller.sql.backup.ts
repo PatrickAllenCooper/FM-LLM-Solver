@@ -48,7 +48,7 @@ export class CertificateController {
       });
       const specHash = crypto.createHash('sha256').update(specContent).digest('hex');
 
-      const systemSpec = await db('system_specs').insert({
+      const systemSpecData = {
         name: validatedData.name,
         description: validatedData.description,
         system_type: validatedData.system_type,
@@ -60,14 +60,19 @@ export class CertificateController {
         created_by: req.user.id,
         spec_version: '1.0',
         hash: specHash,
-      }).returning('*');
+        created_at: new Date(),
+        updated_at: new Date(),
+      };
+
+      const docRef = await db.collection('system_specs').add(systemSpecData);
+      const systemSpec = { id: docRef.id, ...systemSpecData };
 
       // Log audit event
-      await this.logAuditEvent(req.user.id, 'create_system_spec', 'system_spec', systemSpec[0].id, req);
+      await this.logAuditEvent(req.user.id, 'create_system_spec', 'system_spec', systemSpec.id, req);
 
       const response: ApiResponse<SystemSpec> = {
         success: true,
-        data: systemSpec[0],
+        data: systemSpec,
         message: 'System specification created successfully',
         timestamp: new Date().toISOString(),
       };

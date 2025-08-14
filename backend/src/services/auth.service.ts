@@ -21,24 +21,31 @@ export class AuthService {
   async register(userData: CreateUser): Promise<AuthResponse> {
     try {
       // Check if user already exists
-      const existingUser = await db('users')
-        .where('email', userData.email)
-        .first();
+      const usersRef = db.collection('users');
+      const existingUserQuery = await usersRef.where('email', '==', userData.email).limit(1).get();
 
-      if (existingUser) {
+      if (!existingUserQuery.empty) {
         throw new Error('User with this email already exists');
       }
 
       // Hash password
       const password_hash = await bcrypt.hash(userData.password_hash, 12);
 
-      // Create user
-      const [user] = await db('users')
-        .insert({
-          ...userData,
-          password_hash,
-        })
-        .returning(['id', 'email', 'role', 'created_at']);
+      // Create user document
+      const newUserData = {
+        ...userData,
+        password_hash,
+        created_at: new Date(),
+        updated_at: new Date(),
+      };
+
+      const docRef = await usersRef.add(newUserData);
+      const user = { 
+        id: docRef.id, 
+        email: userData.email,
+        role: userData.role,
+        created_at: newUserData.created_at
+      };
 
       logger.info('User registered successfully', {
         userId: user.id,
@@ -71,13 +78,16 @@ export class AuthService {
   async login(email: string, password: string): Promise<AuthResponse> {
     try {
       // Find user
-      const user = await db('users')
-        .where('email', email)
-        .first();
+      const usersRef = db.collection('users');
+      const userQuery = await usersRef.where('email', '==', email).limit(1).get();
 
-      if (!user) {
+      if (userQuery.empty) {
         throw new Error('Invalid credentials');
       }
+
+      const userDoc = userQuery.docs[0];
+      const userData = userDoc.data();
+      const user = { id: userDoc.id, ...userData } as any;
 
       // Verify password
       const isValidPassword = await bcrypt.compare(password, user.password_hash);
@@ -86,9 +96,10 @@ export class AuthService {
       }
 
       // Update last login
-      await db('users')
-        .where('id', user.id)
-        .update({ last_login_at: new Date() });
+      await userDoc.ref.update({ 
+        last_login_at: new Date(),
+        updated_at: new Date()
+      });
 
       logger.info('User logged in successfully', {
         userId: user.id,
@@ -121,11 +132,13 @@ export class AuthService {
     try {
       const decoded = jwt.verify(token, this.jwtSecret) as any;
       
-      const user = await db('users')
-        .where('id', decoded.userId)
-        .first();
+      const userDoc = await db.collection('users').doc(decoded.userId).get();
 
-      return user || null;
+      if (!userDoc.exists) {
+        return null;
+      }
+
+      return { id: userDoc.id, ...userDoc.data() } as User;
     } catch (error) {
       logger.debug('Token verification failed', {
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -136,11 +149,13 @@ export class AuthService {
 
   async getUserById(userId: string): Promise<User | null> {
     try {
-      const user = await db('users')
-        .where('id', userId)
-        .first();
+      const userDoc = await db.collection('users').doc(userId).get();
 
-      return user || null;
+      if (!userDoc.exists) {
+        return null;
+      }
+
+      return { id: userDoc.id, ...userDoc.data() } as User;
     } catch (error) {
       logger.error('Failed to get user by ID', {
         userId,
@@ -152,9 +167,10 @@ export class AuthService {
 
   async updateUserRole(userId: string, role: User['role']): Promise<void> {
     try {
-      await db('users')
-        .where('id', userId)
-        .update({ role, updated_at: new Date() });
+      await db.collection('users').doc(userId).update({ 
+        role, 
+        updated_at: new Date() 
+      });
 
       logger.info('User role updated', { userId, role });
     } catch (error) {
@@ -187,13 +203,13 @@ export class AuthService {
 
   async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<void> {
     try {
-      const user = await db('users')
-        .where('id', userId)
-        .first();
+      const userDoc = await db.collection('users').doc(userId).get();
 
-      if (!user) {
+      if (!userDoc.exists) {
         throw new Error('User not found');
       }
+
+      const user = userDoc.data() as any;
 
       // Verify current password
       const isValidPassword = await bcrypt.compare(currentPassword, user.password_hash);
@@ -205,12 +221,10 @@ export class AuthService {
       const newPasswordHash = await bcrypt.hash(newPassword, 12);
 
       // Update password
-      await db('users')
-        .where('id', userId)
-        .update({ 
-          password_hash: newPasswordHash,
-          updated_at: new Date()
-        });
+      await userDoc.ref.update({ 
+        password_hash: newPasswordHash,
+        updated_at: new Date()
+      });
 
       logger.info('Password changed successfully', { userId });
     } catch (error) {

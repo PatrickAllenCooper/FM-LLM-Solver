@@ -34,7 +34,7 @@ const config: { [key: string]: Knex.Config } = {
       database: process.env.DB_NAME,
       user: process.env.DB_USER,
       password: process.env.DB_PASSWORD,
-      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+      ssl: false, // Temporarily disable SSL for debugging
     },
     pool: {
       min: 2,

@@ -1,0 +1,58 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: fmgen-api
+  annotations:
+    run.googleapis.com/ingress: all
+spec:
+  template:
+    metadata:
+      annotations:
+        run.googleapis.com/cpu-throttling: "false"
+        run.googleapis.com/execution-environment: gen2
+        run.googleapis.com/memory: "2Gi"
+        run.googleapis.com/cpu: "2"
+        run.googleapis.com/max-scale: "10"
+        run.googleapis.com/min-scale: "1"
+    spec:
+      containerConcurrency: 80
+      timeoutSeconds: 300
+      containers:
+      - image: gcr.io/fmgen-net-production/fmgen-api:latest
+        ports:
+        - containerPort: 3000
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: GOOGLE_CLOUD_PROJECT
+          value: "fmgen-net-production"
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: jwt-secret
+              key: "1"
+        - name: ANTHROPIC_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: anthropic-api-key
+              key: "1"
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: redis-url
+              key: "1"
+        - name: CORS_ORIGIN
+          value: "https://fmgen.net,https://www.fmgen.net"
+        resources:
+          limits:
+            cpu: "2"
+            memory: "2Gi"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+  traffic:
+  - percent: 100
+    latestRevision: true

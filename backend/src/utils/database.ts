@@ -1,58 +1,29 @@
-import knex from 'knex';
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
 
-const config = {
-  development: {
-    client: 'postgresql',
-    connection: {
-      database: process.env.DATABASE_NAME || 'fm_llm_solver',
-      user: process.env.DATABASE_USER || 'postgres',
-      password: process.env.DATABASE_PASSWORD || 'postgres',
-      host: process.env.DATABASE_HOST || 'localhost',
-      port: parseInt(process.env.DATABASE_PORT || '5432'),
-    },
-    migrations: {
-      directory: '../migrations',
-    },
-  },
-  test: {
-    client: 'postgresql',
-    connection: {
-      database: process.env.DATABASE_NAME || 'fm_llm_solver_test',
-      user: process.env.DATABASE_USER || 'postgres',
-      password: process.env.DATABASE_PASSWORD || 'postgres',
-      host: process.env.DATABASE_HOST || 'localhost',
-      port: parseInt(process.env.DATABASE_PORT || '5432'),
-    },
-    migrations: {
-      directory: '../migrations',
-    },
-  },
-  production: {
-    client: 'postgresql',
-    connection: process.env.DATABASE_URL,
-    migrations: {
-      directory: '../migrations',
-    },
-  }
-};
-
-const environment = (process.env.NODE_ENV as keyof typeof config) || 'development';
-const dbConfig = config[environment];
-
-if (!dbConfig) {
-  throw new Error(`Database configuration not found for environment: ${environment}`);
+// Initialize Firebase Admin SDK
+let app;
+if (!getApps().length) {
+  // In production on GCP, this will automatically use the service account
+  // In development, you might need to set GOOGLE_APPLICATION_CREDENTIALS
+  app = initializeApp({
+    projectId: process.env.GOOGLE_CLOUD_PROJECT || 'fmgen-net-production',
+  });
+} else {
+  app = getApps()[0];
 }
 
-export const db = knex(dbConfig);
+export const db = getFirestore(app);
 
 // Test database connection
 export async function testDbConnection(): Promise<boolean> {
   try {
-    await db.raw('SELECT 1');
-    console.log('Database connection successful');
+    // Test Firestore by trying to get collection metadata
+    await db.collection('health_check').limit(1).get();
+    console.log('Firestore connection successful');
     return true;
   } catch (error) {
-    console.error('Database connection failed:', error);
+    console.error('Firestore connection failed:', error);
     return false;
   }
 }
@@ -60,10 +31,10 @@ export async function testDbConnection(): Promise<boolean> {
 // Graceful shutdown
 export async function closeDbConnection(): Promise<void> {
   try {
-    await db.destroy();
-    console.log('Database connection closed');
+    // Firestore connections are automatically managed, no explicit close needed
+    console.log('Firestore connection management handled automatically');
   } catch (error) {
-    console.error('Error closing database connection:', error);
+    console.error('Error with Firestore connection:', error);
   }
 }
 
@@ -75,7 +46,8 @@ export async function checkDbHealth(): Promise<{
 }> {
   try {
     const start = Date.now();
-    await db.raw('SELECT 1');
+    // Test Firestore access
+    await db.collection('health_check').limit(1).get();
     const latency = Date.now() - start;
     return { connected: true, latency };
   } catch (error) {
