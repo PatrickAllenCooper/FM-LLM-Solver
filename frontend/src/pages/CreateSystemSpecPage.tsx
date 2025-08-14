@@ -35,11 +35,14 @@ const SystemSpecSchema = z.object({
       .regex(/^[a-zA-Z][a-zA-Z0-9_]*$/, 'Variable must start with a letter and contain only letters, numbers, and underscores')
     ).min(1, 'At least one variable is required'),
     equations: z.array(z.string()
-      .min(1, 'Equation cannot be empty - please define the differential equation')
       .max(500, 'Equation too long (max 500 characters)')
-      .refine(eq => !eq.includes('undefined'), 'Equation contains undefined terms')
-      .refine(eq => !eq.includes('NaN'), 'Equation contains invalid mathematical expressions')
-    ).min(1, 'At least one equation is required'),
+      .refine(eq => eq === '' || !eq.includes('undefined'), 'Equation contains undefined terms')
+      .refine(eq => eq === '' || !eq.includes('NaN'), 'Equation contains invalid mathematical expressions')
+    ).refine(equations => {
+      // Only require non-empty equations if at least one has content
+      const nonEmptyEquations = equations.filter(eq => eq.trim() !== '');
+      return nonEmptyEquations.length === 0 || nonEmptyEquations.every(eq => eq.trim().length >= 1);
+    }, 'Equation cannot be empty - please define the differential equation'),
     domain: z.object({
       bounds: z.record(z.object({
         min: z.number().optional(),
@@ -58,7 +61,11 @@ const SystemSpecSchema = z.object({
         .max(200, 'Constraint too long (max 200 characters)')
       ).optional(),
     }).optional(),
-  }).refine(data => data.variables.length === data.equations.length, {
+  }).refine(data => {
+    // Only enforce variable-equation matching if equations are not empty
+    const nonEmptyEquations = data.equations.filter(eq => eq.trim() !== '');
+    return nonEmptyEquations.length === 0 || data.variables.length === data.equations.length;
+  }, {
     message: 'Number of variables must match number of equations',
     path: ['equations']
   }),
@@ -148,13 +155,41 @@ export default function CreateSystemSpecPage() {
     },
   });
 
-  const onSubmit = (data: SystemSpecForm) => {
+  const onSubmit = async (data: SystemSpecForm) => {
+    // Perform final comprehensive validation before submission
+    const isValid = await form.trigger(); // Validate all fields for final submission
+    
+    if (!isValid) {
+      toast.error('Please fix all validation errors before creating the system specification');
+      return;
+    }
+
+    // Additional validation for final submission
+    if (data.dynamics.equations.some(eq => eq.trim() === '')) {
+      toast.error('All differential equations must be defined before creating the system specification');
+      return;
+    }
+
+    if (data.dynamics.variables.length !== data.dynamics.equations.length) {
+      toast.error('Number of variables must match number of equations');
+      return;
+    }
+
     createSystemSpecMutation.mutate(data);
   };
 
   const nextStep = async () => {
-    // Validate current step before proceeding
-    const isValid = await form.trigger();
+    // Define which fields to validate for each step
+    const stepValidationFields: Record<number, string[]> = {
+      0: ['name', 'description', 'system_type', 'dimension', 'dynamics.type'], // Basic Information
+      1: ['dynamics.variables', 'dynamics.equations', 'dynamics.domain'], // System Dynamics
+      2: ['constraints', 'initial_set', 'unsafe_set'], // Sets & Constraints
+    };
+
+    // Validate only the fields for the current step
+    const fieldsToValidate = stepValidationFields[currentStep] || [];
+    const isValid = await form.trigger(fieldsToValidate as any);
+    
     if (!isValid) {
       // Show validation errors
       const errors = form.formState.errors;
@@ -288,7 +323,7 @@ export default function CreateSystemSpecPage() {
       
       {/* Validation Summary */}
       <ValidationSummary />
-      
+
       <div className="card">
         <div className="card-body">
             {/* Step 1: Basic Information */}
