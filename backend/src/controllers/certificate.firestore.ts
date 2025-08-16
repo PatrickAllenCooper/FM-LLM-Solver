@@ -27,6 +27,27 @@ export class CertificateFirestoreController {
     this.verificationService = new VerificationService();
   }
 
+  // Helper method to filter out undefined values for Firestore
+  private filterUndefined(obj: Record<string, any>): Record<string, any> {
+    const filtered: Record<string, any> = {};
+    
+    for (const [key, value] of Object.entries(obj)) {
+      if (value !== undefined && value !== null) {
+        // Handle nested objects recursively
+        if (typeof value === 'object' && !Array.isArray(value) && !(value instanceof Date)) {
+          const nestedFiltered = this.filterUndefined(value);
+          if (Object.keys(nestedFiltered).length > 0) {
+            filtered[key] = nestedFiltered;
+          }
+        } else {
+          filtered[key] = value;
+        }
+      }
+    }
+    
+    return filtered;
+  }
+
   // System Specifications
   createSystemSpec = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -48,24 +69,31 @@ export class CertificateFirestoreController {
       });
       const specHash = crypto.createHash('sha256').update(specContent).digest('hex');
 
-      const systemSpecData = {
+      const systemSpecData = this.filterUndefined({
         name: validatedData.name,
-        description: validatedData.description,
+        description: validatedData.description || '',
         system_type: validatedData.system_type,
         dimension: validatedData.dimension,
-        dynamics_json: validatedData.dynamics,
-        constraints_json: validatedData.constraints,
-        initial_set_json: validatedData.initial_set,
-        unsafe_set_json: validatedData.unsafe_set,
+        dynamics_json: validatedData.dynamics || {},
+        constraints_json: validatedData.constraints || {},
+        initial_set_json: validatedData.initial_set || {},
+        unsafe_set_json: validatedData.unsafe_set || {},
         created_by: req.user.id,
         spec_version: '1.0',
         hash: specHash,
         created_at: new Date(),
         updated_at: new Date(),
-      };
+      });
 
       const docRef = await db.collection('system_specs').add(systemSpecData);
-      const systemSpec = { id: docRef.id, ...systemSpecData, owner_user_id: req.user.id };
+      const systemSpec = { 
+        id: docRef.id, 
+        ...systemSpecData, 
+        owner_user_id: req.user.id,
+        // Ensure timestamps are ISO strings
+        created_at: systemSpecData.created_at?.toISOString() || systemSpecData.created_at,
+        updated_at: systemSpecData.updated_at?.toISOString() || systemSpecData.updated_at,
+      };
 
       // Log audit event
       await this.logAuditEvent(req.user.id, 'create_system_spec', 'system_spec', systemSpec.id, req);
@@ -105,10 +133,16 @@ export class CertificateFirestoreController {
       }
 
       const specsSnapshot = await query.get();
-      const specs = specsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      const specs = specsSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          // Convert Firestore timestamps to ISO strings
+          created_at: data.created_at?.toDate?.()?.toISOString() || data.created_at,
+          updated_at: data.updated_at?.toDate?.()?.toISOString() || data.updated_at,
+        };
+      });
 
       const totalPages = Math.ceil(total / limit);
 
@@ -131,6 +165,42 @@ export class CertificateFirestoreController {
       res.json(response);
     } catch (error) {
       this.handleError(error, res, 'Failed to retrieve system specifications');
+    }
+  };
+
+  getSystemSpecById = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const systemSpecId = req.params.id;
+
+      const systemSpecDoc = await db.collection('system_specs').doc(systemSpecId).get();
+      
+      if (!systemSpecDoc.exists) {
+        res.status(404).json({
+          success: false,
+          error: 'System specification not found',
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      const data = systemSpecDoc.data()!;
+      const systemSpec = {
+        id: systemSpecDoc.id,
+        ...data,
+        // Convert Firestore timestamps to ISO strings
+        created_at: data.created_at?.toDate?.()?.toISOString() || data.created_at,
+        updated_at: data.updated_at?.toDate?.()?.toISOString() || data.updated_at,
+      };
+
+      const response: ApiResponse<SystemSpec> = {
+        success: true,
+        data: systemSpec as any,
+        timestamp: new Date().toISOString(),
+      };
+
+      res.json(response);
+    } catch (error) {
+      this.handleError(error, res, 'Failed to retrieve system specification');
     }
   };
 
@@ -167,8 +237,8 @@ export class CertificateFirestoreController {
         userId: req.user.id,
       });
 
-      // Prepare candidate data
-      const candidateData = {
+      // Prepare candidate data (filter undefined values for Firestore)
+      const candidateData = this.filterUndefined({
         system_spec_id: validatedData.system_spec_id,
         certificate_type: validatedData.certificate_type,
         generation_method: validatedData.generation_method,
@@ -177,7 +247,7 @@ export class CertificateFirestoreController {
         created_by: req.user.id,
         created_at: new Date(),
         updated_at: new Date(),
-      };
+      });
 
       let insertedCandidate;
 
@@ -260,10 +330,17 @@ export class CertificateFirestoreController {
 
       // Get paginated results
       const candidatesSnapshot = await query.limit(limit).get();
-      const candidates = candidatesSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as any;
+      const candidates = candidatesSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          // Convert Firestore timestamps to ISO strings
+          created_at: data.created_at?.toDate?.()?.toISOString() || data.created_at,
+          updated_at: data.updated_at?.toDate?.()?.toISOString() || data.updated_at,
+          verified_at: data.verified_at?.toDate?.()?.toISOString() || data.verified_at,
+        };
+      }) as any;
 
       const totalPages = Math.ceil(total / limit);
 

@@ -17,8 +17,9 @@ class ApiService {
   private api: AxiosInstance;
 
   constructor() {
+    // FORCE REBUILD - Updated API URL for production
     this.api = axios.create({
-      baseURL: (import.meta as any).env?.VITE_API_URL || 'http://localhost:3000/api',
+      baseURL: 'https://fmgen-api-610214208348.us-central1.run.app/api',
       headers: {
         'Content-Type': 'application/json',
       },

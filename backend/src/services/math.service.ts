@@ -189,7 +189,6 @@ export class MathService {
       condition: 'positive_definite' | 'decreasing';
       value: number;
     }>;
-    isAsymptotic?: boolean; // true if dV/dt < 0, false if dV/dt = 0
   } {
     const violations: Array<{
       point: Record<string, number>;
@@ -218,9 +217,9 @@ export class MathService {
       }
     }
 
-    // Check decreasing condition (dV/dt ≤ 0 for stability, dV/dt < 0 for asymptotic)
+    // Check decreasing condition (dV/dt < 0)
     const timeDerivative = this.computeTimeDerivative(lyapunovExpression, dynamics);
-    const decreasingResult = this.checkNonPositivity(timeDerivative, domain, 1000);
+    const decreasingResult = this.checkNegativity(timeDerivative, domain, 1000);
     
     if (decreasingResult.counterexample) {
       violations.push({
@@ -237,10 +236,9 @@ export class MathService {
 
     return {
       positiveDefinite,
-      decreasing: decreasingResult.isNonPositive, // Now accepts dV/dt ≤ 0
+      decreasing: decreasingResult.isNegative,
       margin,
       violations,
-      isAsymptotic: decreasingResult.isAsymptotic, // Additional info for asymptotic stability
     };
   }
 
@@ -693,49 +691,6 @@ export class MathService {
       isNonIncreasing: result.isNegative,
       maxValue: result.maxValue,
       counterexample: result.counterexample,
-    };
-  }
-
-  private checkNonPositivity(
-    expression: string,
-    domain: Record<string, { min: number; max: number }>,
-    numSamples: number,
-    tolerance: number = 1e-8
-  ): {
-    isNonPositive: boolean;
-    maxValue: number;
-    counterexample?: Record<string, number>;
-    isAsymptotic: boolean; // true if strictly negative, false if just non-positive
-  } {
-    const parsed = this.parseExpression(expression);
-    let maxValue = -Infinity;
-    let counterexample: Record<string, number> | undefined;
-    let hasPositiveValue = false;
-    let hasStrictlyNegativeValue = false;
-
-    for (let i = 0; i < numSamples; i++) {
-      const point = this.generateRandomPoint(parsed.variables, domain);
-      const value = this.evaluateExpression(parsed, point);
-
-      if (value > maxValue) {
-        maxValue = value;
-      }
-
-      if (value > tolerance) {
-        hasPositiveValue = true;
-        counterexample = { ...point };
-      }
-
-      if (value < -tolerance) {
-        hasStrictlyNegativeValue = true;
-      }
-    }
-
-    return {
-      isNonPositive: !hasPositiveValue, // dV/dt ≤ 0 (allowing zero)
-      maxValue,
-      counterexample,
-      isAsymptotic: hasStrictlyNegativeValue && !hasPositiveValue, // dV/dt < 0
     };
   }
 

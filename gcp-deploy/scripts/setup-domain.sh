@@ -92,3 +92,4 @@ echo ""
 echo "🔍 Monitor status with:"
 echo "gcloud run domain-mappings describe --domain=$DOMAIN --region=$REGION"
 echo "gcloud run domain-mappings describe --domain=$API_DOMAIN --region=$REGION"
+

@@ -180,3 +180,4 @@ echo "User: fmgen-user"
 echo ""
 echo "🔐 Don't forget to set your Anthropic API key:"
 echo "echo 'YOUR_API_KEY' | gcloud secrets versions add anthropic-api-key --data-file=-"
+

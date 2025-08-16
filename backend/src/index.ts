@@ -74,6 +74,10 @@ app.get('/api/system-specs',
   authMiddleware.optionalAuth,
   certificateController.getSystemSpecs
 );
+app.get('/api/system-specs/:id', 
+  authMiddleware.optionalAuth,
+  certificateController.getSystemSpecById
+);
 
 // Certificate generation routes
 app.post('/api/certificates/generate',

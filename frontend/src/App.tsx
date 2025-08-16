@@ -13,6 +13,7 @@ import RegisterPage from '@/pages/RegisterPage';
 import DashboardPage from '@/pages/DashboardPage';
 import SystemSpecsPage from '@/pages/SystemSpecsPage';
 import CreateSystemSpecPage from '@/pages/CreateSystemSpecPage';
+import SystemSpecDetailsPage from '@/pages/SystemSpecDetailsPage';
 import CertificatesPage from '@/pages/CertificatesPage';
 import CertificateDetailsPage from '@/pages/CertificateDetailsPage';
 import GenerateCertificatePage from '@/pages/GenerateCertificatePage';
@@ -54,6 +55,7 @@ function App() {
               <Route path="dashboard" element={<DashboardPage />} />
               <Route path="system-specs" element={<SystemSpecsPage />} />
               <Route path="system-specs/create" element={<CreateSystemSpecPage />} />
+              <Route path="system-specs/:id" element={<SystemSpecDetailsPage />} />
               <Route path="certificates" element={<CertificatesPage />} />
               <Route path="certificates/generate" element={<GenerateCertificatePage />} />
               <Route path="certificates/:id" element={<CertificateDetailsPage />} />

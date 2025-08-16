@@ -15,6 +15,11 @@ if (!getApps().length) {
 
 export const db = getFirestore(app);
 
+// Configure Firestore to ignore undefined properties
+db.settings({
+  ignoreUndefinedProperties: true
+});
+
 // Test database connection
 export async function testDbConnection(): Promise<boolean> {
   try {

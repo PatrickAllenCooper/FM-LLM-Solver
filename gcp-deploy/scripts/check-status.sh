@@ -148,3 +148,4 @@ echo "Cloud Console: https://console.cloud.google.com/run?project=$PROJECT_ID"
 
 echo ""
 echo "Status check completed! ✅"
+
