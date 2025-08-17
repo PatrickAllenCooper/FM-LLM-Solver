@@ -3,11 +3,12 @@ import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import * as dotenv from 'dotenv';
-import { testDbConnection } from '@/utils/database';
+import { testDbConnection, initializeSecurity } from '@/utils/database';
 import { logger } from '@/utils/logger';
 import { SimpleController } from '@/controllers/simple.controller';
 import { AuthController } from '@/controllers/auth.controller';
 import { CertificateFirestoreController } from '@/controllers/certificate.firestore';
+import { AdminController } from '@/controllers/admin.controller';
 import { AuthMiddleware } from '@/middleware/auth.middleware';
 
 // Load environment variables
@@ -20,6 +21,7 @@ const port = process.env.PORT || 3000;
 const simpleController = new SimpleController();
 const authController = new AuthController();
 const certificateController = new CertificateFirestoreController();
+const adminController = new AdminController();
 const authMiddleware = new AuthMiddleware();
 
 // Security middleware
@@ -94,6 +96,29 @@ app.get('/api/certificates/:id',
   certificateController.getCandidate
 );
 
+// Admin routes (admin access only)
+app.get('/api/admin/authorized-emails',
+  authMiddleware.authenticate,
+  authMiddleware.authorize(['admin']),
+  adminController.getAuthorizedEmails
+);
+app.post('/api/admin/authorized-emails',
+  authMiddleware.authenticate,
+  authMiddleware.authorize(['admin']),
+  adminController.addAuthorizedEmail
+);
+app.delete('/api/admin/authorized-emails',
+  authMiddleware.authenticate,
+  authMiddleware.authorize(['admin']),
+  adminController.removeAuthorizedEmail
+);
+app.get('/api/admin/check-email',
+  authMiddleware.authenticate,
+  authMiddleware.authorize(['admin']),
+  adminController.checkEmailAuthorization
+);
+
+
 // API info endpoint
 app.get('/api', (req, res) => {
   res.json({
@@ -125,6 +150,9 @@ async function startServer() {
       logger.error('Failed to connect to Firestore - stopping server');
       process.exit(1);
     }
+
+    // Initialize security settings (authorized emails, etc.)
+    await initializeSecurity();
 
     app.listen(port, () => {
       logger.info(`🚀 FM-LLM Solver API server started`, {

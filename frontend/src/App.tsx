@@ -20,6 +20,7 @@ import GenerateCertificatePage from '@/pages/GenerateCertificatePage';
 import AboutPage from '@/pages/AboutPage';
 import ExperimentsPage from '@/pages/ExperimentsPage';
 import ProfilePage from '@/pages/ProfilePage';
+import AdminEmailsPage from '@/pages/AdminEmailsPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -62,6 +63,7 @@ function App() {
               <Route path="about" element={<AboutPage />} />
               <Route path="experiments" element={<ExperimentsPage />} />
               <Route path="profile" element={<ProfilePage />} />
+              <Route path="admin/emails" element={<AdminEmailsPage />} />
             </Route>
             
             {/* Catch-all route */}

@@ -147,6 +147,43 @@ class ApiService {
     return response.data;
   }
 
+  // Admin - Email Authorization
+  async getAuthorizedEmails(): Promise<Array<{ email: string; added_by: string; added_at: string }>> {
+    const response: AxiosResponse<ApiResponse<Array<{ email: string; added_by: string; added_at: string }>>> = 
+      await this.api.get('/admin/authorized-emails');
+    return response.data.data!;
+  }
+
+  async addAuthorizedEmail(email: string): Promise<void> {
+    await this.api.post('/admin/authorized-emails', { email });
+  }
+
+  async removeAuthorizedEmail(email: string): Promise<void> {
+    await this.api.delete('/admin/authorized-emails', { data: { email } });
+  }
+
+  async checkEmailAuthorization(email: string): Promise<{ email: string; isAuthorized: boolean }> {
+    const response: AxiosResponse<ApiResponse<{ email: string; isAuthorized: boolean }>> = 
+      await this.api.get(`/admin/check-email?email=${encodeURIComponent(email)}`);
+    return response.data.data!;
+  }
+
+  // Generic methods for admin endpoints
+  async get(path: string, params?: any): Promise<any> {
+    const response = await this.api.get(path, { params });
+    return response.data;
+  }
+
+  async post(path: string, data?: any): Promise<any> {
+    const response = await this.api.post(path, data);
+    return response.data;
+  }
+
+  async delete(path: string, config?: any): Promise<any> {
+    const response = await this.api.delete(path, config);
+    return response.data;
+  }
+
   // Utils
   setAuthToken(token: string): void {
     localStorage.setItem('auth_token', token);

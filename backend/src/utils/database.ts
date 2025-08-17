@@ -62,3 +62,16 @@ export async function checkDbHealth(): Promise<{
     };
   }
 }
+
+// Initialize security settings
+export async function initializeSecurity(): Promise<void> {
+  try {
+    const { EmailAuthorizationService } = await import('../services/email-authorization.service');
+    const emailAuthService = new EmailAuthorizationService();
+    await emailAuthService.initializeAuthorizedEmails();
+    console.log('Security initialization completed');
+  } catch (error) {
+    console.error('Security initialization failed:', error);
+    // Don't throw error to avoid breaking app startup
+  }
+}

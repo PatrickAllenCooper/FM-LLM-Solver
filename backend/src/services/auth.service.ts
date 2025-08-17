@@ -4,14 +4,17 @@ import { db } from '../utils/database';
 import { User, CreateUser } from '../types/database';
 import { AuthResponse } from '../types/api';
 import { logger } from '../utils/logger';
+import { EmailAuthorizationService } from './email-authorization.service';
 
 export class AuthService {
   private readonly jwtSecret: string;
   private readonly jwtExpiresIn: string;
+  private readonly emailAuthService: EmailAuthorizationService;
 
   constructor() {
     this.jwtSecret = process.env.JWT_SECRET || 'development-secret-key';
     this.jwtExpiresIn = process.env.JWT_EXPIRES_IN || '24h';
+    this.emailAuthService = new EmailAuthorizationService();
     
     if (process.env.NODE_ENV === 'production' && this.jwtSecret === 'development-secret-key') {
       throw new Error('JWT_SECRET must be set in production');
@@ -26,6 +29,12 @@ export class AuthService {
 
       if (!existingUserQuery.empty) {
         throw new Error('User with this email already exists');
+      }
+
+      // Check if email is authorized for registration
+      const isAuthorized = await this.emailAuthService.isEmailAuthorized(userData.email);
+      if (!isAuthorized) {
+        throw new Error('Your email is not authorized to create an account. Please contact Patrick at patrick.cooper@colorado.edu for access.');
       }
 
       // Hash password

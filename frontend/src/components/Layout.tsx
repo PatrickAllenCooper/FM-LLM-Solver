@@ -11,21 +11,34 @@ import {
   UserIcon,
   ArrowRightOnRectangleIcon,
   InformationCircleIcon,
+  ShieldCheckIcon,
 } from '@heroicons/react/24/outline';
 import { useAuthStore } from '@/stores/auth.store';
 import { clsx } from 'clsx';
 
-const navigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: ChartBarIcon },
-  { name: 'System Specs', href: '/system-specs', icon: DocumentTextIcon },
-  { name: 'Certificates', href: '/certificates', icon: CpuChipIcon },
-  { name: 'About', href: '/about', icon: InformationCircleIcon },
-  { name: 'Experiments', href: '/experiments', icon: BeakerIcon },
-];
+const getNavigation = (userRole?: string) => {
+  const baseNavigation = [
+    { name: 'Dashboard', href: '/dashboard', icon: ChartBarIcon },
+    { name: 'System Specs', href: '/system-specs', icon: DocumentTextIcon },
+    { name: 'Certificates', href: '/certificates', icon: CpuChipIcon },
+    { name: 'About', href: '/about', icon: InformationCircleIcon },
+    { name: 'Experiments', href: '/experiments', icon: BeakerIcon },
+  ];
+
+  // Add admin-only navigation items
+  if (userRole === 'admin') {
+    baseNavigation.push(
+      { name: 'Email Access', href: '/admin/emails', icon: ShieldCheckIcon }
+    );
+  }
+
+  return baseNavigation;
+};
 
 export default function Layout() {
   const location = useLocation();
   const { user, logout } = useAuthStore();
+  const navigation = getNavigation(user?.role);
 
   return (
     <div className="min-h-full">
