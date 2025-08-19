@@ -12,12 +12,14 @@ import {
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
-import { SystemSpec, CertificateGenerationRequest } from '@/types/api';
+import { CertificateGenerationRequest } from '@/types/api';
 import { api } from '@/services/api';
 
 // Form validation schema
 const CertificateGenerationSchema = z.object({
-  system_spec_id: z.string().min(1, 'Please select a system specification'),
+  system_spec_id: z.string().refine((val) => val && val.trim().length > 0, {
+    message: 'Please select a system specification'
+  }),
   certificate_type: z.enum(['lyapunov', 'barrier', 'inductive_invariant']),
   generation_method: z.enum(['llm', 'sos', 'sdp', 'quadratic_template']),
   baseline_comparison: z.boolean().default(false),
@@ -106,7 +108,7 @@ export default function GenerateCertificatePage() {
         timeout_ms: 30000,
       },
     },
-    mode: 'onBlur', // Changed from onChange to onBlur to avoid premature validation
+    mode: 'onSubmit', // Only validate when form is submitted to avoid premature validation
   });
 
   // Fetch available system specifications
@@ -114,8 +116,7 @@ export default function GenerateCertificatePage() {
     queryKey: ['system-specs'],
     queryFn: async () => {
       const response = await api.getSystemSpecs();
-      console.log('System specs loaded:', response.data); // Debug log
-      return response.data; // response.data is already SystemSpec[] from PaginatedResponse
+      return response.data; // This should be SystemSpec[] from PaginatedResponse.data
     },
   });
 
@@ -151,12 +152,7 @@ export default function GenerateCertificatePage() {
 
   const selectedMethod = form.watch('generation_method');
   const selectedType = form.watch('certificate_type');
-  const selectedSystemSpecId = form.watch('system_spec_id');
   const isLLMMethod = selectedMethod === 'llm';
-
-  // Debug logging
-  console.log('Form state - system_spec_id:', selectedSystemSpecId);
-  console.log('Form errors:', form.formState.errors);
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
