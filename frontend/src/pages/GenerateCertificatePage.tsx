@@ -106,7 +106,7 @@ export default function GenerateCertificatePage() {
         timeout_ms: 30000,
       },
     },
-    mode: 'onChange',
+    mode: 'onBlur', // Changed from onChange to onBlur to avoid premature validation
   });
 
   // Fetch available system specifications
@@ -114,7 +114,8 @@ export default function GenerateCertificatePage() {
     queryKey: ['system-specs'],
     queryFn: async () => {
       const response = await api.getSystemSpecs();
-      return response.data as SystemSpec[];
+      console.log('System specs loaded:', response.data); // Debug log
+      return response.data; // response.data is already SystemSpec[] from PaginatedResponse
     },
   });
 
@@ -150,7 +151,12 @@ export default function GenerateCertificatePage() {
 
   const selectedMethod = form.watch('generation_method');
   const selectedType = form.watch('certificate_type');
+  const selectedSystemSpecId = form.watch('system_spec_id');
   const isLLMMethod = selectedMethod === 'llm';
+
+  // Debug logging
+  console.log('Form state - system_spec_id:', selectedSystemSpecId);
+  console.log('Form errors:', form.formState.errors);
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
