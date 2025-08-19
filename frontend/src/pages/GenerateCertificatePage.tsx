@@ -337,9 +337,9 @@ export default function GenerateCertificatePage() {
                     Model
                   </label>
                   <select {...form.register('llm_config.model')} className="input">
-                    <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet (Current)</option>
-                    <option value="claude-4-opus">Claude 4 Opus (Latest)</option>
-                    <option value="claude-4-sonnet">Claude 4 Sonnet (Balanced)</option>
+                    <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet (Stable)</option>
+                    <option value="claude-opus-4-1-20250805">Claude Opus 4.1 (Latest & Most Capable)</option>
+                    <option value="claude-sonnet-4-20250514">Claude Sonnet 4 (Enhanced Reasoning)</option>
                     <option value="claude-3-5-haiku-20241022">Claude 3.5 Haiku (Fast)</option>
                   </select>
                 </div>

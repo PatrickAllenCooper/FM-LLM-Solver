@@ -80,14 +80,28 @@ export class LLMService {
     } catch (error) {
       const duration_ms = Date.now() - startTime;
       
+      // Enhanced error handling for Claude 4 models
+      let errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      // Check if this is a Claude 4 model access issue
+      if (errorMessage.includes('Connection error') && config.model.includes('claude-4') || config.model.includes('claude-opus-4') || config.model.includes('claude-sonnet-4')) {
+        errorMessage = `Claude 4 model "${config.model}" is not accessible. This may be due to limited API access. Try using Claude 3.5 Sonnet instead.`;
+        logger.warn('Claude 4 model access denied', {
+          systemSpecId: systemSpec.id,
+          model: config.model,
+          originalError: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
+      
       logger.error('Failed to generate certificate', {
         systemSpecId: systemSpec.id,
         certificateType,
+        model: config.model,
         duration_ms,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: errorMessage,
       });
 
-      throw error;
+      throw new Error(errorMessage);
     }
   }
 
