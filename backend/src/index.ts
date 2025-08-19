@@ -93,6 +93,10 @@ app.get('/api/certificates/:id',
   authMiddleware.optionalAuth,
   certificateController.getCandidate
 );
+app.post('/api/certificates/:id/rerun-acceptance',
+  authMiddleware.requireAuth,
+  certificateController.rerunAcceptance
+);
 
 // API info endpoint
 app.get('/api', (req, res) => {

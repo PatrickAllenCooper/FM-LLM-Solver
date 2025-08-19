@@ -90,12 +90,49 @@ export class AcceptanceService {
         domain
       );
 
+      // Calculate detailed technical information for experimental analysis
+      const technicalDetails = {
+        conditions_checked: [
+          'V(x) > 0 for x ≠ 0 (positive definite)',
+          'V(0) = 0 (zero at equilibrium)', 
+          'dV/dt ≤ 0 along trajectories (decreasing)',
+        ],
+        sampling_method: 'uniform' as const,
+        sample_count: 1000, // Default from MathService
+        domain_coverage: domain,
+        violation_analysis: {
+          total_violations: verification.violations.length,
+          violation_points: verification.violations.map(v => ({
+            point: v.point,
+            condition: v.condition,
+            value: v.value,
+            severity: Math.abs(v.value) > 0.1 ? 'severe' as const : 
+                     Math.abs(v.value) > 0.01 ? 'moderate' as const : 'minor' as const,
+          })),
+        },
+        margin_breakdown: {
+          positivity_margin: verification.positiveDefinite ? Math.abs(verification.margin) : undefined,
+          decreasing_margin: verification.decreasing ? Math.abs(verification.margin) : undefined,
+        },
+        numerical_parameters: {
+          tolerance: 1e-6,
+          max_iterations: 1000,
+          convergence_threshold: 1e-8,
+        },
+        stage_results: {
+          stage_a_passed: verification.positiveDefinite && verification.decreasing,
+          stage_b_enabled: false, // Currently only Stage A implemented
+          stage_b_passed: undefined,
+        },
+      };
+
       if (verification.positiveDefinite && verification.decreasing) {
         return {
           accepted: true,
           margin: verification.margin,
           acceptance_method: 'mathematical',
           solver_output: `Lyapunov conditions satisfied. Proves stability. Margin: ${verification.margin.toFixed(6)}`,
+          technical_details: technicalDetails,
         };
       } else {
         const firstViolation = verification.violations[0];
@@ -108,6 +145,7 @@ export class AcceptanceService {
           } : undefined,
           acceptance_method: 'mathematical',
           solver_output: `Failed Lyapunov conditions. Violations: ${verification.violations.length}`,
+          technical_details: technicalDetails,
         };
       }
     } catch (error) {
@@ -151,12 +189,49 @@ export class AcceptanceService {
         unsafeSet
       );
 
+      // Calculate detailed technical information for barrier certificates
+      const technicalDetails = {
+        conditions_checked: [
+          'B(x) ≥ 0 for x ∈ safe set (initial safety)',
+          'B(x) ≤ 0 for x ∈ unsafe set (separation)',
+          'dB/dt ≤ 0 along trajectories (invariant)',
+        ],
+        sampling_method: 'uniform' as const,
+        sample_count: 1000, // Default sampling
+        domain_coverage: this.extractDomain(systemSpec),
+        violation_analysis: {
+          total_violations: verification.violations.length,
+          violation_points: verification.violations.map(v => ({
+            point: v.point,
+            condition: v.condition,
+            value: v.value,
+            severity: Math.abs(v.value) > 0.1 ? 'severe' as const : 
+                     Math.abs(v.value) > 0.01 ? 'moderate' as const : 'minor' as const,
+          })),
+        },
+        margin_breakdown: {
+          separation_margin: verification.separatesRegions ? Math.abs(verification.margin) : undefined,
+          invariant_margin: verification.nonIncreasing ? Math.abs(verification.margin) : undefined,
+        },
+        numerical_parameters: {
+          tolerance: 1e-6,
+          max_iterations: 1000,
+          convergence_threshold: 1e-8,
+        },
+        stage_results: {
+          stage_a_passed: verification.separatesRegions && verification.nonIncreasing,
+          stage_b_enabled: false, // Currently only Stage A implemented
+          stage_b_passed: undefined,
+        },
+      };
+
       if (verification.separatesRegions && verification.nonIncreasing) {
         return {
           accepted: true,
           margin: verification.margin,
           acceptance_method: 'mathematical',
           solver_output: `Barrier conditions satisfied. Margin: ${verification.margin.toFixed(6)}`,
+          technical_details: technicalDetails,
         };
       } else {
         const firstViolation = verification.violations[0];
@@ -169,6 +244,7 @@ export class AcceptanceService {
           } : undefined,
           acceptance_method: 'mathematical',
           solver_output: `Failed barrier conditions. Violations: ${verification.violations.length}`,
+          technical_details: technicalDetails,
         };
       }
     } catch (error) {

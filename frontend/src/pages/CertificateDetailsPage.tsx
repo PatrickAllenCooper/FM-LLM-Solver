@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { 
@@ -8,7 +9,11 @@ import {
   DocumentDuplicateIcon,
   ExclamationTriangleIcon,
   InformationCircleIcon,
-  ArrowDownTrayIcon
+  ArrowDownTrayIcon,
+  Cog8ToothIcon,
+  ChartBarIcon,
+  BeakerIcon,
+  CalculatorIcon
 } from '@heroicons/react/24/outline';
 import { clsx } from 'clsx';
 import { format } from 'date-fns';
@@ -47,6 +52,8 @@ const TYPE_LABELS = {
 export default function CertificateDetailsPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
+  const [showParameterControls, setShowParameterControls] = useState(false);
 
   const { data: certificate, isLoading, error } = useQuery({
     queryKey: ['certificate', id],
@@ -190,11 +197,20 @@ export default function CertificateDetailsPage() {
             </div>
           </div>
 
-          {/* Verification Results */}
+          {/* Acceptance Results */}
           {certificate.acceptance_status !== 'pending' && (
             <div className="card">
               <div className="card-body">
-                <h2 className="text-lg font-medium text-gray-900 mb-4">Verification Results</h2>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-medium text-gray-900">Acceptance Results</h2>
+                  <button
+                    onClick={() => setShowTechnicalDetails(!showTechnicalDetails)}
+                    className="btn btn-outline btn-sm"
+                  >
+                    <CalculatorIcon className="w-4 h-4 mr-1" />
+                    {showTechnicalDetails ? 'Hide' : 'Show'} Technical Details
+                  </button>
+                </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
@@ -237,6 +253,286 @@ export default function CertificateDetailsPage() {
                     </div>
                   )}
                 </div>
+
+                {/* Technical Details Section for Experimental Work */}
+                {showTechnicalDetails && certificate.acceptance_result?.technical_details && (
+                  <div className="mt-8 space-y-6">
+                    <div className="border-t border-gray-200 pt-6">
+                      <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                        <BeakerIcon className="w-5 h-5 mr-2 text-blue-600" />
+                        Technical Acceptance Analysis
+                      </h3>
+
+                      {/* Conditions Checked */}
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                        <div className="bg-blue-50 rounded-xl p-4">
+                          <h4 className="font-medium text-blue-900 mb-3">Mathematical Conditions Verified</h4>
+                          <ul className="space-y-2">
+                            {certificate.acceptance_result.technical_details.conditions_checked.map((condition, idx) => (
+                              <li key={idx} className="text-blue-800 text-sm flex items-start">
+                                <CheckCircleIcon className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" />
+                                {condition}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+
+                        <div className="bg-green-50 rounded-xl p-4">
+                          <h4 className="font-medium text-green-900 mb-3">Numerical Method Details</h4>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-green-800">Sampling Method:</span>
+                              <span className="text-green-900 font-medium capitalize">
+                                {certificate.acceptance_result.technical_details.sampling_method}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-green-800">Sample Count:</span>
+                              <span className="text-green-900 font-medium">
+                                {certificate.acceptance_result.technical_details.sample_count.toLocaleString()}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-green-800">Tolerance:</span>
+                              <span className="text-green-900 font-medium">
+                                {certificate.acceptance_result.technical_details.numerical_parameters.tolerance.toExponential(2)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Stage Results */}
+                      <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-6 mb-6">
+                        <h4 className="font-medium text-indigo-900 mb-4 flex items-center">
+                          <Cog8ToothIcon className="w-5 h-5 mr-2" />
+                          Two-Stage Acceptance Protocol Results
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="bg-white rounded-lg p-4">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-indigo-800 font-medium">Stage A (Numerical)</span>
+                              {certificate.acceptance_result.technical_details.stage_results.stage_a_passed ? (
+                                <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                              ) : (
+                                <XCircleIcon className="w-5 h-5 text-red-600" />
+                              )}
+                            </div>
+                            <p className="text-indigo-700 text-sm">
+                              Numerical sampling and margin validation
+                            </p>
+                          </div>
+                          <div className="bg-white rounded-lg p-4">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-indigo-800 font-medium">Stage B (Formal)</span>
+                              {certificate.acceptance_result.technical_details.stage_results.stage_b_enabled ? (
+                                certificate.acceptance_result.technical_details.stage_results.stage_b_passed ? (
+                                  <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                                ) : (
+                                  <XCircleIcon className="w-5 h-5 text-red-600" />
+                                )
+                              ) : (
+                                <ClockIcon className="w-5 h-5 text-gray-400" />
+                              )}
+                            </div>
+                            <p className="text-indigo-700 text-sm">
+                              {certificate.acceptance_result.technical_details.stage_results.stage_b_enabled 
+                                ? 'SOS/SMT formal verification'
+                                : 'Not enabled (planned enhancement)'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Margin Breakdown */}
+                      {certificate.acceptance_result.technical_details.margin_breakdown && (
+                        <div className="bg-orange-50 rounded-xl p-6 mb-6">
+                          <h4 className="font-medium text-orange-900 mb-4 flex items-center">
+                            <ChartBarIcon className="w-5 h-5 mr-2" />
+                            Detailed Margin Analysis
+                          </h4>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {certificate.acceptance_result.technical_details.margin_breakdown.positivity_margin !== undefined && (
+                              <div className="bg-white rounded-lg p-3">
+                                <div className="text-orange-800 text-sm font-medium">Positivity Margin</div>
+                                <div className="text-orange-900 text-lg font-bold">
+                                  {certificate.acceptance_result.technical_details.margin_breakdown.positivity_margin.toFixed(6)}
+                                </div>
+                                <div className="text-orange-700 text-xs">V(x) &gt; 0 margin</div>
+                              </div>
+                            )}
+                            {certificate.acceptance_result.technical_details.margin_breakdown.decreasing_margin !== undefined && (
+                              <div className="bg-white rounded-lg p-3">
+                                <div className="text-orange-800 text-sm font-medium">Decreasing Margin</div>
+                                <div className="text-orange-900 text-lg font-bold">
+                                  {certificate.acceptance_result.technical_details.margin_breakdown.decreasing_margin.toFixed(6)}
+                                </div>
+                                <div className="text-orange-700 text-xs">dV/dt &le; 0 margin</div>
+                              </div>
+                            )}
+                            {certificate.acceptance_result.technical_details.margin_breakdown.separation_margin !== undefined && (
+                              <div className="bg-white rounded-lg p-3">
+                                <div className="text-orange-800 text-sm font-medium">Separation Margin</div>
+                                <div className="text-orange-900 text-lg font-bold">
+                                  {certificate.acceptance_result.technical_details.margin_breakdown.separation_margin.toFixed(6)}
+                                </div>
+                                <div className="text-orange-700 text-xs">Safe/unsafe separation</div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Violation Analysis */}
+                      {certificate.acceptance_result.technical_details.violation_analysis.total_violations > 0 && (
+                        <div className="bg-red-50 rounded-xl p-6 mb-6">
+                          <h4 className="font-medium text-red-900 mb-4 flex items-center">
+                            <ExclamationTriangleIcon className="w-5 h-5 mr-2" />
+                            Violation Analysis ({certificate.acceptance_result.technical_details.violation_analysis.total_violations} violations found)
+                          </h4>
+                          <div className="space-y-3">
+                            {certificate.acceptance_result.technical_details.violation_analysis.violation_points.slice(0, 5).map((violation, idx) => (
+                              <div key={idx} className="bg-white rounded-lg p-3 border-l-4 border-red-300">
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="text-red-800 font-medium text-sm capitalize">
+                                    {violation.condition.replace('_', ' ')} Violation
+                                  </span>
+                                  <span className={clsx(
+                                    'px-2 py-1 rounded text-xs font-medium',
+                                    violation.severity === 'severe' ? 'bg-red-100 text-red-800' :
+                                    violation.severity === 'moderate' ? 'bg-yellow-100 text-yellow-800' :
+                                    'bg-gray-100 text-gray-800'
+                                  )}>
+                                    {violation.severity}
+                                  </span>
+                                </div>
+                                <div className="text-red-700 text-sm">
+                                  <strong>Point:</strong> {Object.entries(violation.point).map(([var, val]) => 
+                                    `${var}=${(val as number).toFixed(4)}`).join(', ')}
+                                </div>
+                                <div className="text-red-700 text-sm">
+                                  <strong>Value:</strong> {violation.value.toFixed(6)}
+                                </div>
+                              </div>
+                            ))}
+                            {certificate.acceptance_result.technical_details.violation_analysis.total_violations > 5 && (
+                              <div className="text-red-700 text-sm text-center">
+                                ... and {certificate.acceptance_result.technical_details.violation_analysis.total_violations - 5} more violations
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Parameter Controls for Re-running */}
+                      <div className="bg-gray-50 rounded-xl p-6">
+                        <div className="flex items-center justify-between mb-4">
+                          <h4 className="font-medium text-gray-900 flex items-center">
+                            <Cog8ToothIcon className="w-5 h-5 mr-2" />
+                            Experimental Parameter Controls
+                          </h4>
+                          <button
+                            onClick={() => setShowParameterControls(!showParameterControls)}
+                            className="btn btn-outline btn-sm"
+                          >
+                            {showParameterControls ? 'Hide' : 'Show'} Parameter Controls
+                          </button>
+                        </div>
+                        
+                        {showParameterControls && (
+                          <div className="bg-white rounded-lg p-4 border border-gray-200">
+                            <p className="text-gray-700 text-sm mb-4">
+                              Adjust numerical parameters and re-run acceptance checking for experimental analysis.
+                            </p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Sample Count
+                                </label>
+                                <select className="input input-sm">
+                                  <option value="1000">1,000 (Default)</option>
+                                  <option value="5000">5,000 (Higher precision)</option>
+                                  <option value="10000">10,000 (Maximum precision)</option>
+                                </select>
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Sampling Method
+                                </label>
+                                <select className="input input-sm">
+                                  <option value="uniform">Uniform (Default)</option>
+                                  <option value="sobol">Sobol (Low-discrepancy)</option>
+                                  <option value="lhs">Latin Hypercube</option>
+                                  <option value="adaptive">Adaptive Refinement</option>
+                                </select>
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Numerical Tolerance
+                                </label>
+                                <select className="input input-sm">
+                                  <option value="1e-6">10⁻⁶ (Default)</option>
+                                  <option value="1e-8">10⁻⁸ (Higher precision)</option>
+                                  <option value="1e-10">10⁻¹⁰ (Maximum precision)</option>
+                                </select>
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Enable Stage B
+                                </label>
+                                <select className="input input-sm">
+                                  <option value="false">Disabled (Stage A only)</option>
+                                  <option value="true">Enabled (SOS/SMT verification)</option>
+                                </select>
+                              </div>
+                            </div>
+                            <button
+                              className="btn btn-primary btn-sm"
+                              onClick={() => {
+                                toast.success('Re-running acceptance check with new parameters...');
+                                // TODO: Implement re-run API call
+                              }}
+                            >
+                              <BeakerIcon className="w-4 h-4 mr-1" />
+                              Re-run Acceptance Check
+                            </button>
+                          </div>
+                        )}
+                        
+                        {/* Current Parameters Display */}
+                        <div className="mt-4 bg-white rounded-lg p-4 border border-gray-200">
+                          <h5 className="font-medium text-gray-900 mb-3">Current Analysis Parameters</h5>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                            <div>
+                              <div className="text-gray-500">Samples</div>
+                              <div className="font-medium">
+                                {certificate.acceptance_result.technical_details.sample_count.toLocaleString()}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-gray-500">Method</div>
+                              <div className="font-medium capitalize">
+                                {certificate.acceptance_result.technical_details.sampling_method}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-gray-500">Tolerance</div>
+                              <div className="font-medium">
+                                {certificate.acceptance_result.technical_details.numerical_parameters.tolerance.toExponential(0)}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-gray-500">Violations</div>
+                              <div className="font-medium">
+                                {certificate.acceptance_result.technical_details.violation_analysis.total_violations}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}

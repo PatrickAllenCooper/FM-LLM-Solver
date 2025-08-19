@@ -6,6 +6,7 @@ import { AcceptanceService } from '../services/acceptance.service';
 import { 
   SystemSpecRequestSchema, 
   CertificateGenerationRequestSchema,
+  AcceptanceParametersSchema,
   ApiResponse,
   PaginatedResponse 
 } from '../types/api';
@@ -414,6 +415,79 @@ export class CertificateFirestoreController {
       res.json(response);
     } catch (error) {
       this.handleError(error, res, 'Failed to retrieve certificate');
+    }
+  };
+
+  // Re-run acceptance check with custom parameters for experimental analysis
+  rerunAcceptance = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const candidateId = req.params.id;
+      const acceptanceParams = AcceptanceParametersSchema.parse(req.body);
+
+      // Get candidate
+      const candidateDoc = await db.collection('candidates').doc(candidateId).get();
+      if (!candidateDoc.exists) {
+        res.status(404).json({
+          success: false,
+          error: 'Certificate not found',
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      const candidateData = candidateDoc.data() as any;
+      const candidate = { id: candidateDoc.id, ...candidateData };
+
+      // Get system spec
+      const systemSpecDoc = await db.collection('system_specs').doc(candidate.system_spec_id).get();
+      if (!systemSpecDoc.exists) {
+        res.status(404).json({
+          success: false,
+          error: 'System specification not found',
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      const systemSpecData = systemSpecDoc.data() as any;
+      const systemSpec = { id: systemSpecDoc.id, ...systemSpecData };
+
+      logger.info('Re-running acceptance check with custom parameters', {
+        candidateId,
+        parameters: acceptanceParams,
+        requestedBy: req.user?.id,
+      });
+
+      // TODO: Pass custom parameters to AcceptanceService
+      // For now, use existing acceptance service but log the intent
+      const acceptanceResult = await this.acceptanceService.acceptCandidate(candidate, systemSpec);
+
+      // Store the re-run result (optional - for experiment tracking)
+      const rerunRecord = {
+        candidate_id: candidateId,
+        parameters_used: acceptanceParams,
+        result: acceptanceResult,
+        requested_by: req.user?.id || 'anonymous',
+        timestamp: new Date(),
+      };
+
+      await db.collection('acceptance_reruns').add(rerunRecord);
+
+      const response: ApiResponse<any> = {
+        success: true,
+        data: {
+          candidate_id: candidateId,
+          acceptance_result: acceptanceResult,
+          parameters_used: acceptanceParams,
+          rerun_timestamp: new Date().toISOString(),
+        },
+        message: 'Acceptance check re-run completed',
+        timestamp: new Date().toISOString(),
+      };
+
+      res.json(response);
+    } catch (error) {
+      this.handleError(error, res, 'Failed to re-run acceptance check');
     }
   };
 

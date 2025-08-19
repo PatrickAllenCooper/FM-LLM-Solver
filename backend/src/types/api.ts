@@ -75,6 +75,23 @@ export const CertificateGenerationRequestSchema = z.object({
 
 export type CertificateGenerationRequest = z.infer<typeof CertificateGenerationRequestSchema>;
 
+// Re-run acceptance with custom parameters for experimental analysis
+export const AcceptanceParametersSchema = z.object({
+  sampling_method: z.enum(['uniform', 'sobol', 'lhs', 'adaptive']).default('uniform'),
+  sample_count: z.number().min(100).max(10000).default(1000),
+  tolerance: z.number().min(1e-12).max(1e-3).default(1e-6),
+  max_iterations: z.number().min(100).max(10000).default(1000),
+  convergence_threshold: z.number().min(1e-12).max(1e-3).default(1e-8),
+  enable_stage_b: z.boolean().default(false),
+  custom_margins: z.object({
+    positivity_threshold: z.number().optional(),
+    decreasing_threshold: z.number().optional(),
+    separation_threshold: z.number().optional(),
+  }).optional(),
+});
+
+export type AcceptanceParameters = z.infer<typeof AcceptanceParametersSchema>;
+
 // Certificate response from LLM
 export const LLMCertificateResponseSchema = z.object({
   certificate_type: z.enum(['lyapunov', 'barrier', 'inductive_invariant']),
@@ -99,7 +116,7 @@ export const LLMCertificateResponseSchema = z.object({
 
 export type LLMCertificateResponse = z.infer<typeof LLMCertificateResponseSchema>;
 
-// Acceptance result
+// Detailed acceptance result for experimental analysis
 export interface AcceptanceResult {
   accepted: boolean;
   margin?: number;
@@ -111,6 +128,38 @@ export interface AcceptanceResult {
   acceptance_method: 'symbolic' | 'numerical' | 'smt' | 'mathematical';
   duration_ms: number;
   solver_output?: string;
+  // Enhanced technical details for experimental work
+  technical_details?: {
+    conditions_checked: string[];
+    sampling_method: 'uniform' | 'sobol' | 'lhs' | 'adaptive';
+    sample_count: number;
+    domain_coverage: Record<string, { min: number; max: number }>;
+    violation_analysis: {
+      total_violations: number;
+      violation_points: Array<{
+        point: Record<string, number>;
+        condition: string;
+        value: number;
+        severity: 'minor' | 'moderate' | 'severe';
+      }>;
+    };
+    margin_breakdown: {
+      positivity_margin?: number;
+      decreasing_margin?: number;
+      separation_margin?: number;
+      invariant_margin?: number;
+    };
+    numerical_parameters: {
+      tolerance: number;
+      max_iterations: number;
+      convergence_threshold: number;
+    };
+    stage_results: {
+      stage_a_passed: boolean;
+      stage_b_enabled: boolean;
+      stage_b_passed?: boolean;
+    };
+  };
 }
 
 // Experiment configuration
