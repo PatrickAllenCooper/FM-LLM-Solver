@@ -358,7 +358,7 @@ export default function CertificateDetailsPage() {
                                 <div className="text-orange-900 text-lg font-bold">
                                   {certificate.acceptance_result.technical_details.margin_breakdown.positivity_margin.toFixed(6)}
                                 </div>
-                                <div className="text-orange-700 text-xs">V(x) &gt; 0 margin</div>
+                                <div className="text-orange-700 text-xs">V(x) {'>'} 0 margin</div>
                               </div>
                             )}
                             {certificate.acceptance_result.technical_details.margin_breakdown.decreasing_margin !== undefined && (
@@ -367,7 +367,7 @@ export default function CertificateDetailsPage() {
                                 <div className="text-orange-900 text-lg font-bold">
                                   {certificate.acceptance_result.technical_details.margin_breakdown.decreasing_margin.toFixed(6)}
                                 </div>
-                                <div className="text-orange-700 text-xs">dV/dt &le; 0 margin</div>
+                                <div className="text-orange-700 text-xs">dV/dt {'≤'} 0 margin</div>
                               </div>
                             )}
                             {certificate.acceptance_result.technical_details.margin_breakdown.separation_margin !== undefined && (
@@ -407,8 +407,8 @@ export default function CertificateDetailsPage() {
                                   </span>
                                 </div>
                                 <div className="text-red-700 text-sm">
-                                  <strong>Point:</strong> {Object.entries(violation.point).map(([var, val]) => 
-                                    `${var}=${(val as number).toFixed(4)}`).join(', ')}
+                                  <strong>Point:</strong> {Object.entries(violation.point).map(([varName, val]) => 
+                                    `${varName}=${(val as number).toFixed(4)}`).join(', ')}
                                 </div>
                                 <div className="text-red-700 text-sm">
                                   <strong>Value:</strong> {violation.value.toFixed(6)}
