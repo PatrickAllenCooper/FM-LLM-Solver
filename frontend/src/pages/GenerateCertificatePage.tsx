@@ -112,13 +112,15 @@ export default function GenerateCertificatePage() {
   });
 
   // Fetch available system specifications
-  const { data: systemSpecs, isLoading: specsLoading } = useQuery({
+  const { data: systemSpecsResponse, isLoading: specsLoading } = useQuery({
     queryKey: ['system-specs'],
     queryFn: async () => {
       const response = await api.getSystemSpecs();
-      return response.data; // This should be SystemSpec[] from PaginatedResponse.data
+      return response; // This is PaginatedResponse<SystemSpec>
     },
   });
+
+  const systemSpecs = systemSpecsResponse?.data || []; // Extract the actual SystemSpec[] array
 
   // Certificate generation mutation
   const generateMutation = useMutation({
