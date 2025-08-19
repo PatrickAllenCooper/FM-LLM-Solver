@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -17,9 +17,7 @@ import { api } from '@/services/api';
 
 // Form validation schema
 const CertificateGenerationSchema = z.object({
-  system_spec_id: z.string().refine((val) => val && val.trim().length > 0, {
-    message: 'Please select a system specification'
-  }),
+  system_spec_id: z.string().min(1, 'Please select a system specification'),
   certificate_type: z.enum(['lyapunov', 'barrier', 'inductive_invariant']),
   generation_method: z.enum(['llm', 'sos', 'sdp', 'quadratic_template']),
   baseline_comparison: z.boolean().default(false),
@@ -108,7 +106,7 @@ export default function GenerateCertificatePage() {
         timeout_ms: 30000,
       },
     },
-    mode: 'onSubmit', // Only validate when form is submitted to avoid premature validation
+    mode: 'all', // Validate on change and blur to keep form state accurate
   });
 
   // Fetch available system specifications
@@ -169,6 +167,14 @@ export default function GenerateCertificatePage() {
   console.log('Selected system_spec_id:', selectedSystemSpecId);
   console.log('Form errors:', form.formState.errors);
   console.log('Form is valid:', form.formState.isValid);
+
+  // Force re-validation when system specs load
+  useEffect(() => {
+    if (systemSpecs.length > 0) {
+      console.log('System specs loaded, triggering form validation...');
+      form.trigger(); // Re-validate entire form
+    }
+  }, [systemSpecs.length, form]);
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
