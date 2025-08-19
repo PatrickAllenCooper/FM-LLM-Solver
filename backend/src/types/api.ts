@@ -156,6 +156,28 @@ export type StartConversationRequest = z.infer<typeof StartConversationSchema>;
 export type SendMessageRequest = z.infer<typeof SendMessageSchema>;
 export type PublishCertificateFromConversationRequest = z.infer<typeof PublishCertificateFromConversationSchema>;
 
+// Additional conversational schemas for backend validation
+export const StartConversationRequestSchema = z.object({
+  system_spec_id: z.string().min(1),
+  certificate_type: z.enum(['lyapunov', 'barrier', 'inductive_invariant']),
+  initial_message: z.string().min(1).optional(),
+});
+
+export const SendMessageRequestSchema = z.object({
+  message: z.string().min(1),
+  request_insights: z.boolean().default(false),
+  force_summarize: z.boolean().default(false),
+});
+
+export const PublishFromConversationRequestSchema = z.object({
+  conversation_id: z.string(),
+  final_instructions: z.string().optional(),
+});
+
+export type StartConversationRequestType = z.infer<typeof StartConversationRequestSchema>;
+export type SendMessageRequestType = z.infer<typeof SendMessageRequestSchema>;
+export type PublishFromConversationRequestType = z.infer<typeof PublishFromConversationRequestSchema>;
+
 // Certificate response from LLM
 export const LLMCertificateResponseSchema = z.object({
   certificate_type: z.enum(['lyapunov', 'barrier', 'inductive_invariant']),

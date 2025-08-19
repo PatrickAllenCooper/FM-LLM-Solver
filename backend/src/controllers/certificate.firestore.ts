@@ -7,9 +7,9 @@ import {
   SystemSpecRequestSchema, 
   CertificateGenerationRequestSchema,
   AcceptanceParametersSchema,
-  StartConversationSchema,
-  SendMessageSchema,
-  PublishCertificateFromConversationSchema,
+  StartConversationRequestSchema,
+  SendMessageRequestSchema,
+  PublishFromConversationRequestSchema,
   ApiResponse,
   PaginatedResponse 
 } from '../types/api';
@@ -653,7 +653,7 @@ export class CertificateFirestoreController {
   // Start a new conversation for certificate generation
   startConversation = async (req: Request, res: Response): Promise<void> => {
     try {
-      const conversationData = StartConversationSchema.parse(req.body);
+      const conversationData = StartConversationRequestSchema.parse(req.body);
 
       // Get system spec
       const systemSpecDoc = await db.collection('system_specs').doc(conversationData.system_spec_id).get();
@@ -736,7 +736,7 @@ export class CertificateFirestoreController {
   sendMessage = async (req: Request, res: Response): Promise<void> => {
     try {
       const conversationId = req.params.id;
-      const messageData = SendMessageSchema.parse(req.body);
+      const messageData = SendMessageRequestSchema.parse(req.body);
 
       // Get conversation
       const conversationDoc = await db.collection('conversations').doc(conversationId).get();
@@ -821,7 +821,7 @@ export class CertificateFirestoreController {
   // Publish certificate from conversation
   publishCertificateFromConversation = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { conversation_id, final_instructions } = PublishCertificateFromConversationSchema.parse(req.body);
+      const { conversation_id, final_instructions } = PublishFromConversationRequestSchema.parse(req.body);
 
       // Get conversation
       const conversationDoc = await db.collection('conversations').doc(conversation_id).get();
