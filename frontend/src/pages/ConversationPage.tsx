@@ -20,9 +20,7 @@ import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 
 import { 
-  StartConversationRequest, 
-  SendMessageRequest,
-  PublishCertificateFromConversationRequest
+  StartConversationRequest
 } from '@/types/api';
 import { api } from '@/services/api';
 
