@@ -120,6 +120,13 @@ app.post('/api/conversations/publish',
   certificateController.publishCertificateFromConversation
 );
 
+// Admin endpoint for re-validating existing certificates with corrected logic
+app.post('/api/admin/revalidate-certificates',
+  authMiddleware.authenticate,
+  authMiddleware.authorize(['admin']),
+  certificateController.revalidateAcceptedCertificates
+);
+
 // API info endpoint
 app.get('/api', (req, res) => {
   res.json({

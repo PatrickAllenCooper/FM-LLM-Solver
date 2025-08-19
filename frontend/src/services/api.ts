@@ -234,6 +234,29 @@ class ApiService {
     await this.api.delete(`/conversations/${conversationId}`);
   }
 
+  // Admin: Re-validate all existing accepted certificates with corrected mathematical logic
+  async revalidateAcceptedCertificates(): Promise<{
+    total_certificates: number;
+    revalidated_count: number;
+    status_changed_count: number;
+    results: Array<{
+      candidate_id: string;
+      expression: string;
+      previous_status: string;
+      new_status: string;
+      status_changed: boolean;
+      violations_found: number;
+    }>;
+    summary: {
+      message: string;
+      mathematical_rationale: string;
+    };
+  }> {
+    const response: AxiosResponse<ApiResponse<any>> = 
+      await this.api.post('/admin/revalidate-certificates');
+    return response.data.data!;
+  }
+
   // Utils
   setAuthToken(token: string): void {
     localStorage.setItem('auth_token', token);

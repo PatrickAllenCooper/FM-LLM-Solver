@@ -1037,4 +1037,121 @@ export class CertificateFirestoreController {
       this.handleError(error, res, 'Failed to retrieve conversation');
     }
   };
+
+  // Re-evaluate all existing accepted certificates with corrected mathematical logic
+  revalidateAcceptedCertificates = async (req: Request, res: Response): Promise<void> => {
+    try {
+      logger.info('Starting re-validation of all accepted certificates', {
+        requestedBy: req.user?.id,
+      });
+
+      // Get all currently accepted certificates
+      const acceptedCertificatesQuery = await db.collection('candidates')
+        .where('acceptance_status', '==', 'accepted')
+        .get();
+
+      const acceptedCertificates = acceptedCertificatesQuery.docs;
+      let revalidatedCount = 0;
+      let statusChangedCount = 0;
+      const results: any[] = [];
+
+      for (const candidateDoc of acceptedCertificates) {
+        const candidateData = candidateDoc.data();
+        const candidate = { id: candidateDoc.id, ...candidateData };
+
+        try {
+          // Get associated system spec
+          const systemSpecDoc = await db.collection('system_specs').doc(candidate.system_spec_id).get();
+          if (!systemSpecDoc.exists) {
+            logger.warn('System spec not found for candidate', { candidateId: candidate.id });
+            continue;
+          }
+
+          const systemSpec = { id: candidate.system_spec_id, ...systemSpecDoc.data() } as SystemSpec;
+
+          // Create properly mapped candidate object for AcceptanceService
+          const mappedCandidate = {
+            ...candidate,
+            candidate_expression: candidateData.candidate_data?.response?.expression || candidateData.candidate_expression,
+            candidate_json: candidateData.candidate_data || candidateData.candidate_json,
+          } as Candidate;
+
+          // Re-run acceptance check with corrected logic
+          const newAcceptanceResult = await this.acceptanceService.acceptCandidate(mappedCandidate, systemSpec);
+          
+          const previousStatus = candidate.acceptance_status;
+          const newStatus = newAcceptanceResult.accepted ? 'accepted' : 'failed';
+          
+          // Update candidate if status changed
+          if (previousStatus !== newStatus) {
+            await db.collection('candidates').doc(candidate.id).update({
+              acceptance_status: newStatus,
+              acceptance_result: newAcceptanceResult,
+              updated_at: new Date(),
+              revalidated_at: new Date(),
+              revalidation_reason: 'Mathematical validation logic corrected',
+            });
+            statusChangedCount++;
+          } else {
+            // Update just the acceptance result with enhanced technical details
+            await db.collection('candidates').doc(candidate.id).update({
+              acceptance_result: newAcceptanceResult,
+              updated_at: new Date(),
+              revalidated_at: new Date(),
+            });
+          }
+
+          revalidatedCount++;
+          results.push({
+            candidate_id: candidate.id,
+            expression: mappedCandidate.candidate_expression,
+            previous_status: previousStatus,
+            new_status: newStatus,
+            status_changed: previousStatus !== newStatus,
+            violations_found: newAcceptanceResult.technical_details?.violation_analysis?.total_violations || 0,
+          });
+
+          logger.info('Certificate re-validated', {
+            candidateId: candidate.id,
+            previousStatus,
+            newStatus,
+            violationsFound: newAcceptanceResult.technical_details?.violation_analysis?.total_violations || 0,
+          });
+
+        } catch (error) {
+          logger.error('Failed to re-validate certificate', {
+            candidateId: candidate.id,
+            error: error instanceof Error ? error.message : 'Unknown error',
+          });
+        }
+      }
+
+      logger.info('Re-validation completed', {
+        totalCertificates: acceptedCertificates.length,
+        revalidatedCount,
+        statusChangedCount,
+        requestedBy: req.user?.id,
+      });
+
+      const response: ApiResponse<any> = {
+        success: true,
+        data: {
+          total_certificates: acceptedCertificates.length,
+          revalidated_count: revalidatedCount,
+          status_changed_count: statusChangedCount,
+          results: results,
+          summary: {
+            message: `Re-validated ${revalidatedCount} certificates. ${statusChangedCount} certificates changed from accepted to failed due to mathematical violations.`,
+            mathematical_rationale: 'Applied strict validation: ANY violations now cause failure (mathematically correct)',
+          },
+        },
+        message: 'Certificate re-validation completed successfully',
+        timestamp: new Date().toISOString(),
+      };
+
+      res.json(response);
+    } catch (error) {
+      this.handleError(error, res, 'Failed to re-validate accepted certificates');
+    }
+  };
 }
