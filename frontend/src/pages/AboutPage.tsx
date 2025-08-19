@@ -25,7 +25,11 @@ export default function AboutPage() {
           </div>
         </div>
         <div className="text-xs text-primary-700 font-medium">
-          University of Colorado Boulder • Research Platform
+          University of Colorado Boulder • Research Platform • Version 2.0.0
+        </div>
+        <div className="mt-3 text-sm text-primary-600">
+          <strong>Latest Enhancements:</strong> Advanced conversational mode for mathematical dialogue, 
+          comprehensive technical analysis with experimental parameter controls, and research-grade acceptance transparency.
         </div>
       </div>
 
@@ -297,12 +301,51 @@ export default function AboutPage() {
                 <div>
                   <h5 className="font-medium text-gray-900 mb-3">Experimental Conditions</h5>
                   <ul className="text-gray-700 text-sm space-y-2">
-                    <li>• <strong>LLM Modes:</strong> Direct expression, basis+coefficients, structure+constraints</li>
+                    <li>• <strong>LLM Modes:</strong> Direct expression, basis+coefficients, structure+constraints, conversational dialogue</li>
                     <li>• <strong>Budget Controls:</strong> Max LLM calls, tokens, solver CPU time, restarts</li>
                     <li>• <strong>Data Splits:</strong> Development set for prompt tuning, test set frozen before analysis</li>
                     <li>• <strong>Baseline Methods:</strong> SOS, SDP, quadratic templates with matching budgets</li>
                   </ul>
                 </div>
+              </div>
+            </div>
+
+            {/* Advanced Research Features */}
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200">
+              <h4 className="text-lg font-semibold text-blue-900 mb-4 flex items-center">
+                <BeakerIcon className="w-5 h-5 mr-2" />
+                Advanced Research Capabilities
+              </h4>
+              
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div>
+                  <h5 className="font-medium text-blue-900 mb-3">Conversational Mode</h5>
+                  <p className="text-blue-800 text-sm mb-3">
+                    Engage in iterative mathematical dialogue with Claude before generating certificates. 
+                    Explore theoretical approaches, discuss system properties, and refine understanding through conversation.
+                  </p>
+                  <div className="bg-blue-100 rounded-lg p-3 text-xs">
+                    <strong>Features:</strong> Multi-turn dialogue, automatic summarization, context-aware generation, mathematical reasoning exploration
+                  </div>
+                </div>
+                
+                <div>
+                  <h5 className="font-medium text-blue-900 mb-3">Technical Analysis & Parameter Controls</h5>
+                  <p className="text-blue-800 text-sm mb-3">
+                    Complete transparency into numerical validation with detailed technical metrics, 
+                    violation analysis, and runtime parameter adjustment for experimental research.
+                  </p>
+                  <div className="bg-blue-100 rounded-lg p-3 text-xs">
+                    <strong>Controls:</strong> Sample count (100-10K), sampling methods, tolerance settings, re-run capabilities for sensitivity analysis
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 p-4 bg-white rounded-lg border border-blue-200">
+                <p className="text-blue-800 text-sm">
+                  <strong>Research Applications:</strong> Study LLM mathematical reasoning, parameter sensitivity analysis, 
+                  approach comparison, educational insights, and iterative certificate refinement for publication-quality research.
+                </p>
               </div>
             </div>
 
@@ -488,8 +531,8 @@ export default function AboutPage() {
               <div className="flex items-start space-x-3">
                 <div className="w-2 h-2 bg-primary-600 rounded-full mt-2"></div>
                 <div>
-                  <h4 className="font-medium text-gray-900">LLM Integration</h4>
-                  <p className="text-sm text-gray-600">Direct integration with Claude API for certificate generation</p>
+                  <h4 className="font-medium text-gray-900">Advanced LLM Integration</h4>
+                  <p className="text-sm text-gray-600">Claude 4 integration with both direct generation and conversational modes for iterative mathematical reasoning</p>
                 </div>
               </div>
               <div className="flex items-start space-x-3">
