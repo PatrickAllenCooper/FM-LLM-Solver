@@ -47,8 +47,8 @@ export class LLMService {
 
       const duration_ms = Date.now() - startTime;
       
-      // Handle Claude 4 refusal stop reason
-      if (message.stop_reason === 'refusal') {
+      // Handle Claude 4 refusal stop reason (cast to handle SDK type lag)
+      if ((message.stop_reason as string) === 'refusal') {
         logger.warn('Claude 4 model refused to generate content', {
           systemSpecId: systemSpec.id,
           certificateType,
