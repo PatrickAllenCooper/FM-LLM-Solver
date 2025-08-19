@@ -19,14 +19,14 @@ import { api } from '@/services/api';
 
 const STATUS_COLORS = {
   pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-  verified: 'bg-green-100 text-green-800 border-green-200',
+  accepted: 'bg-green-100 text-green-800 border-green-200',
   failed: 'bg-red-100 text-red-800 border-red-200',
   timeout: 'bg-gray-100 text-gray-800 border-gray-200',
 };
 
 const STATUS_ICONS = {
   pending: ClockIcon,
-  verified: CheckCircleIcon,
+  accepted: CheckCircleIcon,
   failed: XCircleIcon,
   timeout: ClockIcon,
 };
