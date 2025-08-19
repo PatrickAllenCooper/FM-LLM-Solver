@@ -76,9 +76,9 @@ export default function AboutPage() {
                   <div className="bg-white rounded-lg p-3">
                     <p className="font-medium text-blue-900 mb-1">Conditions:</p>
                     <ul className="text-blue-800 space-y-1">
-                      <li>• <strong>Positive definite:</strong> V(x) > 0 for x ≠ 0</li>
+                      <li>• <strong>Positive definite:</strong> V(x) &gt; 0 for x &ne; 0</li>
                       <li>• <strong>Zero at equilibrium:</strong> V(0) = 0</li>
-                      <li>• <strong>Decreasing:</strong> V̇(x) ≤ 0 along trajectories</li>
+                      <li>• <strong>Decreasing:</strong> V&#775;(x) &le; 0 along trajectories</li>
                     </ul>
                   </div>
                   <div className="bg-white rounded-lg p-3">
@@ -105,9 +105,9 @@ export default function AboutPage() {
                   <div className="bg-white rounded-lg p-3">
                     <p className="font-medium text-green-900 mb-1">Conditions:</p>
                     <ul className="text-green-800 space-y-1">
-                      <li>• <strong>Initial safety:</strong> B(x₀) ≤ -m_init</li>
-                      <li>• <strong>Unsafe separation:</strong> B(x_unsafe) ≥ m_unsafe</li>
-                      <li>• <strong>Invariant:</strong> Ḃ(x) ≤ 0 on boundary</li>
+                      <li>• <strong>Initial safety:</strong> B(x₀) &le; -m_init</li>
+                      <li>• <strong>Unsafe separation:</strong> B(x_unsafe) &ge; m_unsafe</li>
+                      <li>• <strong>Invariant:</strong> B&#775;(x) &le; 0 on boundary</li>
                     </ul>
                   </div>
                   <div className="bg-white rounded-lg p-3">
@@ -189,9 +189,9 @@ export default function AboutPage() {
                   <div className="bg-orange-50 rounded-xl p-5">
                     <h5 className="font-medium text-orange-900 mb-3">Gradient Analysis</h5>
                     <ul className="text-orange-800 text-sm space-y-2">
-                      <li>• <strong>Automatic differentiation:</strong> ∇V, ∇B computation</li>
-                      <li>• <strong>Lie derivatives:</strong> V̇ = ∇V·f for continuous systems</li>
-                      <li>• <strong>Discrete differences:</strong> Δ = V∘f - V for discrete systems</li>
+                      <li>• <strong>Automatic differentiation:</strong> &nabla;V, &nabla;B computation</li>
+                      <li>• <strong>Lie derivatives:</strong> V&#775; = &nabla;V&middot;f for continuous systems</li>
+                      <li>• <strong>Discrete differences:</strong> &Delta; = V&compfn;f - V for discrete systems</li>
                     </ul>
                   </div>
                 </div>
@@ -203,16 +203,16 @@ export default function AboutPage() {
                       <div className="bg-white rounded-lg p-3">
                         <p className="font-medium text-orange-900">Lyapunov Margins:</p>
                         <ul className="text-orange-800 mt-1 space-y-1">
-                          <li>• Positivity: V(x) ≥ ε_pos‖x‖^p</li>
-                          <li>• Decrease: V̇(x) ≤ -ε_dec‖x‖^p</li>
+                          <li>• Positivity: V(x) &ge; &epsilon;_pos&Vert;x&Vert;^p</li>
+                          <li>• Decrease: V&#775;(x) &le; -&epsilon;_dec&Vert;x&Vert;^p</li>
                         </ul>
                       </div>
                       <div className="bg-white rounded-lg p-3">
                         <p className="font-medium text-orange-900">Barrier Margins:</p>
                         <ul className="text-orange-800 mt-1 space-y-1">
-                          <li>• Initial: B ≤ -m_init on I₀</li>
-                          <li>• Unsafe: B ≥ m_unsafe on X_u</li>
-                          <li>• Invariant: L_fB ≤ -m_inv on ∂B</li>
+                          <li>• Initial: B &le; -m_init on I₀</li>
+                          <li>• Unsafe: B &ge; m_unsafe on X_u</li>
+                          <li>• Invariant: L_fB &le; -m_inv on &part;B</li>
                         </ul>
                       </div>
                     </div>
@@ -348,9 +348,9 @@ export default function AboutPage() {
                 <div className="bg-white rounded-lg p-4">
                   <h6 className="font-medium text-indigo-900 mb-2">Strength Metrics</h6>
                   <ul className="text-indigo-800 text-xs space-y-1">
-                    <li>• <strong>Lyapunov:</strong> min_x V̇/‖x‖^p</li>
+                    <li>• <strong>Lyapunov:</strong> min_x V&#775;/&Vert;x&Vert;^p</li>
                     <li>• <strong>Barrier:</strong> m_init, m_unsafe, m_inv</li>
-                    <li>• <strong>Region size:</strong> Largest accepted sublevel Ω_c</li>
+                    <li>• <strong>Region size:</strong> Largest accepted sublevel &Omega;_c</li>
                     <li>• <strong>Safety volume:</strong> Monte-Carlo estimates</li>
                   </ul>
                 </div>
