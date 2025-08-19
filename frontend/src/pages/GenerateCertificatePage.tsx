@@ -17,7 +17,7 @@ import { api } from '@/services/api';
 
 // Form validation schema
 const CertificateGenerationSchema = z.object({
-  system_spec_id: z.string().uuid('Please select a system specification'),
+  system_spec_id: z.string().min(1, 'Please select a system specification'),
   certificate_type: z.enum(['lyapunov', 'barrier', 'inductive_invariant']),
   generation_method: z.enum(['llm', 'sos', 'sdp', 'quadratic_template']),
   baseline_comparison: z.boolean().default(false),
