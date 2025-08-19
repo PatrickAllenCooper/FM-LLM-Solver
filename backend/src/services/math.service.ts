@@ -175,7 +175,7 @@ export class MathService {
       };
     } catch (error) {
       logger.error('Failed to check positivity', {
-        expression: expression.substring(0, 100),
+        expression: expression ? expression.substring(0, 100) : 'undefined',
         error: error instanceof Error ? error.message : 'Unknown error',
       });
       throw error;

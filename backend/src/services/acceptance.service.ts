@@ -79,6 +79,15 @@ export class AcceptanceService {
     const expression = candidate.candidate_expression;
     const dynamics = systemSpec.dynamics_json;
 
+    logger.info('Debug: checkLyapunov inputs', {
+      candidateId: candidate.id,
+      candidateKeys: Object.keys(candidate),
+      expressionType: typeof expression,
+      expression,
+      dynamicsType: typeof dynamics,
+      systemSpecKeys: Object.keys(systemSpec),
+    });
+
     try {
       // Use MathService for safe checking
       const domain = this.extractDomain(systemSpec);
