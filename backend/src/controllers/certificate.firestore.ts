@@ -404,7 +404,8 @@ export class CertificateFirestoreController {
           
           // Get full system spec for acceptance checking
           if (systemSpecDoc.exists) {
-            const systemSpec = { id: candidate.system_spec_id, ...systemSpecDoc.data() };
+            const systemSpecData = systemSpecDoc.data();
+            const systemSpec = { id: candidate.system_spec_id, ...systemSpecData } as SystemSpec;
             acceptanceResult = await this.acceptanceService.acceptCandidate(candidate, systemSpec);
           }
         } catch (error) {
