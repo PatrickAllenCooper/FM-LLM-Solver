@@ -64,13 +64,13 @@ export interface Candidate {
   llm_config_json?: any;
   candidate_expression: string;
   candidate_json: any;
-  verification_status: 'pending' | 'verified' | 'failed' | 'timeout';
+  acceptance_status: 'pending' | 'accepted' | 'failed' | 'timeout';
   margin?: number;
   created_by: string;
   created_at: string;
-  verified_at?: string;
+  accepted_at?: string;
   generation_duration_ms?: number;
-  verification_duration_ms?: number;
+  acceptance_duration_ms?: number;
   system_name?: string; // Joined from system_specs
   counterexamples?: Counterexample[];
 }

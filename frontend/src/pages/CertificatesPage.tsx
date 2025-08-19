@@ -20,20 +20,20 @@ import { api } from '@/services/api';
 interface CertificatesFilters {
   certificate_type?: 'lyapunov' | 'barrier' | 'inductive_invariant' | '';
   generation_method?: 'llm' | 'sos' | 'sdp' | 'quadratic_template' | '';
-  verification_status?: 'pending' | 'verified' | 'failed' | 'timeout' | '';
+  acceptance_status?: 'pending' | 'accepted' | 'failed' | 'timeout' | '';
   search?: string;
 }
 
 const STATUS_COLORS = {
   pending: 'bg-yellow-100 text-yellow-800',
-  verified: 'bg-green-100 text-green-800',
+  accepted: 'bg-green-100 text-green-800',
   failed: 'bg-red-100 text-red-800',
   timeout: 'bg-gray-100 text-gray-800',
 };
 
 const STATUS_ICONS = {
   pending: ClockIcon,
-  verified: CheckCircleIcon,
+  accepted: CheckCircleIcon,
   failed: XCircleIcon,
   timeout: ClockIcon,
 };
@@ -168,16 +168,16 @@ export default function CertificatesPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Verification Status
+                  Acceptance Status
                 </label>
                 <select
-                  value={filters.verification_status || ''}
-                  onChange={(e) => handleFilterChange('verification_status', e.target.value)}
+                  value={filters.acceptance_status || ''}
+                  onChange={(e) => handleFilterChange('acceptance_status', e.target.value)}
                   className="input"
                 >
                   <option value="">All Statuses</option>
                   <option value="pending">Pending</option>
-                  <option value="verified">Verified</option>
+                  <option value="accepted">Accepted</option>
                   <option value="failed">Failed</option>
                   <option value="timeout">Timeout</option>
                 </select>
@@ -274,7 +274,7 @@ export default function CertificatesPage() {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {certificatesData?.data.map((certificate) => {
-                    const StatusIcon = STATUS_ICONS[certificate.verification_status];
+                    const StatusIcon = STATUS_ICONS[certificate.acceptance_status];
                     
                     return (
                       <tr key={certificate.id} className="hover:bg-gray-50">
@@ -301,10 +301,10 @@ export default function CertificatesPage() {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={clsx(
                             'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium',
-                            STATUS_COLORS[certificate.verification_status]
+                            STATUS_COLORS[certificate.acceptance_status]
                           )}>
                             <StatusIcon className="w-3 h-3 mr-1" />
-                            {certificate.verification_status}
+                            {certificate.acceptance_status}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">

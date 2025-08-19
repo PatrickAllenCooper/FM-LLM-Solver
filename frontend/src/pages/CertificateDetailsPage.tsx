@@ -69,7 +69,7 @@ export default function CertificateDetailsPage() {
       certificate_type: certificate.certificate_type,
       expression: certificate.candidate_expression,
       generation_method: certificate.generation_method,
-      verification_status: certificate.verification_status,
+      acceptance_status: certificate.acceptance_status,
       margin: certificate.margin,
       system_spec_id: certificate.system_spec_id,
       system_name: certificate.system_name,
@@ -122,7 +122,7 @@ export default function CertificateDetailsPage() {
     );
   }
 
-  const StatusIcon = STATUS_ICONS[certificate.verification_status];
+  const StatusIcon = STATUS_ICONS[certificate.acceptance_status];
 
   return (
     <div className="space-y-8">
@@ -157,10 +157,10 @@ export default function CertificateDetailsPage() {
           
           <span className={clsx(
             'inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border',
-            STATUS_COLORS[certificate.verification_status]
+            STATUS_COLORS[certificate.acceptance_status]
           )}>
             <StatusIcon className="w-4 h-4 mr-2" />
-            {certificate.verification_status}
+            {certificate.acceptance_status}
           </span>
         </div>
       </div>
@@ -191,7 +191,7 @@ export default function CertificateDetailsPage() {
           </div>
 
           {/* Verification Results */}
-          {certificate.verification_status !== 'pending' && (
+          {certificate.acceptance_status !== 'pending' && (
             <div className="card">
               <div className="card-body">
                 <h2 className="text-lg font-medium text-gray-900 mb-4">Verification Results</h2>
@@ -202,10 +202,10 @@ export default function CertificateDetailsPage() {
                     <dd className="mt-1">
                       <span className={clsx(
                         'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium',
-                        STATUS_COLORS[certificate.verification_status].replace('border-', 'bg-').replace('bg-bg-', 'bg-')
+                        STATUS_COLORS[certificate.acceptance_status].replace('border-', 'bg-').replace('bg-bg-', 'bg-')
                       )}>
                         <StatusIcon className="w-3 h-3 mr-1" />
-                        {certificate.verification_status}
+                        {certificate.acceptance_status}
                       </span>
                     </dd>
                   </div>
@@ -219,20 +219,20 @@ export default function CertificateDetailsPage() {
                     </div>
                   )}
 
-                  {certificate.verification_duration_ms && (
+                  {certificate.acceptance_duration_ms && (
                     <div>
                       <dt className="text-sm font-medium text-gray-500">Verification Time</dt>
                       <dd className="mt-1 text-sm text-gray-900">
-                        {certificate.verification_duration_ms}ms
+                        {certificate.acceptance_duration_ms}ms
                       </dd>
                     </div>
                   )}
 
-                  {certificate.verified_at && (
+                  {certificate.accepted_at && (
                     <div>
-                      <dt className="text-sm font-medium text-gray-500">Verified At</dt>
+                      <dt className="text-sm font-medium text-gray-500">Accepted At</dt>
                       <dd className="mt-1 text-sm text-gray-900">
-                        {format(new Date(certificate.verified_at), 'PPp')}
+                        {format(new Date(certificate.accepted_at), 'PPp')}
                       </dd>
                     </div>
                   )}

@@ -87,7 +87,7 @@ export class LLMService {
   ): string {
     const systemDescription = this.formatSystemDescription(systemSpec);
     
-    const basePrompt = `You are an expert in formal verification and stability analysis. Your task is to propose a ${certificateType} function for the following dynamical system.
+    const basePrompt = `You are an expert in formal methods and stability analysis. Your task is to propose a ${certificateType} function for the following dynamical system.
 
 System Description:
 ${systemDescription}

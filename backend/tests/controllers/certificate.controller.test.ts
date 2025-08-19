@@ -1,19 +1,19 @@
 import { Request, Response } from 'express';
 import { CertificateController } from '../../src/controllers/certificate.controller';
 import { LLMService } from '../../src/services/llm.service';
-import { VerificationService } from '../../src/services/verification.service';
+import { AcceptanceService } from '../../src/services/acceptance.service';
 import { db } from '../../src/utils/database';
 import { User, SystemSpec, Candidate } from '../../src/types/database';
 
 // Mock services and database
 jest.mock('../../src/services/llm.service');
-jest.mock('../../src/services/verification.service');
+jest.mock('../../src/services/acceptance.service');
 jest.mock('../../src/utils/database');
 
 describe('CertificateController', () => {
   let certificateController: CertificateController;
   let mockLLMService: jest.Mocked<LLMService>;
-  let mockVerificationService: jest.Mocked<VerificationService>;
+  let mockAcceptanceService: jest.Mocked<AcceptanceService>;
   let mockDb: any;
   let mockRequest: Partial<Request>;
   let mockResponse: Partial<Response>;
@@ -26,8 +26,8 @@ describe('CertificateController', () => {
       testConnection: jest.fn(),
     } as any;
 
-    mockVerificationService = {
-      verifyCertificate: jest.fn(),
+    mockAcceptanceService = {
+      acceptCandidate: jest.fn(),
       generateBaseline: jest.fn(),
     } as any;
 
@@ -44,7 +44,7 @@ describe('CertificateController', () => {
     };
 
     (LLMService as jest.MockedClass<typeof LLMService>).mockImplementation(() => mockLLMService);
-    (VerificationService as jest.MockedClass<typeof VerificationService>).mockImplementation(() => mockVerificationService);
+    (AcceptanceService as jest.MockedClass<typeof AcceptanceService>).mockImplementation(() => mockAcceptanceService);
     (db as jest.MockedFunction<typeof db>).mockImplementation((table: string) => mockDb);
     
     certificateController = new CertificateController();
@@ -189,11 +189,11 @@ describe('CertificateController', () => {
         duration_ms: 1500,
       };
 
-      const mockVerificationResult = {
-        verified: true,
-        verification_method: 'mathematical' as const,
+      const mockAcceptanceResult = {
+        accepted: true,
+        acceptance_method: 'mathematical' as const,
         margin: 0.5,
-        solver_output: 'Verification successful',
+        solver_output: 'Acceptance check successful',
         duration_ms: 500,
       };
 
@@ -210,7 +210,7 @@ describe('CertificateController', () => {
       mockDb.first.mockResolvedValue(mockSystemSpec);
       mockDb.returning.mockResolvedValue([mockCandidate]);
       mockLLMService.generateCertificate.mockResolvedValue(mockLLMResponse);
-      mockVerificationService.verifyCertificate.mockResolvedValue(mockVerificationResult);
+      mockAcceptanceService.acceptCandidate.mockResolvedValue(mockAcceptanceResult);
 
       await certificateController.generateCertificate(mockRequest as Request, mockResponse as Response);
 
@@ -219,7 +219,7 @@ describe('CertificateController', () => {
         'lyapunov',
         generateData.llm_config
       );
-      expect(mockVerificationService.verifyCertificate).toHaveBeenCalledWith(
+      expect(mockAcceptanceService.acceptCandidate).toHaveBeenCalledWith(
         mockCandidate,
         mockSystemSpec
       );
@@ -228,9 +228,9 @@ describe('CertificateController', () => {
         success: true,
         data: {
           candidate: mockCandidate,
-          verification: mockVerificationResult,
+          acceptance: mockAcceptanceResult,
           generation_time_ms: 1500,
-          verification_time_ms: 500,
+          acceptance_time_ms: 500,
         },
       });
     });

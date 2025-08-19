@@ -12,19 +12,19 @@ export async function up(knex: Knex): Promise<void> {
     table.jsonb('llm_config_json').nullable();
     table.text('candidate_expression').notNullable();
     table.jsonb('candidate_json').notNullable();
-    table.enum('verification_status', ['pending', 'verified', 'failed', 'timeout']).notNullable().defaultTo('pending');
+    table.enum('acceptance_status', ['pending', 'accepted', 'failed', 'timeout']).notNullable().defaultTo('pending');
     table.decimal('margin', 15, 8).nullable();
     table.uuid('created_by').notNullable().references('id').inTable('users').onDelete('CASCADE');
     table.timestamps(true, true);
-    table.timestamp('verified_at').nullable();
+    table.timestamp('accepted_at').nullable();
     table.integer('generation_duration_ms').nullable();
-    table.integer('verification_duration_ms').nullable();
+    table.integer('acceptance_duration_ms').nullable();
     
     // Indexes
     table.index(['system_spec_id']);
     table.index(['certificate_type']);
     table.index(['generation_method']);
-    table.index(['verification_status']);
+    table.index(['acceptance_status']);
     table.index(['created_by']);
     table.index(['created_at']);
     table.index(['llm_provider', 'llm_model']);

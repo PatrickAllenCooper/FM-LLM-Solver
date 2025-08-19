@@ -38,14 +38,14 @@ export interface Candidate {
   llm_config_json?: Record<string, any>;
   candidate_expression: string; // Mathematical expression
   candidate_json: Record<string, any>; // Raw candidate data
-  verification_status: 'pending' | 'verified' | 'failed' | 'timeout';
+  acceptance_status: 'pending' | 'accepted' | 'failed' | 'timeout';
   margin?: number;
   created_by: string;
   created_at: Date;
   updated_at: Date;
-  verified_at?: Date;
+  accepted_at?: Date;
   generation_duration_ms?: number;
-  verification_duration_ms?: number;
+  acceptance_duration_ms?: number;
 }
 
 export interface Counterexample {
@@ -92,7 +92,7 @@ export type CreateSystemSpec = Omit<SystemSpec, 'id' | 'created_at' | 'updated_a
 export type UpdateSystemSpec = Partial<Pick<SystemSpec, 'name' | 'description'>>;
 
 export type CreateCandidate = Omit<Candidate, 'id' | 'created_at' | 'updated_at'>;
-export type UpdateCandidate = Partial<Pick<Candidate, 'verification_status' | 'margin' | 'verified_at' | 'generation_duration_ms' | 'verification_duration_ms'>>;
+export type UpdateCandidate = Partial<Pick<Candidate, 'acceptance_status' | 'margin' | 'accepted_at' | 'generation_duration_ms' | 'acceptance_duration_ms'>>;
 
 export type CreateCounterexample = Omit<Counterexample, 'id' | 'created_at'>;
 export type CreateAuditEvent = Omit<AuditEvent, 'id' | 'at'>;

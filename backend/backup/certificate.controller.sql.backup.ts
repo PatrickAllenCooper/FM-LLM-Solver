@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { z } from 'zod';
 import { db } from '../utils/database';
 import { LLMService } from '../services/llm.service';
-import { VerificationService } from '../services/verification.service';
+import { AcceptanceService } from '../services/acceptance.service';
 import { 
   SystemSpecRequestSchema, 
   CertificateGenerationRequestSchema,
@@ -15,7 +15,7 @@ import crypto from 'crypto';
 
 export class CertificateController {
   private llmService: LLMService;
-  private verificationService: VerificationService;
+  private acceptanceService: AcceptanceService;
 
   constructor() {
     const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
@@ -24,7 +24,7 @@ export class CertificateController {
     }
     
     this.llmService = new LLMService(anthropicApiKey);
-    this.verificationService = new VerificationService();
+    this.acceptanceService = new AcceptanceService();
   }
 
   // System Specifications
@@ -207,8 +207,8 @@ export class CertificateController {
         candidate = insertedCandidate;
       }
 
-      // Start verification asynchronously
-      this.verifyCandidate(candidate.id, systemSpec);
+      // Start acceptance check asynchronously
+      this.checkCandidateAcceptance(candidate.id, systemSpec);
 
       // Log audit event
       await this.logAuditEvent(req.user.id, 'generate_certificate', 'candidate', candidate.id, req);
@@ -337,60 +337,60 @@ export class CertificateController {
     }
   };
 
-  // Verification
-  private async verifyCandidate(candidateId: string, systemSpec: SystemSpec): Promise<void> {
+  // Acceptance check
+  private async checkCandidateAcceptance(candidateId: string, systemSpec: SystemSpec): Promise<void> {
     try {
       const candidate = await db('candidates')
         .where('id', candidateId)
         .first();
 
       if (!candidate) {
-        logger.error('Candidate not found for verification', { candidateId });
+        logger.error('Candidate not found for acceptance check', { candidateId });
         return;
       }
 
-      logger.info('Starting verification', { candidateId });
+      logger.info('Starting acceptance check', { candidateId });
 
-      const verificationResult = await this.verificationService.verifyCertificate(
+      const acceptanceResult = await this.acceptanceService.acceptCandidate(
         candidate,
         systemSpec
       );
 
-      // Update candidate with verification results
+      // Update candidate with acceptance results
       const updateData: any = {
-        verification_status: verificationResult.verified ? 'verified' : 'failed',
-        verified_at: new Date(),
-        verification_duration_ms: verificationResult.duration_ms,
+        acceptance_status: acceptanceResult.accepted ? 'accepted' : 'failed',
+        accepted_at: new Date(),
+        acceptance_duration_ms: acceptanceResult.duration_ms,
       };
 
-      if (verificationResult.margin !== undefined) {
-        updateData.margin = verificationResult.margin;
+      if (acceptanceResult.margin !== undefined) {
+        updateData.margin = acceptanceResult.margin;
       }
 
       await db('candidates')
         .where('id', candidateId)
         .update(updateData);
 
-      // Create counterexample if verification failed
-      if (!verificationResult.verified && verificationResult.counterexample) {
+      // Create counterexample if acceptance check failed
+      if (!acceptanceResult.accepted && acceptanceResult.counterexample) {
         await db('counterexamples').insert({
           candidate_id: candidateId,
           x_json: verificationResult.counterexample.state,
-          context: `Verification failed: ${verificationResult.counterexample.violation_type}`,
+          context: `Acceptance check failed: ${acceptanceResult.counterexample.violation_type}`,
           violation_metrics_json: {
-            type: verificationResult.counterexample.violation_type,
-            magnitude: verificationResult.counterexample.violation_magnitude,
+            type: acceptanceResult.counterexample.violation_type,
+            magnitude: acceptanceResult.counterexample.violation_magnitude,
           },
         });
       }
 
-      logger.info('Verification completed', {
+      logger.info('Acceptance check completed', {
         candidateId,
-        verified: verificationResult.verified,
-        duration_ms: verificationResult.duration_ms,
+        accepted: acceptanceResult.accepted,
+        duration_ms: acceptanceResult.duration_ms,
       });
     } catch (error) {
-      logger.error('Verification failed', {
+      logger.error('Acceptance check failed', {
         candidateId,
         error: error instanceof Error ? error.message : 'Unknown error',
       });

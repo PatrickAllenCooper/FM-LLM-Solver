@@ -27,8 +27,8 @@ export default function DashboardPage() {
   // Calculate statistics
   const totalSpecs = systemSpecs?.pagination.total || 0;
   const totalCandidates = candidates?.pagination.total || 0;
-  const verifiedCandidates = candidates?.data.filter(c => c.verification_status === 'verified').length || 0;
-  const failedCandidates = candidates?.data.filter(c => c.verification_status === 'failed').length || 0;
+  const acceptedCandidates = candidates?.data.filter(c => c.acceptance_status === 'accepted').length || 0;
+  const failedCandidates = candidates?.data.filter(c => c.acceptance_status === 'failed').length || 0;
 
 
   const stats = [
@@ -47,8 +47,8 @@ export default function DashboardPage() {
       bgColor: 'bg-purple-100',
     },
     {
-      name: 'Verified',
-      value: verifiedCandidates,
+      name: 'Accepted',
+      value: acceptedCandidates,
       icon: CheckCircleIcon,
       color: 'text-green-600',
       bgColor: 'bg-green-100',
@@ -241,16 +241,16 @@ export default function DashboardPage() {
                     <div className="flex items-center space-x-2">
                       <span
                         className={`status-badge ${
-                          candidate.verification_status === 'verified'
-                            ? 'status-verified'
-                            : candidate.verification_status === 'failed'
+                          candidate.acceptance_status === 'accepted'
+                            ? 'status-accepted'
+                            : candidate.acceptance_status === 'failed'
                             ? 'status-failed'
-                            : candidate.verification_status === 'pending'
+                            : candidate.acceptance_status === 'pending'
                             ? 'status-pending'
                             : 'status-timeout'
                         }`}
                       >
-                        {candidate.verification_status}
+                        {candidate.acceptance_status}
                       </span>
                     </div>
                   </li>

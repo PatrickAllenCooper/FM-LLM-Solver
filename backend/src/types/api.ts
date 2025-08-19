@@ -99,16 +99,16 @@ export const LLMCertificateResponseSchema = z.object({
 
 export type LLMCertificateResponse = z.infer<typeof LLMCertificateResponseSchema>;
 
-// Verification result
-export interface VerificationResult {
-  verified: boolean;
+// Acceptance result
+export interface AcceptanceResult {
+  accepted: boolean;
   margin?: number;
   counterexample?: {
     state: Record<string, number>;
     violation_type: string;
     violation_magnitude: number;
   };
-  verification_method: 'symbolic' | 'numerical' | 'smt' | 'mathematical';
+  acceptance_method: 'symbolic' | 'numerical' | 'smt' | 'mathematical';
   duration_ms: number;
   solver_output?: string;
 }
@@ -124,7 +124,7 @@ export const ExperimentConfigSchema = z.object({
     max_total_attempts: z.number().min(1).default(10),
     max_time_minutes: z.number().min(1).default(60),
   }),
-  verification_config: z.object({
+  acceptance_config: z.object({
     timeout_seconds: z.number().min(1).default(30),
     numerical_precision: z.number().default(1e-6),
   }),

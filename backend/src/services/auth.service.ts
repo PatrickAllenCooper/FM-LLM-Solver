@@ -149,7 +149,7 @@ export class AuthService {
 
       return { id: userDoc.id, ...userDoc.data() } as User;
     } catch (error) {
-      logger.debug('Token verification failed', {
+      logger.debug('Token validation failed', {
         error: error instanceof Error ? error.message : 'Unknown error',
       });
       return null;

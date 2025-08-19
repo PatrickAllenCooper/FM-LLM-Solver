@@ -1,10 +1,10 @@
 import { SystemSpec, Candidate } from '../types/database';
-import { VerificationResult } from '../types/api';
+import { AcceptanceResult } from '../types/api';
 import { logger } from '../utils/logger';
 import { MathService } from './math.service';
 import { BaselineService } from './baseline.service';
 
-export class VerificationService {
+export class AcceptanceService {
   private mathService: MathService;
   private baselineService: BaselineService;
 
@@ -12,43 +12,43 @@ export class VerificationService {
     this.mathService = new MathService();
     this.baselineService = new BaselineService();
   }
-  async verifyCertificate(
+  async acceptCandidate(
     candidate: Candidate,
     systemSpec: SystemSpec
-  ): Promise<VerificationResult> {
+  ): Promise<AcceptanceResult> {
     const startTime = Date.now();
     
     try {
-      logger.info('Starting certificate verification', {
+      logger.info('Starting candidate acceptance check', {
         candidateId: candidate.id,
         certificateType: candidate.certificate_type,
         systemSpecId: systemSpec.id,
       });
 
-      let partialResult: Omit<VerificationResult, 'duration_ms'>;
+      let partialResult: Omit<AcceptanceResult, 'duration_ms'>;
 
       switch (candidate.certificate_type) {
         case 'lyapunov':
-          partialResult = await this.verifyLyapunov(candidate, systemSpec);
+          partialResult = await this.checkLyapunov(candidate, systemSpec);
           break;
         case 'barrier':
-          partialResult = await this.verifyBarrier(candidate, systemSpec);
+          partialResult = await this.checkBarrier(candidate, systemSpec);
           break;
         case 'inductive_invariant':
-          partialResult = await this.verifyInductiveInvariant(candidate, systemSpec);
+          partialResult = await this.checkInductiveInvariant(candidate, systemSpec);
           break;
         default:
           throw new Error(`Unsupported certificate type: ${candidate.certificate_type}`);
       }
 
-      const result: VerificationResult = {
+      const result: AcceptanceResult = {
         ...partialResult,
         duration_ms: Date.now() - startTime,
       };
 
-      logger.info('Certificate verification completed', {
+      logger.info('Candidate acceptance check completed', {
         candidateId: candidate.id,
-        verified: result.verified,
+        accepted: result.accepted,
         duration_ms: result.duration_ms,
         margin: result.margin,
       });
@@ -57,30 +57,30 @@ export class VerificationService {
     } catch (error) {
       const duration_ms = Date.now() - startTime;
       
-      logger.error('Certificate verification failed', {
+      logger.error('Candidate acceptance check failed', {
         candidateId: candidate.id,
         error: error instanceof Error ? error.message : 'Unknown error',
         duration_ms,
       });
 
       return {
-        verified: false,
-        verification_method: 'symbolic',
+        accepted: false,
+        acceptance_method: 'symbolic',
         duration_ms,
-        solver_output: error instanceof Error ? error.message : 'Unknown verification error',
+        solver_output: error instanceof Error ? error.message : 'Unknown acceptance error',
       };
     }
   }
 
-  private async verifyLyapunov(
+  private async checkLyapunov(
     candidate: Candidate,
     systemSpec: SystemSpec
-  ): Promise<Omit<VerificationResult, 'duration_ms'>> {
+  ): Promise<Omit<AcceptanceResult, 'duration_ms'>> {
     const expression = candidate.candidate_expression;
     const dynamics = systemSpec.dynamics_json;
 
     try {
-      // Use MathService for safe verification
+      // Use MathService for safe checking
       const domain = this.extractDomain(systemSpec);
       const dynamicsMap = this.extractDynamicsMap(dynamics);
       
@@ -92,42 +92,42 @@ export class VerificationService {
 
       if (verification.positiveDefinite && verification.decreasing) {
         return {
-          verified: true,
+          accepted: true,
           margin: verification.margin,
-          verification_method: 'mathematical',
-          solver_output: `Lyapunov conditions verified. Proves stability. Margin: ${verification.margin.toFixed(6)}`,
+          acceptance_method: 'mathematical',
+          solver_output: `Lyapunov conditions satisfied. Proves stability. Margin: ${verification.margin.toFixed(6)}`,
         };
       } else {
         const firstViolation = verification.violations[0];
         return {
-          verified: false,
+          accepted: false,
           counterexample: firstViolation ? {
             state: firstViolation.point,
             violation_type: firstViolation.condition,
             violation_magnitude: Math.abs(firstViolation.value),
           } : undefined,
-          verification_method: 'mathematical',
+          acceptance_method: 'mathematical',
           solver_output: `Failed Lyapunov conditions. Violations: ${verification.violations.length}`,
         };
       }
     } catch (error) {
-      logger.error('Lyapunov verification failed', {
+      logger.error('Lyapunov acceptance check failed', {
         candidateId: candidate.id,
         error: error instanceof Error ? error.message : 'Unknown error',
       });
 
       return {
-        verified: false,
-        verification_method: 'mathematical',
-        solver_output: `Verification error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        accepted: false,
+        acceptance_method: 'mathematical',
+        solver_output: `Acceptance error: ${error instanceof Error ? error.message : 'Unknown error'}`,
       };
     }
   }
 
-  private async verifyBarrier(
+  private async checkBarrier(
     candidate: Candidate,
     systemSpec: SystemSpec
-  ): Promise<Omit<VerificationResult, 'duration_ms'>> {
+  ): Promise<Omit<AcceptanceResult, 'duration_ms'>> {
     const expression = candidate.candidate_expression;
     const dynamics = systemSpec.dynamics_json;
 
@@ -138,9 +138,9 @@ export class VerificationService {
 
       if (!safeSet || !unsafeSet) {
         return {
-          verified: false,
-          verification_method: 'mathematical',
-          solver_output: 'Safe and unsafe sets must be defined for barrier verification',
+          accepted: false,
+          acceptance_method: 'mathematical',
+          solver_output: 'Safe and unsafe sets must be defined for barrier acceptance check',
         };
       }
 
@@ -153,42 +153,42 @@ export class VerificationService {
 
       if (verification.separatesRegions && verification.nonIncreasing) {
         return {
-          verified: true,
+          accepted: true,
           margin: verification.margin,
-          verification_method: 'mathematical',
-          solver_output: `Barrier conditions verified. Margin: ${verification.margin.toFixed(6)}`,
+          acceptance_method: 'mathematical',
+          solver_output: `Barrier conditions satisfied. Margin: ${verification.margin.toFixed(6)}`,
         };
       } else {
         const firstViolation = verification.violations[0];
         return {
-          verified: false,
+          accepted: false,
           counterexample: firstViolation ? {
             state: firstViolation.point,
             violation_type: firstViolation.condition,
             violation_magnitude: Math.abs(firstViolation.value),
           } : undefined,
-          verification_method: 'mathematical',
+          acceptance_method: 'mathematical',
           solver_output: `Failed barrier conditions. Violations: ${verification.violations.length}`,
         };
       }
     } catch (error) {
-      logger.error('Barrier verification failed', {
+      logger.error('Barrier acceptance check failed', {
         candidateId: candidate.id,
         error: error instanceof Error ? error.message : 'Unknown error',
       });
 
       return {
-        verified: false,
-        verification_method: 'mathematical',
-        solver_output: `Verification error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        accepted: false,
+        acceptance_method: 'mathematical',
+        solver_output: `Acceptance error: ${error instanceof Error ? error.message : 'Unknown error'}`,
       };
     }
   }
 
-  private async verifyInductiveInvariant(
+  private async checkInductiveInvariant(
     candidate: Candidate,
     systemSpec: SystemSpec
-  ): Promise<Omit<VerificationResult, 'duration_ms'>> {
+  ): Promise<Omit<AcceptanceResult, 'duration_ms'>> {
     const expression = candidate.candidate_expression;
     const dynamics = systemSpec.dynamics_json;
 
@@ -203,9 +203,9 @@ export class VerificationService {
 
       if (!initialSet) {
         return {
-          verified: false,
-          verification_method: 'mathematical',
-          solver_output: 'Initial set must be defined for inductive invariant verification',
+          accepted: false,
+          acceptance_method: 'mathematical',
+          solver_output: 'Initial set must be defined for inductive invariant acceptance check',
         };
       }
 
@@ -244,28 +244,28 @@ export class VerificationService {
         }
       }
 
-      const verified = initialViolations === 0 && safetyViolations === 0;
+      const accepted = initialViolations === 0 && safetyViolations === 0;
       
       return {
-        verified,
+        accepted,
         counterexample: firstInitialViolation ? {
           state: firstInitialViolation,
           violation_type: 'initial_condition',
           violation_magnitude: 1.0,
         } : undefined,
-        verification_method: 'mathematical',
+        acceptance_method: 'mathematical',
         solver_output: `Inductive invariant check: Initial violations: ${initialViolations}, Safety violations: ${safetyViolations}`,
       };
     } catch (error) {
-      logger.error('Inductive invariant verification failed', {
+      logger.error('Inductive invariant acceptance check failed', {
         candidateId: candidate.id,
         error: error instanceof Error ? error.message : 'Unknown error',
       });
 
       return {
-        verified: false,
-        verification_method: 'mathematical',
-        solver_output: `Verification error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        accepted: false,
+        acceptance_method: 'mathematical',
+        solver_output: `Acceptance error: ${error instanceof Error ? error.message : 'Unknown error'}`,
       };
     }
   }

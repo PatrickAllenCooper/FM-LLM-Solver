@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { z } from 'zod';
 import { db } from '../utils/database';
 import { LLMService } from '../services/llm.service';
-import { VerificationService } from '../services/verification.service';
+import { AcceptanceService } from '../services/acceptance.service';
 import { 
   SystemSpecRequestSchema, 
   CertificateGenerationRequestSchema,
@@ -15,7 +15,7 @@ import crypto from 'crypto';
 
 export class CertificateFirestoreController {
   private llmService: LLMService;
-  private verificationService: VerificationService;
+  private acceptanceService: AcceptanceService;
 
   constructor() {
     const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
@@ -24,7 +24,7 @@ export class CertificateFirestoreController {
     }
     
     this.llmService = new LLMService(anthropicApiKey);
-    this.verificationService = new VerificationService();
+    this.acceptanceService = new AcceptanceService();
   }
 
   // Helper method to filter out undefined values for Firestore
@@ -243,7 +243,7 @@ export class CertificateFirestoreController {
         certificate_type: validatedData.certificate_type,
         generation_method: validatedData.generation_method,
         llm_config: validatedData.llm_config,
-        verification_status: 'pending' as const,
+        acceptance_status: 'pending' as const,
         created_by: req.user.id,
         created_at: new Date(),
         updated_at: new Date(),
@@ -279,9 +279,9 @@ export class CertificateFirestoreController {
         insertedCandidate = { id: docRef.id, ...candidateWithManual };
       }
 
-      // Start verification process (in background)
-      this.verifyCandidate(insertedCandidate.id).catch(error => {
-        logger.error('Background verification failed', {
+      // Start acceptance check process (in background)
+      this.checkCandidateAcceptance(insertedCandidate.id).catch(error => {
+        logger.error('Background acceptance check failed', {
           candidateId: insertedCandidate.id,
           error: error instanceof Error ? error.message : 'Unknown error',
         });
@@ -309,7 +309,7 @@ export class CertificateFirestoreController {
       const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
       const systemSpecId = req.query.system_spec_id as string;
       const certificateType = req.query.certificate_type as string;
-      const verificationStatus = req.query.verification_status as string;
+      const acceptanceStatus = req.query.acceptance_status as string;
 
       let query = db.collection('candidates').orderBy('created_at', 'desc');
 
@@ -320,8 +320,8 @@ export class CertificateFirestoreController {
       if (certificateType) {
         query = query.where('certificate_type', '==', certificateType);
       }
-      if (verificationStatus) {
-        query = query.where('verification_status', '==', verificationStatus);
+      if (acceptanceStatus) {
+        query = query.where('acceptance_status', '==', acceptanceStatus);
       }
 
       // Get total count (simplified)
@@ -338,7 +338,7 @@ export class CertificateFirestoreController {
           // Convert Firestore timestamps to ISO strings
           created_at: data.created_at?.toDate?.()?.toISOString() || data.created_at,
           updated_at: data.updated_at?.toDate?.()?.toISOString() || data.updated_at,
-          verified_at: data.verified_at?.toDate?.()?.toISOString() || data.verified_at,
+          accepted_at: data.accepted_at?.toDate?.()?.toISOString() || data.accepted_at,
         };
       }) as any;
 
@@ -405,13 +405,13 @@ export class CertificateFirestoreController {
     }
   };
 
-  // Background verification
-  private async verifyCandidate(candidateId: string): Promise<void> {
+  // Background acceptance check
+  private async checkCandidateAcceptance(candidateId: string): Promise<void> {
     try {
       const candidateDoc = await db.collection('candidates').doc(candidateId).get();
       
       if (!candidateDoc.exists) {
-        logger.error('Candidate not found for verification', { candidateId });
+        logger.error('Candidate not found for acceptance check', { candidateId });
         return;
       }
 
@@ -421,34 +421,34 @@ export class CertificateFirestoreController {
       // Get system spec
       const systemSpecDoc = await db.collection('system_specs').doc(candidate.system_spec_id).get();
       if (!systemSpecDoc.exists) {
-        logger.error('System spec not found for verification', { candidateId });
+        logger.error('System spec not found for acceptance check', { candidateId });
         return;
       }
 
       const systemSpec = systemSpecDoc.data() as any;
 
-      // Perform verification - simplified for now
-      const verificationResult = {
-        verified: true,
+      // Perform acceptance check - simplified for now
+      const acceptanceResult = {
+        accepted: true,
         margin: 0.001,
-        verification_method: 'simplified',
-        solver_output: 'Firestore migration - verification simplified'
+        acceptance_method: 'simplified',
+        solver_output: 'Firestore migration - acceptance check simplified'
       };
 
       // Update candidate with results
       await candidateDoc.ref.update({
-        verification_status: verificationResult.verified ? 'verified' : 'failed',
-        verification_result: verificationResult,
-        verified_at: new Date(),
+        acceptance_status: acceptanceResult.accepted ? 'accepted' : 'failed',
+        acceptance_result: acceptanceResult,
+        accepted_at: new Date(),
         updated_at: new Date(),
       });
 
-      logger.info('Candidate verification completed', {
+      logger.info('Candidate acceptance check completed', {
         candidateId,
-        verified: verificationResult.verified,
+        accepted: acceptanceResult.accepted,
       });
     } catch (error) {
-      logger.error('Verification failed', {
+      logger.error('Acceptance check failed', {
         candidateId,
         error: error instanceof Error ? error.message : 'Unknown error',
       });
@@ -456,11 +456,11 @@ export class CertificateFirestoreController {
       // Update candidate status to failed
       try {
         await db.collection('candidates').doc(candidateId).update({
-          verification_status: 'failed',
+          acceptance_status: 'failed',
           updated_at: new Date(),
         });
       } catch (updateError) {
-        logger.error('Failed to update candidate status after verification error', {
+        logger.error('Failed to update candidate status after acceptance check error', {
           candidateId,
           updateError: updateError instanceof Error ? updateError.message : 'Unknown error',
         });

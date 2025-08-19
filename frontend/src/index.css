@@ -67,7 +67,7 @@
     @apply status-badge bg-warning-100 text-warning-800 border border-warning-200;
   }
   
-  .status-verified {
+  .status-accepted {
     @apply status-badge bg-success-100 text-success-800 border border-success-200;
   }
   

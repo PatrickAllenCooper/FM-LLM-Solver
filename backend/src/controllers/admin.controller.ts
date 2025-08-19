@@ -196,7 +196,7 @@ export class AdminController {
   };
 
   /**
-   * Check if an email is authorized (for admin verification)
+   * Check if an email is authorized (for admin validation)
    */
   checkEmailAuthorization = async (req: Request, res: Response): Promise<void> => {
     try {
