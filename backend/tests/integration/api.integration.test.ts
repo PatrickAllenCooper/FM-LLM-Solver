@@ -349,7 +349,7 @@ describe('API Integration Tests', () => {
             system_spec_id: 'system-123',
             certificate_type: 'lyapunov',
             llm_config: {
-              model: 'claude-3-sonnet-20240229',
+              model: 'claude-sonnet-4-20250514',
               mode: 'direct_expression',
               temperature: 0.0,
               max_tokens: 1000,
@@ -375,7 +375,7 @@ describe('API Integration Tests', () => {
             system_spec_id: 'non-existent',
             certificate_type: 'lyapunov',
             llm_config: {
-              model: 'claude-3-sonnet-20240229',
+              model: 'claude-sonnet-4-20250514',
               mode: 'direct_expression',
               temperature: 0.0,
               max_tokens: 1000,

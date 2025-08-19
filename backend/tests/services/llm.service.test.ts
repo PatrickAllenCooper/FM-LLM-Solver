@@ -59,7 +59,7 @@ describe('LLMService', () => {
     // Create mock LLM configuration
     mockConfig = {
       provider: 'anthropic',
-      model: 'claude-3-sonnet-20240229',
+      model: 'claude-sonnet-4-20250514',
       mode: 'direct_expression',
       temperature: 0.0,
       max_tokens: 1000,
@@ -108,7 +108,7 @@ describe('LLMService', () => {
       expect(result.raw_response).toBeTruthy();
 
       expect(mockCreate).toHaveBeenCalledWith({
-        model: 'claude-3-sonnet-20240229',
+        model: 'claude-sonnet-4-20250514',
         max_tokens: 1000,
         temperature: 0.0,
         messages: [{
@@ -294,7 +294,7 @@ describe('LLMService', () => {
 
       expect(result).toBe(true);
       expect(mockCreate).toHaveBeenCalledWith({
-        model: 'claude-3-haiku-20240307',
+        model: 'claude-sonnet-4-20250514',
         max_tokens: 10,
         messages: [{
           role: 'user',

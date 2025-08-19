@@ -46,6 +46,17 @@ export class LLMService {
       });
 
       const duration_ms = Date.now() - startTime;
+      
+      // Handle Claude 4 refusal stop reason
+      if (message.stop_reason === 'refusal') {
+        logger.warn('Claude 4 model refused to generate content', {
+          systemSpecId: systemSpec.id,
+          certificateType,
+          stop_reason: message.stop_reason,
+        });
+        throw new Error('Model declined to generate content for safety reasons. Please try adjusting your system specification or certificate type.');
+      }
+      
       const rawResponse = message.content[0]?.type === 'text' ? message.content[0].text : '';
 
       // Parse the JSON response
@@ -239,7 +250,7 @@ Do not include any text outside of the JSON response. The expression should use 
   async testConnection(): Promise<boolean> {
     try {
       const message = await this.anthropic.messages.create({
-        model: 'claude-3-haiku-20240307',
+        model: 'claude-sonnet-4-20250514',
         max_tokens: 10,
         messages: [
           {

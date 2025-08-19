@@ -696,7 +696,7 @@ export default function AboutPage() {
                 <div className="bg-white rounded-lg p-4">
                   <h5 className="font-medium text-indigo-900 mb-2">Model Interface</h5>
                   <ul className="text-indigo-800 text-sm space-y-1">
-                    <li>• <strong>Anthropic Claude</strong> API integration</li>
+                    <li>• <strong>Anthropic Claude 4</strong> API integration</li>
                     <li>• <strong>Structured prompting</strong> with system descriptions</li>
                     <li>• <strong>JSON schema validation</strong> for responses</li>
                     <li>• <strong>Temperature control</strong> and reproducibility</li>

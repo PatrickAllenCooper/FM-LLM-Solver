@@ -352,9 +352,9 @@ Ensure your **A records** (@, www) point at the IP printed by fmgen-ipv4. If you
 - GET /v1/candidates/{id} - expression, LaTeX, metrics, artifacts.
 - **No endpoint** accessible without valid JWT. Admin-only: user lifecycle.
 
-## 10) LLM usage (public models for MVP)
+## 10) LLM usage (Claude 4 generation models)
 
-- Provider: Anthropic Claude (public API).
+- Provider: Anthropic Claude 4 (public API).
 - **Key handling:** load from Secret Manager at runtime; **never** embed or log.
 - **Budget controls per attempt:** temperature ∈{0.0, 0.2}, max tokens, max attempts.
 - **Prompt scaffolding:** strict JSON output; terminate on non-JSON.
@@ -461,7 +461,7 @@ Log with every attempt:
 - ✅ Full candidate lifecycle: generation → acceptance checking → status display
 - ✅ Email authorization system and role-based access control
 - ✅ Mathematical computation engine with Lyapunov/barrier condition checking
-- ✅ Anthropic Claude integration with structured prompting and JSON validation
+- ✅ Anthropic Claude 4 integration with structured prompting, JSON validation, and refusal handling
 
 **Terminology Update**: System now uses "accepted" instead of "verified" throughout to reflect the cautious nature of numerical acceptance checks. Candidates are "accepted" when they pass our rigorous but not absolute numerical and formal validation processes.
 

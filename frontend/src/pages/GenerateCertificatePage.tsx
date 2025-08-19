@@ -23,7 +23,7 @@ const CertificateGenerationSchema = z.object({
   baseline_comparison: z.boolean().default(false),
   llm_config: z.object({
     provider: z.literal('anthropic').default('anthropic'),
-    model: z.string().default('claude-3-5-sonnet-20241022'),
+    model: z.string().default('claude-sonnet-4-20250514'),
     temperature: z.number().min(0).max(1).default(0.0),
     max_tokens: z.number().min(1).max(4096).default(2048),
     max_attempts: z.number().min(1).max(10).default(3),
@@ -98,7 +98,7 @@ export default function GenerateCertificatePage() {
       baseline_comparison: false,
       llm_config: {
         provider: 'anthropic',
-        model: 'claude-3-5-sonnet-20241022',
+        model: 'claude-sonnet-4-20250514',
         temperature: 0.0,
         max_tokens: 2048,
         max_attempts: 3,
@@ -337,9 +337,10 @@ export default function GenerateCertificatePage() {
                     Model
                   </label>
                   <select {...form.register('llm_config.model')} className="input">
-                    <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
-                    <option value="claude-3-haiku-20240307">Claude 3 Haiku</option>
-                    <option value="claude-3-opus-20240229">Claude 3 Opus</option>
+                    <option value="claude-opus-4-1-20250805">Claude Opus 4.1 (Latest & Most Capable)</option>
+                    <option value="claude-sonnet-4-20250514">Claude Sonnet 4 (Balanced)</option>
+                    <option value="claude-opus-4-20250514">Claude Opus 4 (High Performance)</option>
+                    <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet (Legacy)</option>
                   </select>
                 </div>
 

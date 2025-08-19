@@ -155,7 +155,7 @@ describe('CertificateController', () => {
         certificate_type: 'lyapunov' as const,
         llm_config: {
           provider: 'anthropic' as const,
-          model: 'claude-3-sonnet-20240229',
+          model: 'claude-sonnet-4-20250514',
           temperature: 0.0,
           max_tokens: 1000,
           max_attempts: 3,
@@ -241,7 +241,7 @@ describe('CertificateController', () => {
         certificate_type: 'lyapunov' as const,
         llm_config: {
           provider: 'anthropic' as const,
-          model: 'claude-3-sonnet-20240229',
+          model: 'claude-sonnet-4-20250514',
           temperature: 0.0,
           max_tokens: 1000,
           max_attempts: 3,
@@ -268,7 +268,7 @@ describe('CertificateController', () => {
         certificate_type: 'lyapunov' as const,
         llm_config: {
           provider: 'anthropic' as const,
-          model: 'claude-3-sonnet-20240229',
+          model: 'claude-sonnet-4-20250514',
           temperature: 0.0,
           max_tokens: 1000,
           max_attempts: 3,
