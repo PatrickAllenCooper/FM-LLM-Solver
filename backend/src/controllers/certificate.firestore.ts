@@ -393,6 +393,28 @@ export class CertificateFirestoreController {
       const systemSpecDoc = await db.collection('system_specs').doc(candidate.system_spec_id).get();
       const systemSpecName = systemSpecDoc.exists ? systemSpecDoc.data()?.name : 'Unknown';
 
+      // Generate technical details on-the-fly for accepted certificates if not present
+      let acceptanceResult = candidateData.acceptance_result;
+      
+      if (candidate.acceptance_status === 'accepted' && !acceptanceResult?.technical_details) {
+        try {
+          logger.info('Generating technical details on-the-fly for accepted certificate', {
+            candidateId: candidate.id,
+          });
+          
+          // Get full system spec for acceptance checking
+          if (systemSpecDoc.exists) {
+            const systemSpec = { id: candidate.system_spec_id, ...systemSpecDoc.data() };
+            acceptanceResult = await this.acceptanceService.acceptCandidate(candidate, systemSpec);
+          }
+        } catch (error) {
+          logger.warn('Failed to generate technical details on-the-fly', {
+            candidateId: candidate.id,
+            error: error instanceof Error ? error.message : 'Unknown error',
+          });
+        }
+      }
+
       const enrichedCandidate = {
         ...candidate,
         system_name: systemSpecName,
@@ -404,6 +426,8 @@ export class CertificateFirestoreController {
         candidate_expression: candidateData.candidate_data?.response?.expression || candidateData.candidate_expression,
         candidate_json: candidateData.candidate_data || candidateData.candidate_json,
         llm_config_json: candidateData.llm_config || candidateData.llm_config_json,
+        // Add acceptance result with technical details
+        acceptance_result: acceptanceResult,
       };
 
       const response: ApiResponse<Candidate> = {
