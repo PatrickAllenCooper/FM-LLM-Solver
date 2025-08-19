@@ -160,13 +160,24 @@ export default function ConversationPage() {
         domain: systemSpec.dynamics_json?.domain || 'domain not specified',
       };
       
+      // Create a safe system description without potentially problematic JSON.stringify
+      const dynamicsDescription = Array.isArray(systemDetails.dynamics) 
+        ? systemDetails.dynamics.join(', ') 
+        : typeof systemDetails.dynamics === 'string' 
+        ? systemDetails.dynamics 
+        : 'Complex dynamics structure';
+
+      const domainDescription = systemDetails.domain && typeof systemDetails.domain === 'object'
+        ? `Domain constraints defined`
+        : 'Domain not specified';
+
       const initialMessage = `I'd like to explore approaches for generating a ${certificateType} function for this specific system:
 
 **System: ${systemDetails.name}**
 - Type: ${systemDetails.type} system  
 - Dimension: ${systemDetails.dimension}D
-- Dynamics: ${Array.isArray(systemDetails.dynamics) ? systemDetails.dynamics.join(', ') : systemDetails.dynamics}
-- Domain: ${JSON.stringify(systemDetails.domain, null, 2)}
+- Dynamics: ${dynamicsDescription}
+- ${domainDescription}
 
 **My Configuration Preferences:**
 - LLM Model: ${llmModel}
@@ -174,7 +185,7 @@ export default function ConversationPage() {
 - Temperature: ${temperature}
 - Include Baseline Comparison: ${baselineComparison ? 'Yes' : 'No'}
 
-Given these specific system properties and my research preferences, can you help me think through different mathematical strategies for ${certificateType} function construction? What approaches would work best for this particular system configuration, and how should we tailor the approach given my selected generation mode and settings?`;
+Given these specific system properties and my research preferences, can you help me think through different mathematical strategies for ${certificateType} function construction? What approaches would work best for this particular system configuration?`;
       
       startConversationMutation.mutate({
         system_spec_id: systemSpecId!,
@@ -309,7 +320,9 @@ Given these specific system properties and my research preferences, can you help
                     <div className="mt-2 text-xs text-blue-600">
                       <strong>Dynamics:</strong> {Array.isArray(systemSpec.dynamics_json.equations) 
                         ? systemSpec.dynamics_json.equations.join(', ') 
-                        : systemSpec.dynamics_json.equations}
+                        : typeof systemSpec.dynamics_json.equations === 'string'
+                        ? systemSpec.dynamics_json.equations
+                        : 'Complex dynamics structure'}
                     </div>
                   )}
                 </>
