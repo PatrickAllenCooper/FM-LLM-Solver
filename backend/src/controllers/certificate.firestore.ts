@@ -406,7 +406,15 @@ export class CertificateFirestoreController {
           if (systemSpecDoc.exists) {
             const systemSpecData = systemSpecDoc.data();
             const systemSpec = { id: candidate.system_spec_id, ...systemSpecData } as SystemSpec;
-            acceptanceResult = await this.acceptanceService.acceptCandidate(candidate, systemSpec);
+            
+            // Create properly mapped candidate object for AcceptanceService
+            const mappedCandidate = {
+              ...candidate,
+              candidate_expression: candidateData.candidate_data?.response?.expression || candidateData.candidate_expression,
+              candidate_json: candidateData.candidate_data || candidateData.candidate_json,
+            } as Candidate;
+            
+            acceptanceResult = await this.acceptanceService.acceptCandidate(mappedCandidate, systemSpec);
           }
         } catch (error) {
           logger.warn('Failed to generate technical details on-the-fly', {

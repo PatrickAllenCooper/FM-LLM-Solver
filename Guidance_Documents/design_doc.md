@@ -111,6 +111,45 @@ Reject anything non-JSON or outside syntax/ops; canonicalize (CAS) and simplify 
 
 **Acceptance Criteria:** Stage A pass **and** Stage B pass (when Stage B enabled). Persist **margins**, **tool versions**, and **artifacts**.
 
+### 3.3 Technical Details & Experimental Controls (Research-Grade Transparency)
+
+**Comprehensive Technical Reporting:** Each acceptance result includes detailed technical analysis for experimental reproducibility:
+
+#### Mathematical Conditions Tracked:
+- **Lyapunov Functions:**
+  - V(x) > 0 for x ≠ 0 (positive definite)
+  - V(0) = 0 (zero at equilibrium)
+  - dV/dt ≤ 0 along trajectories (decreasing)
+- **Barrier Certificates:**
+  - B(x) ≥ 0 for x ∈ safe set (initial safety)
+  - B(x) ≤ 0 for x ∈ unsafe set (separation)  
+  - dB/dt ≤ 0 along trajectories (invariant)
+
+#### Detailed Technical Metrics:
+- **Sampling Analytics:** Method (uniform/Sobol/LHS/adaptive), sample count, domain coverage
+- **Violation Analysis:** Total violations, specific failure points with coordinates, severity classification (minor/moderate/severe)
+- **Margin Breakdown:** Condition-specific margins (positivity, decreasing, separation, invariant)
+- **Numerical Parameters:** Tolerance levels, convergence thresholds, iteration limits
+- **Stage Results:** Stage A/B pass/fail status, formal verification artifacts
+- **Performance Metrics:** Execution time, convergence statistics, coverage estimates
+
+#### Experimental Parameter Controls:
+**Runtime Adjustable Parameters for Research:**
+- **Sample Count:** 100 to 10,000 samples (precision vs. speed trade-off)
+- **Sampling Methods:** Uniform, Sobol sequences, Latin Hypercube, adaptive refinement
+- **Numerical Tolerance:** 10⁻⁶ to 10⁻¹⁰ (numerical precision control)
+- **Convergence Thresholds:** Customizable for different mathematical rigor levels
+- **Stage B Enable/Disable:** Control formal verification activation
+- **Custom Margin Thresholds:** Override default positivity/decreasing/separation requirements
+
+**Re-run Capability:** Researchers can adjust parameters and re-run acceptance checks on existing candidates to study:
+- Parameter sensitivity analysis
+- Numerical precision effects on acceptance rates
+- Sampling method comparison studies
+- Margin threshold optimization
+
+**Experimental Provenance:** All parameter adjustments and re-runs logged with complete audit trail for research reproducibility.
+
 ## 4) Metrics (per attempt)
 
 - **Success** (binary), **time-to-acceptance** (breakdown by LLM, Stage A/B).
@@ -235,6 +274,16 @@ create table audit_events (
   ip text, 
   user_agent text
 );
+
+-- Experimental acceptance re-runs for research
+create table acceptance_reruns (
+  id bigserial primary key,
+  candidate_id bigint references candidates(id),
+  parameters_used jsonb not null, -- AcceptanceParameters schema
+  result jsonb not null, -- Full AcceptanceResult with technical_details
+  requested_by bigint references users(id),
+  timestamp timestamptz default now()
+);
 ```
 
 ## 7) GCP Architecture (serverless, reproducible)
@@ -341,6 +390,8 @@ Ensure your **A records** (@, www) point at the IP printed by fmgen-ipv4. If you
 - GET /api/system-specs - list system specifications with pagination
 - POST /api/certificates/generate - generate certificate candidates via LLM
 - GET /api/certificates - list candidates with acceptance status
+- GET /api/certificates/:id - retrieve candidate details with comprehensive technical analysis
+- POST /api/certificates/:id/rerun-acceptance - re-run acceptance check with experimental parameter controls
 - Auth endpoints: POST /api/auth/login, /api/auth/register
 - Admin endpoints: POST /api/admin/emails (email authorization)
 
@@ -375,6 +426,9 @@ You supplied a Claude key. Don't paste it into code. Store it exactly once in **
 - **Acceptance Protocol**: Stage A always runs (numerical sampling, margin checks). Stage B (formal SOS/SMT) planned for future implementation.
 - **Candidate Processing**: Background acceptance checking with status updates (`pending` → `accepted`/`failed`).
 - **Error Handling**: Comprehensive counterexample tracking and violation reporting.
+- **Technical Details Generation**: Comprehensive technical analysis with detailed condition tracking, violation analysis, and margin breakdown.
+- **Parameter Controls**: Runtime adjustable numerical parameters for experimental research with re-run capabilities.
+- **Research Transparency**: Complete visibility into sampling methods, tolerances, convergence criteria, and stage-by-stage results.
 - **Audit Trail**: Complete provenance logging for research reproducibility.
 
 ## 11) Baselines
@@ -410,7 +464,8 @@ Log with every attempt:
 - **Login/Register**: CU Boulder themed authentication with email authorization system.
 - **Dashboard**: Statistics overview, recent candidates, system specs summary with acceptance status displays.
 - **System Specs**: Table view with create/edit wizard, specification details pages.
-- **Certificates**: Full candidate management with acceptance status filtering, detailed view with LaTeX rendering.
+- **Certificates**: Full candidate management with acceptance status filtering, detailed view with LaTeX rendering, **comprehensive technical details analysis**, and **experimental parameter controls**.
+- **Certificate Details**: Research-grade technical analysis including mathematical conditions verified, numerical method details, violation analysis with severity classification, margin breakdown by condition type, two-stage protocol results, and runtime parameter adjustment controls.
 - **Profile**: User account management.
 - **Admin**: Email authorization management for user provisioning.
 
@@ -462,6 +517,10 @@ Log with every attempt:
 - ✅ Email authorization system and role-based access control
 - ✅ Mathematical computation engine with Lyapunov/barrier condition checking
 - ✅ Anthropic Claude 4 integration with structured prompting, JSON validation, and refusal handling
+- ✅ **Comprehensive Technical Details**: Research-grade acceptance analysis with detailed condition tracking, violation analysis, and margin breakdown for experimental transparency
+- ✅ **Experimental Parameter Controls**: Runtime adjustable sampling methods, tolerance levels, and convergence parameters for research sensitivity analysis
+- ✅ **Re-run Acceptance Capability**: API endpoint for parameter adjustment and acceptance re-execution with complete experimental provenance
+- ✅ **On-the-fly Technical Analysis**: Automatic technical details generation for existing certificates to ensure backward compatibility
 
 **Terminology Update**: System now uses "accepted" instead of "verified" throughout to reflect the cautious nature of numerical acceptance checks. Candidates are "accepted" when they pass our rigorous but not absolute numerical and formal validation processes.
 
