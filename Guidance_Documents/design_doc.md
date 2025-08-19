@@ -1,5 +1,7 @@
 # FM-LLM - Experimental Design & System Design (MVP)
 
+**Status**: Core MVP functionality implemented with acceptance terminology. Two-stage acceptance protocol operational with AcceptanceService replacing legacy VerificationService. Current deployment uses Firestore with planned PostgreSQL migration.
+
 **Goal:** rigorous, reproducible evaluation of LLMs for proposing **Lyapunov function candidates** and **barrier function candidates** on **continuous** and **discrete** systems, with strict input schemas, acceptance checks, authenticated usage, and complete provenance.
 
 ## 1) Research Design (pre-registerable)
@@ -134,6 +136,8 @@ Reject anything non-JSON or outside syntax/ops; canonicalize (CAS) and simplify 
 **Guardrails:** schema-driven validation; margin warnings; disabled "Run" until green.
 
 ## 6) Persistence (SQL) - minimal DDL
+
+**Implementation Note**: Current MVP uses simplified schema with Firestore backend. The detailed schema below represents the planned PostgreSQL architecture. Current implementation consolidates acceptance status directly in candidates table with fields: `acceptance_status ('pending'|'accepted'|'failed'|'timeout')`, `accepted_at`, `acceptance_duration_ms`.
 
 ```sql
 create table users (
@@ -330,6 +334,17 @@ Ensure your **A records** (@, www) point at the IP printed by fmgen-ipv4. If you
 
 ## 9) API surfaces (auth-gated)
 
+**Current Implementation**: MVP operates with Firebase/Firestore backend and simplified API structure. Planned endpoints below represent full PostgreSQL-based architecture.
+
+**Implemented Endpoints**:
+- POST /api/system-specs - create & validate system specifications
+- GET /api/system-specs - list system specifications with pagination
+- POST /api/certificates/generate - generate certificate candidates via LLM
+- GET /api/certificates - list candidates with acceptance status
+- Auth endpoints: POST /api/auth/login, /api/auth/register
+- Admin endpoints: POST /api/admin/emails (email authorization)
+
+**Planned Endpoints**:
 - POST /v1/systems - validate & store SystemSpec, return immutable system_id + hash.
 - POST /v1/experiments - config (task, LLM mode, budgets, margins, StageB flags, seed).
 - POST /v1/runs - start run for experiment; server streams attempts (SSE/WebSocket).
@@ -345,6 +360,22 @@ Ensure your **A records** (@, www) point at the IP printed by fmgen-ipv4. If you
 - **Prompt scaffolding:** strict JSON output; terminate on non-JSON.
 
 You supplied a Claude key. Don't paste it into code. Store it exactly once in **Secret Manager** (ANTHROPIC_API_KEY) and reference via Cloud Run secret mounts/env.
+
+## 9.5) Current Service Architecture (Implemented)
+
+**Core Services**:
+- **AcceptanceService**: Replaces planned VerificationService. Implements two-stage acceptance protocol with `acceptCandidate()` method. Performs numerical validation (Stage A) and formal verification (Stage B when enabled).
+- **LLMService**: Anthropic Claude integration with structured prompting, JSON validation, and error handling.
+- **MathService**: Mathematical computation engine for Lyapunov/barrier condition checking, expression evaluation, and gradient computation.
+- **BaselineService**: Classical method implementations (SOS, SDP, quadratic templates) for comparative analysis.
+- **AuthService**: JWT-based authentication with Firebase/Firestore integration.
+- **EmailAuthorizationService**: Admin email management for user access control.
+
+**Key Implementation Details**:
+- **Acceptance Protocol**: Stage A always runs (numerical sampling, margin checks). Stage B (formal SOS/SMT) planned for future implementation.
+- **Candidate Processing**: Background acceptance checking with status updates (`pending` → `accepted`/`failed`).
+- **Error Handling**: Comprehensive counterexample tracking and violation reporting.
+- **Audit Trail**: Complete provenance logging for research reproducibility.
 
 ## 11) Baselines
 
@@ -370,16 +401,28 @@ Log with every attempt:
 - Managed TLS; HSTS; CSRF for any state-changing web flows; re-auth before launch.
 - Full **audit_events** table (see DDL).
 
-## 14) Minimal UI spec (Material 3)
+## 14) UI Implementation (Material 3 + CU Boulder branding)
 
-- **Login**: CU Boulder themed splash; email/password; admin provisioning only.
-- **Systems**: table (name, owner, version, hash status); "Create System" wizard.
+**Current Implementation**: Full-featured React application with comprehensive user interface.
+
+**Implemented Pages**:
+- **About Page**: Comprehensive technical documentation including mathematical foundations (Lyapunov/barrier theory), acceptance protocol details, research methodology, system architecture, and LLM integration details.
+- **Login/Register**: CU Boulder themed authentication with email authorization system.
+- **Dashboard**: Statistics overview, recent candidates, system specs summary with acceptance status displays.
+- **System Specs**: Table view with create/edit wizard, specification details pages.
+- **Certificates**: Full candidate management with acceptance status filtering, detailed view with LaTeX rendering.
+- **Profile**: User account management.
+- **Admin**: Email authorization management for user provisioning.
+
+**Planned UI Features**:
 - **Experiments**: config form (task, mode, budgets, margins, baselines); seeded & pinned prompts.
 - **Run view**:
   - Left: attempt list with pass/fail chips & degree/term count.
   - Right: tabs →**Expression** (normalized + LaTeX), **Numeric** (heatmaps/level sets), **Formal** (SOS/SMT status), **Artifacts**.
   - Prominent "Candidate accepted" banner with margins and tool versions.
 - **Exports**: PDF, LaTeX, JSON bundle buttons.
+
+**Design System**: Material Design 3 with CU Boulder gold/black branding, consistent typography (academic-header, academic-subheader, academic-body), and comprehensive status badge system for acceptance states.
 
 ## 15) Example test systems (ready to seed)
 
@@ -408,16 +451,30 @@ Log with every attempt:
 - @ A 34.55.217.224, www A 34.55.217.224 already point to a Google-owned IPv4. Attach your HTTPS LB to **that** IP (if reserved in your project) or reserve a new global static IP and update the two A records.
 - _domainconnect CNAME is benign and unrelated to this stack.
 
-## 17) What you'll have after MVP
+## 17) Current Implementation Status & Next Steps
 
-- Authenticated, schema-driven system input; strict LLM outputs.
-- Numeric + formal acceptance checking with explicit margins.
-- Full provenance and exportable artifacts.
-- Clean Material 3 UI aligned with CU Boulder branding.
-- Domain fmgen.net terminating at Google-managed TLS on a global HTTPS LB.
+**What is Currently Implemented**:
+- ✅ Authenticated, schema-driven system input with strict LLM outputs
+- ✅ Core AcceptanceService with numerical validation (Stage A of acceptance protocol)
+- ✅ Complete Material 3 UI with CU Boulder branding and comprehensive About page
+- ✅ Firebase/Firestore backend with real-time candidate processing
+- ✅ Full candidate lifecycle: generation → acceptance checking → status display
+- ✅ Email authorization system and role-based access control
+- ✅ Mathematical computation engine with Lyapunov/barrier condition checking
+- ✅ Anthropic Claude integration with structured prompting and JSON validation
 
-If you want, I can provide:
+**Terminology Update**: System now uses "accepted" instead of "verified" throughout to reflect the cautious nature of numerical acceptance checks. Candidates are "accepted" when they pass our rigorous but not absolute numerical and formal validation processes.
 
-- JSON Schemas for SystemSpec and LLM output,
-- A minimal Terraform skeleton for the LB + Cloud Run + Secret Manager,
-- A one-page PDF report template for accepted candidates.
+**Planned Enhancements**:
+- Stage B formal verification (SOS/SMT integration)
+- PostgreSQL migration from Firestore
+- Full experiment management and statistical analysis features
+- Advanced visualization (heatmaps, level sets, 3D plots)
+- PDF/LaTeX export functionality
+- Domain fmgen.net deployment with Google-managed TLS
+
+**Available for Implementation**:
+- JSON Schemas for SystemSpec and LLM output (partially implemented)
+- Terraform infrastructure templates
+- PDF report templates for accepted candidates
+- Advanced statistical analysis pipeline
