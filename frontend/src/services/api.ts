@@ -184,6 +184,51 @@ class ApiService {
     return response.data;
   }
 
+  // ====== CONVERSATIONAL MODE METHODS ======
+
+  // Start a new conversation
+  async startConversation(data: StartConversationRequest): Promise<Conversation> {
+    const response: AxiosResponse<ApiResponse<Conversation>> = 
+      await this.api.post('/conversations', data);
+    return response.data.data!;
+  }
+
+  // Get conversation details
+  async getConversation(conversationId: string): Promise<Conversation> {
+    const response: AxiosResponse<ApiResponse<Conversation>> = 
+      await this.api.get(`/conversations/${conversationId}`);
+    return response.data.data!;
+  }
+
+  // Get user's conversations
+  async getConversations(page: number = 1, limit: number = 20, status?: string): Promise<PaginatedResponse<Conversation>> {
+    const params: any = { page, limit };
+    if (status) params.status = status;
+    
+    const response: AxiosResponse<ApiResponse<PaginatedResponse<Conversation>>> = 
+      await this.api.get('/conversations', { params });
+    return response.data.data!;
+  }
+
+  // Send message in conversation
+  async sendMessage(conversationId: string, data: SendMessageRequest): Promise<ConversationMessage> {
+    const response: AxiosResponse<ApiResponse<{ message: ConversationMessage }>> = 
+      await this.api.post(`/conversations/${conversationId}/messages`, data);
+    return response.data.data!.message;
+  }
+
+  // Publish certificate from conversation
+  async publishCertificateFromConversation(data: PublishCertificateFromConversationRequest): Promise<{ candidate_id: string; conversation_id: string }> {
+    const response: AxiosResponse<ApiResponse<{ candidate_id: string; conversation_id: string }>> = 
+      await this.api.post('/conversations/publish', data);
+    return response.data.data!;
+  }
+
+  // Abandon conversation
+  async abandonConversation(conversationId: string): Promise<void> {
+    await this.api.delete(`/conversations/${conversationId}`);
+  }
+
   // Utils
   setAuthToken(token: string): void {
     localStorage.setItem('auth_token', token);

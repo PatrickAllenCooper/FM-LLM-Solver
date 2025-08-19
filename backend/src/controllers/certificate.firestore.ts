@@ -7,6 +7,9 @@ import {
   SystemSpecRequestSchema, 
   CertificateGenerationRequestSchema,
   AcceptanceParametersSchema,
+  StartConversationSchema,
+  SendMessageSchema,
+  PublishCertificateFromConversationSchema,
   ApiResponse,
   PaginatedResponse 
 } from '../types/api';
@@ -644,4 +647,296 @@ export class CertificateFirestoreController {
       timestamp: new Date().toISOString(),
     });
   }
+
+  // ====== CONVERSATIONAL MODE ENDPOINTS ======
+
+  // Start a new conversation for certificate generation
+  startConversation = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const conversationData = StartConversationSchema.parse(req.body);
+
+      // Get system spec
+      const systemSpecDoc = await db.collection('system_specs').doc(conversationData.system_spec_id).get();
+      if (!systemSpecDoc.exists) {
+        res.status(404).json({
+          success: false,
+          error: 'System specification not found',
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      const systemSpecData = systemSpecDoc.data() as any;
+      const systemSpec = { id: conversationData.system_spec_id, ...systemSpecData } as SystemSpec;
+
+      // Initialize conversation with LLM
+      const llmConfig = {
+        provider: 'anthropic' as const,
+        model: 'claude-sonnet-4-20250514',
+        temperature: 0.2, // Slightly higher for conversational creativity
+        max_tokens: 2048,
+        max_attempts: 3,
+        mode: 'direct_expression' as const,
+        timeout_ms: 30000,
+      };
+
+      const initialResponse = await this.llmService.initializeConversation(
+        systemSpec,
+        conversationData.certificate_type,
+        llmConfig,
+        conversationData.initial_message
+      );
+
+      // Create conversation document
+      const conversationId = crypto.randomUUID();
+      const conversation = {
+        id: conversationId,
+        system_spec_id: conversationData.system_spec_id,
+        certificate_type: conversationData.certificate_type,
+        status: 'active',
+        messages: [
+          {
+            role: 'user',
+            content: conversationData.initial_message || `Let's discuss ${conversationData.certificate_type} functions for this system.`,
+            timestamp: new Date().toISOString(),
+            metadata: {
+              message_type: 'question',
+            },
+          },
+          initialResponse,
+        ],
+        created_by: req.user?.id || 'anonymous',
+        created_at: new Date(),
+        updated_at: new Date(),
+        token_count: initialResponse.metadata?.token_count || 0,
+        message_count: 2,
+      };
+
+      await db.collection('conversations').doc(conversationId).set(conversation);
+
+      const response: ApiResponse<any> = {
+        success: true,
+        data: {
+          conversation_id: conversationId,
+          ...conversation,
+          created_at: conversation.created_at.toISOString(),
+          updated_at: conversation.updated_at.toISOString(),
+        },
+        message: 'Conversation started successfully',
+        timestamp: new Date().toISOString(),
+      };
+
+      res.json(response);
+    } catch (error) {
+      this.handleError(error, res, 'Failed to start conversation');
+    }
+  };
+
+  // Send message in conversation  
+  sendMessage = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const conversationId = req.params.id;
+      const messageData = SendMessageSchema.parse(req.body);
+
+      // Get conversation
+      const conversationDoc = await db.collection('conversations').doc(conversationId).get();
+      if (!conversationDoc.exists) {
+        res.status(404).json({
+          success: false,
+          error: 'Conversation not found',
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      const conversationData = conversationDoc.data() as any;
+      
+      if (conversationData.status !== 'active') {
+        res.status(400).json({
+          success: false,
+          error: 'Conversation is not active',
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      // Get system spec
+      const systemSpecDoc = await db.collection('system_specs').doc(conversationData.system_spec_id).get();
+      const systemSpec = { id: conversationData.system_spec_id, ...systemSpecDoc.data() } as SystemSpec;
+
+      // Send message to LLM
+      const llmConfig = {
+        provider: 'anthropic' as const,
+        model: 'claude-sonnet-4-20250514',
+        temperature: 0.2,
+        max_tokens: 2048,
+        max_attempts: 3,
+        mode: 'direct_expression' as const,
+        timeout_ms: 30000,
+      };
+
+      const assistantResponse = await this.llmService.sendConversationMessage(
+        systemSpec,
+        conversationData.certificate_type,
+        conversationData.messages,
+        messageData.message,
+        llmConfig
+      );
+
+      // Update conversation
+      const userMessage = {
+        role: 'user' as const,
+        content: messageData.message,
+        timestamp: new Date().toISOString(),
+        metadata: { message_type: 'question' as const },
+      };
+
+      const updatedMessages = [...conversationData.messages, userMessage, assistantResponse];
+      const newTokenCount = conversationData.token_count + (assistantResponse.metadata?.token_count || 0);
+
+      await db.collection('conversations').doc(conversationId).update({
+        messages: updatedMessages,
+        updated_at: new Date(),
+        token_count: newTokenCount,
+        message_count: updatedMessages.length,
+      });
+
+      const response: ApiResponse<any> = {
+        success: true,
+        data: {
+          message: assistantResponse,
+          token_count: newTokenCount,
+          message_count: updatedMessages.length,
+        },
+        message: 'Message sent successfully',
+        timestamp: new Date().toISOString(),
+      };
+
+      res.json(response);
+    } catch (error) {
+      this.handleError(error, res, 'Failed to send message');
+    }
+  };
+
+  // Publish certificate from conversation
+  publishCertificateFromConversation = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { conversation_id, final_instructions } = PublishCertificateFromConversationSchema.parse(req.body);
+
+      // Get conversation
+      const conversationDoc = await db.collection('conversations').doc(conversation_id).get();
+      if (!conversationDoc.exists) {
+        res.status(404).json({
+          success: false,
+          error: 'Conversation not found',
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      const conversationData = conversationDoc.data() as any;
+      
+      // Get system spec
+      const systemSpecDoc = await db.collection('system_specs').doc(conversationData.system_spec_id).get();
+      const systemSpec = { id: conversationData.system_spec_id, ...systemSpecDoc.data() } as SystemSpec;
+
+      // Ensure conversation is summarized
+      let summary = conversationData.summary;
+      if (!summary) {
+        const llmConfig = {
+          provider: 'anthropic' as const,
+          model: 'claude-sonnet-4-20250514',
+          temperature: 0.1,
+          max_tokens: 4096,
+          max_attempts: 3,
+          mode: 'direct_expression' as const,
+          timeout_ms: 30000,
+        };
+
+        summary = await this.llmService.summarizeConversation(
+          systemSpec,
+          conversationData.certificate_type,
+          conversationData.messages,
+          llmConfig
+        );
+      }
+
+      // Generate final certificate from conversation
+      const llmConfig = {
+        provider: 'anthropic' as const,
+        model: 'claude-sonnet-4-20250514',
+        temperature: 0.0,
+        max_tokens: 2048,
+        max_attempts: 3,
+        mode: 'direct_expression' as const,
+        timeout_ms: 30000,
+      };
+
+      const certificateResult = await this.llmService.generateCertificateFromConversation(
+        systemSpec,
+        conversationData.certificate_type,
+        summary,
+        final_instructions,
+        llmConfig
+      );
+
+      // Create candidate document
+      const candidateId = crypto.randomUUID();
+      const candidateData = {
+        id: candidateId,
+        system_spec_id: conversationData.system_spec_id,
+        certificate_type: conversationData.certificate_type,
+        generation_method: 'conversational',
+        llm_provider: llmConfig.provider,
+        llm_model: llmConfig.model,
+        llm_mode: llmConfig.mode,
+        llm_config: llmConfig,
+        candidate_data: {
+          response: certificateResult.response,
+          raw_response: certificateResult.raw_response,
+          conversation_context: certificateResult.conversation_context,
+          conversation_id: conversation_id,
+          conversation_summary: summary,
+        },
+        candidate_expression: certificateResult.response.expression,
+        candidate_json: certificateResult.response,
+        acceptance_status: 'pending',
+        created_by: req.user?.id || 'anonymous',
+        created_at: new Date(),
+        updated_at: new Date(),
+        generation_duration_ms: certificateResult.duration_ms,
+      };
+
+      await db.collection('candidates').doc(candidateId).set(candidateData);
+
+      // Update conversation status
+      await db.collection('conversations').doc(conversation_id).update({
+        status: 'published',
+        final_certificate_id: candidateId,
+        summary,
+        published_at: new Date(),
+        updated_at: new Date(),
+      });
+
+      // Start background acceptance checking
+      this.checkCandidateAcceptance(candidateId);
+
+      const response: ApiResponse<any> = {
+        success: true,
+        data: {
+          candidate_id: candidateId,
+          conversation_id: conversation_id,
+          certificate_type: conversationData.certificate_type,
+          conversation_summary: summary,
+          generation_duration_ms: certificateResult.duration_ms,
+        },
+        message: 'Certificate published from conversation successfully',
+        timestamp: new Date().toISOString(),
+      };
+
+      res.json(response);
+    } catch (error) {
+      this.handleError(error, res, 'Failed to publish certificate from conversation');
+    }
+  };
 }

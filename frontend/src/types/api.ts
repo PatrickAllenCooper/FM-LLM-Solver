@@ -101,7 +101,7 @@ export interface Candidate {
   id: string;
   system_spec_id: string;
   certificate_type: 'lyapunov' | 'barrier' | 'inductive_invariant';
-  generation_method: 'llm' | 'sos' | 'sdp' | 'quadratic_template';
+  generation_method: 'llm' | 'sos' | 'sdp' | 'quadratic_template' | 'conversational';
   llm_provider?: string;
   llm_model?: string;
   llm_mode?: 'direct_expression' | 'basis_coeffs' | 'structure_constraints';
@@ -118,6 +118,67 @@ export interface Candidate {
   system_name?: string; // Joined from system_specs
   counterexamples?: Counterexample[];
   acceptance_result?: AcceptanceResult;
+  // Conversational mode specific fields
+  conversation_id?: string;
+  conversation_context?: string;
+  conversation_summary?: ConversationSummary;
+}
+
+// Conversational mode interfaces
+export interface ConversationMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: string;
+  metadata?: {
+    token_count?: number;
+    model_used?: string;
+    message_type?: 'question' | 'insight' | 'approach' | 'refinement' | 'final';
+  };
+}
+
+export interface ConversationSummary {
+  key_insights: string[];
+  mathematical_approaches_discussed: string[];
+  final_approach_rationale: string;
+  conversation_summary: string;
+  total_tokens_used: number;
+  summarization_timestamp: string;
+}
+
+export interface Conversation {
+  id: string;
+  system_spec_id: string;
+  certificate_type: 'lyapunov' | 'barrier' | 'inductive_invariant';
+  status: 'active' | 'summarized' | 'published' | 'abandoned';
+  messages: ConversationMessage[];
+  summary?: ConversationSummary;
+  final_certificate_id?: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  published_at?: string;
+  token_count: number;
+  message_count: number;
+  // UI specific fields
+  message_preview?: string;
+}
+
+// Request interfaces for conversational mode
+export interface StartConversationRequest {
+  system_spec_id: string;
+  certificate_type: 'lyapunov' | 'barrier' | 'inductive_invariant';
+  initial_message?: string;
+}
+
+export interface SendMessageRequest {
+  message: string;
+  request_insights?: boolean;
+  force_summarize?: boolean;
+}
+
+export interface PublishCertificateFromConversationRequest {
+  conversation_id: string;
+  final_instructions?: string;
 }
 
 export interface Counterexample {

@@ -68,9 +68,11 @@ export type SystemSpecRequest = z.infer<typeof SystemSpecRequestSchema>;
 export const CertificateGenerationRequestSchema = z.object({
   system_spec_id: z.string().min(1), // Accept Firestore IDs, not just UUIDs
   certificate_type: z.enum(['lyapunov', 'barrier', 'inductive_invariant']),
-  generation_method: z.enum(['llm', 'sos', 'sdp', 'quadratic_template']),
+  generation_method: z.enum(['llm', 'sos', 'sdp', 'quadratic_template', 'conversational']),
   llm_config: LLMConfigSchema.optional(),
   baseline_comparison: z.boolean().default(false),
+  // Conversational mode specific fields
+  conversation_id: z.string().optional(), // For publishing from existing conversation
 });
 
 export type CertificateGenerationRequest = z.infer<typeof CertificateGenerationRequestSchema>;
@@ -91,6 +93,68 @@ export const AcceptanceParametersSchema = z.object({
 });
 
 export type AcceptanceParameters = z.infer<typeof AcceptanceParametersSchema>;
+
+// Conversational mode types for mathematical dialogue
+export const ConversationMessageSchema = z.object({
+  role: z.enum(['user', 'assistant']),
+  content: z.string().min(1),
+  timestamp: z.string().datetime(),
+  metadata: z.object({
+    token_count: z.number().optional(),
+    model_used: z.string().optional(),
+    message_type: z.enum(['question', 'insight', 'approach', 'refinement', 'final']).optional(),
+  }).optional(),
+});
+
+export const ConversationSummarySchema = z.object({
+  key_insights: z.array(z.string()),
+  mathematical_approaches_discussed: z.array(z.string()),
+  final_approach_rationale: z.string(),
+  conversation_summary: z.string(),
+  total_tokens_used: z.number(),
+  summarization_timestamp: z.string().datetime(),
+});
+
+export const ConversationSchema = z.object({
+  id: z.string(),
+  system_spec_id: z.string(),
+  certificate_type: z.enum(['lyapunov', 'barrier', 'inductive_invariant']),
+  status: z.enum(['active', 'summarized', 'published', 'abandoned']),
+  messages: z.array(ConversationMessageSchema),
+  summary: ConversationSummarySchema.optional(),
+  final_certificate_id: z.string().optional(),
+  created_by: z.string(),
+  created_at: z.string().datetime(),
+  updated_at: z.string().datetime(),
+  published_at: z.string().datetime().optional(),
+  token_count: z.number().default(0),
+  message_count: z.number().default(0),
+});
+
+// Request schemas for conversation management
+export const StartConversationSchema = z.object({
+  system_spec_id: z.string().min(1),
+  certificate_type: z.enum(['lyapunov', 'barrier', 'inductive_invariant']),
+  initial_message: z.string().min(1).optional(),
+});
+
+export const SendMessageSchema = z.object({
+  message: z.string().min(1),
+  request_insights: z.boolean().default(false), // Request mathematical insights
+  force_summarize: z.boolean().default(false), // Force conversation summarization
+});
+
+export const PublishCertificateFromConversationSchema = z.object({
+  conversation_id: z.string(),
+  final_instructions: z.string().optional(), // Additional instructions for final generation
+});
+
+export type ConversationMessage = z.infer<typeof ConversationMessageSchema>;
+export type ConversationSummary = z.infer<typeof ConversationSummarySchema>;
+export type Conversation = z.infer<typeof ConversationSchema>;
+export type StartConversationRequest = z.infer<typeof StartConversationSchema>;
+export type SendMessageRequest = z.infer<typeof SendMessageSchema>;
+export type PublishCertificateFromConversationRequest = z.infer<typeof PublishCertificateFromConversationSchema>;
 
 // Certificate response from LLM
 export const LLMCertificateResponseSchema = z.object({

@@ -98,6 +98,24 @@ app.post('/api/certificates/:id/rerun-acceptance',
   certificateController.rerunAcceptance
 );
 
+// Conversational mode endpoints
+app.post('/api/conversations',
+  authMiddleware.authenticate,
+  certificateController.startConversation
+);
+app.get('/api/conversations',
+  authMiddleware.authenticate,
+  certificateController.getConversations
+);
+app.post('/api/conversations/:id/messages',
+  authMiddleware.authenticate,
+  certificateController.sendMessage
+);
+app.post('/api/conversations/publish',
+  authMiddleware.authenticate,
+  certificateController.publishCertificateFromConversation
+);
+
 // API info endpoint
 app.get('/api', (req, res) => {
   res.json({

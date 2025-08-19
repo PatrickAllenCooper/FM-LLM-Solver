@@ -15,7 +15,7 @@
 
 ### Conditions
 
-- LLM modes: **direct expression**, **basis+coeffs**, **structure+constraints**.
+- LLM modes: **direct expression**, **basis+coeffs**, **structure+constraints**, **conversational**.
 - Budgets (fixed per attempt): max LLM calls, tokens, solver CPU time, restarts.
 - Splits: **Dev** for prompt tuning; **Test** frozen before report.
 
@@ -90,6 +90,64 @@
 ```
 
 Reject anything non-JSON or outside syntax/ops; canonicalize (CAS) and simplify before checks.
+
+### 2.3 Conversational Mode (Advanced Research Workflow)
+
+**Purpose:** Enable iterative mathematical reasoning and refinement through multi-turn dialogue with the LLM before committing to a final certificate candidate.
+
+#### Conversational Workflow:
+1. **Initiate Conversation:** Researcher selects "Conversational Mode" in generation workflow
+2. **Interactive Dialogue:** Multi-turn conversation about mathematical approach, system properties, and certificate design
+3. **Iterative Refinement:** LLM can ask clarifying questions, propose approaches, discuss mathematical insights
+4. **Conversation Summarization:** Automatic summarization when conversation exceeds token limits
+5. **Final Publication:** Researcher clicks "Publish Certificate" to generate final candidate based on full conversation context
+
+#### Conversation Schema:
+```json
+{
+  "conversation_id": "uuid",
+  "system_spec_id": "string",
+  "certificate_type": "lyapunov|barrier|inductive_invariant",
+  "messages": [
+    {
+      "role": "user|assistant",
+      "content": "string",
+      "timestamp": "ISO8601",
+      "metadata": {
+        "token_count": 150,
+        "model_used": "claude-sonnet-4-20250514"
+      }
+    }
+  ],
+  "summary": {
+    "key_insights": ["string"],
+    "mathematical_approaches_discussed": ["string"],
+    "final_approach_rationale": "string",
+    "conversation_summary": "string"
+  },
+  "status": "active|summarized|published|abandoned",
+  "created_at": "ISO8601",
+  "updated_at": "ISO8601"
+}
+```
+
+#### Final Certificate Generation:
+```json
+{
+  "conversation_id": "uuid",
+  "final_prompt": "Generate certificate based on our conversation...",
+  "conversation_context": "summarized_conversation_string",
+  "reasoning_chain": ["step1", "step2", "step3"],
+  "certificate_output": { /* Standard certificate schema */ }
+}
+```
+
+**Research Benefits:**
+- **Mathematical Dialogue:** Explore different approaches through conversation
+- **Reasoning Transparency:** Complete record of mathematical reasoning process
+- **Iterative Refinement:** Ability to guide LLM toward better mathematical understanding
+- **Context Preservation:** Full conversation context informs final certificate generation
+- **Educational Value:** Understand LLM mathematical reasoning capabilities through dialogue
 
 ## 3) Acceptance Protocol (rigor)
 
@@ -168,9 +226,22 @@ Reject anything non-JSON or outside syntax/ops; canonicalize (CAS) and simplify 
 ### Flows
 
 1. **Define System** (wizard): time type →state/dynamics (live parse/grad preview) →sets (builders + 2D/3D slice viz) →parameters/equilibrium →validate →save version.
-2. **Configure Experiment:** task, LLM mode, constraints (degree/ops), budgets, margins, Stage B tools, baselines, seed.
-3. **Run Monitor:** stream of candidates (normalized expr + LaTeX), acceptance checks, violation heatmaps/level sets, formal status.
-4. **Result Detail (immutable):** final expression (symbolic + LaTeX), acceptance artifacts, margins, coverage estimates, complexity, prompts/model versions, timeline; export **PDF/JSON/LaTeX**.
+2. **Configure Generation:** task, LLM mode selection (direct/basis/structure/**conversational**), constraints (degree/ops), budgets, margins, Stage B tools, baselines, seed.
+3. **Generate Certificate:**
+   - **Direct Modes:** immediate LLM generation with structured prompting
+   - **Conversational Mode:** enter mathematical dialogue interface →iterative discussion →publish final certificate
+4. **Run Monitor:** stream of candidates (normalized expr + LaTeX), acceptance checks, violation heatmaps/level sets, formal status.
+5. **Result Detail (immutable):** final expression (symbolic + LaTeX), acceptance artifacts, margins, coverage estimates, complexity, prompts/model versions, **conversation history** (if conversational), timeline; export **PDF/JSON/LaTeX**.
+
+#### Conversational Generation Flow:
+1. **Select Conversational Mode:** Toggle in generation form
+2. **Conversation Interface:** Full-screen chat interface with mathematical context
+3. **Mathematical Dialogue:** Multi-turn discussion about certificate approaches
+4. **Insight Development:** LLM asks questions, proposes approaches, discusses theory
+5. **Refinement Loop:** Iterative improvement of mathematical understanding
+6. **Publication Decision:** Researcher clicks "Publish Certificate" when satisfied
+7. **Final Generation:** LLM synthesizes conversation into formal certificate candidate
+8. **Standard Acceptance:** Generated certificate follows normal acceptance protocol
 
 **Guardrails:** schema-driven validation; margin warnings; disabled "Run" until green.
 
@@ -284,6 +355,23 @@ create table acceptance_reruns (
   requested_by bigint references users(id),
   timestamp timestamptz default now()
 );
+
+-- Conversational certificate generation
+create table conversations (
+  id bigserial primary key,
+  system_spec_id bigint references systems(id),
+  certificate_type text check (certificate_type in ('lyapunov','barrier','inductive_invariant')) not null,
+  status text check (status in ('active','summarized','published','abandoned')) default 'active',
+  messages jsonb not null default '[]', -- Array of conversation messages
+  summary jsonb, -- Conversation summary and key insights
+  final_certificate_id bigint references candidates(id), -- Published certificate
+  created_by bigint references users(id),
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  published_at timestamptz,
+  token_count int default 0, -- Running total of tokens used
+  message_count int default 0 -- Number of messages in conversation
+);
 ```
 
 ## 7) GCP Architecture (serverless, reproducible)
@@ -388,12 +476,20 @@ Ensure your **A records** (@, www) point at the IP printed by fmgen-ipv4. If you
 **Implemented Endpoints**:
 - POST /api/system-specs - create & validate system specifications
 - GET /api/system-specs - list system specifications with pagination
-- POST /api/certificates/generate - generate certificate candidates via LLM
+- POST /api/certificates/generate - generate certificate candidates via LLM (direct mode)
 - GET /api/certificates - list candidates with acceptance status
 - GET /api/certificates/:id - retrieve candidate details with comprehensive technical analysis
 - POST /api/certificates/:id/rerun-acceptance - re-run acceptance check with experimental parameter controls
 - Auth endpoints: POST /api/auth/login, /api/auth/register
 - Admin endpoints: POST /api/admin/emails (email authorization)
+
+**Conversational Mode Endpoints (Planned)**:
+- POST /api/conversations - initiate new conversation for certificate generation
+- GET /api/conversations/:id - retrieve conversation history and status
+- POST /api/conversations/:id/messages - send message and receive LLM response
+- POST /api/conversations/:id/summarize - manually trigger conversation summarization
+- POST /api/conversations/:id/publish - generate final certificate from conversation context
+- DELETE /api/conversations/:id - abandon conversation without publishing
 
 **Planned Endpoints**:
 - POST /v1/systems - validate & store SystemSpec, return immutable system_id + hash.
@@ -411,6 +507,37 @@ Ensure your **A records** (@, www) point at the IP printed by fmgen-ipv4. If you
 - **Prompt scaffolding:** strict JSON output; terminate on non-JSON.
 
 You supplied a Claude key. Don't paste it into code. Store it exactly once in **Secret Manager** (ANTHROPIC_API_KEY) and reference via Cloud Run secret mounts/env.
+
+### 10.1 Conversational Mode (Advanced Research Capability)
+
+**Purpose:** Enable sophisticated mathematical discourse and iterative refinement before final certificate generation.
+
+#### Conversation Management:
+- **Multi-turn Dialogue:** Researcher engages in mathematical discussion with LLM about system properties, certificate approaches, and theoretical considerations
+- **Context Preservation:** Full conversation history maintained throughout session
+- **Intelligent Summarization:** Automatic conversation compression when approaching token limits using secondary Claude model
+- **Mathematical Focus:** LLM guided to discuss Lyapunov/barrier theory, stability analysis, and certificate construction strategies
+
+#### Conversation Flow:
+1. **Initialization:** System spec and certificate type provided as conversation context
+2. **Exploratory Phase:** Open-ended mathematical discussion, approach exploration, theoretical insights
+3. **Refinement Phase:** Iterative improvement of mathematical understanding and approach
+4. **Consolidation Phase:** LLM synthesizes conversation insights into concrete mathematical approach
+5. **Publication:** Final certificate generation incorporating all conversation insights and refinements
+
+#### Technical Implementation:
+- **Session Management:** Firestore conversation documents with message arrays
+- **Token Management:** Automatic summarization at 75% of model context limit
+- **Context Compression:** Preserve mathematical insights while reducing token count
+- **Conversation Artifacts:** Complete reasoning chain, key insights, approach evolution
+- **Final Certificate Context:** Full conversation summary included in certificate generation prompt
+
+#### Research Applications:
+- **Mathematical Pedagogy:** Understand how LLMs reason about stability theory
+- **Approach Comparison:** Explore multiple mathematical strategies before commitment
+- **Insight Generation:** Discover novel mathematical insights through dialogue
+- **Reasoning Analysis:** Study LLM mathematical reasoning capabilities and limitations
+- **Quality Enhancement:** Improve certificate quality through iterative refinement
 
 ## 9.5) Current Service Architecture (Implemented)
 
@@ -466,8 +593,21 @@ Log with every attempt:
 - **System Specs**: Table view with create/edit wizard, specification details pages.
 - **Certificates**: Full candidate management with acceptance status filtering, detailed view with LaTeX rendering, **comprehensive technical details analysis**, and **experimental parameter controls**.
 - **Certificate Details**: Research-grade technical analysis including mathematical conditions verified, numerical method details, violation analysis with severity classification, margin breakdown by condition type, two-stage protocol results, and runtime parameter adjustment controls.
+- **Generate Certificate**: Enhanced form with conversational mode option, direct generation modes, and parameter controls.
 - **Profile**: User account management.
 - **Admin**: Email authorization management for user provisioning.
+
+**Conversational Mode Interface (Planned)**:
+- **Conversation Launcher**: Toggle option in certificate generation form to enter conversational mode
+- **Mathematical Chat Interface**: Full-screen conversation view with:
+  - System specification context panel (persistent)
+  - Mathematical conversation history with syntax highlighting
+  - Real-time message composition with LaTeX preview
+  - Conversation insights panel showing key mathematical concepts discussed
+  - Token usage indicator with automatic summarization triggers
+- **Conversation Management**: Save, resume, abandon conversation capabilities
+- **Publication Controls**: "Publish Certificate" button with conversation summary review
+- **Conversation Archives**: Historical conversation viewing with mathematical insights highlighted
 
 **Planned UI Features**:
 - **Experiments**: config form (task, mode, budgets, margins, baselines); seeded & pinned prompts.
@@ -525,6 +665,7 @@ Log with every attempt:
 **Terminology Update**: System now uses "accepted" instead of "verified" throughout to reflect the cautious nature of numerical acceptance checks. Candidates are "accepted" when they pass our rigorous but not absolute numerical and formal validation processes.
 
 **Planned Enhancements**:
+- **Conversational Mode**: Multi-turn mathematical dialogue for iterative certificate refinement with conversation summarization and context management
 - Stage B formal verification (SOS/SMT integration)
 - PostgreSQL migration from Firestore
 - Full experiment management and statistical analysis features

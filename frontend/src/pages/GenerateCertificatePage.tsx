@@ -19,7 +19,7 @@ import { api } from '@/services/api';
 const CertificateGenerationSchema = z.object({
   system_spec_id: z.string().min(1, 'Please select a system specification'),
   certificate_type: z.enum(['lyapunov', 'barrier', 'inductive_invariant']),
-  generation_method: z.enum(['llm', 'sos', 'sdp', 'quadratic_template']),
+  generation_method: z.enum(['llm', 'sos', 'sdp', 'quadratic_template', 'conversational']),
   baseline_comparison: z.boolean().default(false),
   llm_config: z.object({
     provider: z.literal('anthropic').default('anthropic'),
@@ -30,6 +30,8 @@ const CertificateGenerationSchema = z.object({
     mode: z.enum(['direct_expression', 'basis_coeffs', 'structure_constraints']).default('direct_expression'),
     timeout_ms: z.number().default(30000),
   }).optional(),
+  // Conversational mode specific fields
+  enable_conversation_mode: z.boolean().default(false),
 });
 
 type CertificateGenerationForm = z.infer<typeof CertificateGenerationSchema>;
@@ -77,6 +79,12 @@ const METHOD_INFO = {
     pros: ['Fast computation', 'Good for linear systems'],
     cons: ['Limited expressiveness', 'May not find complex certificates'],
   },
+  conversational: {
+    title: 'Conversational Mode',
+    description: 'Interactive mathematical dialogue with LLM before final generation',
+    pros: ['Iterative refinement', 'Mathematical reasoning', 'Educational insights', 'Context-aware generation'],
+    cons: ['Time intensive', 'Requires user interaction', 'Multiple LLM calls'],
+  },
 };
 
 const LLM_MODES = {
@@ -96,6 +104,7 @@ export default function GenerateCertificatePage() {
       certificate_type: 'lyapunov',
       generation_method: 'llm',
       baseline_comparison: false,
+      enable_conversation_mode: false,
       llm_config: {
         provider: 'anthropic',
         model: 'claude-3-5-sonnet-20241022',
@@ -135,6 +144,17 @@ export default function GenerateCertificatePage() {
   });
 
   const onSubmit = (data: CertificateGenerationForm) => {
+    // Handle conversational mode differently
+    if (data.generation_method === 'conversational' || data.enable_conversation_mode) {
+      // Redirect to conversation interface
+      const conversationParams = new URLSearchParams({
+        system_spec_id: data.system_spec_id,
+        certificate_type: data.certificate_type,
+      });
+      navigate(`/conversations/new?${conversationParams}`);
+      return;
+    }
+
     const payload: CertificateGenerationRequest = {
       system_spec_id: data.system_spec_id,
       certificate_type: data.certificate_type,
@@ -152,7 +172,9 @@ export default function GenerateCertificatePage() {
 
   const selectedMethod = form.watch('generation_method');
   const selectedType = form.watch('certificate_type');
+  const enableConversationMode = form.watch('enable_conversation_mode');
   const isLLMMethod = selectedMethod === 'llm';
+  const isConversationalMethod = selectedMethod === 'conversational' || enableConversationMode;
 
   // Force re-validation when system specs load
   useEffect(() => {
@@ -315,8 +337,63 @@ export default function GenerateCertificatePage() {
           </div>
         </div>
 
-        {/* LLM Configuration (only for LLM method) */}
-        {isLLMMethod && (
+        {/* Conversational Mode Toggle (for LLM methods) */}
+        {(isLLMMethod || selectedMethod === 'conversational') && (
+          <div className="card">
+            <div className="card-body">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">Advanced Research Mode</h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Enable conversational mode for iterative mathematical dialogue and refinement before final certificate generation.
+                  </p>
+                  
+                  <label className="flex items-center space-x-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      {...form.register('enable_conversation_mode')}
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <div>
+                      <span className="text-sm font-medium text-gray-900">
+                        Enable Conversational Mode
+                      </span>
+                      <p className="text-xs text-gray-500">
+                        Engage in mathematical dialogue before generating the final certificate
+                      </p>
+                    </div>
+                  </label>
+
+                  {isConversationalMethod && (
+                    <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                      <div className="flex items-start space-x-3">
+                        <InformationCircleIcon className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <h4 className="text-sm font-medium text-blue-900 mb-2">
+                            Conversational Mode Workflow
+                          </h4>
+                          <ul className="text-xs text-blue-800 space-y-1">
+                            <li>• Interactive mathematical dialogue with the LLM</li>
+                            <li>• Explore different approaches and theoretical considerations</li>
+                            <li>• Iterative refinement of mathematical understanding</li>
+                            <li>• Automatic conversation summarization for long discussions</li>
+                            <li>• Final certificate generation based on complete conversation context</li>
+                          </ul>
+                          <div className="mt-3 text-xs text-blue-700 font-medium">
+                            Click "Start Conversation" to begin mathematical dialogue →
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* LLM Configuration (only for LLM method and not conversational) */}
+        {isLLMMethod && !isConversationalMethod && (
           <div className="card">
             <div className="card-body">
               <div className="flex items-center justify-between mb-4">
@@ -465,7 +542,7 @@ export default function GenerateCertificatePage() {
             ) : (
               <>
                 <PlayIcon className="w-4 h-4 mr-2" />
-                Generate Certificate
+                {isConversationalMethod ? 'Start Conversation' : 'Generate Certificate'}
               </>
             )}
           </button>
