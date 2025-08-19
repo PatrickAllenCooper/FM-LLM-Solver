@@ -1056,8 +1056,8 @@ export class CertificateFirestoreController {
       const results: any[] = [];
 
       for (const candidateDoc of acceptedCertificates) {
-        const candidateData = candidateDoc.data();
-        const candidate = { id: candidateDoc.id, ...candidateData };
+        const candidateData = candidateDoc.data() as any;
+        const candidate = { id: candidateDoc.id, ...candidateData } as any;
 
         try {
           // Get associated system spec
@@ -1067,7 +1067,8 @@ export class CertificateFirestoreController {
             continue;
           }
 
-          const systemSpec = { id: candidate.system_spec_id, ...systemSpecDoc.data() } as SystemSpec;
+          const systemSpecData = systemSpecDoc.data() as any;
+          const systemSpec = { id: candidate.system_spec_id, ...systemSpecData } as SystemSpec;
 
           // Create properly mapped candidate object for AcceptanceService
           const mappedCandidate = {
