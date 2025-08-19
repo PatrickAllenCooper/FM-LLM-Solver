@@ -98,7 +98,7 @@ app.get('/api/certificates/:id',
 app.get('/api', (req, res) => {
   res.json({
     name: 'FM-LLM Solver API',
-    version: '1.0.0',
+    version: '2.0.0',
     status: 'running',
     database: 'firestore',
     timestamp: new Date().toISOString(),

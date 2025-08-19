@@ -14,7 +14,7 @@ export class SimpleController {
         service: 'fm-llm-solver-api',
         database: 'firestore',
         timestamp: new Date().toISOString(),
-        version: '1.0.0'
+        version: '2.0.0'
       });
     } catch (error) {
       logger.error('Health check failed:', error);
