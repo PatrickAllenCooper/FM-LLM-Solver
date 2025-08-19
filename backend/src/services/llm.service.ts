@@ -648,9 +648,9 @@ Do not generate a final certificate unless explicitly asked to "publish" or "fin
 
   private getDefaultConversationStarter(certificateType: 'lyapunov' | 'barrier' | 'inductive_invariant'): string {
     const starters = {
-      lyapunov: `I'd like to explore approaches for generating a Lyapunov function for this system. Can you help me think through different mathematical strategies? What are some key considerations for this particular system?`,
-      barrier: `I'm interested in generating a barrier certificate for this system. What approaches might work well given the system dynamics and safety requirements? Let's discuss the mathematical considerations.`,
-      inductive_invariant: `I want to develop an inductive invariant for this system. What mathematical approaches should we consider? Can you help me think through the theoretical requirements?`,
+      lyapunov: `I'd like to explore approaches for generating a Lyapunov function for this specific system. Can you help me think through different mathematical strategies that would work well for these particular dynamics and constraints?`,
+      barrier: `I'm interested in generating a barrier certificate for this specific system. Given the system dynamics and safety requirements shown above, what approaches might work best? Let's discuss the mathematical considerations.`,
+      inductive_invariant: `I want to develop an inductive invariant for this particular system. What mathematical approaches should we consider given the specific dynamics and domain constraints?`,
     };
     
     return starters[certificateType];

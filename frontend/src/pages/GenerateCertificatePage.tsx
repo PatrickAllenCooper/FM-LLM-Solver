@@ -146,10 +146,14 @@ export default function GenerateCertificatePage() {
   const onSubmit = (data: CertificateGenerationForm) => {
     // Handle conversational mode differently
     if (data.generation_method === 'conversational' || data.enable_conversation_mode) {
-      // Redirect to conversation interface
+      // Redirect to conversation interface with full context
       const conversationParams = new URLSearchParams({
         system_spec_id: data.system_spec_id,
         certificate_type: data.certificate_type,
+        llm_model: data.llm_config?.model || 'claude-3-5-sonnet-20241022',
+        llm_mode: data.llm_config?.mode || 'direct_expression',
+        temperature: (data.llm_config?.temperature || 0.0).toString(),
+        baseline_comparison: data.baseline_comparison.toString(),
       });
       navigate(`/conversations/new?${conversationParams}`);
       return;

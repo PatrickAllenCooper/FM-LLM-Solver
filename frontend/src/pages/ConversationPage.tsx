@@ -50,6 +50,10 @@ export default function ConversationPage() {
   // For new conversations
   const systemSpecId = searchParams.get('system_spec_id');
   const certificateType = searchParams.get('certificate_type') as 'lyapunov' | 'barrier' | 'inductive_invariant';
+  const llmModel = searchParams.get('llm_model') || 'claude-3-5-sonnet-20241022';
+  const llmMode = searchParams.get('llm_mode') || 'direct_expression';
+  const temperature = parseFloat(searchParams.get('temperature') || '0.0');
+  const baselineComparison = searchParams.get('baseline_comparison') === 'true';
   const isNewConversation = id === 'new' && systemSpecId && certificateType;
 
   // Message form
@@ -147,7 +151,30 @@ export default function ConversationPage() {
   // Initialize conversation for new conversations
   useEffect(() => {
     if (isNewConversation && systemSpec) {
-      const initialMessage = `I'd like to explore approaches for generating a ${certificateType} function for the ${systemSpec.name} system. Can you help me think through different mathematical strategies?`;
+      // Create a detailed initial message that includes specific system information
+      const systemDetails = {
+        name: systemSpec.name,
+        type: systemSpec.system_type,
+        dimension: systemSpec.dimension,
+        dynamics: systemSpec.dynamics_json?.equations || 'dynamics not specified',
+        domain: systemSpec.dynamics_json?.domain || 'domain not specified',
+      };
+      
+      const initialMessage = `I'd like to explore approaches for generating a ${certificateType} function for this specific system:
+
+**System: ${systemDetails.name}**
+- Type: ${systemDetails.type} system  
+- Dimension: ${systemDetails.dimension}D
+- Dynamics: ${Array.isArray(systemDetails.dynamics) ? systemDetails.dynamics.join(', ') : systemDetails.dynamics}
+- Domain: ${JSON.stringify(systemDetails.domain, null, 2)}
+
+**My Configuration Preferences:**
+- LLM Model: ${llmModel}
+- Generation Mode: ${llmMode} 
+- Temperature: ${temperature}
+- Include Baseline Comparison: ${baselineComparison ? 'Yes' : 'No'}
+
+Given these specific system properties and my research preferences, can you help me think through different mathematical strategies for ${certificateType} function construction? What approaches would work best for this particular system configuration, and how should we tailor the approach given my selected generation mode and settings?`;
       
       startConversationMutation.mutate({
         system_spec_id: systemSpecId!,
@@ -208,9 +235,17 @@ export default function ConversationPage() {
                 <ChatBubbleLeftRightIcon className="w-5 h-5 mr-2 text-blue-600" />
                 Mathematical Conversation
               </h1>
-              <p className="text-sm text-gray-600">
-                {systemSpec?.name || 'Loading...'} • {certificateType} function
-              </p>
+              <div className="text-sm text-gray-600">
+                {systemSpec ? 
+                  `${systemSpec.name} (${systemSpec.system_type}, ${systemSpec.dimension}D) • ${certificateType} function` : 
+                  'Loading system specification...'
+                }
+                {llmModel && (
+                  <div className="text-xs text-gray-500 mt-1">
+                    Using {llmModel} • {llmMode} mode • Temperature: {temperature}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
           
@@ -264,9 +299,22 @@ export default function ConversationPage() {
               System Specification Context
             </h3>
             <div className="text-sm text-blue-800">
-              <strong>{systemSpec?.name}</strong> • {systemSpec?.system_type} system • {systemSpec?.dimension}D
-              {systemSpec?.description && (
-                <div className="mt-1 text-blue-700">{systemSpec.description}</div>
+              {systemSpec ? (
+                <>
+                  <strong>{systemSpec.name}</strong> • {systemSpec.system_type} system • {systemSpec.dimension}D
+                  {systemSpec.description && (
+                    <div className="mt-1 text-blue-700">{systemSpec.description}</div>
+                  )}
+                  {systemSpec.dynamics_json?.equations && (
+                    <div className="mt-2 text-xs text-blue-600">
+                      <strong>Dynamics:</strong> {Array.isArray(systemSpec.dynamics_json.equations) 
+                        ? systemSpec.dynamics_json.equations.join(', ') 
+                        : systemSpec.dynamics_json.equations}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="text-blue-600">Loading system specification...</div>
               )}
             </div>
           </div>
