@@ -1,6 +1,6 @@
 {
   "name": "fm-llm-solver",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Rigorous evaluation of LLMs for proposing Lyapunov functions and barrier certificates",
   "main": "index.js",
   "scripts": {
