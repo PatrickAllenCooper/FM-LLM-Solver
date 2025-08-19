@@ -30,6 +30,15 @@ export class MathService {
    * Parse mathematical expression into abstract syntax tree
    */
   parseExpression(expression: string): MathExpression {
+    // Add null/undefined check
+    if (!expression || typeof expression !== 'string') {
+      logger.error('Invalid expression provided to parseExpression', {
+        expression,
+        type: typeof expression,
+      });
+      throw new Error(`Invalid mathematical expression: expression is ${typeof expression}`);
+    }
+    
     try {
       const sanitized = this.sanitizeExpression(expression);
       const variables = this.extractVariables(sanitized);

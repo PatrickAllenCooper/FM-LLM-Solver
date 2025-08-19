@@ -84,6 +84,14 @@ export class AcceptanceService {
       const domain = this.extractDomain(systemSpec);
       const dynamicsMap = this.extractDynamicsMap(dynamics);
       
+      logger.info('Debug: Lyapunov check inputs', {
+        candidateId: candidate.id,
+        expression,
+        dynamics,
+        domain,
+        dynamicsMap,
+      });
+      
       const verification = this.mathService.verifyLyapunovConditions(
         expression,
         dynamicsMap,
