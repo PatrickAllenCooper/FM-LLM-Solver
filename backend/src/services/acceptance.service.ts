@@ -107,6 +107,10 @@ export class AcceptanceService {
         domain
       );
 
+      // CRITICAL FIX: Strict mathematical validation - ANY violations mean failure
+      const hasViolations = verification.violations.length > 0;
+      const mathematicallyValid = verification.positiveDefinite && verification.decreasing && !hasViolations;
+
       // Calculate detailed technical information for experimental analysis
       const technicalDetails = {
         conditions_checked: [
@@ -128,8 +132,8 @@ export class AcceptanceService {
           })),
         },
         margin_breakdown: {
-          positivity_margin: verification.positiveDefinite ? Math.abs(verification.margin) : undefined,
-          decreasing_margin: verification.decreasing ? Math.abs(verification.margin) : undefined,
+          positivity_margin: verification.positiveDefinite && !hasViolations ? Math.abs(verification.margin) : undefined,
+          decreasing_margin: verification.decreasing && !hasViolations ? Math.abs(verification.margin) : undefined,
         },
         numerical_parameters: {
           tolerance: 1e-6,
@@ -137,13 +141,13 @@ export class AcceptanceService {
           convergence_threshold: 1e-8,
         },
         stage_results: {
-          stage_a_passed: verification.positiveDefinite && verification.decreasing,
+          stage_a_passed: mathematicallyValid,
           stage_b_enabled: false, // Currently only Stage A implemented
           stage_b_passed: undefined,
         },
       };
 
-      if (verification.positiveDefinite && verification.decreasing) {
+      if (mathematicallyValid) {
         return {
           accepted: true,
           margin: verification.margin,
@@ -153,6 +157,12 @@ export class AcceptanceService {
         };
       } else {
         const firstViolation = verification.violations[0];
+        const failureReason = hasViolations 
+          ? `MATHEMATICAL VIOLATION: Found ${verification.violations.length} violation(s). Lyapunov conditions NOT satisfied.`
+          : !verification.positiveDefinite 
+          ? 'POSITIVE DEFINITE condition failed'
+          : 'DECREASING condition failed';
+          
         return {
           accepted: false,
           counterexample: firstViolation ? {
@@ -161,7 +171,7 @@ export class AcceptanceService {
             violation_magnitude: Math.abs(firstViolation.value),
           } : undefined,
           acceptance_method: 'mathematical',
-          solver_output: `Failed Lyapunov conditions. Violations: ${verification.violations.length}`,
+          solver_output: failureReason,
           technical_details: technicalDetails,
         };
       }
@@ -206,6 +216,10 @@ export class AcceptanceService {
         unsafeSet
       );
 
+      // CRITICAL FIX: Strict mathematical validation - ANY violations mean failure
+      const hasViolations = verification.violations.length > 0;
+      const mathematicallyValid = verification.separatesRegions && verification.nonIncreasing && !hasViolations;
+
       // Calculate detailed technical information for barrier certificates
       const technicalDetails = {
         conditions_checked: [
@@ -227,8 +241,8 @@ export class AcceptanceService {
           })),
         },
         margin_breakdown: {
-          separation_margin: verification.separatesRegions ? Math.abs(verification.margin) : undefined,
-          invariant_margin: verification.nonIncreasing ? Math.abs(verification.margin) : undefined,
+          separation_margin: verification.separatesRegions && !hasViolations ? Math.abs(verification.margin) : undefined,
+          invariant_margin: verification.nonIncreasing && !hasViolations ? Math.abs(verification.margin) : undefined,
         },
         numerical_parameters: {
           tolerance: 1e-6,
@@ -236,13 +250,13 @@ export class AcceptanceService {
           convergence_threshold: 1e-8,
         },
         stage_results: {
-          stage_a_passed: verification.separatesRegions && verification.nonIncreasing,
+          stage_a_passed: mathematicallyValid,
           stage_b_enabled: false, // Currently only Stage A implemented
           stage_b_passed: undefined,
         },
       };
 
-      if (verification.separatesRegions && verification.nonIncreasing) {
+      if (mathematicallyValid) {
         return {
           accepted: true,
           margin: verification.margin,
@@ -252,6 +266,12 @@ export class AcceptanceService {
         };
       } else {
         const firstViolation = verification.violations[0];
+        const failureReason = hasViolations 
+          ? `MATHEMATICAL VIOLATION: Found ${verification.violations.length} violation(s). Barrier conditions NOT satisfied.`
+          : !verification.separatesRegions 
+          ? 'SEPARATION condition failed'
+          : 'NON-INCREASING condition failed';
+          
         return {
           accepted: false,
           counterexample: firstViolation ? {
@@ -260,7 +280,7 @@ export class AcceptanceService {
             violation_magnitude: Math.abs(firstViolation.value),
           } : undefined,
           acceptance_method: 'mathematical',
-          solver_output: `Failed barrier conditions. Violations: ${verification.violations.length}`,
+          solver_output: failureReason,
           technical_details: technicalDetails,
         };
       }
