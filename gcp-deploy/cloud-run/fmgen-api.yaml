@@ -35,7 +35,7 @@ spec:
           valueFrom:
             secretKeyRef:
               name: anthropic-api-key
-              key: "1"
+              key: "latest"
         - name: REDIS_URL
           valueFrom:
             secretKeyRef:
