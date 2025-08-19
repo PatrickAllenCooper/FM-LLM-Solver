@@ -107,6 +107,10 @@ app.get('/api/conversations',
   authMiddleware.authenticate,
   certificateController.getConversations
 );
+app.get('/api/conversations/:id',
+  authMiddleware.authenticate,
+  certificateController.getConversation
+);
 app.post('/api/conversations/:id/messages',
   authMiddleware.authenticate,
   certificateController.sendMessage

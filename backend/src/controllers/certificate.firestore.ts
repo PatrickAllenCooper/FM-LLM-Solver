@@ -939,4 +939,102 @@ export class CertificateFirestoreController {
       this.handleError(error, res, 'Failed to publish certificate from conversation');
     }
   };
+
+  // Get user's conversations
+  getConversations = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
+      const status = req.query.status as string;
+
+      let query = db.collection('conversations')
+        .where('created_by', '==', req.user?.id);
+
+      if (status) {
+        query = query.where('status', '==', status);
+      }
+
+      const totalQuery = await query.get();
+      const total = totalQuery.size;
+
+      const conversationsQuery = await query
+        .orderBy('updated_at', 'desc')
+        .limit(limit)
+        .offset((page - 1) * limit)
+        .get();
+
+      const conversations = conversationsQuery.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          // Convert Firestore timestamps
+          created_at: data.created_at?.toDate?.()?.toISOString() || data.created_at,
+          updated_at: data.updated_at?.toDate?.()?.toISOString() || data.updated_at,
+          published_at: data.published_at?.toDate?.()?.toISOString() || data.published_at,
+          // Only include last few messages for list view
+          messages: data.messages?.slice(-2) || [],
+          message_preview: data.messages?.[data.messages.length - 1]?.content?.substring(0, 100) + '...' || '',
+        };
+      });
+
+      const totalPages = Math.ceil(total / limit);
+
+      const response: ApiResponse<PaginatedResponse<any>> = {
+        success: true,
+        data: {
+          data: conversations,
+          pagination: {
+            page,
+            limit,
+            total,
+            total_pages: totalPages,
+            has_next: page < totalPages,
+            has_prev: page > 1,
+          },
+        },
+        timestamp: new Date().toISOString(),
+      };
+
+      res.json(response);
+    } catch (error) {
+      this.handleError(error, res, 'Failed to retrieve conversations');
+    }
+  };
+
+  // Get conversation details
+  getConversation = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const conversationId = req.params.id;
+
+      const conversationDoc = await db.collection('conversations').doc(conversationId).get();
+      if (!conversationDoc.exists) {
+        res.status(404).json({
+          success: false,
+          error: 'Conversation not found',
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      const conversationData = conversationDoc.data() as any;
+      const conversation = {
+        id: conversationDoc.id,
+        ...conversationData,
+        created_at: conversationData.created_at?.toDate?.()?.toISOString() || conversationData.created_at,
+        updated_at: conversationData.updated_at?.toDate?.()?.toISOString() || conversationData.updated_at,
+        published_at: conversationData.published_at?.toDate?.()?.toISOString() || conversationData.published_at,
+      };
+
+      const response: ApiResponse<any> = {
+        success: true,
+        data: conversation,
+        timestamp: new Date().toISOString(),
+      };
+
+      res.json(response);
+    } catch (error) {
+      this.handleError(error, res, 'Failed to retrieve conversation');
+    }
+  };
 }
