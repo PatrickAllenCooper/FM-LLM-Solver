@@ -45,13 +45,11 @@ export class LLMService {
         model: config.model,
       });
       
-      // Test API key validity first
-      logger.info('Testing Anthropic API connection...');
-      const testResult = await this.testConnection();
-      if (!testResult) {
-        throw new Error('Anthropic API key test failed - check API key validity');
-      }
-      logger.info('Anthropic API connection test passed');
+      // Log API call attempt
+      logger.info('Making Anthropic API call', {
+        model: config.model,
+        hasApiKey: !!process.env.ANTHROPIC_API_KEY,
+      });
 
       const message = await this.anthropic.messages.create({
         model: config.model,
@@ -284,7 +282,7 @@ Do not include any text outside of the JSON response. The expression should use 
   async testConnection(): Promise<boolean> {
     try {
       const message = await this.anthropic.messages.create({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-3-5-sonnet-20241022', // Use known working model for test
         max_tokens: 10,
         messages: [
           {
