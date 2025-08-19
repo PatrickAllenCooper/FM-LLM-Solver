@@ -121,6 +121,13 @@ export default function GenerateCertificatePage() {
   });
 
   const systemSpecs = systemSpecsResponse?.data || []; // Extract the actual SystemSpec[] array
+  
+  // Debug logging to help diagnose the issue
+  console.log('SystemSpecs loaded:', systemSpecs);
+  console.log('SystemSpecs length:', systemSpecs.length);
+  if (systemSpecs.length > 0) {
+    console.log('First spec:', systemSpecs[0]);
+  }
 
   // Certificate generation mutation
   const generateMutation = useMutation({
@@ -154,7 +161,14 @@ export default function GenerateCertificatePage() {
 
   const selectedMethod = form.watch('generation_method');
   const selectedType = form.watch('certificate_type');
+  const selectedSystemSpecId = form.watch('system_spec_id');
   const isLLMMethod = selectedMethod === 'llm';
+
+  // Debug form state
+  console.log('Form values:', form.getValues());
+  console.log('Selected system_spec_id:', selectedSystemSpecId);
+  console.log('Form errors:', form.formState.errors);
+  console.log('Form is valid:', form.formState.isValid);
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
