@@ -53,6 +53,50 @@ export interface SystemSpec {
   spec_hash: string;
 }
 
+export interface AcceptanceResult {
+  accepted: boolean;
+  margin?: number;
+  counterexample?: {
+    state: Record<string, number>;
+    violation_type: string;
+    violation_magnitude: number;
+  };
+  acceptance_method: 'symbolic' | 'numerical' | 'smt' | 'mathematical';
+  duration_ms: number;
+  solver_output?: string;
+  technical_details?: {
+    conditions_checked: string[];
+    sampling_method: 'uniform' | 'sobol' | 'lhs' | 'adaptive';
+    sample_count: number;
+    domain_coverage: Record<string, { min: number; max: number }>;
+    violation_analysis: {
+      total_violations: number;
+      violation_points: Array<{
+        point: Record<string, number>;
+        condition: string;
+        value: number;
+        severity: 'minor' | 'moderate' | 'severe';
+      }>;
+    };
+    margin_breakdown: {
+      positivity_margin?: number;
+      decreasing_margin?: number;
+      separation_margin?: number;
+      invariant_margin?: number;
+    };
+    numerical_parameters: {
+      tolerance: number;
+      max_iterations: number;
+      convergence_threshold: number;
+    };
+    stage_results: {
+      stage_a_passed: boolean;
+      stage_b_enabled: boolean;
+      stage_b_passed?: boolean;
+    };
+  };
+}
+
 export interface Candidate {
   id: string;
   system_spec_id: string;
@@ -73,6 +117,7 @@ export interface Candidate {
   acceptance_duration_ms?: number;
   system_name?: string; // Joined from system_specs
   counterexamples?: Counterexample[];
+  acceptance_result?: AcceptanceResult;
 }
 
 export interface Counterexample {
