@@ -21,6 +21,10 @@ export class LLMService {
     
     this.anthropic = new Anthropic({
       apiKey: apiKey,
+      // Ensure we use the correct API version
+      defaultHeaders: {
+        'anthropic-version': '2023-06-01',
+      },
     });
   }
 
@@ -61,6 +65,19 @@ export class LLMService {
             content: prompt,
           },
         ],
+      }).catch((error) => {
+        // Capture detailed API error information
+        logger.error('Detailed Anthropic API error', {
+          systemSpecId: systemSpec.id,
+          model: config.model,
+          errorMessage: error.message,
+          errorName: error.name,
+          errorStatus: error.status,
+          errorType: error.type,
+          errorCode: error.code,
+          fullError: JSON.stringify(error, null, 2),
+        });
+        throw error;
       });
 
       const duration_ms = Date.now() - startTime;
