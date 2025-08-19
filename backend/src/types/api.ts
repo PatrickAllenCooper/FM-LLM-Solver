@@ -64,9 +64,9 @@ export const SystemSpecRequestSchema = z.object({
 
 export type SystemSpecRequest = z.infer<typeof SystemSpecRequestSchema>;
 
-// Certificate generation request
+// Certificate generation request  
 export const CertificateGenerationRequestSchema = z.object({
-  system_spec_id: z.string().uuid(),
+  system_spec_id: z.string().min(1), // Accept Firestore IDs, not just UUIDs
   certificate_type: z.enum(['lyapunov', 'barrier', 'inductive_invariant']),
   generation_method: z.enum(['llm', 'sos', 'sdp', 'quadratic_template']),
   llm_config: LLMConfigSchema.optional(),
