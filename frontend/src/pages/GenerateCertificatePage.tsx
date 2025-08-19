@@ -119,13 +119,6 @@ export default function GenerateCertificatePage() {
   });
 
   const systemSpecs = systemSpecsResponse?.data || []; // Extract the actual SystemSpec[] array
-  
-  // Debug logging to help diagnose the issue
-  console.log('SystemSpecs loaded:', systemSpecs);
-  console.log('SystemSpecs length:', systemSpecs.length);
-  if (systemSpecs.length > 0) {
-    console.log('First spec:', systemSpecs[0]);
-  }
 
   // Certificate generation mutation
   const generateMutation = useMutation({
@@ -159,20 +152,12 @@ export default function GenerateCertificatePage() {
 
   const selectedMethod = form.watch('generation_method');
   const selectedType = form.watch('certificate_type');
-  const selectedSystemSpecId = form.watch('system_spec_id');
   const isLLMMethod = selectedMethod === 'llm';
-
-  // Debug form state
-  console.log('Form values:', form.getValues());
-  console.log('Selected system_spec_id:', selectedSystemSpecId);
-  console.log('Form errors:', form.formState.errors);
-  console.log('Form is valid:', form.formState.isValid);
 
   // Force re-validation when system specs load
   useEffect(() => {
     if (systemSpecs.length > 0) {
-      console.log('System specs loaded, triggering form validation...');
-      form.trigger(); // Re-validate entire form
+      form.trigger(); // Re-validate entire form when data loads
     }
   }, [systemSpecs.length, form]);
 
