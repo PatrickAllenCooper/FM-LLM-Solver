@@ -94,7 +94,7 @@ app.get('/api/certificates/:id',
   certificateController.getCandidate
 );
 app.post('/api/certificates/:id/rerun-acceptance',
-  authMiddleware.requireAuth,
+  authMiddleware.authenticate,
   certificateController.rerunAcceptance
 );
 
