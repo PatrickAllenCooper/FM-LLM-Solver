@@ -7,6 +7,18 @@ export class LLMService {
   private anthropic: Anthropic;
 
   constructor(apiKey: string) {
+    if (!apiKey || apiKey.trim().length === 0) {
+      logger.error('Anthropic API key is missing or empty');
+      throw new Error('Anthropic API key is required but not provided');
+    }
+    
+    // Log key info for debugging (without exposing the actual key)
+    logger.info('Initializing Anthropic client', {
+      hasApiKey: !!apiKey,
+      keyLength: apiKey.length,
+      keyPrefix: apiKey.substring(0, 8) + '...',
+    });
+    
     this.anthropic = new Anthropic({
       apiKey: apiKey,
     });
@@ -32,6 +44,14 @@ export class LLMService {
         mode: config.mode,
         model: config.model,
       });
+      
+      // Test API key validity first
+      logger.info('Testing Anthropic API connection...');
+      const testResult = await this.testConnection();
+      if (!testResult) {
+        throw new Error('Anthropic API key test failed - check API key validity');
+      }
+      logger.info('Anthropic API connection test passed');
 
       const message = await this.anthropic.messages.create({
         model: config.model,
