@@ -339,6 +339,10 @@ export class CertificateFirestoreController {
           created_at: data.created_at?.toDate?.()?.toISOString() || data.created_at,
           updated_at: data.updated_at?.toDate?.()?.toISOString() || data.updated_at,
           accepted_at: data.accepted_at?.toDate?.()?.toISOString() || data.accepted_at,
+          // Ensure proper field mapping for frontend
+          candidate_expression: data.candidate_data?.response?.expression || data.candidate_expression,
+          candidate_json: data.candidate_data || data.candidate_json,
+          llm_config_json: data.llm_config || data.llm_config_json,
         };
       }) as any;
 
@@ -391,6 +395,14 @@ export class CertificateFirestoreController {
       const enrichedCandidate = {
         ...candidate,
         system_name: systemSpecName,
+        // Convert Firestore timestamps to ISO strings for frontend compatibility
+        created_at: candidateData.created_at?.toDate?.()?.toISOString() || candidateData.created_at,
+        updated_at: candidateData.updated_at?.toDate?.()?.toISOString() || candidateData.updated_at,
+        accepted_at: candidateData.accepted_at?.toDate?.()?.toISOString() || candidateData.accepted_at,
+        // Ensure proper field mapping
+        candidate_expression: candidateData.candidate_data?.response?.expression || candidateData.candidate_expression,
+        candidate_json: candidateData.candidate_data || candidateData.candidate_json,
+        llm_config_json: candidateData.llm_config || candidateData.llm_config_json,
       };
 
       const response: ApiResponse<Candidate> = {
