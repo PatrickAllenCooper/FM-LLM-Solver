@@ -74,7 +74,7 @@ export default function CertificateDetailsPage() {
       system_spec_id: certificate.system_spec_id,
       system_name: certificate.system_name,
       created_at: certificate.created_at,
-      verified_at: certificate.verified_at,
+      accepted_at: certificate.accepted_at,
       llm_config: certificate.llm_config_json,
       candidate_data: certificate.candidate_json,
       counterexamples: certificate.counterexamples,
