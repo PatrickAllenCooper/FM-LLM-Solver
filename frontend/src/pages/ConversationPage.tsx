@@ -20,12 +20,9 @@ import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 
 import { 
-  Conversation, 
-  ConversationMessage, 
   StartConversationRequest, 
   SendMessageRequest,
-  PublishCertificateFromConversationRequest,
-  SystemSpec 
+  PublishCertificateFromConversationRequest
 } from '@/types/api';
 import { api } from '@/services/api';
 
@@ -277,7 +274,7 @@ export default function ConversationPage() {
           </div>
 
           {/* Conversation Messages */}
-          {conversation?.messages?.map((message, index) => (
+          {conversation?.messages?.map((message: any, index: number) => (
             <div
               key={index}
               className={clsx(
@@ -402,7 +399,7 @@ export default function ConversationPage() {
             <div>
               <span className="font-medium text-orange-800">Key Insights:</span>
               <ul className="mt-1 text-orange-700 list-disc list-inside">
-                {conversation.summary.key_insights.slice(0, 3).map((insight, idx) => (
+                {conversation.summary.key_insights.slice(0, 3).map((insight: string, idx: number) => (
                   <li key={idx}>{insight}</li>
                 ))}
               </ul>
@@ -410,7 +407,7 @@ export default function ConversationPage() {
             <div>
               <span className="font-medium text-orange-800">Approaches Discussed:</span>
               <ul className="mt-1 text-orange-700 list-disc list-inside">
-                {conversation.summary.mathematical_approaches_discussed.slice(0, 3).map((approach, idx) => (
+                {conversation.summary.mathematical_approaches_discussed.slice(0, 3).map((approach: string, idx: number) => (
                   <li key={idx}>{approach}</li>
                 ))}
               </ul>

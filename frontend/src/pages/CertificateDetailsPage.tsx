@@ -41,6 +41,7 @@ const METHOD_LABELS = {
   sos: 'SOS Baseline',
   sdp: 'SDP Baseline',
   quadratic_template: 'Quadratic Template',
+  conversational: 'Conversational Mode',
 };
 
 const TYPE_LABELS = {

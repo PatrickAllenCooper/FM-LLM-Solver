@@ -11,6 +11,11 @@ import {
   LoginForm,
   RegisterForm,
   ChangePasswordForm,
+  Conversation,
+  ConversationMessage,
+  StartConversationRequest,
+  SendMessageRequest,
+  PublishCertificateFromConversationRequest,
 } from '@/types/api';
 
 class ApiService {

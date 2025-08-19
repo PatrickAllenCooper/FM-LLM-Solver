@@ -19,7 +19,7 @@ import { api } from '@/services/api';
 
 interface CertificatesFilters {
   certificate_type?: 'lyapunov' | 'barrier' | 'inductive_invariant' | '';
-  generation_method?: 'llm' | 'sos' | 'sdp' | 'quadratic_template' | '';
+  generation_method?: 'llm' | 'sos' | 'sdp' | 'quadratic_template' | 'conversational' | '';
   acceptance_status?: 'pending' | 'accepted' | 'failed' | 'timeout' | '';
   search?: string;
 }
@@ -43,6 +43,7 @@ const METHOD_LABELS = {
   sos: 'SOS Baseline',
   sdp: 'SDP Baseline',
   quadratic_template: 'Quadratic Template',
+  conversational: 'Conversational Mode',
 };
 
 const TYPE_LABELS = {
@@ -163,6 +164,7 @@ export default function CertificatesPage() {
                   <option value="sos">SOS Baseline</option>
                   <option value="sdp">SDP Baseline</option>
                   <option value="quadratic_template">Quadratic Template</option>
+                  <option value="conversational">Conversational Mode</option>
                 </select>
               </div>
 
