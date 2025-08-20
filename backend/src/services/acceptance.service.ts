@@ -14,7 +14,13 @@ export class AcceptanceService {
   }
   async acceptCandidate(
     candidate: Candidate,
-    systemSpec: SystemSpec
+    systemSpec: SystemSpec,
+    customParams?: {
+      sample_count?: number;
+      sampling_method?: 'uniform' | 'sobol' | 'lhs' | 'adaptive';
+      tolerance?: number;
+      enable_stage_b?: boolean;
+    }
   ): Promise<AcceptanceResult> {
     const startTime = Date.now();
     
@@ -23,19 +29,20 @@ export class AcceptanceService {
         candidateId: candidate.id,
         certificateType: candidate.certificate_type,
         systemSpecId: systemSpec.id,
+        customParams,
       });
 
       let partialResult: Omit<AcceptanceResult, 'duration_ms'>;
 
       switch (candidate.certificate_type) {
         case 'lyapunov':
-          partialResult = await this.checkLyapunov(candidate, systemSpec);
+          partialResult = await this.checkLyapunov(candidate, systemSpec, customParams);
           break;
         case 'barrier':
-          partialResult = await this.checkBarrier(candidate, systemSpec);
+          partialResult = await this.checkBarrier(candidate, systemSpec, customParams);
           break;
         case 'inductive_invariant':
-          partialResult = await this.checkInductiveInvariant(candidate, systemSpec);
+          partialResult = await this.checkInductiveInvariant(candidate, systemSpec, customParams);
           break;
         default:
           throw new Error(`Unsupported certificate type: ${candidate.certificate_type}`);
@@ -74,7 +81,13 @@ export class AcceptanceService {
 
   private async checkLyapunov(
     candidate: Candidate,
-    systemSpec: SystemSpec
+    systemSpec: SystemSpec,
+    customParams?: {
+      sample_count?: number;
+      sampling_method?: 'uniform' | 'sobol' | 'lhs' | 'adaptive';
+      tolerance?: number;
+      enable_stage_b?: boolean;
+    }
   ): Promise<Omit<AcceptanceResult, 'duration_ms'>> {
     const expression = candidate.candidate_expression;
     const dynamics = systemSpec.dynamics_json;
@@ -104,7 +117,8 @@ export class AcceptanceService {
       const verification = this.mathService.verifyLyapunovConditions(
         expression,
         dynamicsMap,
-        domain
+        domain,
+        customParams
       );
 
       // CRITICAL FIX: Strict mathematical validation - ANY violations mean failure
@@ -112,14 +126,18 @@ export class AcceptanceService {
       const mathematicallyValid = verification.positiveDefinite && verification.decreasing && !hasViolations;
 
       // Calculate detailed technical information for experimental analysis
+      const actualSampleCount = customParams?.sample_count || 1000;
+      const actualSamplingMethod = customParams?.sampling_method || 'uniform';
+      const actualTolerance = customParams?.tolerance || 1e-6;
+      
       const technicalDetails = {
         conditions_checked: [
           'V(x) > 0 for x ≠ 0 (positive definite)',
           'V(0) = 0 (zero at equilibrium)', 
           'dV/dt ≤ 0 along trajectories (decreasing)',
         ],
-        sampling_method: 'uniform' as const,
-        sample_count: 1000, // Default from MathService
+        sampling_method: actualSamplingMethod,
+        sample_count: actualSampleCount,
         domain_coverage: domain,
         violation_analysis: {
           total_violations: verification.violations.length,
@@ -191,7 +209,13 @@ export class AcceptanceService {
 
   private async checkBarrier(
     candidate: Candidate,
-    systemSpec: SystemSpec
+    systemSpec: SystemSpec,
+    customParams?: {
+      sample_count?: number;
+      sampling_method?: 'uniform' | 'sobol' | 'lhs' | 'adaptive';
+      tolerance?: number;
+      enable_stage_b?: boolean;
+    }
   ): Promise<Omit<AcceptanceResult, 'duration_ms'>> {
     const expression = candidate.candidate_expression;
     const dynamics = systemSpec.dynamics_json;
@@ -213,7 +237,8 @@ export class AcceptanceService {
         expression,
         dynamicsMap,
         safeSet,
-        unsafeSet
+        unsafeSet,
+        customParams
       );
 
       // CRITICAL FIX: Strict mathematical validation - ANY violations mean failure
@@ -300,7 +325,13 @@ export class AcceptanceService {
 
   private async checkInductiveInvariant(
     candidate: Candidate,
-    systemSpec: SystemSpec
+    systemSpec: SystemSpec,
+    customParams?: {
+      sample_count?: number;
+      sampling_method?: 'uniform' | 'sobol' | 'lhs' | 'adaptive';
+      tolerance?: number;
+      enable_stage_b?: boolean;
+    }
   ): Promise<Omit<AcceptanceResult, 'duration_ms'>> {
     const expression = candidate.candidate_expression;
     const dynamics = systemSpec.dynamics_json;

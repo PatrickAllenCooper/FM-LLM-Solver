@@ -188,7 +188,12 @@ export class MathService {
   verifyLyapunovConditions(
     lyapunovExpression: string,
     dynamics: Record<string, string>,
-    domain: Record<string, { min: number; max: number }>
+    domain: Record<string, { min: number; max: number }>,
+    options?: {
+      sample_count?: number;
+      sampling_method?: 'uniform' | 'sobol' | 'lhs' | 'adaptive';
+      tolerance?: number;
+    }
   ): {
     positiveDefinite: boolean;
     decreasing: boolean;
@@ -206,7 +211,8 @@ export class MathService {
     }> = [];
 
     // Check positive definiteness (V(x) > 0 for x ≠ 0)
-    const positivityResult = this.checkPositivity(lyapunovExpression, domain, 1000);
+    const sampleCount = options?.sample_count || 1000;
+    const positivityResult = this.checkPositivity(lyapunovExpression, domain, sampleCount);
     let positiveDefinite = positivityResult.isPositive;
     
     if (positivityResult.counterexample) {
@@ -228,7 +234,7 @@ export class MathService {
 
     // Check decreasing condition (dV/dt < 0)
     const timeDerivative = this.computeTimeDerivative(lyapunovExpression, dynamics);
-    const decreasingResult = this.checkNegativity(timeDerivative, domain, 1000);
+    const decreasingResult = this.checkNegativity(timeDerivative, domain, sampleCount);
     
     if (decreasingResult.counterexample) {
       violations.push({
@@ -258,7 +264,12 @@ export class MathService {
     barrierExpression: string,
     dynamics: Record<string, string>,
     safeSet: any,
-    unsafeSet: any
+    unsafeSet: any,
+    options?: {
+      sample_count?: number;
+      sampling_method?: 'uniform' | 'sobol' | 'lhs' | 'adaptive';
+      tolerance?: number;
+    }
   ): {
     separatesRegions: boolean;
     nonIncreasing: boolean;
@@ -316,7 +327,8 @@ export class MathService {
     // Check non-increasing condition (dB/dt <= 0)
     const timeDerivative = this.computeTimeDerivative(barrierExpression, dynamics);
     const domain = this.combineDomains(safeSet, unsafeSet);
-    const nonIncreasingResult = this.checkNonIncreasing(timeDerivative, domain, 1000);
+    const sampleCount = options?.sample_count || 1000;
+    const nonIncreasingResult = this.checkNonIncreasing(timeDerivative, domain, sampleCount);
 
     if (nonIncreasingResult.counterexample) {
       violations.push({

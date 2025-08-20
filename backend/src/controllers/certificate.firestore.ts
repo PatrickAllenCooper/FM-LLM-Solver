@@ -494,9 +494,14 @@ export class CertificateFirestoreController {
         requestedBy: req.user?.id,
       });
 
-      // TODO: Pass custom parameters to AcceptanceService
-      // For now, use existing acceptance service but log the intent
-      const acceptanceResult = await this.acceptanceService.acceptCandidate(candidate, systemSpec);
+      // Pass custom parameters to AcceptanceService for experimental control
+      const mappedCandidate = {
+        ...candidate,
+        candidate_expression: candidateData.candidate_data?.response?.expression || candidateData.candidate_expression,
+        candidate_json: candidateData.candidate_data || candidateData.candidate_json,
+      } as Candidate;
+      
+      const acceptanceResult = await this.acceptanceService.acceptCandidate(mappedCandidate, systemSpec, acceptanceParams);
 
       // Store the re-run result (optional - for experiment tracking)
       const rerunRecord = {
