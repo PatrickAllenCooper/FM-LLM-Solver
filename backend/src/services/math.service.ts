@@ -442,7 +442,22 @@ export class MathService {
     // Simple recursive descent parser for safe evaluation
     const tokens = this.tokenize(formula);
     const rpn = this.infixToRPN(tokens);
-    return this.evaluateRPN(rpn);
+    
+    logger.debug('Formula evaluation debug', {
+      originalFormula: formula,
+      tokens,
+      rpn,
+    });
+    
+    const result = this.evaluateRPN(rpn);
+    
+    logger.debug('Formula evaluation result', {
+      formula,
+      result,
+      resultType: typeof result,
+    });
+    
+    return result;
   }
 
   private tokenize(formula: string): string[] {
@@ -517,13 +532,19 @@ export class MathService {
   private evaluateRPN(rpn: string[]): number {
     const stack: number[] = [];
     
+    logger.debug('Starting RPN evaluation', { rpn });
+    
     for (const token of rpn) {
       if (/^-?\d+\.?\d*$/.test(token)) {
         // Handle both positive and negative number tokens
-        stack.push(parseFloat(token));
+        const num = parseFloat(token);
+        stack.push(num);
+        logger.debug('Pushed number to stack', { token, num, stackSize: stack.length });
       } else {
         const b = stack.pop() || 0;
         const a = stack.pop() || 0;
+        
+        logger.debug('Processing operator', { token, a, b, stackSizeBefore: stack.length + 2 });
         
         switch (token) {
           case '+':
@@ -543,12 +564,23 @@ export class MathService {
             stack.push(Math.pow(a, b));
             break;
           default:
+            logger.error('Unknown operator encountered', { token });
             throw new Error(`Unknown operator: ${token}`);
         }
+        
+        logger.debug('After operation', { result: stack[stack.length - 1], stackSize: stack.length });
       }
     }
     
-    return stack[0] || 0;
+    const result = stack[0] || 0;
+    logger.debug('RPN evaluation completed', { 
+      finalStack: stack, 
+      result,
+      stackLength: stack.length,
+      fallbackToZero: stack.length === 0
+    });
+    
+    return result;
   }
 
   private computeGradient(parsed: MathExpression, variables: Record<string, number>): Record<string, number> {
