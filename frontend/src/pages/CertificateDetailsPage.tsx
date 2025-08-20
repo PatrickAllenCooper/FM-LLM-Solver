@@ -583,6 +583,134 @@ export default function CertificateDetailsPage() {
                           </div>
                         </div>
                       </div>
+
+                      {/* Parameter Controls for Re-running */}
+                      <div className="bg-gray-50 rounded-xl p-6">
+                        <div className="flex items-center justify-between mb-4">
+                          <h4 className="font-medium text-gray-900 flex items-center">
+                            <Cog8ToothIcon className="w-5 h-5 mr-2" />
+                            Experimental Parameter Controls
+                          </h4>
+                          <button
+                            onClick={() => setShowParameterControls(!showParameterControls)}
+                            className="btn btn-outline btn-sm"
+                          >
+                            {showParameterControls ? 'Hide' : 'Show'} Parameter Controls
+                          </button>
+                        </div>
+                        
+                        {showParameterControls && (
+                          <div className="bg-white rounded-lg p-4 border border-gray-200">
+                            <p className="text-gray-700 text-sm mb-4">
+                              Adjust numerical parameters and re-run acceptance checking for experimental analysis.
+                            </p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Sample Count
+                                </label>
+                                <select 
+                                  className="input input-sm"
+                                  value={sampleCount}
+                                  onChange={(e) => setSampleCount(Number(e.target.value))}
+                                >
+                                  <option value="1000">1,000 (Default)</option>
+                                  <option value="5000">5,000 (Higher precision)</option>
+                                  <option value="10000">10,000 (Maximum precision)</option>
+                                </select>
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Sampling Method
+                                </label>
+                                <select 
+                                  className="input input-sm"
+                                  value={samplingMethod}
+                                  onChange={(e) => setSamplingMethod(e.target.value as 'uniform' | 'sobol' | 'lhs' | 'adaptive')}
+                                >
+                                  <option value="uniform">Uniform (Default)</option>
+                                  <option value="sobol">Sobol (Low-discrepancy)</option>
+                                  <option value="lhs">Latin Hypercube</option>
+                                  <option value="adaptive">Adaptive Refinement</option>
+                                </select>
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Numerical Tolerance
+                                </label>
+                                <select 
+                                  className="input input-sm"
+                                  value={tolerance}
+                                  onChange={(e) => setTolerance(Number(e.target.value))}
+                                >
+                                  <option value="1e-6">10⁻⁶ (Default)</option>
+                                  <option value="1e-8">10⁻⁸ (Higher precision)</option>
+                                  <option value="1e-10">10⁻¹⁰ (Maximum precision)</option>
+                                </select>
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Enable Stage B
+                                </label>
+                                <select 
+                                  className="input input-sm"
+                                  value={enableStageB.toString()}
+                                  onChange={(e) => setEnableStageB(e.target.value === 'true')}
+                                >
+                                  <option value="false">Disabled (Stage A only)</option>
+                                  <option value="true">Enabled (SOS/SMT verification)</option>
+                                </select>
+                              </div>
+                            </div>
+                            <button
+                              className="btn btn-primary btn-sm"
+                              disabled={rerunMutation.isPending}
+                              onClick={() => {
+                                rerunMutation.mutate({
+                                  sample_count: sampleCount,
+                                  sampling_method: samplingMethod,
+                                  tolerance: tolerance,
+                                  enable_stage_b: enableStageB,
+                                });
+                              }}
+                            >
+                              <BeakerIcon className="w-4 h-4 mr-1" />
+                              {rerunMutation.isPending ? 'Re-running...' : 'Re-run Acceptance Check'}
+                            </button>
+                          </div>
+                        )}
+                        
+                        {/* Current Parameters Display */}
+                        <div className="mt-4 bg-white rounded-lg p-4 border border-gray-200">
+                          <h5 className="font-medium text-gray-900 mb-3">Current Analysis Parameters</h5>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                            <div>
+                              <div className="text-gray-500">Samples</div>
+                              <div className="font-medium">
+                                {certificate.acceptance_result?.technical_details?.sample_count?.toLocaleString() || 'N/A'}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-gray-500">Method</div>
+                              <div className="font-medium capitalize">
+                                {certificate.acceptance_result?.technical_details?.sampling_method || 'N/A'}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-gray-500">Tolerance</div>
+                              <div className="font-medium">
+                                {certificate.acceptance_result?.technical_details?.numerical_parameters?.tolerance?.toExponential(0) || 'N/A'}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-gray-500">Violations</div>
+                              <div className="font-medium">
+                                {certificate.acceptance_result?.technical_details?.violation_analysis?.total_violations || 0}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}
