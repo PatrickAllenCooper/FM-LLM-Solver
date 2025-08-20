@@ -154,13 +154,13 @@ export class AcceptanceService {
           decreasing_margin: verification.decreasing && !hasViolations ? Math.abs(verification.margin) : undefined,
         },
         numerical_parameters: {
-          tolerance: 1e-6,
-          max_iterations: 1000,
+          tolerance: actualTolerance,
+          max_iterations: actualSampleCount,
           convergence_threshold: 1e-8,
         },
         stage_results: {
           stage_a_passed: mathematicallyValid,
-          stage_b_enabled: false, // Currently only Stage A implemented
+          stage_b_enabled: customParams?.enable_stage_b || false,
           stage_b_passed: undefined,
         },
       };

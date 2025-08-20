@@ -417,12 +417,15 @@ export class MathService {
     // Safe evaluation using mathematical operations
     let expr = parsed.expression;
     
-    // Substitute variables with values - CRITICAL FIX: Wrap negative numbers in parentheses
+    // SIMPLE FIX: Replace negative numbers with space-padded versions to avoid operator conflicts
     for (const [variable, value] of Object.entries(variables)) {
       const regex = new RegExp(`\\b${variable}\\b`, 'g');
-      // Wrap negative values in parentheses to prevent operator precedence issues
-      const substitutionValue = value < 0 ? `(${value})` : value.toString();
-      expr = expr.replace(regex, substitutionValue);
+      if (value < 0) {
+        // Replace with space-padded negative number: "x1" -> " -2.012 "
+        expr = expr.replace(regex, ` ${value} `);
+      } else {
+        expr = expr.replace(regex, value.toString());
+      }
     }
     
     logger.debug('Expression evaluation', {
@@ -449,38 +452,23 @@ export class MathService {
     while (i < formula.length) {
       const char = formula[i];
       
-      if (/\d/.test(char) || char === '.') {
-        // Number (possibly negative)
+      if (/\s/.test(char)) {
+        // Skip whitespace
+        i++;
+      } else if (/\d/.test(char) || char === '.' || (char === '-' && i < formula.length - 1 && /\d/.test(formula[i + 1]))) {
+        // Number (including negative numbers like -2.012)
         let number = '';
+        if (char === '-') {
+          number += char;
+          i++;
+        }
         while (i < formula.length && (/\d/.test(formula[i]) || formula[i] === '.')) {
           number += formula[i];
           i++;
         }
         tokens.push(number);
-      } else if (char === '-' && i < formula.length - 1) {
-        // Check if this is a negative number (after '(' or at start)
-        const prevToken = tokens[tokens.length - 1];
-        if (tokens.length === 0 || prevToken === '(' || /[+\-*/^]/.test(prevToken)) {
-          // This is likely a unary minus - combine with the following number
-          i++; // Skip the minus
-          if (i < formula.length && (/\d/.test(formula[i]) || formula[i] === '.')) {
-            let number = '-';
-            while (i < formula.length && (/\d/.test(formula[i]) || formula[i] === '.')) {
-              number += formula[i];
-              i++;
-            }
-            tokens.push(number);
-          } else {
-            // Not followed by a number, treat as operator
-            tokens.push('-');
-          }
-        } else {
-          // Binary minus operator
-          tokens.push(char);
-          i++;
-        }
-      } else if (/[+*/^()]/.test(char)) {
-        // Operator or parenthesis (excluding minus, handled above)
+      } else if (/[+\-*/^()]/.test(char)) {
+        // Operator or parenthesis
         tokens.push(char);
         i++;
       } else {
