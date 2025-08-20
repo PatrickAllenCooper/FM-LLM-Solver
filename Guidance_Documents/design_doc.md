@@ -151,7 +151,15 @@ Reject anything non-JSON or outside syntax/ops; canonicalize (CAS) and simplify 
 
 ## 3) Acceptance Protocol (rigor)
 
-### 3.1 Stage A - Numeric (always)
+### 3.1 Mathematical Evaluation Requirements
+
+**Core Mathematical Correctness:**
+- **Expression Evaluation**: Mathematical expressions like `x1**2 + x2**2` MUST evaluate correctly for all variable assignments
+- **Expected Behavior**: For `x1=-1.5, x2=-2.4`, expression `x1**2 + x2**2` MUST return `8.01`, never `0.000000`
+- **Negative Number Handling**: Variable substitution with negative values must preserve mathematical accuracy
+- **Domain Compliance**: All sampling must occur within specified domain bounds (e.g., [-5, 5] for test system)
+
+### 3.2 Stage A - Numeric (always)
 
 - **Sampling:** Sobol/LHS on domain; oversample near B(x)=0, set boundaries, and spheres around equilibrium.
 - **AD gradients:** compute ∇V, ∇B, V̇∇V·f, Δ=V∘f−V, L_fB=∇B·f.
@@ -161,7 +169,7 @@ Reject anything non-JSON or outside syntax/ops; canonicalize (CAS) and simplify 
   - Barrier: B≤−m_init on initial, B≥m_unsafe on unsafe, L_fB≤−m_inv on B≈.
 - **Adaptive refinement + adversarial search** (maximize violation; keep counterexamples).
 
-### 3.2 Stage B - Formal (selectively, when eligible)
+### 3.3 Stage B - Formal (selectively, when eligible)
 
 - **SOS/SDP** for polynomial cases (Lyapunov & barrier multipliers).
 - **SMT/δ-sat (e.g., dReal)** for non-polynomial constraints; record δ.
@@ -169,7 +177,54 @@ Reject anything non-JSON or outside syntax/ops; canonicalize (CAS) and simplify 
 
 **Acceptance Criteria:** Stage A pass **and** Stage B pass (when Stage B enabled). Persist **margins**, **tool versions**, and **artifacts**.
 
-### 3.3 Technical Details & Experimental Controls (Research-Grade Transparency)
+### 3.4 Data Consistency Requirements
+
+**Status-Violation Consistency:**
+- Certificates with `acceptance_status: "accepted"` MUST have `violations: 0`
+- Certificates with `acceptance_status: "failed"` MUST have `violations > 0`
+- No contradictory states allowed (accepted status with violations)
+- On-the-fly re-evaluation must update stored status if mathematical violations are detected
+
+### 3.5 Interface Design Requirements (User Experience)
+
+**Technical Details Visibility:**
+- **ALL certificates** (accepted, failed, timeout) MUST show "Show Technical Details" button
+- Technical details section MUST be accessible for debugging failed certificates
+- Never hide technical analysis based on acceptance status - research requires full visibility
+
+**Technical Details Content Requirements:**
+- **Mathematical Conditions Verified**: Always display what was checked regardless of outcome
+- **Numerical Method Details**: Sampling method, sample count, tolerance used
+- **Violation Analysis**: Complete violation list with coordinates and values for failed certificates  
+- **Experimental Parameter Controls**: MUST be available for all certificates to enable research parameter sensitivity studies
+- **Current Analysis Parameters**: MUST reflect actual parameters used in latest analysis (not defaults)
+
+**Parameter Controls Functionality:**
+- User adjusts: Sample Count (1K/5K/10K), Sampling Method (uniform/sobol/lhs/adaptive), Tolerance (1e-6/1e-8/1e-10), Stage B Enable/Disable
+- "Re-run Acceptance Check" button executes new analysis with user parameters
+- "Current Analysis Parameters" section MUST update to reflect new parameters after re-run
+- Certificate status MUST update if acceptance result changes (accepted ↔ failed)
+
+### 3.6 Technical Implementation Requirements
+
+**Mathematical Evaluation Pipeline:**
+- Expression evaluator MUST handle negative variable substitution correctly
+- `x1**2 + x2**2` with `x1=-1.5, x2=-2.4` MUST evaluate to `8.01`, never `0.000000`
+- Tokenizer must properly parse negative numbers in mathematical expressions
+- No mathematical evaluation should ever return 0 for expressions containing only squares/positive terms
+
+**Parameter Controls Implementation:**
+- Re-run endpoint MUST accept custom parameters (sample_count, sampling_method, tolerance, enable_stage_b)
+- AcceptanceService MUST use custom parameters instead of hardcoded defaults
+- MathService MUST respect custom sample counts and tolerance values
+- Database updates MUST persist new acceptance results and parameters after re-run
+
+**Data Flow Requirements:**
+- Frontend form → API request → AcceptanceService → MathService → Database update → Frontend refresh
+- Each step must preserve and use custom parameters
+- Technical details must reflect actual analysis performed, not defaults
+
+### 3.7 Technical Details & Experimental Controls (Research-Grade Transparency)
 
 **Comprehensive Technical Reporting:** Each acceptance result includes detailed technical analysis for experimental reproducibility:
 
@@ -207,6 +262,76 @@ Reject anything non-JSON or outside syntax/ops; canonicalize (CAS) and simplify 
 - Margin threshold optimization
 
 **Experimental Provenance:** All parameter adjustments and re-runs logged with complete audit trail for research reproducibility.
+
+### 3.8 Expected User Interface Flow (Certificate Details Page)
+
+**For ANY certificate (accepted, failed, timeout, pending with results):**
+
+1. **Certificate Header**: Shows status, expression, basic info
+2. **Acceptance Results Section**: ALWAYS visible for non-pending certificates
+3. **"Show Technical Details" Button**: ALWAYS present, never conditional on acceptance status
+4. **Technical Details Content** (when button clicked):
+   - **Mathematical Conditions Verified**: List of all conditions checked
+   - **Numerical Method Details**: Actual sampling method, sample count, tolerance used
+   - **Two-Stage Acceptance Protocol Results**: Stage A/B status and details
+   - **Violation Analysis** (if violations exist): Complete list with coordinates and calculated values
+   - **Detailed Margin Analysis**: Condition-specific margins and safety factors
+   - **Experimental Parameter Controls**: Interactive form with current settings
+   - **Current Analysis Parameters**: Must reflect ACTUAL parameters from latest analysis
+
+**Parameter Controls Expected Behavior:**
+1. User modifies: Sample Count (10,000), Tolerance (1e-8), Method (uniform), Stage B (disabled)
+2. Clicks "Re-run Acceptance Check"
+3. API endpoint called with custom parameters
+4. New analysis performed with user parameters
+5. Certificate database record updated with new results
+6. Frontend refreshes and shows updated "Current Analysis Parameters"
+7. Violation analysis updated with new sample count and tolerance
+8. Certificate status updated if acceptance result changed
+
+**Success Criteria:**
+- Simple Lyapunov function `x1**2 + x2**2` on stable linear system should show 0 violations when mathematical evaluation works correctly
+- Parameter controls should update "Current Analysis Parameters" from 1,000 → 10,000 samples
+- All mathematical evaluations should show positive values for x₁² + x₂² expressions, never 0.000000
+
+### 3.9 Current Implementation Issues (Active Bug Tracking)
+
+**CRITICAL ISSUES IDENTIFIED:**
+
+**Issue 1: Technical Details Button Visibility**
+- **Problem**: "Show Technical Details" button not appearing for failed certificates
+- **Expected**: Button MUST appear for ALL non-pending certificates (accepted AND failed)
+- **Current Status**: Button missing despite frontend fixes and deployments
+- **Impact**: Researchers cannot access violation analysis or parameter controls for failed certificates
+
+**Issue 2: Mathematical Evaluation Bug**
+- **Problem**: Expression `x1**2 + x2**2` evaluating to `0.000000` for negative variable values
+- **Expected**: `(-1.5)² + (-2.4)² = 2.25 + 5.76 = 8.01`
+- **Actual**: System returns `0.000000` for all negative variable substitutions
+- **Impact**: All mathematical analysis invalid, certificates incorrectly marked as failed
+
+**Issue 3: Parameter Controls Non-Functional**
+- **Problem**: "Re-run Acceptance Check" does not update "Current Analysis Parameters"
+- **Expected**: Custom parameters (10,000 samples, 1e-8 tolerance) reflected in current analysis
+- **Actual**: Parameters remain at defaults (1,000 samples, 1e-6 tolerance) regardless of user input
+- **Impact**: Experimental parameter sensitivity studies impossible
+
+**Issue 4: Data Consistency Problems**
+- **Problem**: Certificates showing "accepted" status with violations present
+- **Expected**: Strict consistency - accepted status ↔ zero violations, failed status ↔ violations present
+- **Actual**: Contradictory data states with accepted certificates containing violation analysis
+- **Impact**: Research data integrity compromised
+
+**RESOLUTION PRIORITY:**
+1. **Technical Details Button** (enables debugging other issues)
+2. **Mathematical Evaluation** (core computational correctness)
+3. **Parameter Controls** (research functionality)
+4. **Data Consistency** (research integrity)
+
+**TESTING REQUIREMENTS:**
+- Each fix must be verified in isolation before proceeding to next issue
+- No compound changes that mask root causes
+- Systematic verification of each component in the acceptance pipeline
 
 ## 4) Metrics (per attempt)
 
