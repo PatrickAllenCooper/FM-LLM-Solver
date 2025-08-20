@@ -231,15 +231,13 @@ export default function CertificateDetailsPage() {
               <div className="card-body">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg font-medium text-gray-900">Acceptance Results</h2>
-                  {(certificate.acceptance_result?.technical_details || certificate.acceptance_status !== 'pending') && (
-                    <button
-                      onClick={() => setShowTechnicalDetails(!showTechnicalDetails)}
-                      className="btn btn-outline btn-sm"
-                    >
-                      <CalculatorIcon className="w-4 h-4 mr-1" />
-                      {showTechnicalDetails ? 'Hide' : 'Show'} Technical Details
-                    </button>
-                  )}
+                  <button
+                    onClick={() => setShowTechnicalDetails(!showTechnicalDetails)}
+                    className="btn btn-outline btn-sm"
+                  >
+                    <CalculatorIcon className="w-4 h-4 mr-1" />
+                    {showTechnicalDetails ? 'Hide' : 'Show'} Technical Details
+                  </button>
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -285,7 +283,7 @@ export default function CertificateDetailsPage() {
                 </div>
 
                 {/* Technical Details Section for Experimental Work - Show for ALL certificates */}
-                {showTechnicalDetails && certificate.acceptance_result?.technical_details && (
+                {showTechnicalDetails && (
                   <div className="mt-8 space-y-6">
                     <div className="border-t border-gray-200 pt-6">
                       <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
@@ -298,12 +296,16 @@ export default function CertificateDetailsPage() {
                         <div className="bg-blue-50 rounded-xl p-4">
                           <h4 className="font-medium text-blue-900 mb-3">Mathematical Conditions Verified</h4>
                           <ul className="space-y-2">
-                            {certificate.acceptance_result.technical_details.conditions_checked.map((condition, idx) => (
+                            {certificate.acceptance_result?.technical_details?.conditions_checked?.map((condition, idx) => (
                               <li key={idx} className="text-blue-800 text-sm flex items-start">
                                 <CheckCircleIcon className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" />
                                 {condition}
                               </li>
-                            ))}
+                            )) || (
+                              <li className="text-blue-800 text-sm">
+                                Technical details being generated...
+                              </li>
+                            )}
                           </ul>
                         </div>
 
@@ -313,19 +315,19 @@ export default function CertificateDetailsPage() {
                             <div className="flex justify-between">
                               <span className="text-green-800">Sampling Method:</span>
                               <span className="text-green-900 font-medium capitalize">
-                                {certificate.acceptance_result.technical_details.sampling_method}
+                                {certificate.acceptance_result?.technical_details?.sampling_method || 'N/A'}
                               </span>
                             </div>
                             <div className="flex justify-between">
                               <span className="text-green-800">Sample Count:</span>
                               <span className="text-green-900 font-medium">
-                                {certificate.acceptance_result.technical_details.sample_count.toLocaleString()}
+                                {certificate.acceptance_result?.technical_details?.sample_count?.toLocaleString() || 'N/A'}
                               </span>
                             </div>
                             <div className="flex justify-between">
                               <span className="text-green-800">Tolerance:</span>
                               <span className="text-green-900 font-medium">
-                                {certificate.acceptance_result.technical_details.numerical_parameters.tolerance.toExponential(2)}
+                                {certificate.acceptance_result?.technical_details?.numerical_parameters?.tolerance?.toExponential(2) || 'N/A'}
                               </span>
                             </div>
                           </div>
