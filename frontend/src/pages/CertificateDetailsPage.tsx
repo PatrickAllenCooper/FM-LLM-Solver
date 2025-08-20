@@ -231,7 +231,7 @@ export default function CertificateDetailsPage() {
               <div className="card-body">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg font-medium text-gray-900">Acceptance Results</h2>
-                  {certificate.acceptance_status === 'accepted' && (
+                  {(certificate.acceptance_result?.technical_details || certificate.acceptance_status !== 'pending') && (
                     <button
                       onClick={() => setShowTechnicalDetails(!showTechnicalDetails)}
                       className="btn btn-outline btn-sm"
@@ -284,9 +284,8 @@ export default function CertificateDetailsPage() {
                   )}
                 </div>
 
-                {/* Technical Details Section for Experimental Work */}
-                {showTechnicalDetails && (
-                  certificate.acceptance_result?.technical_details ? (
+                {/* Technical Details Section for Experimental Work - Show for ALL certificates */}
+                {showTechnicalDetails && certificate.acceptance_result?.technical_details && (
                   <div className="mt-8 space-y-6">
                     <div className="border-t border-gray-200 pt-6">
                       <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
