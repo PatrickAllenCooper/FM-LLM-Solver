@@ -386,20 +386,36 @@ export class AcceptanceService {
   private extractDomain(systemSpec: SystemSpec): Record<string, { min: number; max: number }> {
     const domain: Record<string, { min: number; max: number }> = {};
     
-    // Extract domain from system specification
-    if (systemSpec.safe_set_json?.bounds) {
+    // Extract domain from multiple possible locations in system specification
+    const dynamicsJson = systemSpec.dynamics_json as any;
+    
+    // Try dynamics_json.domain.bounds first (most common location)
+    if (dynamicsJson?.domain?.bounds) {
+      for (const [variable, bounds] of Object.entries(dynamicsJson.domain.bounds)) {
+        domain[variable] = bounds as { min: number; max: number };
+      }
+    }
+    // Fallback to safe_set_json.bounds
+    else if (systemSpec.safe_set_json?.bounds) {
       for (const [variable, bounds] of Object.entries(systemSpec.safe_set_json.bounds)) {
         domain[variable] = bounds as { min: number; max: number };
       }
     }
     
-    // Add default bounds for variables not specified
+    // Add default bounds for variables not specified (much smaller default)
     for (let i = 1; i <= systemSpec.dimension; i++) {
       const varName = `x${i}`;
       if (!domain[varName]) {
-        domain[varName] = { min: -10, max: 10 };
+        domain[varName] = { min: -3, max: 3 }; // Smaller safer default
       }
     }
+    
+    logger.info('Extracted domain for validation', {
+      systemSpecId: systemSpec.id,
+      domain,
+      foundInDynamics: !!dynamicsJson?.domain?.bounds,
+      foundInSafeSet: !!systemSpec.safe_set_json?.bounds,
+    });
     
     return domain;
   }
