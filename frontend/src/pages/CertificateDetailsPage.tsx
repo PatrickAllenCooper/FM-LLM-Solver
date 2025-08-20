@@ -416,14 +416,14 @@ export default function CertificateDetailsPage() {
                       )}
 
                       {/* Violation Analysis */}
-                      {certificate.acceptance_result.technical_details.violation_analysis.total_violations > 0 && (
+                      {(certificate.acceptance_result?.technical_details?.violation_analysis?.total_violations || 0) > 0 && (
                         <div className="bg-red-50 rounded-xl p-6 mb-6">
                           <h4 className="font-medium text-red-900 mb-4 flex items-center">
                             <ExclamationTriangleIcon className="w-5 h-5 mr-2" />
-                            Violation Analysis ({certificate.acceptance_result.technical_details.violation_analysis.total_violations} violations found)
+                            Violation Analysis ({certificate.acceptance_result?.technical_details?.violation_analysis?.total_violations || 0} violations found)
                           </h4>
                           <div className="space-y-3">
-                            {certificate.acceptance_result.technical_details.violation_analysis.violation_points.slice(0, 5).map((violation, idx) => (
+                            {(certificate.acceptance_result?.technical_details?.violation_analysis?.violation_points || []).slice(0, 5).map((violation, idx) => (
                               <div key={idx} className="bg-white rounded-lg p-3 border-l-4 border-red-300">
                                 <div className="flex items-center justify-between mb-2">
                                   <span className="text-red-800 font-medium text-sm capitalize">
@@ -447,9 +447,9 @@ export default function CertificateDetailsPage() {
                                 </div>
                               </div>
                             ))}
-                            {certificate.acceptance_result.technical_details.violation_analysis.total_violations > 5 && (
+                            {(certificate.acceptance_result?.technical_details?.violation_analysis?.total_violations || 0) > 5 && (
                               <div className="text-red-700 text-sm text-center">
-                                ... and {certificate.acceptance_result.technical_details.violation_analysis.total_violations - 5} more violations
+                                ... and {(certificate.acceptance_result?.technical_details?.violation_analysis?.total_violations || 0) - 5} more violations
                               </div>
                             )}
                           </div>
