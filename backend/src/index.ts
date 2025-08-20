@@ -56,6 +56,9 @@ app.get('/health', simpleController.health);
 // Firestore test endpoint
 app.get('/api/test', simpleController.test);
 
+// DIAGNOSTIC: Mathematical evaluation testing endpoint
+app.post('/api/test-math', simpleController.testMathEvaluation);
+
 // API Routes
 
 // Authentication routes
