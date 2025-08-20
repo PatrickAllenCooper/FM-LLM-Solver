@@ -414,27 +414,56 @@ export class MathService {
   }
 
   private evaluateExpression(parsed: MathExpression, variables: Record<string, number>): number {
-    // Safe evaluation using mathematical operations
-    let expr = parsed.expression;
-    
-    // ULTRA-SIMPLE FIX: Replace variables with bracketed values to ensure proper parsing
-    for (const [variable, value] of Object.entries(variables)) {
-      const regex = new RegExp(`\\b${variable}\\b`, 'g');
-      // Always wrap in brackets for safe substitution: x1 -> [2.5] or [-2.5]
-      expr = expr.replace(regex, `[${value}]`);
+    try {
+      // Safe evaluation using mathematical operations
+      let expr = parsed.expression;
+      
+      // ULTRA-SIMPLE FIX: Replace variables with bracketed values to ensure proper parsing
+      for (const [variable, value] of Object.entries(variables)) {
+        const regex = new RegExp(`\\b${variable}\\b`, 'g');
+        // Always wrap in brackets for safe substitution: x1 -> [2.5] or [-2.5]
+        expr = expr.replace(regex, `[${value}]`);
+      }
+      
+      // Then replace brackets with parentheses for mathematical parsing
+      expr = expr.replace(/\[/g, '(').replace(/\]/g, ')');
+      
+      logger.info('MATHEMATICAL EVALUATION DEBUG', {
+        originalExpression: parsed.expression,
+        substitutedExpression: expr,
+        variables,
+      });
+      
+      // Parse and evaluate using proper mathematical parser
+      const result = this.evaluateFormula(expr);
+      
+      logger.info('EVALUATION RESULT', {
+        expression: expr,
+        result,
+        resultType: typeof result,
+        isZero: result === 0,
+        isNaN: isNaN(result),
+      });
+      
+      // CRITICAL CHECK: If result is 0 for expressions that should be positive, log error
+      if (result === 0 && expr.includes('^2')) {
+        logger.error('MATHEMATICAL BUG DETECTED: Squared expression evaluated to 0', {
+          originalExpression: parsed.expression,
+          substitutedExpression: expr,
+          variables,
+        });
+      }
+      
+      return result;
+    } catch (error) {
+      logger.error('Expression evaluation exception caught', {
+        originalExpression: parsed.expression,
+        variables,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      // Return NaN instead of 0 to make failures obvious
+      return NaN;
     }
-    
-    // Then replace brackets with parentheses for mathematical parsing
-    expr = expr.replace(/\[/g, '(').replace(/\]/g, ')');
-    
-    logger.debug('Expression evaluation', {
-      originalExpression: parsed.expression,
-      substitutedExpression: expr,
-      variables,
-    });
-    
-    // Parse and evaluate using proper mathematical parser
-    return this.evaluateFormula(expr);
   }
 
   private evaluateFormula(formula: string): number {

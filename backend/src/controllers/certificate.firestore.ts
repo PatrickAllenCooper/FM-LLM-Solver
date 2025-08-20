@@ -418,6 +418,29 @@ export class CertificateFirestoreController {
             } as Candidate;
             
             acceptanceResult = await this.acceptanceService.acceptCandidate(mappedCandidate, systemSpec);
+            
+            // CRITICAL FIX: Update stored status if on-the-fly check differs from stored status
+            const newStatus = acceptanceResult.accepted ? 'accepted' : 'failed';
+            if (newStatus !== candidate.acceptance_status) {
+              logger.warn('ON-THE-FLY CHECK DETECTED STATUS CHANGE - UPDATING STORED DATA', {
+                candidateId: candidate.id,
+                originalStatus: candidate.acceptance_status,
+                newStatus,
+                violationCount: acceptanceResult.technical_details?.violation_analysis?.total_violations || 0,
+              });
+              
+              // Update the stored certificate status to match mathematical reality
+              await db.collection('candidates').doc(candidate.id).update({
+                acceptance_status: newStatus,
+                acceptance_result: acceptanceResult,
+                updated_at: new Date(),
+                status_corrected_at: new Date(),
+                correction_reason: 'Mathematical validation detected violations in previously accepted certificate',
+              });
+              
+              // Update the local object to return correct status
+              candidate.acceptance_status = newStatus;
+            }
           }
         } catch (error) {
           logger.warn('Failed to generate technical details on-the-fly', {
