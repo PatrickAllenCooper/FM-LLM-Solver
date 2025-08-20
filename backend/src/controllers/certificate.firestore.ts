@@ -459,6 +459,13 @@ export class CertificateFirestoreController {
     try {
       const candidateId = req.params.id;
       const acceptanceParams = AcceptanceParametersSchema.parse(req.body);
+      
+      logger.info('🔄 RE-RUN ENDPOINT CALLED', {
+        candidateId,
+        requestParams: acceptanceParams,
+        userAgent: req.headers['user-agent'],
+        timestamp: new Date().toISOString(),
+      });
 
       // Get candidate
       const candidateDoc = await db.collection('candidates').doc(candidateId).get();
@@ -527,6 +534,9 @@ export class CertificateFirestoreController {
         candidateId,
         newStatus: acceptanceResult.accepted ? 'accepted' : 'failed',
         newSampleCount: acceptanceResult.technical_details?.sample_count,
+        actualTolerance: acceptanceResult.technical_details?.numerical_parameters?.tolerance,
+        violationCount: acceptanceResult.technical_details?.violation_analysis?.total_violations,
+        beforeUpdateParams: acceptanceParams,
       });
 
       const response: ApiResponse<any> = {

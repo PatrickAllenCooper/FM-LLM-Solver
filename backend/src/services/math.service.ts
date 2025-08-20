@@ -454,20 +454,39 @@ export class MathService {
       if (/\s/.test(char)) {
         // Skip whitespace
         i++;
-      } else if (/\d/.test(char) || char === '.' || (char === '-' && i < formula.length - 1 && /\d/.test(formula[i + 1]))) {
-        // Number (including negative numbers like -2.012)
+      } else if (/\d/.test(char) || char === '.') {
+        // Positive number
         let number = '';
-        if (char === '-') {
-          number += char;
-          i++;
-        }
         while (i < formula.length && (/\d/.test(formula[i]) || formula[i] === '.')) {
           number += formula[i];
           i++;
         }
         tokens.push(number);
-      } else if (/[+\-*/^()]/.test(char)) {
-        // Operator or parenthesis
+      } else if (char === '-') {
+        // Check if this is a negative number or binary operator
+        const prevToken = tokens[tokens.length - 1];
+        const isNegativeNumber = (
+          tokens.length === 0 || // Start of expression
+          prevToken === '(' ||   // After opening parenthesis
+          /[+\-*/^]/.test(prevToken) // After another operator
+        );
+        
+        if (isNegativeNumber && i < formula.length - 1 && (/\d/.test(formula[i + 1]) || formula[i + 1] === '.')) {
+          // This is a negative number
+          let number = '-';
+          i++; // Skip the minus
+          while (i < formula.length && (/\d/.test(formula[i]) || formula[i] === '.')) {
+            number += formula[i];
+            i++;
+          }
+          tokens.push(number);
+        } else {
+          // This is a binary minus operator
+          tokens.push(char);
+          i++;
+        }
+      } else if (/[+*/^()]/.test(char)) {
+        // Other operators and parentheses
         tokens.push(char);
         i++;
       } else {
