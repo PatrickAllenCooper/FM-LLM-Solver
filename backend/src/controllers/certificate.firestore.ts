@@ -514,6 +514,21 @@ export class CertificateFirestoreController {
 
       await db.collection('acceptance_reruns').add(rerunRecord);
 
+      // CRITICAL FIX: Update the original certificate with new acceptance result
+      await db.collection('candidates').doc(candidateId).update({
+        acceptance_result: acceptanceResult,
+        acceptance_status: acceptanceResult.accepted ? 'accepted' : 'failed',
+        updated_at: new Date(),
+        rerun_timestamp: new Date(),
+        rerun_parameters: acceptanceParams,
+      });
+
+      logger.info('Updated certificate with re-run results', {
+        candidateId,
+        newStatus: acceptanceResult.accepted ? 'accepted' : 'failed',
+        newSampleCount: acceptanceResult.technical_details?.sample_count,
+      });
+
       const response: ApiResponse<any> = {
         success: true,
         data: {
