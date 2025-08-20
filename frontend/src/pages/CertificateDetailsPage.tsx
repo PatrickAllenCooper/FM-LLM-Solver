@@ -585,40 +585,6 @@ export default function CertificateDetailsPage() {
                       </div>
                     </div>
                   </div>
-                  ) : (
-                    // Show message when technical details are not available
-                    <div className="mt-8 space-y-6">
-                      <div className="border-t border-gray-200 pt-6">
-                        <div className="bg-blue-50 rounded-xl p-6">
-                          <div className="flex items-center mb-4">
-                            <InformationCircleIcon className="w-6 h-6 text-blue-600 mr-2" />
-                            <h3 className="text-lg font-medium text-blue-900">
-                              Enhanced Technical Details
-                            </h3>
-                          </div>
-                          <p className="text-blue-800 mb-4">
-                            This certificate was generated before our enhanced technical analysis was implemented. 
-                            The certificate is valid and accepted, but detailed technical metrics are not available.
-                          </p>
-                          <div className="flex items-center space-x-4">
-                            <button
-                              className="btn btn-primary btn-sm"
-                              onClick={() => {
-                                toast.success('Generating technical details...');
-                                window.location.reload(); // Simple approach - reload to trigger on-the-fly generation
-                              }}
-                            >
-                              <CalculatorIcon className="w-4 h-4 mr-1" />
-                              Generate Technical Details
-                            </button>
-                            <div className="text-blue-700 text-sm">
-                              This will run the acceptance analysis to provide detailed technical information.
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )
                 )}
               </div>
             </div>
