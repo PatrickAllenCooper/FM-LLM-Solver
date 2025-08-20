@@ -450,15 +450,37 @@ export class MathService {
       const char = formula[i];
       
       if (/\d/.test(char) || char === '.') {
-        // Number
+        // Number (possibly negative)
         let number = '';
         while (i < formula.length && (/\d/.test(formula[i]) || formula[i] === '.')) {
           number += formula[i];
           i++;
         }
         tokens.push(number);
-      } else if (/[+\-*/^()]/.test(char)) {
-        // Operator or parenthesis
+      } else if (char === '-' && i < formula.length - 1) {
+        // Check if this is a negative number (after '(' or at start)
+        const prevToken = tokens[tokens.length - 1];
+        if (tokens.length === 0 || prevToken === '(' || /[+\-*/^]/.test(prevToken)) {
+          // This is likely a unary minus - combine with the following number
+          i++; // Skip the minus
+          if (i < formula.length && (/\d/.test(formula[i]) || formula[i] === '.')) {
+            let number = '-';
+            while (i < formula.length && (/\d/.test(formula[i]) || formula[i] === '.')) {
+              number += formula[i];
+              i++;
+            }
+            tokens.push(number);
+          } else {
+            // Not followed by a number, treat as operator
+            tokens.push('-');
+          }
+        } else {
+          // Binary minus operator
+          tokens.push(char);
+          i++;
+        }
+      } else if (/[+*/^()]/.test(char)) {
+        // Operator or parenthesis (excluding minus, handled above)
         tokens.push(char);
         i++;
       } else {
@@ -508,7 +530,8 @@ export class MathService {
     const stack: number[] = [];
     
     for (const token of rpn) {
-      if (/^\d+\.?\d*$/.test(token)) {
+      if (/^-?\d+\.?\d*$/.test(token)) {
+        // Handle both positive and negative number tokens
         stack.push(parseFloat(token));
       } else {
         const b = stack.pop() || 0;
