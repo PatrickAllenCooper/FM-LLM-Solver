@@ -384,29 +384,29 @@ export default function CertificateDetailsPage() {
                             Detailed Margin Analysis
                           </h4>
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            {certificate.acceptance_result.technical_details.margin_breakdown.positivity_margin !== undefined && (
+                            {(certificate.acceptance_result?.technical_details?.margin_breakdown?.positivity_margin !== undefined) && (
                               <div className="bg-white rounded-lg p-3">
                                 <div className="text-orange-800 text-sm font-medium">Positivity Margin</div>
                                 <div className="text-orange-900 text-lg font-bold">
-                                  {certificate.acceptance_result.technical_details.margin_breakdown.positivity_margin.toFixed(6)}
+                                  {certificate.acceptance_result?.technical_details?.margin_breakdown?.positivity_margin?.toFixed(6) || 'N/A'}
                                 </div>
                                 <div className="text-orange-700 text-xs">V(x) {'>'} 0 margin</div>
                               </div>
                             )}
-                            {certificate.acceptance_result.technical_details.margin_breakdown.decreasing_margin !== undefined && (
+                            {(certificate.acceptance_result?.technical_details?.margin_breakdown?.decreasing_margin !== undefined) && (
                               <div className="bg-white rounded-lg p-3">
                                 <div className="text-orange-800 text-sm font-medium">Decreasing Margin</div>
                                 <div className="text-orange-900 text-lg font-bold">
-                                  {certificate.acceptance_result.technical_details.margin_breakdown.decreasing_margin.toFixed(6)}
+                                  {certificate.acceptance_result?.technical_details?.margin_breakdown?.decreasing_margin?.toFixed(6) || 'N/A'}
                                 </div>
                                 <div className="text-orange-700 text-xs">dV/dt {'≤'} 0 margin</div>
                               </div>
                             )}
-                            {certificate.acceptance_result.technical_details.margin_breakdown.separation_margin !== undefined && (
+                            {(certificate.acceptance_result?.technical_details?.margin_breakdown?.separation_margin !== undefined) && (
                               <div className="bg-white rounded-lg p-3">
                                 <div className="text-orange-800 text-sm font-medium">Separation Margin</div>
                                 <div className="text-orange-900 text-lg font-bold">
-                                  {certificate.acceptance_result.technical_details.margin_breakdown.separation_margin.toFixed(6)}
+                                  {certificate.acceptance_result?.technical_details?.margin_breakdown?.separation_margin?.toFixed(6) || 'N/A'}
                                 </div>
                                 <div className="text-orange-700 text-xs">Safe/unsafe separation</div>
                               </div>
