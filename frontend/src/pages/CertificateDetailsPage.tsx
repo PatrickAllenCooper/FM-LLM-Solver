@@ -81,7 +81,7 @@ export default function CertificateDetailsPage() {
     }) => {
       return await api.rerunAcceptance(id!, params);
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
       toast.success('Acceptance check completed with new parameters!');
       // Invalidate and refetch the certificate to get updated results
       queryClient.invalidateQueries({ queryKey: ['certificate', id] });
@@ -344,7 +344,7 @@ export default function CertificateDetailsPage() {
                           <div className="bg-white rounded-lg p-4">
                             <div className="flex items-center justify-between mb-2">
                               <span className="text-indigo-800 font-medium">Stage A (Numerical)</span>
-                              {certificate.acceptance_result.technical_details.stage_results.stage_a_passed ? (
+                              {certificate.acceptance_result?.technical_details?.stage_results?.stage_a_passed ? (
                                 <CheckCircleIcon className="w-5 h-5 text-green-600" />
                               ) : (
                                 <XCircleIcon className="w-5 h-5 text-red-600" />
@@ -357,8 +357,8 @@ export default function CertificateDetailsPage() {
                           <div className="bg-white rounded-lg p-4">
                             <div className="flex items-center justify-between mb-2">
                               <span className="text-indigo-800 font-medium">Stage B (Formal)</span>
-                              {certificate.acceptance_result.technical_details.stage_results.stage_b_enabled ? (
-                                certificate.acceptance_result.technical_details.stage_results.stage_b_passed ? (
+                              {certificate.acceptance_result?.technical_details?.stage_results?.stage_b_enabled ? (
+                                certificate.acceptance_result?.technical_details?.stage_results?.stage_b_passed ? (
                                   <CheckCircleIcon className="w-5 h-5 text-green-600" />
                                 ) : (
                                   <XCircleIcon className="w-5 h-5 text-red-600" />
@@ -368,7 +368,7 @@ export default function CertificateDetailsPage() {
                               )}
                             </div>
                             <p className="text-indigo-700 text-sm">
-                              {certificate.acceptance_result.technical_details.stage_results.stage_b_enabled 
+                              {certificate.acceptance_result?.technical_details?.stage_results?.stage_b_enabled 
                                 ? 'SOS/SMT formal verification'
                                 : 'Not enabled (planned enhancement)'}
                             </p>
@@ -377,7 +377,7 @@ export default function CertificateDetailsPage() {
                       </div>
 
                       {/* Margin Breakdown */}
-                      {certificate.acceptance_result.technical_details.margin_breakdown && (
+                      {certificate.acceptance_result?.technical_details?.margin_breakdown && (
                         <div className="bg-orange-50 rounded-xl p-6 mb-6">
                           <h4 className="font-medium text-orange-900 mb-4 flex items-center">
                             <ChartBarIcon className="w-5 h-5 mr-2" />
