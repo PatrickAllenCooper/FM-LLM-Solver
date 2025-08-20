@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
   ArrowLeftIcon, 
   CheckCircleIcon, 
@@ -53,8 +53,15 @@ const TYPE_LABELS = {
 export default function CertificateDetailsPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
   const [showParameterControls, setShowParameterControls] = useState(false);
+  
+  // Parameter form state
+  const [sampleCount, setSampleCount] = useState(10000);
+  const [samplingMethod, setSamplingMethod] = useState<'uniform' | 'sobol' | 'lhs' | 'adaptive'>('uniform');
+  const [tolerance, setTolerance] = useState(1e-6);
+  const [enableStageB, setEnableStageB] = useState(false);
 
   const { data: certificate, isLoading, error } = useQuery({
     queryKey: ['certificate', id],
@@ -62,6 +69,26 @@ export default function CertificateDetailsPage() {
       return await api.getCandidateById(id!);
     },
     enabled: !!id,
+  });
+
+  // Re-run acceptance check mutation
+  const rerunMutation = useMutation({
+    mutationFn: async (params: {
+      sample_count: number;
+      sampling_method: 'uniform' | 'sobol' | 'lhs' | 'adaptive';
+      tolerance: number;
+      enable_stage_b: boolean;
+    }) => {
+      return await api.rerunAcceptance(id!, params);
+    },
+    onSuccess: (data) => {
+      toast.success('Acceptance check completed with new parameters!');
+      // Invalidate and refetch the certificate to get updated results
+      queryClient.invalidateQueries({ queryKey: ['certificate', id] });
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error || 'Failed to re-run acceptance check');
+    },
   });
 
   const copyToClipboard = (text: string) => {
@@ -453,7 +480,11 @@ export default function CertificateDetailsPage() {
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
                                   Sample Count
                                 </label>
-                                <select className="input input-sm">
+                                <select 
+                                  className="input input-sm"
+                                  value={sampleCount}
+                                  onChange={(e) => setSampleCount(Number(e.target.value))}
+                                >
                                   <option value="1000">1,000 (Default)</option>
                                   <option value="5000">5,000 (Higher precision)</option>
                                   <option value="10000">10,000 (Maximum precision)</option>
@@ -463,7 +494,11 @@ export default function CertificateDetailsPage() {
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
                                   Sampling Method
                                 </label>
-                                <select className="input input-sm">
+                                <select 
+                                  className="input input-sm"
+                                  value={samplingMethod}
+                                  onChange={(e) => setSamplingMethod(e.target.value as 'uniform' | 'sobol' | 'lhs' | 'adaptive')}
+                                >
                                   <option value="uniform">Uniform (Default)</option>
                                   <option value="sobol">Sobol (Low-discrepancy)</option>
                                   <option value="lhs">Latin Hypercube</option>
@@ -474,7 +509,11 @@ export default function CertificateDetailsPage() {
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
                                   Numerical Tolerance
                                 </label>
-                                <select className="input input-sm">
+                                <select 
+                                  className="input input-sm"
+                                  value={tolerance}
+                                  onChange={(e) => setTolerance(Number(e.target.value))}
+                                >
                                   <option value="1e-6">10⁻⁶ (Default)</option>
                                   <option value="1e-8">10⁻⁸ (Higher precision)</option>
                                   <option value="1e-10">10⁻¹⁰ (Maximum precision)</option>
@@ -484,7 +523,11 @@ export default function CertificateDetailsPage() {
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
                                   Enable Stage B
                                 </label>
-                                <select className="input input-sm">
+                                <select 
+                                  className="input input-sm"
+                                  value={enableStageB.toString()}
+                                  onChange={(e) => setEnableStageB(e.target.value === 'true')}
+                                >
                                   <option value="false">Disabled (Stage A only)</option>
                                   <option value="true">Enabled (SOS/SMT verification)</option>
                                 </select>
@@ -492,13 +535,18 @@ export default function CertificateDetailsPage() {
                             </div>
                             <button
                               className="btn btn-primary btn-sm"
+                              disabled={rerunMutation.isPending}
                               onClick={() => {
-                                toast.success('Re-running acceptance check with new parameters...');
-                                // TODO: Implement re-run API call
+                                rerunMutation.mutate({
+                                  sample_count: sampleCount,
+                                  sampling_method: samplingMethod,
+                                  tolerance: tolerance,
+                                  enable_stage_b: enableStageB,
+                                });
                               }}
                             >
                               <BeakerIcon className="w-4 h-4 mr-1" />
-                              Re-run Acceptance Check
+                              {rerunMutation.isPending ? 'Re-running...' : 'Re-run Acceptance Check'}
                             </button>
                           </div>
                         )}

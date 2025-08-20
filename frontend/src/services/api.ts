@@ -146,6 +146,25 @@ class ApiService {
     return response.data.data!;
   }
 
+  // Re-run acceptance check with custom parameters
+  async rerunAcceptance(candidateId: string, params: {
+    sample_count?: number;
+    sampling_method?: 'uniform' | 'sobol' | 'lhs' | 'adaptive';
+    tolerance?: number;
+    enable_stage_b?: boolean;
+  }): Promise<{
+    candidate_id: string;
+    acceptance_result: any;
+    parameters_used: any;
+    rerun_timestamp: string;
+  }> {
+    const response: AxiosResponse<ApiResponse<any>> = await this.api.post(
+      `/certificates/${candidateId}/rerun-acceptance`,
+      params
+    );
+    return response.data.data!;
+  }
+
   // Health
   async getHealth(): Promise<any> {
     const response = await this.api.get('/health');
