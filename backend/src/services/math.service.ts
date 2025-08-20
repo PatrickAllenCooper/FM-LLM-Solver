@@ -417,11 +417,19 @@ export class MathService {
     // Safe evaluation using mathematical operations
     let expr = parsed.expression;
     
-    // Substitute variables with values
+    // Substitute variables with values - CRITICAL FIX: Wrap negative numbers in parentheses
     for (const [variable, value] of Object.entries(variables)) {
       const regex = new RegExp(`\\b${variable}\\b`, 'g');
-      expr = expr.replace(regex, value.toString());
+      // Wrap negative values in parentheses to prevent operator precedence issues
+      const substitutionValue = value < 0 ? `(${value})` : value.toString();
+      expr = expr.replace(regex, substitutionValue);
     }
+    
+    logger.debug('Expression evaluation', {
+      originalExpression: parsed.expression,
+      substitutedExpression: expr,
+      variables,
+    });
     
     // Parse and evaluate using proper mathematical parser
     return this.evaluateFormula(expr);
