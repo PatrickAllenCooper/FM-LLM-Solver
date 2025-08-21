@@ -50,12 +50,20 @@ export default function AdminEmailsPage() {
   // Load authorized emails
   const loadAuthorizedEmails = async () => {
     try {
+      console.log('🔄 Loading authorized emails...');
       setIsLoading(true);
       const response = await api.get('/admin/authorized-emails');
-      setAuthorizedEmails(response.data.data || []);
+      console.log('📧 API response:', response.data);
+      console.log('📧 Setting emails:', response.data.data?.length || 0);
+      
+      const emails = response.data.data || [];
+      setAuthorizedEmails(emails);
+      
+      console.log('✅ State updated with', emails.length, 'emails');
     } catch (error: any) {
       console.error('Failed to load authorized emails:', error);
       toast.error(error.response?.data?.error || 'Failed to load authorized emails');
+      setAuthorizedEmails([]); // Ensure state is set even on error
     } finally {
       setIsLoading(false);
     }
@@ -92,12 +100,20 @@ export default function AdminEmailsPage() {
     }
   };
 
-  // Load data on mount
+  // Load data on mount with debugging
   useEffect(() => {
+    console.log('🔍 useEffect triggered, isAdmin:', isAdmin);
     if (isAdmin) {
+      console.log('✅ Loading authorized emails on mount...');
       loadAuthorizedEmails();
     }
   }, [isAdmin]);
+
+  // Force refresh function for debugging
+  const forceRefresh = () => {
+    console.log('🔄 FORCE REFRESH TRIGGERED');
+    loadAuthorizedEmails();
+  };
 
   // Redirect if not admin
   if (!isAdmin) {
@@ -170,10 +186,19 @@ export default function AdminEmailsPage() {
         {/* Authorized Emails List */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
           <div className="p-6 border-b border-gray-200">
-            <h2 className="text-lg font-medium text-gray-900 flex items-center gap-2">
-              <EnvelopeIcon className="w-5 h-5" />
-              Authorized Emails ({authorizedEmails.length})
-            </h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-medium text-gray-900 flex items-center gap-2">
+                <EnvelopeIcon className="w-5 h-5" />
+                Authorized Emails ({authorizedEmails.length})
+              </h2>
+              <button
+                onClick={forceRefresh}
+                disabled={isLoading}
+                className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200 disabled:opacity-50"
+              >
+                {isLoading ? 'Loading...' : 'Refresh List'}
+              </button>
+            </div>
           </div>
 
           {isLoading ? (
