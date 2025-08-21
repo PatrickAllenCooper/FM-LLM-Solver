@@ -8,6 +8,7 @@ import { logger } from '@/utils/logger';
 import { SimpleController } from '@/controllers/simple.controller';
 import { AuthController } from '@/controllers/auth.controller';
 import { CertificateFirestoreController } from '@/controllers/certificate.firestore';
+import { AdminController } from '@/controllers/admin.controller';
 import { AuthMiddleware } from '@/middleware/auth.middleware';
 
 // Load environment variables
@@ -20,6 +21,7 @@ const port = process.env.PORT || 3000;
 const simpleController = new SimpleController();
 const authController = new AuthController();
 const certificateController = new CertificateFirestoreController();
+const adminController = new AdminController();
 const authMiddleware = new AuthMiddleware();
 
 // Security middleware
@@ -128,6 +130,23 @@ app.post('/api/admin/revalidate-certificates',
   authMiddleware.authenticate,
   authMiddleware.authorize(['admin']),
   certificateController.revalidateAcceptedCertificates
+);
+
+// Admin email authorization endpoints
+app.get('/api/admin/authorized-emails',
+  authMiddleware.authenticate,
+  authMiddleware.authorize(['admin']),
+  adminController.getAuthorizedEmails
+);
+app.post('/api/admin/authorized-emails',
+  authMiddleware.authenticate,
+  authMiddleware.authorize(['admin']),
+  adminController.addAuthorizedEmail
+);
+app.delete('/api/admin/authorized-emails',
+  authMiddleware.authenticate,
+  authMiddleware.authorize(['admin']),
+  adminController.removeAuthorizedEmail
 );
 
 // API info endpoint
