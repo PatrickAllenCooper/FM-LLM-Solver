@@ -34,6 +34,7 @@ export default function AdminEmailsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
   const [removingEmail, setRemovingEmail] = useState<string | null>(null);
+  const [isLoadingEmails, setIsLoadingEmails] = useState(false); // Prevent multiple simultaneous loads
 
   const {
     register,
@@ -47,26 +48,38 @@ export default function AdminEmailsPage() {
   // Check if user is admin
   const isAdmin = user?.role === 'admin';
 
-  // Load authorized emails
+  // Load authorized emails with race condition prevention
   const loadAuthorizedEmails = async () => {
+    // Prevent multiple simultaneous loads
+    if (isLoadingEmails) {
+      console.log('⚠️ Load already in progress, skipping...');
+      return;
+    }
+    
     try {
-      console.log('🔄 Loading authorized emails...');
+      console.log('🔄 SINGLE CLEAN LOAD - Starting authorized email load...');
+      setIsLoadingEmails(true);
       setIsLoading(true);
-      const response = await api.get('/admin/authorized-emails');
-      console.log('📧 API response:', response.data);
-      console.log('📧 Setting emails:', response.data?.length || 0);
       
-      // FIX: API returns emails array directly in response.data
-      const emails = Array.isArray(response.data) ? response.data : response.data.data || [];
+      const response = await api.get('/admin/authorized-emails');
+      
+      // DEFINITIVE: Backend returns {success: true, data: [emails]}
+      // api.get() returns full response, so emails are at response.data
+      const emails = response.data || [];
+      
+      console.log('📧 CLEAN RESULT: Found', emails.length, 'emails');
+      console.log('📧 Email list:', emails.map(e => e.email));
+      
       setAuthorizedEmails(emails);
       
-      console.log('✅ State updated with', emails.length, 'emails');
+      console.log('✅ FINAL STATE SET:', emails.length, 'emails');
     } catch (error: any) {
       console.error('Failed to load authorized emails:', error);
       toast.error(error.response?.data?.error || 'Failed to load authorized emails');
       setAuthorizedEmails([]); // Ensure state is set even on error
     } finally {
       setIsLoading(false);
+      setIsLoadingEmails(false);
     }
   };
 
@@ -101,12 +114,16 @@ export default function AdminEmailsPage() {
     }
   };
 
-  // Load data on mount with debugging
+  // Load data on mount with debugging (prevent double-running)
   useEffect(() => {
     console.log('🔍 useEffect triggered, isAdmin:', isAdmin);
     if (isAdmin) {
       console.log('✅ Loading authorized emails on mount...');
-      loadAuthorizedEmails();
+      const timeoutId = setTimeout(() => {
+        loadAuthorizedEmails();
+      }, 100);
+      
+      return () => clearTimeout(timeoutId);
     }
   }, [isAdmin]);
 
