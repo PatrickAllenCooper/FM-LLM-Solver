@@ -53,10 +53,14 @@ export default function AdminEmailsPage() {
       console.log('🔄 Loading authorized emails...');
       setIsLoading(true);
       const response = await api.get('/admin/authorized-emails');
-      console.log('📧 API response:', response.data);
-      console.log('📧 Setting emails:', response.data.data?.length || 0);
+      console.log('📧 Full response:', response);
+      console.log('📧 Response.data:', response.data);
+      console.log('📧 Response.data.data:', response.data.data);
+      console.log('📧 Response.data.data type:', typeof response.data.data);
+      console.log('📧 Response.data.data length:', response.data.data?.length);
       
       const emails = response.data.data || [];
+      console.log('📧 Final emails array:', emails);
       setAuthorizedEmails(emails);
       
       console.log('✅ State updated with', emails.length, 'emails');
