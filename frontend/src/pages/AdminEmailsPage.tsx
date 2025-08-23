@@ -52,12 +52,11 @@ export default function AdminEmailsPage() {
   const loadAuthorizedEmails = async () => {
     // Prevent multiple simultaneous loads
     if (isLoadingEmails) {
-      console.log('⚠️ Load already in progress, skipping...');
       return;
     }
     
     try {
-      console.log('🔄 SINGLE CLEAN LOAD - Starting authorized email load...');
+
       setIsLoadingEmails(true);
       setIsLoading(true);
       
@@ -67,12 +66,11 @@ export default function AdminEmailsPage() {
       // api.get() returns full response, so emails are at response.data
       const emails = response.data || [];
       
-      console.log('📧 CLEAN RESULT: Found', emails.length, 'emails');
-      console.log('📧 Email list:', emails.map(e => e.email));
+
       
       setAuthorizedEmails(emails);
       
-      console.log('✅ FINAL STATE SET:', emails.length, 'emails');
+
     } catch (error: any) {
       console.error('Failed to load authorized emails:', error);
       toast.error(error.response?.data?.error || 'Failed to load authorized emails');
@@ -116,9 +114,9 @@ export default function AdminEmailsPage() {
 
   // Load data on mount with debugging (prevent double-running)
   useEffect(() => {
-    console.log('🔍 useEffect triggered, isAdmin:', isAdmin);
+
     if (isAdmin) {
-      console.log('✅ Loading authorized emails on mount...');
+
       const timeoutId = setTimeout(() => {
         loadAuthorizedEmails();
       }, 100);
@@ -129,7 +127,7 @@ export default function AdminEmailsPage() {
 
   // Force refresh function for debugging
   const forceRefresh = () => {
-    console.log('🔄 FORCE REFRESH TRIGGERED');
+
     loadAuthorizedEmails();
   };
 

@@ -48,6 +48,7 @@ export interface SystemSpec {
   initial_set_json?: any;
   unsafe_set_json?: any;
   created_by: string;
+  created_by_email?: string;
   created_at: string;
   spec_version: string;
   spec_hash: string;
@@ -111,6 +112,7 @@ export interface Candidate {
   acceptance_status: 'pending' | 'accepted' | 'failed' | 'timeout';
   margin?: number;
   created_by: string;
+  created_by_email?: string;
   created_at: string;
   accepted_at?: string;
   generation_duration_ms?: number;

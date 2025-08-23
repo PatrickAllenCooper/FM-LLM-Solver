@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { db } from '../utils/database';
 import { LLMService } from '../services/llm.service';
 import { AcceptanceService } from '../services/acceptance.service';
+import { AuthService } from '../services/auth.service';
 import { 
   SystemSpecRequestSchema, 
   CertificateGenerationRequestSchema,
@@ -20,6 +21,7 @@ import crypto from 'crypto';
 export class CertificateFirestoreController {
   private llmService: LLMService;
   private acceptanceService: AcceptanceService;
+  private authService: AuthService;
 
   constructor() {
     const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
@@ -29,6 +31,7 @@ export class CertificateFirestoreController {
     
     this.llmService = new LLMService(anthropicApiKey);
     this.acceptanceService = new AcceptanceService();
+    this.authService = new AuthService();
   }
 
   // Helper method to filter out undefined values for Firestore
@@ -50,6 +53,27 @@ export class CertificateFirestoreController {
     }
     
     return filtered;
+  }
+
+  // Helper method to enrich entity with creator information
+  private async enrichWithCreatorInfo<T extends { created_by: string }>(entity: T): Promise<T & { created_by_email?: string }> {
+    try {
+      if (entity.created_by) {
+        const creator = await this.authService.getUserById(entity.created_by);
+        return {
+          ...entity,
+          created_by_email: creator?.email || 'Unknown'
+        };
+      }
+      return entity;
+    } catch (error) {
+      logger.warn('Failed to fetch creator info', { 
+        entity_id: (entity as any).id,
+        created_by: entity.created_by,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      return entity;
+    }
   }
 
   // System Specifications
@@ -137,7 +161,7 @@ export class CertificateFirestoreController {
       }
 
       const specsSnapshot = await query.get();
-      const specs = specsSnapshot.docs.map(doc => {
+      const rawSpecs = specsSnapshot.docs.map(doc => {
         const data = doc.data();
         return {
           id: doc.id,
@@ -145,8 +169,14 @@ export class CertificateFirestoreController {
           // Convert Firestore timestamps to ISO strings
           created_at: data.created_at?.toDate?.()?.toISOString() || data.created_at,
           updated_at: data.updated_at?.toDate?.()?.toISOString() || data.updated_at,
+          created_by: data.created_by || '', // Ensure created_by is present
         };
       });
+
+      // Enrich with creator information
+      const specs = await Promise.all(
+        rawSpecs.map(spec => this.enrichWithCreatorInfo(spec))
+      );
 
       const totalPages = Math.ceil(total / limit);
 
@@ -188,13 +218,17 @@ export class CertificateFirestoreController {
       }
 
       const data = systemSpecDoc.data()!;
-      const systemSpec = {
+      const rawSystemSpec = {
         id: systemSpecDoc.id,
         ...data,
         // Convert Firestore timestamps to ISO strings
         created_at: data.created_at?.toDate?.()?.toISOString() || data.created_at,
         updated_at: data.updated_at?.toDate?.()?.toISOString() || data.updated_at,
+        created_by: data.created_by || '', // Ensure created_by is present
       };
+
+      // Enrich with creator information
+      const systemSpec = await this.enrichWithCreatorInfo(rawSystemSpec);
 
       const response: ApiResponse<SystemSpec> = {
         success: true,
@@ -334,7 +368,7 @@ export class CertificateFirestoreController {
 
       // Get paginated results
       const candidatesSnapshot = await query.limit(limit).get();
-      const candidates = candidatesSnapshot.docs.map(doc => {
+      const rawCandidates = candidatesSnapshot.docs.map(doc => {
         const data = doc.data();
         return {
           id: doc.id,
@@ -347,15 +381,21 @@ export class CertificateFirestoreController {
           candidate_expression: data.candidate_data?.response?.expression || data.candidate_expression,
           candidate_json: data.candidate_data || data.candidate_json,
           llm_config_json: data.llm_config || data.llm_config_json,
+          created_by: data.created_by || '', // Ensure created_by is present
         };
-      }) as any;
+      });
+
+      // Enrich with creator information
+      const candidates = await Promise.all(
+        rawCandidates.map(candidate => this.enrichWithCreatorInfo(candidate))
+      );
 
       const totalPages = Math.ceil(total / limit);
 
       const response: ApiResponse<PaginatedResponse<Candidate>> = {
         success: true,
         data: {
-          data: candidates,
+          data: candidates as any,
           pagination: {
             page,
             limit,
@@ -450,7 +490,7 @@ export class CertificateFirestoreController {
         }
       }
 
-      const enrichedCandidate = {
+      const rawCandidate = {
         ...candidate,
         system_name: systemSpecName,
         // Convert Firestore timestamps to ISO strings for frontend compatibility
@@ -463,7 +503,11 @@ export class CertificateFirestoreController {
         llm_config_json: candidateData.llm_config || candidateData.llm_config_json,
         // Add acceptance result with technical details
         acceptance_result: acceptanceResult,
+        created_by: candidateData.created_by || candidate.created_by || '', // Ensure created_by is present
       };
+
+      // Enrich with creator information
+      const enrichedCandidate = await this.enrichWithCreatorInfo(rawCandidate);
 
       const response: ApiResponse<Candidate> = {
         success: true,

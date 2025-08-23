@@ -462,7 +462,7 @@ export class MathService {
 
   private evaluateExpression(parsed: MathExpression, variables: Record<string, number>): number {
     // CRITICAL DEBUG: Log every single call to this method
-    console.log('🚨 EVALUATE EXPRESSION CALLED', {
+    logger.debug('EVALUATE EXPRESSION CALLED', {
       expression: parsed.expression,
       variables,
       expressionLength: parsed.expression.length,
@@ -473,7 +473,7 @@ export class MathService {
       // CRITICAL BYPASS: Direct evaluation for x1^2 + x2^2 pattern to avoid broken tokenizer
       const expr = parsed.expression;
       
-      console.log('🔍 PATTERN MATCHING CHECK', {
+      logger.debug('PATTERN MATCHING CHECK', {
         expr,
         condition1: expr === 'x1^2 + x2^2',
         condition2: expr === 'x1^2+x2^2',
@@ -485,7 +485,7 @@ export class MathService {
         const x2 = variables.x2 || 0;
         const result = Math.pow(x1, 2) + Math.pow(x2, 2);
         
-        console.log('🎯 DIRECT BYPASS SUCCESS', {
+        logger.debug('DIRECT BYPASS SUCCESS', {
           expression: expr,
           x1, x2,
           calculation: `(${x1})^2 + (${x2})^2 = ${Math.pow(x1, 2)} + ${Math.pow(x2, 2)} = ${result}`,
