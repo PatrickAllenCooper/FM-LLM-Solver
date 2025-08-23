@@ -25,11 +25,12 @@ export default function AboutPage() {
           </div>
         </div>
         <div className="text-xs text-primary-700 font-medium">
-          University of Colorado Boulder • Research Platform • Version 2.0.0
+          University of Colorado Boulder • Research Platform • Version 2.0.1
         </div>
         <div className="mt-3 text-sm text-primary-600">
-          <strong>Latest Enhancements:</strong> Advanced conversational mode for mathematical dialogue, 
-          comprehensive technical analysis with experimental parameter controls, and research-grade acceptance transparency.
+          <strong>Latest Enhancements (v2.0.1):</strong> Security hardening with zero vulnerabilities, 
+          ESLint integration for code quality, production-ready logging, and comprehensive technical analysis 
+          with experimental parameter controls for research transparency.
         </div>
       </div>
 
@@ -420,6 +421,392 @@ export default function AboutPage() {
         </div>
       </div>
 
+      {/* Reproducibility & Provenance */}
+      <div className="card">
+        <div className="card-header">
+          <h2 className="academic-subheader flex items-center">
+            <DocumentTextIcon className="w-6 h-6 mr-3 text-primary-600" />
+            Reproducibility & Research Provenance
+          </h2>
+          <p className="academic-body text-sm">Complete experimental traceability and reproducible research infrastructure</p>
+        </div>
+        <div className="card-body">
+          <div className="space-y-6">
+            
+            {/* Provenance Tracking */}
+            <div className="bg-blue-50 rounded-xl p-6 border border-blue-200">
+              <h4 className="text-lg font-semibold text-blue-900 mb-4">Complete Experimental Provenance</h4>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div className="bg-white rounded-lg p-4">
+                    <h5 className="font-medium text-blue-900 mb-2">System Specification Tracking</h5>
+                    <ul className="text-blue-800 text-sm space-y-1">
+                      <li>• <strong>Immutable hashing:</strong> SHA-256 of SystemSpec JSON for version control</li>
+                      <li>• <strong>Schema versioning:</strong> Spec version tracking with backward compatibility</li>
+                      <li>• <strong>Created by tracking:</strong> User provenance for all generated specifications</li>
+                      <li>• <strong>Modification history:</strong> Complete audit trail of system changes</li>
+                    </ul>
+                  </div>
+                  <div className="bg-white rounded-lg p-4">
+                    <h5 className="font-medium text-blue-900 mb-2">LLM Interaction Logging</h5>
+                    <ul className="text-blue-800 text-sm space-y-1">
+                      <li>• <strong>Model versioning:</strong> Anthropic Claude model and version tracking</li>
+                      <li>• <strong>Prompt preservation:</strong> Complete prompt text with system context</li>
+                      <li>• <strong>Response archival:</strong> Full LLM outputs with token counts</li>
+                      <li>• <strong>Temperature settings:</strong> Reproducible generation parameters</li>
+                    </ul>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div className="bg-white rounded-lg p-4">
+                    <h5 className="font-medium text-blue-900 mb-2">Acceptance Analysis Metadata</h5>
+                    <ul className="text-blue-800 text-sm space-y-1">
+                      <li>• <strong>Sampling parameters:</strong> Method, count, tolerance, random seeds</li>
+                      <li>• <strong>Tool versions:</strong> Numerical libraries, solver versions, platform details</li>
+                      <li>• <strong>Execution environment:</strong> Hardware specs, compute resources used</li>
+                      <li>• <strong>Timing data:</strong> Stage A/B execution duration with breakdown</li>
+                    </ul>
+                  </div>
+                  <div className="bg-white rounded-lg p-4">
+                    <h5 className="font-medium text-blue-900 mb-2">Artifact Persistence</h5>
+                    <ul className="text-blue-800 text-sm space-y-1">
+                      <li>• <strong>Immutable storage:</strong> Google Cloud Storage for formal verification artifacts</li>
+                      <li>• <strong>SOS certificates:</strong> SDP problem matrices and solutions</li>
+                      <li>• <strong>SMT logs:</strong> Complete solver traces and δ-satisfiability proofs</li>
+                      <li>• <strong>Reachability results:</strong> Flow*/CORA analysis outputs and visualizations</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Code & Infrastructure Versioning */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="bg-gray-50 rounded-xl p-5">
+                <h5 className="font-medium text-gray-900 mb-3">Research Infrastructure Integrity</h5>
+                <div className="space-y-3">
+                  <div className="bg-white rounded-lg p-3">
+                    <p className="font-medium text-gray-900 text-sm mb-1">Code Commit Tracking</p>
+                    <p className="text-gray-800 text-xs">
+                      Every experimental run records the exact Git commit SHA of the codebase used, 
+                      ensuring reproducibility of computational results across software versions.
+                    </p>
+                  </div>
+                  <div className="bg-white rounded-lg p-3">
+                    <p className="font-medium text-gray-900 text-sm mb-1">Dependency Management</p>
+                    <p className="text-gray-800 text-xs">
+                      Complete package.json and requirements.txt lockfiles preserved with exact 
+                      versions of all mathematical libraries and computational dependencies.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-yellow-50 rounded-xl p-5">
+                <h5 className="font-medium text-yellow-900 mb-3">Experimental Re-execution</h5>
+                <div className="space-y-3">
+                  <div className="bg-white rounded-lg p-3">
+                    <p className="font-medium text-yellow-900 text-sm mb-1">Parameter Controls</p>
+                    <p className="text-yellow-800 text-xs">
+                      Runtime parameter adjustment enables sensitivity analysis: sample counts, 
+                      tolerances, sampling methods can be modified and re-run with full provenance.
+                    </p>
+                  </div>
+                  <div className="bg-white rounded-lg p-3">
+                    <p className="font-medium text-yellow-900 text-sm mb-1">Deterministic Seeds</p>
+                    <p className="text-yellow-800 text-xs">
+                      All random number generation uses fixed seeds, ensuring identical sampling 
+                      patterns and numerical results across experimental replications.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Data Integrity & Consistency */}
+      <div className="card">
+        <div className="card-header">
+          <h2 className="academic-subheader flex items-center">
+            <ShieldCheckIcon className="w-6 h-6 mr-3 text-primary-600" />
+            Data Integrity & Consistency Requirements
+          </h2>
+          <p className="academic-body text-sm">Rigorous data validation and consistency enforcement for research reliability</p>
+        </div>
+        <div className="card-body">
+          <div className="space-y-6">
+            
+            {/* Mathematical Correctness */}
+            <div className="bg-red-50 rounded-xl p-6 border border-red-200">
+              <h4 className="text-lg font-semibold text-red-900 mb-4">Mathematical Expression Evaluation Correctness</h4>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="space-y-3">
+                  <div className="bg-white rounded-lg p-4">
+                    <h5 className="font-medium text-red-900 mb-2">Core Requirements</h5>
+                    <ul className="text-red-800 text-sm space-y-1">
+                      <li>• <strong>Negative number handling:</strong> x₁² + x₂² with x₁=-1.5, x₂=-2.4 MUST evaluate to 8.01</li>
+                      <li>• <strong>Never zero for positive expressions:</strong> Expressions containing only squares and positive terms cannot evaluate to 0</li>
+                      <li>• <strong>Domain compliance:</strong> All sampling within specified bounds (e.g., [-5,5] for test systems)</li>
+                      <li>• <strong>Precision maintenance:</strong> Numerical accuracy to specified tolerance levels</li>
+                    </ul>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <div className="bg-white rounded-lg p-4">
+                    <h5 className="font-medium text-red-900 mb-2">Validation Pipeline</h5>
+                    <ul className="text-red-800 text-sm space-y-1">
+                      <li>• <strong>Tokenizer verification:</strong> Proper parsing of negative numbers in expressions</li>
+                      <li>• <strong>Evaluation testing:</strong> Automated test cases for mathematical correctness</li>
+                      <li>• <strong>Edge case handling:</strong> Boundary conditions and limit cases</li>
+                      <li>• <strong>Cross-validation:</strong> Multiple evaluation methods for consistency</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Status-Violation Consistency */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="bg-green-50 rounded-xl p-5 border border-green-200">
+                <h5 className="font-medium text-green-900 mb-3">Acceptance Status Consistency</h5>
+                <div className="space-y-3">
+                  <div className="bg-white rounded-lg p-3">
+                    <p className="font-medium text-green-900 text-sm mb-1">Strict Invariants</p>
+                    <ul className="text-green-800 text-xs space-y-1">
+                      <li>• <strong>Accepted certificates:</strong> MUST have violations = 0</li>
+                      <li>• <strong>Failed certificates:</strong> MUST have violations > 0</li>
+                      <li>• <strong>No contradictions:</strong> Cannot be accepted with violations present</li>
+                      <li>• <strong>Status updates:</strong> Real-time consistency checks on re-evaluation</li>
+                    </ul>
+                  </div>
+                  <div className="bg-green-100 rounded-lg p-3 text-xs">
+                    <strong>Database Constraints:</strong> Enforced at application and database levels
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-purple-50 rounded-xl p-5 border border-purple-200">
+                <h5 className="font-medium text-purple-900 mb-3">Technical Details Accessibility</h5>
+                <div className="space-y-3">
+                  <div className="bg-white rounded-lg p-3">
+                    <p className="font-medium text-purple-900 text-sm mb-1">Universal Visibility</p>
+                    <ul className="text-purple-800 text-xs space-y-1">
+                      <li>• <strong>All certificates:</strong> Technical details button always visible</li>
+                      <li>• <strong>Debug access:</strong> Failed certificates show complete violation analysis</li>
+                      <li>• <strong>Parameter controls:</strong> Available regardless of acceptance status</li>
+                      <li>• <strong>Research transparency:</strong> Full technical analysis for all outcomes</li>
+                    </ul>
+                  </div>
+                  <div className="bg-purple-100 rounded-lg p-3 text-xs">
+                    <strong>Research Requirement:</strong> No hidden information based on status
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Computational Methodology & Scalability */}
+      <div className="card">
+        <div className="card-header">
+          <h2 className="academic-subheader flex items-center">
+            <CpuChipIcon className="w-6 h-6 mr-3 text-primary-600" />
+            Computational Methodology & Scalability
+          </h2>
+          <p className="academic-body text-sm">Advanced numerical methods and high-performance computational strategies</p>
+        </div>
+        <div className="card-body">
+          <div className="space-y-6">
+            
+            {/* Numerical Methods */}
+            <div className="bg-indigo-50 rounded-xl p-6 border border-indigo-200">
+              <h4 className="text-lg font-semibold text-indigo-900 mb-4">Advanced Numerical Validation Methods</h4>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <div className="bg-white rounded-lg p-4">
+                  <h5 className="font-medium text-indigo-900 mb-2">Quasi-Monte Carlo Sampling</h5>
+                  <ul className="text-indigo-800 text-sm space-y-1">
+                    <li>• <strong>Sobol sequences:</strong> Low-discrepancy sampling for uniform domain coverage</li>
+                    <li>• <strong>Latin Hypercube:</strong> Stratified sampling for parameter space exploration</li>
+                    <li>• <strong>Adaptive refinement:</strong> Iterative density increases in violation regions</li>
+                    <li>• <strong>Boundary oversampling:</strong> Focused sampling near decision boundaries</li>
+                  </ul>
+                </div>
+                <div className="bg-white rounded-lg p-4">
+                  <h5 className="font-medium text-indigo-900 mb-2">Gradient-Based Analysis</h5>
+                  <ul className="text-indigo-800 text-sm space-y-1">
+                    <li>• <strong>Automatic differentiation:</strong> Forward/reverse mode for exact gradients</li>
+                    <li>• <strong>Lie derivative computation:</strong> V̇ = ∇V·f(x) for continuous systems</li>
+                    <li>• <strong>Discrete differences:</strong> Δ = V∘f(x) - V(x) for discrete systems</li>
+                    <li>• <strong>Sensitivity analysis:</strong> Parameter perturbation bounds</li>
+                  </ul>
+                </div>
+                <div className="bg-white rounded-lg p-4">
+                  <h5 className="font-medium text-indigo-900 mb-2">Adversarial Optimization</h5>
+                  <ul className="text-indigo-800 text-sm space-y-1">
+                    <li>• <strong>Violation maximization:</strong> Gradient ascent to find worst-case points</li>
+                    <li>• <strong>Counterexample search:</strong> Active violation discovery algorithms</li>
+                    <li>• <strong>Basin exploration:</strong> Multiple initialization for global optimization</li>
+                    <li>• <strong>Constraint handling:</strong> Projected gradients for domain boundaries</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Scalability & Performance */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="bg-gray-50 rounded-xl p-5">
+                <h5 className="font-medium text-gray-900 mb-3">Computational Scalability</h5>
+                <div className="space-y-3">
+                  <div className="bg-white rounded-lg p-3">
+                    <p className="font-medium text-gray-900 text-sm mb-1">Parallel Processing</p>
+                    <ul className="text-gray-800 text-xs space-y-1">
+                      <li>• <strong>Batch evaluation:</strong> Vectorized mathematical operations</li>
+                      <li>• <strong>Worker processes:</strong> Multi-core numerical computation</li>
+                      <li>• <strong>Asynchronous validation:</strong> Non-blocking acceptance checking</li>
+                      <li>• <strong>Cloud scalability:</strong> Horizontal scaling on Cloud Run</li>
+                    </ul>
+                  </div>
+                  <div className="bg-white rounded-lg p-3">
+                    <p className="font-medium text-gray-900 text-sm mb-1">Memory Management</p>
+                    <ul className="text-gray-800 text-xs space-y-1">
+                      <li>• <strong>Streaming evaluation:</strong> Large sample sets without memory overflow</li>
+                      <li>• <strong>Garbage collection:</strong> Optimized for mathematical computation</li>
+                      <li>• <strong>Cache optimization:</strong> Expression compilation and reuse</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-orange-50 rounded-xl p-5">
+                <h5 className="font-medium text-orange-900 mb-3">Performance Optimization</h5>
+                <div className="space-y-3">
+                  <div className="bg-white rounded-lg p-3">
+                    <p className="font-medium text-orange-900 text-sm mb-1">Expression Compilation</p>
+                    <ul className="text-orange-800 text-xs space-y-1">
+                      <li>• <strong>Just-in-time compilation:</strong> Mathematical expression optimization</li>
+                      <li>• <strong>Symbolic preprocessing:</strong> Expression simplification and canonicalization</li>
+                      <li>• <strong>Common subexpression elimination:</strong> Shared computation reuse</li>
+                      <li>• <strong>Numerical stability:</strong> Condition number monitoring</li>
+                    </ul>
+                  </div>
+                  <div className="bg-white rounded-lg p-3">
+                    <p className="font-medium text-orange-900 text-sm mb-1">Algorithm Selection</p>
+                    <ul className="text-orange-800 text-xs space-y-1">
+                      <li>• <strong>Adaptive methods:</strong> Algorithm choice based on system properties</li>
+                      <li>• <strong>Convergence monitoring:</strong> Early termination for efficiency</li>
+                      <li>• <strong>Precision vs speed:</strong> Configurable accuracy-performance trade-offs</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Security & Authentication */}
+      <div className="card">
+        <div className="card-header">
+          <h2 className="academic-subheader flex items-center">
+            <ShieldCheckIcon className="w-6 h-6 mr-3 text-primary-600" />
+            Security & Authentication Architecture
+          </h2>
+          <p className="academic-body text-sm">Research-grade security with comprehensive access controls and audit trails</p>
+        </div>
+        <div className="card-body">
+          <div className="space-y-6">
+            
+            {/* Authentication & Authorization */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="bg-blue-50 rounded-xl p-5 border border-blue-200">
+                <h5 className="font-medium text-blue-900 mb-3">Multi-Layer Authentication</h5>
+                <div className="space-y-3">
+                  <div className="bg-white rounded-lg p-3">
+                    <p className="font-medium text-blue-900 text-sm mb-1">Firebase Authentication</p>
+                    <ul className="text-blue-800 text-xs space-y-1">
+                      <li>• <strong>Email/password:</strong> Secure credential management</li>
+                      <li>• <strong>JWT tokens:</strong> Stateless session management</li>
+                      <li>• <strong>Token refresh:</strong> Automatic re-authentication</li>
+                      <li>• <strong>Session security:</strong> HTTPS-only, secure cookies</li>
+                    </ul>
+                  </div>
+                  <div className="bg-white rounded-lg p-3">
+                    <p className="font-medium text-blue-900 text-sm mb-1">Role-Based Access Control</p>
+                    <ul className="text-blue-800 text-xs space-y-1">
+                      <li>• <strong>Admin:</strong> User provisioning, system configuration</li>
+                      <li>• <strong>Researcher:</strong> Full system and certificate creation</li>
+                      <li>• <strong>Viewer:</strong> Read-only access to results</li>
+                      <li>• <strong>Email authorization:</strong> Admin-controlled user approval</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-green-50 rounded-xl p-5 border border-green-200">
+                <h5 className="font-medium text-green-900 mb-3">API Security & Secret Management</h5>
+                <div className="space-y-3">
+                  <div className="bg-white rounded-lg p-3">
+                    <p className="font-medium text-green-900 text-sm mb-1">Google Secret Manager</p>
+                    <ul className="text-green-800 text-xs space-y-1">
+                      <li>• <strong>API key storage:</strong> Anthropic Claude keys in encrypted storage</li>
+                      <li>• <strong>Database credentials:</strong> Secure connection string management</li>
+                      <li>• <strong>Rotation support:</strong> Automated key rotation capabilities</li>
+                      <li>• <strong>Access logging:</strong> Complete audit trail for secret access</li>
+                    </ul>
+                  </div>
+                  <div className="bg-white rounded-lg p-3">
+                    <p className="font-medium text-green-900 text-sm mb-1">Network Security</p>
+                    <ul className="text-green-800 text-xs space-y-1">
+                      <li>• <strong>HTTPS enforcement:</strong> TLS 1.3 with perfect forward secrecy</li>
+                      <li>• <strong>CORS policies:</strong> Restricted cross-origin access</li>
+                      <li>• <strong>Rate limiting:</strong> DDoS protection and abuse prevention</li>
+                      <li>• <strong>Request validation:</strong> Input sanitization and schema validation</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Audit & Compliance */}
+            <div className="bg-purple-50 rounded-xl p-6 border border-purple-200">
+              <h4 className="text-lg font-semibold text-purple-900 mb-4">Comprehensive Audit Trail</h4>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <div className="bg-white rounded-lg p-4">
+                  <h5 className="font-medium text-purple-900 mb-2">User Activity Logging</h5>
+                  <ul className="text-purple-800 text-sm space-y-1">
+                    <li>• <strong>Authentication events:</strong> Login/logout with IP tracking</li>
+                    <li>• <strong>System creation:</strong> All specification changes logged</li>
+                    <li>• <strong>Certificate generation:</strong> LLM interactions and parameters</li>
+                    <li>• <strong>Admin actions:</strong> User provisioning and role changes</li>
+                  </ul>
+                </div>
+                <div className="bg-white rounded-lg p-4">
+                  <h5 className="font-medium text-purple-900 mb-2">Research Data Integrity</h5>
+                  <ul className="text-purple-800 text-sm space-y-1">
+                    <li>• <strong>Immutable records:</strong> Append-only experimental data</li>
+                    <li>• <strong>Cryptographic hashing:</strong> Tamper-evident data storage</li>
+                    <li>• <strong>Backup verification:</strong> Regular integrity checks</li>
+                    <li>• <strong>Chain of custody:</strong> Complete data lineage tracking</li>
+                  </ul>
+                </div>
+                <div className="bg-white rounded-lg p-4">
+                  <h5 className="font-medium text-purple-900 mb-2">Compliance & Privacy</h5>
+                  <ul className="text-purple-800 text-sm space-y-1">
+                    <li>• <strong>GDPR compliance:</strong> Data retention and deletion policies</li>
+                    <li>• <strong>Research ethics:</strong> IRB-compatible data handling</li>
+                    <li>• <strong>Export controls:</strong> Appropriate technology transfer compliance</li>
+                    <li>• <strong>Institutional policies:</strong> University research data requirements</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* How to Use the System */}
       <div className="card">
         <div className="card-header">
@@ -662,11 +1049,11 @@ export default function AboutPage() {
                     Data Layer
                   </h5>
                   <ul className="text-gray-700 text-sm space-y-1">
-                    <li>• <strong>PostgreSQL</strong> with Knex.js ORM</li>
-                    <li>• <strong>Firebase/Firestore</strong> alternative</li>
-                    <li>• <strong>JWT</strong> authentication</li>
-                    <li>• <strong>GCS</strong> artifact storage</li>
-                    <li>• <strong>Audit logging</strong> for provenance</li>
+                    <li>• <strong>Firebase/Firestore</strong> (current MVP implementation)</li>
+                    <li>• <strong>PostgreSQL</strong> migration planned for production</li>
+                    <li>• <strong>JWT</strong> authentication with Firebase Auth</li>
+                    <li>• <strong>Google Cloud Storage</strong> for artifacts</li>
+                    <li>• <strong>Complete audit logging</strong> for research provenance</li>
                   </ul>
                 </div>
               </div>
