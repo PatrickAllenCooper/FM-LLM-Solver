@@ -13,10 +13,10 @@ FM-LLM Solver enables researchers to:
 ## Architecture
 
 **Frontend**: React with TypeScript, Material Design 3, Tailwind CSS
-**Backend**: Node.js with Express, PostgreSQL database
-**LLM Integration**: Anthropic Claude API
-**Authentication**: JWT-based with role-based access control
-**Deployment**: Docker containers with Docker Compose
+**Backend**: Node.js with Express, Firestore database (PostgreSQL planned)
+**LLM Integration**: Anthropic Claude API with structured prompting
+**Authentication**: JWT-based with Firebase Auth and role-based access control
+**Deployment**: Docker containers with Docker Compose, GCP Cloud Run ready
 
 ## Prerequisites
 
@@ -68,10 +68,21 @@ docker compose up --build
 ## Key Features
 
 - **Multi-step System Definition**: Intuitive wizard interface for complex systems
-- **LLM Integration**: Direct integration with Anthropic Claude API
+- **LLM Integration**: Direct integration with Anthropic Claude API with structured prompting
 - **Intelligent Validation**: Comprehensive form validation with detailed error feedback
-- **Material Design 3**: Modern, professional user interface
+- **Material Design 3**: Modern, professional user interface with CU Boulder branding
 - **Real-time Verification**: Automatic verification of generated certificates
+- **Research-Grade Analysis**: Comprehensive technical details and experimental parameter controls
+- **Provenance Tracking**: Complete audit trail showing who generated what and when
+
+## Recent Improvements (v2.0.1)
+
+- **Security Hardening**: All npm audit vulnerabilities resolved (backend and frontend)
+- **Code Quality**: ESLint configurations added for TypeScript and React codebases
+- **Production Ready**: Console.log statements replaced with proper Winston logging
+- **Codebase Cleanup**: Removed unused backup files and dead code (6,500+ lines cleaned)
+- **Build Optimization**: Replaced vulnerable tscpaths with secure tsc-alias
+- **Deployment Reliability**: Enhanced Cloud Run startup probes for robust deployment
 
 ## Development
 
@@ -106,16 +117,18 @@ docker compose up --build
 - Vite for build tooling
 
 **Backend**
-- Node.js 18+ with Express.js
-- PostgreSQL with Knex.js migrations
-- Anthropic Claude API integration
-- JWT authentication with bcrypt
-- Winston logging
+- Node.js 18+ with Express.js and TypeScript
+- Firestore database (PostgreSQL migration planned)
+- Anthropic Claude API integration with structured prompting
+- JWT authentication with Firebase Auth and bcrypt
+- Winston logging with comprehensive error handling
+- ESLint with TypeScript rules for code quality
 
 **Infrastructure**
-- Docker containers
-- Nginx for frontend serving
-- Redis for session management
+- Docker containers with multi-stage builds
+- Nginx for frontend serving in production
+- GCP Cloud Run deployment ready
+- ESLint and security vulnerability management
 
 ## Author
 
