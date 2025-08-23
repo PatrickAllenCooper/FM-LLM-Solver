@@ -576,7 +576,7 @@ export default function AboutPage() {
                     <p className="font-medium text-green-900 text-sm mb-1">Strict Invariants</p>
                     <ul className="text-green-800 text-xs space-y-1">
                       <li>• <strong>Accepted certificates:</strong> MUST have violations = 0</li>
-                      <li>• <strong>Failed certificates:</strong> MUST have violations > 0</li>
+                      <li>• <strong>Failed certificates:</strong> MUST have violations &gt; 0</li>
                       <li>• <strong>No contradictions:</strong> Cannot be accepted with violations present</li>
                       <li>• <strong>Status updates:</strong> Real-time consistency checks on re-evaluation</li>
                     </ul>
