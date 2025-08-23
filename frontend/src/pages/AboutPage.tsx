@@ -807,6 +807,574 @@ export default function AboutPage() {
         </div>
       </div>
 
+      {/* Complete Parameter Reference */}
+      <div className="card">
+        <div className="card-header">
+          <h2 className="academic-subheader flex items-center">
+            <Cog8ToothIcon className="w-6 h-6 mr-3 text-primary-600" />
+            Complete Parameter Reference & Configuration Guide
+          </h2>
+          <p className="academic-body text-sm">Comprehensive documentation of all configurable parameters throughout the experimental pipeline</p>
+        </div>
+        <div className="card-body">
+          <div className="space-y-8">
+            
+            {/* System Specification Parameters */}
+            <div className="bg-blue-50 rounded-xl p-6 border border-blue-200">
+              <h4 className="text-lg font-semibold text-blue-900 mb-4">System Specification Parameters</h4>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div className="bg-white rounded-lg p-4">
+                    <h5 className="font-medium text-blue-900 mb-3">Core System Properties</h5>
+                    <div className="space-y-3 text-sm">
+                      <div className="border-l-4 border-blue-300 pl-3">
+                        <p className="font-medium text-blue-900">Time Type</p>
+                        <p className="text-blue-800 text-xs">Options: continuous | discrete | hybrid</p>
+                        <p className="text-blue-700 text-xs">Impact: Determines derivative vs difference computation, acceptance protocol selection</p>
+                      </div>
+                      <div className="border-l-4 border-blue-300 pl-3">
+                        <p className="font-medium text-blue-900">System Dimension</p>
+                        <p className="text-blue-800 text-xs">Range: 1-20 state variables (practical limit for numerical validation)</p>
+                        <p className="text-blue-700 text-xs">Impact: Computational complexity O(n²) for gradient computation, O(n³) for Hessian analysis</p>
+                      </div>
+                      <div className="border-l-4 border-blue-300 pl-3">
+                        <p className="font-medium text-blue-900">State Variables</p>
+                        <p className="text-blue-800 text-xs">Format: [x1, x2, ..., xn] with symbolic names and bounds</p>
+                        <p className="text-blue-700 text-xs">Impact: Variable naming affects LLM prompt construction and expression parsing</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-white rounded-lg p-4">
+                    <h5 className="font-medium text-blue-900 mb-3">Domain & Set Definitions</h5>
+                    <div className="space-y-3 text-sm">
+                      <div className="border-l-4 border-blue-300 pl-3">
+                        <p className="font-medium text-blue-900">Domain Constraints</p>
+                        <p className="text-blue-800 text-xs">Types: box | polytope | ellipsoid | semialgebraic</p>
+                        <p className="text-blue-700 text-xs">Parameters: Bounds [-M, M], inequality constraints g_i(x) ≤ 0</p>
+                        <p className="text-blue-700 text-xs">Impact: Sampling region size, numerical conditioning, boundary behavior</p>
+                      </div>
+                      <div className="border-l-4 border-blue-300 pl-3">
+                        <p className="font-medium text-blue-900">Initial Set I₀</p>
+                        <p className="text-blue-800 text-xs">Format: Box bounds or polynomial inequalities</p>
+                        <p className="text-blue-700 text-xs">Impact: Barrier certificate initialization conditions, safety margin requirements</p>
+                      </div>
+                      <div className="border-l-4 border-blue-300 pl-3">
+                        <p className="font-medium text-blue-900">Unsafe Set X_u</p>
+                        <p className="text-blue-800 text-xs">Format: Polynomial inequalities defining forbidden regions</p>
+                        <p className="text-blue-700 text-xs">Impact: Barrier separation requirements, safety verification objectives</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="bg-white rounded-lg p-4">
+                    <h5 className="font-medium text-blue-900 mb-3">Dynamics & Parameters</h5>
+                    <div className="space-y-3 text-sm">
+                      <div className="border-l-4 border-blue-300 pl-3">
+                        <p className="font-medium text-blue-900">Dynamics Form</p>
+                        <p className="text-blue-800 text-xs">Types: symbolic | linear | polynomial | rational</p>
+                        <p className="text-blue-700 text-xs">Impact: Stage B eligibility, formal verification method selection</p>
+                      </div>
+                      <div className="border-l-4 border-blue-300 pl-3">
+                        <p className="font-medium text-blue-900">System Parameters</p>
+                        <p className="text-blue-800 text-xs">Format: μ: &#123;type: "real", range: [-2,2], value: 1.0&#125;</p>
+                        <p className="text-blue-700 text-xs">Impact: Parameter sensitivity analysis, robustness testing bounds</p>
+                      </div>
+                      <div className="border-l-4 border-blue-300 pl-3">
+                        <p className="font-medium text-blue-900">Equilibrium Points</p>
+                        <p className="text-blue-800 text-xs">Format: [x₁*, x₂*, ..., xₙ*] coordinate vectors</p>
+                        <p className="text-blue-700 text-xs">Impact: Lyapunov function requirements V(x*) = 0, local stability analysis</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-lg p-4">
+                    <h5 className="font-medium text-blue-900 mb-3">Validation Configuration</h5>
+                    <div className="space-y-3 text-sm">
+                      <div className="border-l-4 border-blue-300 pl-3">
+                        <p className="font-medium text-blue-900">Expression Constraints</p>
+                        <p className="text-blue-800 text-xs">Max degree: 2-8, Allowed ops: [+,-,*,^], Form: polynomial|rational</p>
+                        <p className="text-blue-700 text-xs">Impact: LLM generation space, computational complexity, formal verification feasibility</p>
+                      </div>
+                      <div className="border-l-4 border-blue-300 pl-3">
+                        <p className="font-medium text-blue-900">Syntax Preferences</p>
+                        <p className="text-blue-800 text-xs">Radial bias: true|false, Symmetry hints: rotation|reflection</p>
+                        <p className="text-blue-700 text-xs">Impact: LLM prompt engineering, certificate quality and interpretability</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* LLM Generation Parameters */}
+            <div className="bg-green-50 rounded-xl p-6 border border-green-200">
+              <h4 className="text-lg font-semibold text-green-900 mb-4">Large Language Model Generation Parameters</h4>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <div className="bg-white rounded-lg p-4">
+                  <h5 className="font-medium text-green-900 mb-3">Model Configuration</h5>
+                  <div className="space-y-3 text-xs">
+                    <div className="border-l-4 border-green-300 pl-3">
+                      <p className="font-medium text-green-900">Model Selection</p>
+                      <p className="text-green-800">Options: claude-3-opus, claude-3-sonnet, claude-3-haiku</p>
+                      <p className="text-green-700">Default: claude-3-sonnet (balance of capability and cost)</p>
+                    </div>
+                    <div className="border-l-4 border-green-300 pl-3">
+                      <p className="font-medium text-green-900">Temperature</p>
+                      <p className="text-green-800">Range: 0.0-1.0, Default: 0.0 (deterministic)</p>
+                      <p className="text-green-700">Research: 0.2 for exploration, 0.0 for reproducibility</p>
+                    </div>
+                    <div className="border-l-4 border-green-300 pl-3">
+                      <p className="font-medium text-green-900">Max Tokens</p>
+                      <p className="text-green-800">Range: 100-4096, Default: 1000</p>
+                      <p className="text-green-700">Impact: Response completeness, token budget consumption</p>
+                    </div>
+                    <div className="border-l-4 border-green-300 pl-3">
+                      <p className="font-medium text-green-900">Timeout Settings</p>
+                      <p className="text-green-800">API timeout: 30s, Total budget: 300s</p>
+                      <p className="text-green-700">Retry attempts: 3, Exponential backoff: 2^n seconds</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-lg p-4">
+                  <h5 className="font-medium text-green-900 mb-3">Generation Modes</h5>
+                  <div className="space-y-3 text-xs">
+                    <div className="border-l-4 border-green-300 pl-3">
+                      <p className="font-medium text-green-900">Direct Expression</p>
+                      <p className="text-green-800">Output: Complete mathematical function as string</p>
+                      <p className="text-green-700">Validation: Syntax parsing, dimension consistency, domain evaluation</p>
+                    </div>
+                    <div className="border-l-4 border-green-300 pl-3">
+                      <p className="font-medium text-green-900">Basis + Coefficients</p>
+                      <p className="text-green-800">Output: &#123;basis: [x1^2, x2^2, x1*x2], coeffs: [1.0, 1.0, 0.1]&#125;</p>
+                      <p className="text-green-700">Validation: Basis linear independence, coefficient magnitude bounds</p>
+                    </div>
+                    <div className="border-l-4 border-green-300 pl-3">
+                      <p className="font-medium text-green-900">Structure + Constraints</p>
+                      <p className="text-green-800">Output: Template form with parameter constraints</p>
+                      <p className="text-green-700">Validation: Template instantiation, constraint satisfaction</p>
+                    </div>
+                    <div className="border-l-4 border-green-300 pl-3">
+                      <p className="font-medium text-green-900">Conversational Mode</p>
+                      <p className="text-green-800">Multi-turn dialogue with context preservation</p>
+                      <p className="text-green-700">Token management: Auto-summarization at 75% context limit</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-lg p-4">
+                  <h5 className="font-medium text-green-900 mb-3">Quality Control</h5>
+                  <div className="space-y-3 text-xs">
+                    <div className="border-l-4 border-green-300 pl-3">
+                      <p className="font-medium text-green-900">JSON Validation</p>
+                      <p className="text-green-800">Schema enforcement with detailed error messages</p>
+                      <p className="text-green-700">Retry logic: Parse failures trigger reformatted prompts</p>
+                    </div>
+                    <div className="border-l-4 border-green-300 pl-3">
+                      <p className="font-medium text-green-900">Mathematical Syntax</p>
+                      <p className="text-green-800">Expression parsing: Variables, operators, function calls</p>
+                      <p className="text-green-700">Canonicalization: Automatic simplification and standardization</p>
+                    </div>
+                    <div className="border-l-4 border-green-300 pl-3">
+                      <p className="font-medium text-green-900">Rejection Handling</p>
+                      <p className="text-green-800">Malformed responses: Automatic retry with error context</p>
+                      <p className="text-green-700">Rate limiting: Exponential backoff for API limits</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Acceptance Protocol Parameters */}
+            <div className="bg-orange-50 rounded-xl p-6 border border-orange-200">
+              <h4 className="text-lg font-semibold text-orange-900 mb-4">Acceptance Protocol Configuration Parameters</h4>
+              
+              {/* Stage A Parameters */}
+              <div className="mb-6">
+                <h5 className="font-medium text-orange-900 mb-4 text-lg">Stage A: Numerical Validation Parameters</h5>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div className="bg-white rounded-lg p-4">
+                      <h6 className="font-medium text-orange-900 mb-3">Sampling Configuration</h6>
+                      <div className="space-y-3 text-xs">
+                        <div className="border-l-4 border-orange-300 pl-3">
+                          <p className="font-medium text-orange-900">Sample Count</p>
+                          <p className="text-orange-800">Range: 100-50,000, Default: 1,000</p>
+                          <p className="text-orange-700">Research settings: 10,000 for publication quality</p>
+                          <p className="text-orange-700">Impact: Statistical confidence, computational time O(n)</p>
+                        </div>
+                        <div className="border-l-4 border-orange-300 pl-3">
+                          <p className="font-medium text-orange-900">Sampling Method</p>
+                          <p className="text-orange-800">Options: uniform | sobol | lhs | adaptive</p>
+                          <p className="text-orange-700">Sobol: Low-discrepancy sequences for uniform coverage</p>
+                          <p className="text-orange-700">LHS: Latin Hypercube for stratified sampling</p>
+                          <p className="text-orange-700">Adaptive: Iterative refinement in violation regions</p>
+                        </div>
+                        <div className="border-l-4 border-orange-300 pl-3">
+                          <p className="font-medium text-orange-900">Random Seed</p>
+                          <p className="text-orange-800">Range: 1-2³²⁻¹, Default: 42 (reproducibility)</p>
+                          <p className="text-orange-700">Impact: Deterministic sampling patterns, experimental replication</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-white rounded-lg p-4">
+                      <h6 className="font-medium text-orange-900 mb-3">Boundary & Refinement</h6>
+                      <div className="space-y-3 text-xs">
+                        <div className="border-l-4 border-orange-300 pl-3">
+                          <p className="font-medium text-orange-900">Boundary Oversampling</p>
+                          <p className="text-orange-800">Factor: 2x-10x density near B(x) = 0</p>
+                          <p className="text-orange-700">Radius: ε-neighborhood with ε = 0.01-0.1</p>
+                        </div>
+                        <div className="border-l-4 border-orange-300 pl-3">
+                          <p className="font-medium text-orange-900">Equilibrium Focus</p>
+                          <p className="text-orange-800">Sphere radius: 0.1-1.0 around equilibrium points</p>
+                          <p className="text-orange-700">Sample density: 5x-20x normal for Lyapunov validation</p>
+                        </div>
+                        <div className="border-l-4 border-orange-300 pl-3">
+                          <p className="font-medium text-orange-900">Adaptive Refinement</p>
+                          <p className="text-orange-800">Max iterations: 5, Refinement factor: 2x samples per iteration</p>
+                          <p className="text-orange-700">Convergence: Violation count stabilization tolerance 1%</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="bg-white rounded-lg p-4">
+                      <h6 className="font-medium text-orange-900 mb-3">Numerical Tolerance & Precision</h6>
+                      <div className="space-y-3 text-xs">
+                        <div className="border-l-4 border-orange-300 pl-3">
+                          <p className="font-medium text-orange-900">Evaluation Tolerance</p>
+                          <p className="text-orange-800">Range: 1e-12 to 1e-4, Default: 1e-6</p>
+                          <p className="text-orange-700">Research: 1e-8 for high precision, 1e-10 for critical systems</p>
+                          <p className="text-orange-700">Impact: Numerical stability, floating-point sensitivity</p>
+                        </div>
+                        <div className="border-l-4 border-orange-300 pl-3">
+                          <p className="font-medium text-orange-900">Gradient Tolerance</p>
+                          <p className="text-orange-800">Range: 1e-10 to 1e-6, Default: 1e-8</p>
+                          <p className="text-orange-700">Automatic differentiation step size: h = √(machine_eps)</p>
+                        </div>
+                        <div className="border-l-4 border-orange-300 pl-3">
+                          <p className="font-medium text-orange-900">Convergence Criteria</p>
+                          <p className="text-orange-800">Relative tolerance: 1e-6, Absolute tolerance: 1e-10</p>
+                          <p className="text-orange-700">Max function evaluations: 1000 per optimization</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-white rounded-lg p-4">
+                      <h6 className="font-medium text-orange-900 mb-3">Margin Requirements</h6>
+                      <div className="space-y-3 text-xs">
+                        <div className="border-l-4 border-orange-300 pl-3">
+                          <p className="font-medium text-orange-900">Lyapunov Margins</p>
+                          <p className="text-orange-800">ε_pos (positivity): 1e-6 to 1e-2, Default: 1e-4</p>
+                          <p className="text-orange-800">ε_dec (decrease): 1e-6 to 1e-2, Default: 1e-4</p>
+                          <p className="text-orange-700">Norm type: L₂ (Euclidean), p-value: 2.0</p>
+                        </div>
+                        <div className="border-l-4 border-orange-300 pl-3">
+                          <p className="font-medium text-orange-900">Barrier Margins</p>
+                          <p className="text-orange-800">m_init: 1e-4 to 1e-1, m_unsafe: 1e-4 to 1e-1</p>
+                          <p className="text-orange-800">m_inv: 1e-6 to 1e-3, Default: 1e-4</p>
+                          <p className="text-orange-700">Safety buffer: 10x margin for practical applications</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Stage B Parameters */}
+              <div>
+                <h5 className="font-medium text-orange-900 mb-4 text-lg">Stage B: Formal Verification Parameters</h5>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  <div className="bg-white rounded-lg p-4">
+                    <h6 className="font-medium text-orange-900 mb-3">SOS/SDP Configuration</h6>
+                    <div className="space-y-3 text-xs">
+                      <div className="border-l-4 border-orange-300 pl-3">
+                        <p className="font-medium text-orange-900">SOS Degree</p>
+                        <p className="text-orange-800">Range: 2-12, Default: 4</p>
+                        <p className="text-orange-700">Impact: Problem size O(n^d), solver time exponential</p>
+                      </div>
+                      <div className="border-l-4 border-orange-300 pl-3">
+                        <p className="font-medium text-orange-900">SDP Solver</p>
+                        <p className="text-orange-800">Options: SeDuMi | MOSEK | CVXOPT</p>
+                        <p className="text-orange-700">Timeout: 300s, Memory limit: 4GB</p>
+                      </div>
+                      <div className="border-l-4 border-orange-300 pl-3">
+                        <p className="font-medium text-orange-900">Precision</p>
+                        <p className="text-orange-800">Dual gap: 1e-6, Primal tolerance: 1e-8</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-lg p-4">
+                    <h6 className="font-medium text-orange-900 mb-3">SMT/δ-SAT Settings</h6>
+                    <div className="space-y-3 text-xs">
+                      <div className="border-l-4 border-orange-300 pl-3">
+                        <p className="font-medium text-orange-900">Solver Selection</p>
+                        <p className="text-orange-800">dReal: δ-complete decision procedures</p>
+                        <p className="text-orange-800">Z3: General SMT with approximations</p>
+                      </div>
+                      <div className="border-l-4 border-orange-300 pl-3">
+                        <p className="font-medium text-orange-900">δ-Tolerance</p>
+                        <p className="text-orange-800">Range: 1e-8 to 1e-3, Default: 1e-6</p>
+                        <p className="text-orange-700">Trade-off: Precision vs computational tractability</p>
+                      </div>
+                      <div className="border-l-4 border-orange-300 pl-3">
+                        <p className="font-medium text-orange-900">Resource Limits</p>
+                        <p className="text-orange-800">Timeout: 600s, Memory: 8GB</p>
+                        <p className="text-orange-700">Restart strategy: 3 attempts with different heuristics</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-lg p-4">
+                    <h6 className="font-medium text-orange-900 mb-3">Reachability Analysis</h6>
+                    <div className="space-y-3 text-xs">
+                      <div className="border-l-4 border-orange-300 pl-3">
+                        <p className="font-medium text-orange-900">Tool Selection</p>
+                        <p className="text-orange-800">Flow*: Continuous systems</p>
+                        <p className="text-orange-800">CORA: Linear/polynomial systems</p>
+                        <p className="text-orange-800">SpaceEx: Hybrid systems</p>
+                      </div>
+                      <div className="border-l-4 border-orange-300 pl-3">
+                        <p className="font-medium text-orange-900">Time Horizon</p>
+                        <p className="text-orange-800">Range: 0.1-100 time units</p>
+                        <p className="text-orange-700">Step size: Adaptive with error control</p>
+                      </div>
+                      <div className="border-l-4 border-orange-300 pl-3">
+                        <p className="font-medium text-orange-900">Approximation</p>
+                        <p className="text-orange-800">Zonotope order: 10-50</p>
+                        <p className="text-orange-700">Taylor order: 4-10</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Baseline & Comparison Parameters */}
+            <div className="bg-purple-50 rounded-xl p-6 border border-purple-200">
+              <h4 className="text-lg font-semibold text-purple-900 mb-4">Baseline Method Parameters & Statistical Analysis</h4>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div className="bg-white rounded-lg p-4">
+                    <h5 className="font-medium text-purple-900 mb-3">Classical Method Configuration</h5>
+                    <div className="space-y-3 text-xs">
+                      <div className="border-l-4 border-purple-300 pl-3">
+                        <p className="font-medium text-purple-900">SOS Baseline</p>
+                        <p className="text-purple-800">Degree matching: Same polynomial degree as LLM output</p>
+                        <p className="text-purple-800">Template: Quadratic forms, radial functions</p>
+                        <p className="text-purple-700">Budget: Equal computational time allocation</p>
+                      </div>
+                      <div className="border-l-4 border-purple-300 pl-3">
+                        <p className="font-medium text-purple-900">SDP Templates</p>
+                        <p className="text-purple-800">Quadratic forms: x^T P x with P ≻ 0</p>
+                        <p className="text-purple-800">Polynomial templates: ∑ᵢ αᵢ mᵢ(x) with monomial basis</p>
+                        <p className="text-purple-700">Optimization: Interior-point methods, barrier functions</p>
+                      </div>
+                      <div className="border-l-4 border-purple-300 pl-3">
+                        <p className="font-medium text-purple-900">Energy Heuristics</p>
+                        <p className="text-purple-800">Mechanical systems: Kinetic + potential energy</p>
+                        <p className="text-purple-800">Control systems: Quadratic cost functions</p>
+                        <p className="text-purple-700">Parameter tuning: Grid search, gradient descent</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="bg-white rounded-lg p-4">
+                    <h5 className="font-medium text-purple-900 mb-3">Statistical Analysis Parameters</h5>
+                    <div className="space-y-3 text-xs">
+                      <div className="border-l-4 border-purple-300 pl-3">
+                        <p className="font-medium text-purple-900">Paired Comparisons</p>
+                        <p className="text-purple-800">McNemar's test: Binary success/failure outcomes</p>
+                        <p className="text-purple-800">Wilcoxon signed-rank: Continuous performance metrics</p>
+                        <p className="text-purple-700">Confidence level: 95%, Power analysis: 80%</p>
+                      </div>
+                      <div className="border-l-4 border-purple-300 pl-3">
+                        <p className="font-medium text-purple-900">Effect Size Estimation</p>
+                        <p className="text-purple-800">Cohen's d for time metrics, Odds ratio for success rates</p>
+                        <p className="text-purple-800">Bootstrap resampling: 1000 iterations, 95% CI</p>
+                        <p className="text-purple-700">Multiple testing correction: Bonferroni, FDR control</p>
+                      </div>
+                      <div className="border-l-4 border-purple-300 pl-3">
+                        <p className="font-medium text-purple-900">Robustness Testing</p>
+                        <p className="text-purple-800">Parameter jitter: ±10% uniform noise</p>
+                        <p className="text-purple-800">Prompt variants: 5 reformulations per system</p>
+                        <p className="text-purple-700">Temperature sweeps: [0.0, 0.1, 0.2, 0.3] for sensitivity</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Infrastructure & Performance Parameters */}
+            <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+              <h4 className="text-lg font-semibold text-gray-900 mb-4">Infrastructure & Performance Configuration</h4>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <div className="bg-white rounded-lg p-4">
+                  <h5 className="font-medium text-gray-900 mb-3">Cloud Run Scaling</h5>
+                  <div className="space-y-3 text-xs">
+                    <div className="border-l-4 border-gray-300 pl-3">
+                      <p className="font-medium text-gray-900">Concurrency</p>
+                      <p className="text-gray-800">Max concurrent requests: 100</p>
+                      <p className="text-gray-700">CPU: 2 vCPU, Memory: 4GB per instance</p>
+                    </div>
+                    <div className="border-l-4 border-gray-300 pl-3">
+                      <p className="font-medium text-gray-900">Autoscaling</p>
+                      <p className="text-gray-800">Min instances: 0, Max instances: 10</p>
+                      <p className="text-gray-700">Scale-up latency: &lt;5s, Scale-down: 15min idle</p>
+                    </div>
+                    <div className="border-l-4 border-gray-300 pl-3">
+                      <p className="font-medium text-gray-900">Timeouts</p>
+                      <p className="text-gray-800">Request timeout: 300s, Startup probe: 30s</p>
+                      <p className="text-gray-700">Liveness probe: 10s interval, 3 failure threshold</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-lg p-4">
+                  <h5 className="font-medium text-gray-900 mb-3">Database Configuration</h5>
+                  <div className="space-y-3 text-xs">
+                    <div className="border-l-4 border-gray-300 pl-3">
+                      <p className="font-medium text-gray-900">Firestore (Current)</p>
+                      <p className="text-gray-800">Multi-region: us-central1, us-east1</p>
+                      <p className="text-gray-700">Consistency: Strong for writes, eventual for reads</p>
+                    </div>
+                    <div className="border-l-4 border-gray-300 pl-3">
+                      <p className="font-medium text-gray-900">PostgreSQL (Planned)</p>
+                      <p className="text-gray-800">Instance: db-custom-2-7680, SSD persistent disk</p>
+                      <p className="text-gray-700">Backup: Daily automated, 30-day retention</p>
+                    </div>
+                    <div className="border-l-4 border-gray-300 pl-3">
+                      <p className="font-medium text-gray-900">Connection Pooling</p>
+                      <p className="text-gray-800">Max connections: 100, Pool size: 10</p>
+                      <p className="text-gray-700">Idle timeout: 300s, Connection lifetime: 1h</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-lg p-4">
+                  <h5 className="font-medium text-gray-900 mb-3">Security & Monitoring</h5>
+                  <div className="space-y-3 text-xs">
+                    <div className="border-l-4 border-gray-300 pl-3">
+                      <p className="font-medium text-gray-900">Rate Limiting</p>
+                      <p className="text-gray-800">API calls: 100/min per user</p>
+                      <p className="text-gray-700">LLM requests: 10/min per user</p>
+                      <p className="text-gray-700">Window: Sliding 60s with burst allowance</p>
+                    </div>
+                    <div className="border-l-4 border-gray-300 pl-3">
+                      <p className="font-medium text-gray-900">Logging Levels</p>
+                      <p className="text-gray-800">Production: INFO, Debug: DEBUG</p>
+                      <p className="text-gray-700">Retention: 30 days Cloud Logging</p>
+                      <p className="text-gray-700">Structured logging: JSON format, correlation IDs</p>
+                    </div>
+                    <div className="border-l-4 border-gray-300 pl-3">
+                      <p className="font-medium text-gray-900">Error Monitoring</p>
+                      <p className="text-gray-800">Alert thresholds: 5% error rate, 99th percentile latency</p>
+                      <p className="text-gray-700">Notification: Email, Slack integration</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Research Parameter Sensitivity */}
+            <div className="bg-indigo-50 rounded-xl p-6 border border-indigo-200">
+              <h4 className="text-lg font-semibold text-indigo-900 mb-4">Research Parameter Sensitivity & Experimental Controls</h4>
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="bg-white rounded-lg p-4">
+                    <h5 className="font-medium text-indigo-900 mb-3">Critical Parameter Interactions</h5>
+                    <div className="space-y-3 text-sm">
+                      <div className="border-l-4 border-indigo-300 pl-3">
+                        <p className="font-medium text-indigo-900">Sample Count vs. Tolerance</p>
+                        <p className="text-indigo-800 text-xs">High sample count (10K+) enables tighter tolerance (1e-8)</p>
+                        <p className="text-indigo-700 text-xs">Low tolerance requires careful numerical conditioning</p>
+                      </div>
+                      <div className="border-l-4 border-indigo-300 pl-3">
+                        <p className="font-medium text-indigo-900">Temperature vs. Reproducibility</p>
+                        <p className="text-indigo-800 text-xs">Temperature = 0.0 essential for exact replication</p>
+                        <p className="text-indigo-700 text-xs">Temperature &gt; 0.0 enables exploration vs exploitation trade-offs</p>
+                      </div>
+                      <div className="border-l-4 border-indigo-300 pl-3">
+                        <p className="font-medium text-indigo-900">Domain Size vs. Margin Requirements</p>
+                        <p className="text-indigo-800 text-xs">Large domains require proportionally larger margins</p>
+                        <p className="text-indigo-700 text-xs">Bounded domains enable tighter numerical validation</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-lg p-4">
+                    <h5 className="font-medium text-indigo-900 mb-3">Recommended Parameter Ranges for Research</h5>
+                    <div className="space-y-3 text-sm">
+                      <div className="border-l-4 border-indigo-300 pl-3">
+                        <p className="font-medium text-indigo-900">Publication Quality</p>
+                        <p className="text-indigo-800 text-xs">Sample count: 10,000+, Tolerance: 1e-8</p>
+                        <p className="text-indigo-800 text-xs">Statistical power: 80%+, Confidence: 95%</p>
+                        <p className="text-indigo-700 text-xs">Multiple random seeds for robustness validation</p>
+                      </div>
+                      <div className="border-l-4 border-indigo-300 pl-3">
+                        <p className="font-medium text-indigo-900">Rapid Prototyping</p>
+                        <p className="text-indigo-800 text-xs">Sample count: 1,000, Tolerance: 1e-6</p>
+                        <p className="text-indigo-800 text-xs">Single seed, fast iteration cycles</p>
+                        <p className="text-indigo-700 text-xs">Stage B disabled for speed</p>
+                      </div>
+                      <div className="border-l-4 border-indigo-300 pl-3">
+                        <p className="font-medium text-indigo-900">Safety-Critical Applications</p>
+                        <p className="text-indigo-800 text-xs">Sample count: 50,000+, Tolerance: 1e-10</p>
+                        <p className="text-indigo-800 text-xs">Stage B mandatory with multiple solvers</p>
+                        <p className="text-indigo-700 text-xs">Conservative margins: 10x standard values</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-indigo-100 rounded-lg p-4">
+                  <h5 className="font-medium text-indigo-900 mb-3">Parameter Validation & Bounds Checking</h5>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                    <div>
+                      <p className="font-medium text-indigo-900 mb-2">Automatic Validation</p>
+                      <ul className="text-indigo-800 space-y-1">
+                        <li>• Range checking with descriptive error messages</li>
+                        <li>• Dependency validation (e.g., tolerance vs precision)</li>
+                        <li>• Resource constraint verification</li>
+                        <li>• Computational feasibility estimation</li>
+                      </ul>
+                    </div>
+                    <div>
+                      <p className="font-medium text-indigo-900 mb-2">Warning Systems</p>
+                      <ul className="text-indigo-800 space-y-1">
+                        <li>• Performance impact notifications</li>
+                        <li>• Numerical stability warnings</li>
+                        <li>• Statistical power adequacy checks</li>
+                        <li>• Resource usage projections</li>
+                      </ul>
+                    </div>
+                    <div>
+                      <p className="font-medium text-indigo-900 mb-2">Adaptive Recommendations</p>
+                      <ul className="text-indigo-800 space-y-1">
+                        <li>• Parameter optimization suggestions</li>
+                        <li>• Trade-off analysis (speed vs accuracy)</li>
+                        <li>• Historical performance guidance</li>
+                        <li>• Best practice enforcement</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* How to Use the System */}
       <div className="card">
         <div className="card-header">
