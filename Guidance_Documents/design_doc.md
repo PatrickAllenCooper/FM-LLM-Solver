@@ -594,6 +594,39 @@ gcloud compute forwarding-rules create fmgen-https-fr \
 
 Ensure your **A records** (@, www) point at the IP printed by fmgen-ipv4. If you must keep 34.55.217.224, bind the forwarding rule to that address if it's reserved in your project.
 
+### 8.6 Efficient Deployment Workflow (Production Updates)
+
+**For rapid iteration after initial infrastructure setup:**
+
+```bash
+# 1. Local testing and commit
+npm run build  # Verify both frontend/backend builds
+git add . && git commit -m "Feature description" && git push
+
+# 2. Automated build & deploy (4 commands total)
+gcloud builds submit . --config=gcp-deploy/cloudbuild-backend.yaml --substitutions=_PROJECT_ID=fmgen-net-production
+gcloud builds submit . --config=gcp-deploy/cloudbuild-frontend.yaml --substitutions=_PROJECT_ID=fmgen-net-production
+sed "s/PROJECT_ID/fmgen-net-production/g; s/REGION/us-central1/g" gcp-deploy/cloud-run/fmgen-api.yaml | gcloud run services replace - --region=us-central1
+sed "s/PROJECT_ID/fmgen-net-production/g" gcp-deploy/cloud-run/fmgen-ui.yaml | gcloud run services replace - --region=us-central1
+
+# 3. Verification
+curl https://fmgen-api-610214208348.us-central1.run.app/health
+```
+
+**Key Benefits:**
+- **Total time**: 4-6 minutes from code to live
+- **Cloud Build**: Automated Docker builds with layer caching (60-90s each)
+- **Zero-downtime**: Rolling updates with health checks
+- **Rollback capability**: Previous revisions available for instant reversion
+- **Complete traceability**: Git commits tagged with deployment timestamps
+
+**Emergency rollback:**
+```bash
+gcloud run services update-traffic fmgen-api --to-revisions=PREVIOUS_REVISION=100 --region=us-central1
+```
+
+This streamlined process enables rapid development iteration while maintaining production reliability.
+
 ## 9) API surfaces (auth-gated)
 
 **Current Implementation**: MVP operates with Firebase/Firestore backend and simplified API structure. Planned endpoints below represent full PostgreSQL-based architecture.
